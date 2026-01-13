@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>会社基本情報 {{ '登録' if mode=='create' else '編集' }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;background:#fafafa}
+    .wrap{max-width:900px;margin:0 auto}
+    .card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#fff;margin:12px 0}
+    label{display:block;margin:8px 0 4px}
+    input{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box}
+    .row{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-weight:600}
+    .muted{color:#6b7280}
+    .error{color:#b91c1c;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>会社基本情報 {{ '登録' if mode=='create' else '編集' }}</h1>
+    <div class="card">
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <form method="post" action="">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="row">
+          <div>
+            <label>会社名</label>
+            <input name="会社名" value="{{ form.get('会社名','') }}">
+          </div>
+          <div>
+            <label>業種</label>
+            <input name="業種" value="{{ form.get('業種','') }}">
+          </div>
+          <div>
+            <label>従業員数</label>
+            <input name="従業員数" value="{{ form.get('従業員数','') }}">
+          </div>
+          <div>
+            <label>法人番号</label>
+            <input name="法人番号" value="{{ form.get('法人番号','') }}">
+          </div>
+          <div>
+            <label>郵便番号</label>
+            <input name="郵便番号" value="{{ form.get('郵便番号','') }}">
+          </div>
+          <div>
+            <label>都道府県</label>
+            <input name="都道府県" value="{{ form.get('都道府県','') }}">
+          </div>
+          <div>
+            <label>市区町村番地</label>
+            <input name="市区町村番地" value="{{ form.get('市区町村番地','') }}">
+          </div>
+          <div>
+            <label>建物名部屋番号</label>
+            <input name="建物名部屋番号" value="{{ form.get('建物名部屋番号','') }}">
+          </div>
+          <div>
+            <label>電話番号1</label>
+            <input name="電話番号1" value="{{ form.get('電話番号1','') }}">
+          </div>
+          <div>
+            <label>電話番号2</label>
+            <input name="電話番号2" value="{{ form.get('電話番号2','') }}">
+          </div>
+          <div>
+            <label>FAX</label>
+            <input name="ファックス番号" value="{{ form.get('ファックス番号','') }}">
+          </div>
+          <div>
+            <label>メール</label>
+            <input name="メールアドレス" value="{{ form.get('メールアドレス','') }}">
+          </div>
+          <div>
+            <label>担当者名</label>
+            <input name="担当者名" value="{{ form.get('担当者名','') }}">
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn" type="submit">{{ '登録' if mode=='create' else '更新' }}</button>
+          <a href="{{ url_for('client_info', client_id=client_id) }}" style="margin-left:8px">キャンセル</a>
+        </div>
+      </form>
+    </div>
+    <p class="muted"><a href="{{ url_for('client_info', client_id=client_id) }}">← 顧問先情報へ戻る</a></p>
+  </div>
+</body>
+</html>

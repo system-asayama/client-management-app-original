@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>事業所ダッシュボード</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{--bg:#fff;--fg:#222;--muted:#666;--primary:#2563eb;--primary-ghost:#e8f0ff}
+    body{margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;line-height:1.6;background:var(--bg);color:var(--fg)}
+    a{color:var(--primary);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:600}
+    .btn:hover{text-decoration:none;opacity:.95}
+    .btn-ghost{background:var(--primary-ghost);color:var(--primary);border-color:transparent}
+    .card{border:1px solid #ddd;border-radius:12px;padding:16px;margin:8px 0;background:#fff}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    .muted{color:var(--muted)}
+    table{border-collapse:collapse;width:100%;background:#fff;border-radius:8px;overflow:hidden}
+    th,td{border:1px solid #eee;padding:10px;text-align:left;vertical-align:top}
+    th{background:#f9fafb;font-weight:600}
+    h1{margin:4px 0 12px 0}
+    h3{margin:0 0 8px 0}
+    .kpi{font-size:28px;font-weight:700}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .pill{display:inline-block;padding:4px 10px;border:1px solid #e5e7eb;border-radius:999px;background:#fafafa;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>事業所ダッシュボード</h1>
+    <div class="actions">
+      {% if org %}
+        <span class="pill">事業所ID: {{ org['id'] }}</span>
+      {% endif %}
+      <a class="btn-ghost btn" href="{{ url_for('logout') }}">ログアウト</a>
+    </div>
+  </div>
+
+  {% if org %}
+    <p><strong>{{ org['名称'] }}</strong>{% if org['業種'] %} <span class="muted">（業種: {{ org['業種'] }}）</span>{% endif %}</p>
+  {% else %}
+    <p style="color:#a00">※ T_事業所 にこのIDのレコードが見つかりません。</p>
+  {% endif %}
+
+  <div class="grid">
+    <div class="card">
+      <h3>顧問先（全体）</h3>
+      <div class="kpi">{{ client_count }}</div>
+      <div class="actions">
+        <a class="btn" href="{{ url_for('clients') }}">顧問先一覧へ</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>ファイル（全体）</h3>
+      <div class="kpi">{{ file_count }}</div>
+      <div class="actions">
+        {# ※ app.py に endpoint='files' の /files ルートが必要です #}
+        <a class="btn" href="{{ url_for('files') }}">ファイル共有へ</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>従業員の招待</h3>
+      <p class="muted">メールアドレス宛に有効期限付きマジックリンクを送信して、事業所に参加してもらえます。</p>
+      <div class="actions">
+        <a
+          class="btn"
+          href="{{ url_for('invite_employee', org_id=(org['id'] if org else session.get('org_id', 1))) }}"
+        >従業員を招待する</a>
+      </div>
+    </div>
+
+    <!-- 新規: 外部ストレージ設定への導線 -->
+    <div class="card">
+      <h3>外部ストレージ設定</h3>
+      <p class="muted">Dropbox / GCS など、事業所ごとの保存先を設定・切替できます。</p>
+      <div class="actions">
+        <a
+          class="btn"
+          href="{{ url_for('storage_settings', org_id=(org['id'] if org else session.get('org_id', 1))) }}"
+        >設定画面を開く</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>直近のメッセージ（全体から最新5件）</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:64px">ID</th>
+          <th style="width:160px">送信者</th>
+          <th>本文</th>
+          <th style="width:180px">日時</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for m in recent_msgs %}
+        <tr>
+          <td>{{ m['id'] }}</td>
+          <td>{{ m['sender'] }}</td>
+          <td>{{ m['message'] }}</td>
+          <td>{{ m['timestamp'] }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">メッセージはありません。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

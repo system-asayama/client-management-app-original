@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>メールを送信しました</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<h1>メールを送信しました</h1>
+<p>{{ email }} 宛に、アカウント確認用のリンクを送信しました。</p>
+<p>メール内のリンクをクリックすると、初回セットアップ（事業所登録）に進めます。</p>
+<p style="margin-top:16px;"><a href="{{ url_for('login') }}">ログイン画面へ戻る</a></p>
+</body>
+</html>

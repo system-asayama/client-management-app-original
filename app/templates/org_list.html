@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>事業所一覧</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f4f4f4; }
+    .toolbar { margin: 12px 0; }
+    .btn { display:inline-block; padding:8px 12px; border:1px solid #333; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <h1>事業所一覧</h1>
+
+  <div class="toolbar">
+    <a class="btn" href="{{ url_for('org_create') }}">＋ 新規登録</a>
+    <a class="btn" href="{{ url_for('dashboard') }}">ダッシュボードへ</a>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>業種</th>
+        <th>サブドメイン</th>
+        <th>作成日時</th>
+        <th>更新日時</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for o in orgs %}
+      <tr>
+        <td>{{ o['id'] }}</td>
+        <td>{{ o['名称'] }}</td>
+        <td>{{ o['業種'] or '' }}</td>
+        <td>{{ o['サブドメイン'] or '' }}</td>
+        <td>{{ o['作成日時'] }}</td>
+        <td>{{ o['更新日時'] }}</td>
+        <td>
+          <a href="{{ url_for('org_detail', org_id=o['id']) }}">詳細</a> /
+          <a href="{{ url_for('org_edit', org_id=o['id']) }}">編集</a>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7">登録された事業所はありません。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

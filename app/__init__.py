@@ -191,6 +191,49 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ migrate blueprint 登録エラー: {e}")
 
+    # 顧問先管理関連blueprints
+    try:
+        from .blueprints.clients import bp as clients_bp
+        app.register_blueprint(clients_bp)
+    except Exception as e:
+        print(f"⚠️ clients blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.company import bp as company_bp
+        app.register_blueprint(company_bp)
+    except Exception as e:
+        print(f"⚠️ company blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.chat import bp as chat_bp
+        app.register_blueprint(chat_bp)
+    except Exception as e:
+        print(f"⚠️ chat blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.files import bp as files_bp
+        app.register_blueprint(files_bp)
+    except Exception as e:
+        print(f"⚠️ files blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.organization import bp as organization_bp
+        app.register_blueprint(organization_bp)
+    except Exception as e:
+        print(f"⚠️ organization blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.external import bp as external_bp
+        app.register_blueprint(external_bp)
+    except Exception as e:
+        print(f"⚠️ external blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.storage import bp as storage_bp
+        app.register_blueprint(storage_bp)
+    except Exception as e:
+        print(f"⚠️ storage blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

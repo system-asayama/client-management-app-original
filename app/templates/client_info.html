@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>顧問先情報 - {{ client['name'] }}</title>
+    <style>
+        .nav-btn {
+            display: inline-block;
+            margin-right: 8px;
+            padding: 6px 16px;
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-btn:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <h2>顧問先情報</h2>
+
+    <!-- 🔹 ナビゲーションボタン -->
+    <div style="margin-bottom: 10px;">
+        <a href="{{ url_for('dashboard') }}" class="nav-btn">🏠 ホーム</a>
+        <a href="javascript:history.back()" class="nav-btn">← 戻る</a>
+    </div>
+
+    <table border="1" cellpadding="6">
+        <tr><th>ID</th><td>{{ client['id'] }}</td></tr>
+        <tr><th>区分</th><td>{{ client['type'] }}</td></tr>
+        <tr><th>名称</th><td>{{ client['name'] }}</td></tr>
+        <tr><th>メール</th><td>{{ client['email'] }}</td></tr>
+        <tr><th>電話番号</th><td>{{ client['phone'] }}</td></tr>
+        <tr><th>メモ</th><td>{{ client['notes'] }}</td></tr>
+    </table>
+
+    <br>
+
+    <!-- ▼ 会社基本情報ページへのボタン -->
+    <a href="{{ url_for('company_info', company_id=client['id']) }}"
+       style="display:inline-block; margin:12px 8px 12px 0; padding:6px 18px; background:#4ca9df; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
+        会社基本情報を見る
+    </a>
+
+    <!-- ▼ 会社基本情報登録ページへのボタン -->
+    <a href="{{ url_for('company_create', client_id=client['id']) }}"
+       style="display:inline-block; margin:12px 0; padding:6px 18px; background:#7bb661; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
+        会社基本情報を登録
+    </a>
+
+    <br>
+
+    <a href="{{ url_for('clients') }}">← 顧問先一覧へ戻る</a>
+</body>
+</html>

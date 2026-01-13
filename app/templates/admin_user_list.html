@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ユーザー一覧</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px}</style>
+</head>
+<body>
+  <h1>ユーザー一覧</h1>
+  <p><a href="{{ url_for('admin_home') }}">管理者ホーム</a> / <a href="{{ url_for('admin_users_create') }}">＋新規ユーザーを登録</a></p>
+  <table>
+    <thead><tr><th>ID</th><th>ログインID</th><th>有効</th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u['ログインID'] }}</td>
+        <td>{{ '有効' if u['有効'] else '無効' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

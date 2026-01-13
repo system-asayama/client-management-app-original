@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>外部ユーザー招待を送信しました</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{color-scheme:light dark}
+    body{margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;background:#fafafa}
+    .card{border:1px solid #ddd;border-radius:12px;padding:16px;max-width:760px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    h1{margin:0 0 12px 0;font-size:22px}
+    .muted{color:#666}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#1f2937;font-weight:600;font-size:12px}
+    code, .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    a{color:#2563eb}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-weight:600;text-decoration:none}
+    .btn:hover{opacity:.95}
+    .btn.secondary{background:#fff;color:#2563eb}
+    .kv{margin:6px 0}
+    .kv dt{font-weight:600}
+    .kv dd{margin:2px 0 8px 0}
+    .flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .hint{margin-top:6px;color:#666;font-size:13px}
+    .divider{height:1px;background:#eee;margin:12px 0}
+  </style>
+</head>
+<body>
+  <h1>招待を送信しました</h1>
+  <p class="muted">
+    顧問先:
+    <strong>
+      {% if client and 'name' in client.keys() and client['name'] %}
+        {{ client['name'] }}
+      {% elif client and '名称' in client.keys() and client['名称'] %}
+        {{ client['名称'] }}
+      {% else %}
+        ID {{ client_id }}
+      {% endif %}
+    </strong>
+    （ID: {{ client_id }}）
+  </p>
+
+  <div class="card">
+    <p><strong>{{ name or email }}</strong> 宛に招待メールを送信しました。</p>
+    {% if role %}
+      <p>権限: <span class="badge">{{ role }}</span> <span class="muted">(T_外部ユーザー の <span class="mono">Roll</span> に保存済み)</span></p>
+    {% endif %}
+    <p class="hint">開発環境では、サーバーのコンソールにも招待リンクが出力されます。</p>
+
+    <div class="divider"></div>
+
+    {% if accept_url %}
+      <div class="row">
+        <div style="flex:1 1 360px;min-width:260px">
+          <div class="kv">
+            <dt>テスト用リンク</dt>
+            <dd><a href="{{ accept_url }}" class="mono">{{ accept_url }}</a></dd>
+          </div>
+          <div class="flex">
+            <a class="btn" href="{{ accept_url }}">リンクを開く</a>
+            <button class="btn secondary" type="button" id="copyBtn">リンクをコピー</button>
+          </div>
+          <div id="copyMsg" class="hint" style="display:none">コピーしました。</div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="divider"></div>
+
+    <div class="flex">
+      <a class="btn secondary" href="{{ url_for('client_info', client_id=client_id) }}">顧問先ページへ戻る</a>
+    </div>
+  </div>
+
+  {% if accept_url %}
+  <script>
+    (function(){
+      var btn = document.getElementById('copyBtn');
+      if(!btn) return;
+      btn.addEventListener('click', async function(){
+        try{
+          await navigator.clipboard.writeText('{{ accept_url }}');
+          var msg = document.getElementById('copyMsg');
+          if(msg){ msg.style.display='block'; setTimeout(()=>msg.style.display='none',1500); }
+        }catch(e){
+          alert('コピーに失敗しました: ' + e);
+        }
+      });
+    })();
+  </script>
+  {% endif %}
+</body>
+</html>

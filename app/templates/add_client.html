@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>顧問先追加</title>
+</head>
+<body>
+    <h2>顧問先追加</h2>
+    <form method="post">
+        <label>区分：
+            <select name="type" required>
+                <option value="">選択してください</option>
+                <option value="個人">個人</option>
+                <option value="法人">法人</option>
+            </select>
+        </label><br><br>
+        <label>名称：<input type="text" name="name" required></label><br><br>
+        <label>メール：<input type="email" name="email"></label><br><br>
+        <label>電話番号：<input type="text" name="phone"></label><br><br>
+        <label>メモ：<textarea name="notes" rows="2" cols="30"></textarea></label><br><br>
+        <button type="submit">登録</button>
+    </form>
+    <br>
+    <a href="{{ url_for('clients') }}">← 顧問先一覧へ戻る</a>
+</body>
+</html>

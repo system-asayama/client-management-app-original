@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>管理者ホーム</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<h1>管理者ホーム</h1>
+<p>管理者としてログイン中：{{ session.get('user') }}</p>
+<ul>
+  <li><a href="{{ url_for('admin_admins_list') }}">管理者一覧</a></li>
+  <li><a href="{{ url_for('admin_users_list') }}">ユーザー一覧</a></li>
+  <li><a href="{{ url_for('logout') }}">ログアウト</a></li>
+</ul>
+</body>
+</html>

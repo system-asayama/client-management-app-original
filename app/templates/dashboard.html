@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ダッシュボード</title>
+</head>
+<body>
+    <h2>ダッシュボード</h2>
+    <p>ようこそ、{{ session['user'] }} さん</p>
+    <ul>
+        <li><a href="{{ url_for('chat') }}">💬 チャットルーム</a></li>
+        <li><a href="{{ url_for('files') }}">📁 ファイル共有</a></li>
+        <li><a href="{{ url_for('clients') }}">👥 顧問先一覧</a></li>
+        <li><a href="{{ url_for('logout') }}">🚪 ログアウト</a></li>
+    </ul>
+</body>
+</html>

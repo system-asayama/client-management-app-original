@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>
+    {% if mode == 'edit' %}事業所編集{% else %}事業所新規登録{% endif %}
+  </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    label{display:block;margin:8px 0 4px;}
+    input[type=text]{width:100%;max-width:480px;padding:8px;}
+    .row{margin-bottom:12px;}
+    .btn{display:inline-block;padding:8px 12px;border:1px solid #333;text-decoration:none;margin-right:8px;}
+    .error{color:#b00020;margin:8px 0;}
+  </style>
+</head>
+<body>
+  <h1>
+    {% if mode == 'edit' %}事業所編集{% else %}事業所新規登録{% endif %}
+  </h1>
+
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post">
+    <div class="row">
+      <label for="name">名称 <span style="color:#b00020;">*</span></label>
+      <input id="name" type="text" name="名称" value="{{ (form['名称'] if form and '名称' in form else '') }}" required>
+    </div>
+
+    <div class="row">
+      <label for="industry">業種</label>
+      <input id="industry" type="text" name="業種" value="{{ (form['業種'] if form and '業種' in form else '') }}">
+    </div>
+
+    <div class="row">
+      <label for="subdomain">サブドメイン</label>
+      <input id="subdomain" type="text" name="サブドメイン" placeholder="例: acme" value="{{ (form['サブドメイン'] if form and 'サブドメイン' in form else '') }}">
+    </div>
+
+    <div class="row">
+      <button class="btn" type="submit">{% if mode == 'edit' %}更新{% else %}登録{% endif %}</button>
+      {% if mode == 'edit' and org %}
+        <a class="btn" href="{{ url_for('org_detail', org_id=org['id']) }}">詳細へ戻る</a>
+      {% endif %}
+      <a class="btn" href="{{ url_for('org_list') }}">一覧へ戻る</a>
+    </div>
+  </form>
+</body>
+</html>

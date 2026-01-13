@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>外部ユーザーログイン</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin:0; padding:20px; font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP",Arial; background:#fafafa; line-height:1.6; }
+    .wrap { max-width:480px; margin:0 auto; }
+    .card { border:1px solid #e5e7eb; border-radius:12px; padding:16px; background:#fff; margin:12px 0; }
+    h1 { font-size:1.4rem; margin:0 0 12px; }
+    label { display:block; margin:10px 0 6px; font-weight:600; }
+    input[type="email"], input[type="password"] { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; box-sizing:border-box; }
+    input:focus { outline:2px solid #2563eb; outline-offset:2px; }
+    .btn { display:inline-block; width:100%; padding:10px 14px; border-radius:8px; border:1px solid #2563eb; background:#2563eb; color:#fff; font-weight:700; margin-top:14px; cursor:pointer; }
+    .btn:hover { background:#1e4fce; }
+    .muted { color:#6b7280; font-size:14px; }
+    .error { color:#b91c1c; margin:8px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>外部ユーザーログイン</h1>
+    <div class="card">
+      {% if error %}
+        <div class="error" role="alert">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="{{ url_for('ext_login') }}" novalidate>
+        <!-- CSRF（バックエンドは `_csrf_token` を検証） -->
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <!-- 任意：ログイン後に特定の顧問先へ遷移したい場合 -->
+        <input type="hidden" name="client_id" value="{{ request.args.get('client_id') or request.form.get('client_id') or '' }}">
+
+        <label for="email">メールアドレス</label>
+        <input
+          id="email"
+          type="email"
+          name="email"
+          value="{{ (request.form.get('email') or '') | e }}"
+          required
+          autocomplete="username"
+          inputmode="email"
+          spellcheck="false"
+          aria-describedby="emailHelp">
+        <div id="emailHelp" class="muted">招待時に登録したメールアドレスを入力してください。</div>
+
+        <label for="password">パスワード</label>
+        <input
+          id="password"
+          type="password"
+          name="password"
+          required
+          autocomplete="current-password"
+          aria-describedby="pwHelp">
+        <div id="pwHelp" class="muted">初回は招待リンクからパスワードを設定してください。</div>
+
+        <button class="btn" type="submit">ログイン</button>
+      </form>
+      <p class="muted" style="margin-top:10px;">
+        ※ 招待メールのリンクからアクセスした場合、パスワード未設定なら設定画面へ遷移します。
+      </p>
+    </div>
+  </div>
+
+  <noscript><p class="muted">※ JavaScript が無効でもログインは可能です。</p></noscript>
+  <script>try{document.getElementById('email').focus();}catch(e){}</script>
+</body>
+</html>

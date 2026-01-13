@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>顧問先一覧</title>
+    <style>
+        body { font-family: sans-serif; margin: 8px; }
+        h2 { margin-bottom: 6px; font-size: 18px;}
+        table { border-collapse: collapse; margin-top: 6px; width: auto; }
+        th, td {
+            border: 1px solid #aaa;
+            padding: 3px 7px;
+            font-size: 12px;
+            white-space: nowrap;
+            text-align: left;
+        }
+        th { background: #f7f7f7; }
+        a { text-decoration: none; font-size: 12px; }
+        a.detail-link { color: #198754; }
+        a.detail-link:hover { text-decoration: underline; color: #0d5a34; }
+        .add-btn {
+            background: #cfe2ff; color: #034694; padding: 3px 12px; border: none;
+            border-radius: 3px; font-size: 12px; cursor: pointer; margin-bottom: 6px;
+            display: inline-block;
+        }
+        .nav-btn {
+            background: #e7e7e7;
+            color: #333;
+            padding: 4px 12px;
+            margin-right: 8px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            display: inline-block;
+            text-decoration: none;
+        }
+        .nav-btn:hover {
+            background: #d5d5d5;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 🔹 ナビゲーションボタン -->
+    <div style="margin-bottom: 10px;">
+        <a href="{{ url_for('dashboard') }}" class="nav-btn">🏠 ホーム</a>
+        <a href="javascript:history.back()" class="nav-btn">← 戻る</a>
+    </div>
+
+    <h2>顧問先一覧</h2>
+    <a href="{{ url_for('add_client') }}" class="add-btn">＋ 顧問先を追加</a>
+    <table>
+        <tr>
+            <th style="width:42px;">詳細</th>
+            <th style="width:58px;">区分</th>
+            <th style="width:160px;">名称</th>
+        </tr>
+        {% for c in clients %}
+        <tr>
+            <td>
+                <a href="{{ url_for('client_info', client_id=c['id']) }}" class="detail-link">詳細</a>
+            </td>
+            <td>{{ c['type'] }}</td>
+            <td>{{ c['name'] }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="3" style="text-align:center; color:#888; font-size:12px;">顧問先が登録されていません</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

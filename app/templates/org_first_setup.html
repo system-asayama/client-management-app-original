@@ -1,0 +1,21 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"><title>初回セットアップ - 事業所登録</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+label{display:block;margin:8px 0 4px}input{padding:8px;width:100%;max-width:360px}
+.btn{padding:8px 12px;border:1px solid #333;background:#fff;cursor:pointer}
+.error{color:#b00020}
+</style>
+</head><body>
+<h1>初回セットアップ：事業所登録</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post">
+  <label>名称（必須）</label>
+  <input name="名称" value="{{ form.名称 or '' }}" required>
+  <label>業種</label>
+  <input name="業種" value="{{ form.業種 or '' }}">
+  <label>サブドメイン</label>
+  <input name="サブドメイン" value="{{ form.サブドメイン or '' }}">
+  <div style="margin-top:12px;"><button class="btn" type="submit">登録して続行</button></div>
+</form>
+</body></html>

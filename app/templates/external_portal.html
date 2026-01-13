@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>外部ユーザーポータル</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{--primary:#2563eb;--border:#ddd;--bg:#fff;--muted:#6b7280}
+    *{box-sizing:border-box}
+    body{margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;background:#f8fafc;color:#0f172a}
+    a{color:var(--primary);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+    .card{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--bg);box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .card h2{margin:.2rem 0 1rem}
+    textarea{width:100%;min-height:92px;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff}
+    input[type=file]{display:block;margin:8px 0}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:600;cursor:pointer}
+    .btn.secondary{background:#fff;color:var(--primary)}
+    .btn:hover{opacity:.96;text-decoration:none}
+    .list{list-style:none;padding-left:0;margin:0}
+    .list li{padding:8px 0;border-bottom:1px dashed #e5e7eb}
+    .list li:last-child{border-bottom:0}
+    .empty{color:var(--muted)}
+    small.muted{color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .caps{font-size:.84rem;letter-spacing:.02em;color:#334155}
+    .pill{display:inline-block;padding:.2rem .5rem;border:1px solid #e5e7eb;border-radius:999px;background:#fafafa;color:#475569}
+    .pager{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .pager a,.pager span{padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+    .pager .current{background:#eef2ff;border-color:#c7d2fe}
+    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:.25rem 0 .75rem}
+    .select{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff}
+    code.inline{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f3f4f6;padding:.1rem .35rem;border-radius:6px}
+    .header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#1f2937;font-weight:600;font-size:12px}
+  </style>
+</head>
+<body>
+  <header class="between" aria-label="ページヘッダー">
+    <div>
+      <h1 style="margin:.2rem 0 .25rem">外部ユーザー専用ページ</h1>
+      <p class="caps">顧問先: <strong>
+        {% if client and 'name' in client.keys() and client['name'] %}
+          {{ client['name'] }}
+        {% elif client and '名称' in client.keys() and client['名称'] %}
+          {{ client['名称'] }}
+        {% else %}
+          {{ client['id'] }}
+        {% endif %}
+      </strong>（ID: {{ client_id }}）</p>
+    </div>
+
+    <div class="header-actions">
+      <span class="pill">
+        あなた: <code class="inline">{{ session.get('external_user','external') }}</code>
+      </span>
+      <span class="badge">
+        役割: {{ '管理者' if ext_is_admin else 'ユーザー' }}
+      </span>
+
+      {% if ext_is_admin %}
+        <a class="btn" href="{{ url_for('ext_invite_external', client_id=client_id) }}">外部ユーザーを招待</a>
+      {% endif %}
+
+      <form method="get" class="row" aria-label="一覧表示件数の変更" style="margin-left:4px">
+        <input type="hidden" name="mp" value="{{ page_msg|default(1) }}">
+        <input type="hidden" name="fp" value="{{ page_files|default(1) }}">
+        <label for="pp" class="caps">1ページの件数</label>
+        <select id="pp" name="pp" class="select" onchange="this.form.submit()">
+          {% set _pp = (msg_paging.per_page if msg_paging is defined else 20) %}
+          {% for opt in [10,20,50,100] %}
+            <option value="{{ opt }}" {% if _pp==opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button class="btn secondary" type="submit">変更</button></noscript>
+      </form>
+    </div>
+  </header>
+
+  <div class="grid" style="margin-top:10px">
+    <!-- チャット -->
+    <section class="card" aria-label="チャット">
+      <h2>チャット</h2>
+
+      {% if chat_enabled %}
+        <form method="post" action="{{ url_for('ext_chat_post', client_id=client_id) }}" class="row" aria-label="メッセージ送信フォーム">
+          <!-- CSRF -->
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <textarea name="message" placeholder="メッセージを入力" aria-label="メッセージ本文" required></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" type="submit">送信</button>
+            <span class="pill">送信者: <code class="inline">{{ session.get('external_user','external') }}</code></span>
+          </div>
+        </form>
+
+        <div style="margin-top:12px">
+          <div class="between">
+            <h3 style="margin:.2rem 0">メッセージ一覧</h3>
+            <small class="muted">
+              全{{ msg_paging.total if msg_paging is defined else messages|length }}件
+              {% if msg_paging is defined %} / {{ msg_paging.pages }}ページ{% endif %}
+            </small>
+          </div>
+
+          {% if messages|length == 0 %}
+            <p class="empty">メッセージはまだありません。</p>
+          {% else %}
+            <ul class="list" aria-live="polite">
+              {% for m in messages %}
+                <li>
+                  <strong>{{ m['sender'] }}</strong>：
+                  {{ m['message'] }}
+                  <small class="muted">（{{ m['timestamp'] }}）</small>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+
+          {% if msg_paging is defined and msg_paging.pages > 1 %}
+            <nav class="pager" style="margin-top:10px" aria-label="メッセージのページ移動">
+              {% set cur = page_msg %}
+              {% set pages = msg_paging.pages %}
+              {% set per = msg_paging.per_page %}
+              {% if cur > 1 %}
+                <a href="?mp=1&fp={{ page_files }}&pp={{ per }}" aria-label="最初のページ">« 最初</a>
+                <a href="?mp={{ cur-1 }}&fp={{ page_files }}&pp={{ per }}" aria-label="前のページ">‹ 前</a>
+              {% else %}
+                <span aria-disabled="true">« 最初</span>
+                <span aria-disabled="true">‹ 前</span>
+              {% endif %}
+
+              {% set start = (1 if cur-3 < 1 else cur-3) %}
+              {% set end = (pages if cur+3 > pages else cur+3) %}
+              {% if start > 1 %}<span>…</span>{% endif %}
+              {% for p in range(start, end+1) %}
+                {% if p == cur %}
+                  <span class="current" aria-current="page">{{ p }}</span>
+                {% else %}
+                  <a href="?mp={{ p }}&fp={{ page_files }}&pp={{ per }}">{{ p }}</a>
+                {% endif %}
+              {% endfor %}
+              {% if end < pages %}<span>…</span>{% endif %}
+
+              {% if cur < pages %}
+                <a href="?mp={{ cur+1 }}&fp={{ page_files }}&pp={{ per }}" aria-label="次のページ">次 ›</a>
+                <a href="?mp={{ pages }}&fp={{ page_files }}&pp={{ per }}" aria-label="最後のページ">最後 »</a>
+              {% else %}
+                <span aria-disabled="true">次 ›</span>
+                <span aria-disabled="true">最後 »</span>
+              {% endif %}
+            </nav>
+          {% endif %}
+        </div>
+      {% else %}
+        <p style="color:#a00">この環境では顧問先別チャットは無効です（<code class="inline">T_メッセージ.顧問先ID</code> 列がありません）。</p>
+      {% endif %}
+    </section>
+
+    <!-- ファイル共有 -->
+    <section class="card" aria-label="ファイル共有">
+      <h2>ファイル共有</h2>
+      <form method="post" action="{{ url_for('ext_files_post', client_id=client_id) }}" enctype="multipart/form-data" aria-label="ファイルアップロードフォーム">
+        <!-- CSRF -->
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="file" name="file" required aria-label="ファイルを選択">
+        <button class="btn" type="submit">アップロード</button>
+        <p class="caps" style="margin:.5rem 0 0"><small class="muted">保存先: 外部ストレージ設定（Dropbox/GCS）</small></p>
+      </form>
+
+      <div style="margin-top:12px">
+        <div class="between">
+          <h3 style="margin:.2rem 0">最近のファイル</h3>
+          <small class="muted">
+            全{{ file_paging.total if file_paging is defined else files|length }}件
+            {% if file_paging is defined %} / {{ file_paging.pages }}ページ{% endif %}
+          </small>
+        </div>
+
+        {% if files|length == 0 %}
+          <p class="empty">ファイルはまだありません。</p>
+        {% else %}
+          <ul class="list">
+            {% for f in files %}
+              {% set url = f['filename'] %}
+              {% set name = (url.split('/')[-1] if url else 'file') %}
+              <li>
+                <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ name }}</a>
+                <small class="muted">/ {{ f['uploader'] }} / {{ f['timestamp'] }}</small>
+                {% if url %}
+                  <span class="pill" style="margin-left:6px"><a href="{{ url }}" target="_blank" rel="noopener noreferrer">開く</a></span>
+                  <span class="pill" style="margin-left:4px"><a href="{{ url }}" target="_blank" rel="noopener noreferrer">コピー/共有</a></span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if file_paging is defined and file_paging.pages > 1 %}
+          <nav class="pager" style="margin-top:10px" aria-label="ファイルのページ移動">
+            {% set cur = page_files %}
+            {% set pages = file_paging.pages %}
+            {% set per = file_paging.per_page %}
+            {% if cur > 1 %}
+              <a href="?fp=1&mp={{ page_msg }}&pp={{ per }}" aria-label="最初のページ">« 最初</a>
+              <a href="?fp={{ cur-1 }}&mp={{ page_msg }}&pp={{ per }}" aria-label="前のページ">‹ 前</a>
+            {% else %}
+              <span aria-disabled="true">« 最初</span>
+              <span aria-disabled="true">‹ 前</span>
+            {% endif %}
+
+            {% set start = (1 if cur-3 < 1 else cur-3) %}
+            {% set end = (pages if cur+3 > pages else cur+3) %}
+            {% if start > 1 %}<span>…</span>{% endif %}
+            {% for p in range(start, end+1) %}
+              {% if p == cur %}
+                <span class="current" aria-current="page">{{ p }}</span>
+              {% else %}
+                <a href="?fp={{ p }}&mp={{ page_msg }}&pp={{ per }}">{{ p }}</a>
+              {% endif %}
+            {% endfor %}
+            {% if end < pages %}<span>…</span>{% endif %}
+
+            {% if cur < pages %}
+              <a href="?fp={{ cur+1 }}&mp={{ page_msg }}&pp={{ per }}" aria-label="次のページ">次 ›</a>
+              <a href="?fp={{ pages }}&mp={{ page_msg }}&pp={{ per }}" aria-label="最後のページ">最後 »</a>
+            {% else %}
+              <span aria-disabled="true">次 ›</span>
+              <span aria-disabled="true">最後 »</span>
+            {% endif %}
+          </nav>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <footer style="margin-top:18px">
+    <small class="muted">※ 表示件数・ページ移動はURLクエリ <code class="inline">mp</code>/<code class="inline">fp</code>/<code class="inline">pp</code> で制御できます。</small>
+  </footer>
+</body>
+</html>

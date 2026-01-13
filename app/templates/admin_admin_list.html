@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>管理者一覧</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px}</style>
+</head>
+<body>
+  <h1>管理者一覧</h1>
+  <p><a href="{{ url_for('admin_home') }}">管理者ホーム</a> / <a href="{{ url_for('admin_admins_create') }}">＋新規管理者を登録</a></p>
+  <table>
+    <thead><tr><th>ID</th><th>ログインID</th><th>氏名</th></tr></thead>
+    <tbody>
+      {% for a in admins %}
+      <tr>
+        <td>{{ a.id }}</td>
+        <td>{{ a['ログインID'] }}</td>
+        <td>{{ a['氏名'] or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>外部ストレージ設定</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;background:#f8fafc}
+    .card{max-width:960px;margin:12px auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;overflow:hidden}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .field{margin:10px 0}
+    label{display:block;font-weight:600;margin-bottom:6px}
+    input[type=text], input[type=password], textarea, select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;text-decoration:none}
+    .btn-ghost{display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#111827;font-weight:600;cursor:pointer;text-decoration:none}
+    .btn-danger{border-color:#b91c1c;background:#b91c1c}
+    .muted{color:#6b7280}
+    .error{color:#b91c1c}
+    .ok{color:#166534}
+    .warn{color:#92400e}
+    .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+    fieldset{border:1px dashed #e5e7eb;border-radius:8px;padding:10px}
+    .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:12px;border:1px solid #e5e7eb;background:#f3f4f6}
+    .space-y> * + *{margin-top:10px}
+
+    /* --- 長いトークン対策 --- */
+    .wrap{word-break:break-all;overflow-wrap:anywhere;white-space:pre-wrap;max-width:100%}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .token-list{list-style:disc;padding-left:20px;margin:6px 0}
+    .token-list li{max-width:100%}
+    small.muted.wrap{display:block;margin-top:4px}
+  </style>
+</head>
+<body>
+  <h1>外部ストレージ設定（事業所ID: {{ org_id }})</h1>
+
+  <!-- 連携状態サマリ -->
+  <div class="card space-y">
+    <h2>現在の連携状態</h2>
+
+    {% if row %}
+      <div class="row">
+        <span class="badge">プロバイダ: <strong>{{ (view.provider or '未設定') }}</strong></span>
+        <span class="badge">ステータス: {{ (view.status or 'N/A') }}</span>
+        <span class="badge">最終更新: {{ (view.更新日時 or 'N/A') }}</span>
+      </div>
+
+      {% if view.connected_provider == 'dropbox' and view.is_dropbox_connected %}
+        <p class="ok">Dropbox と連携済みです。</p>
+        <ul class="muted token-list wrap mono">
+          <li>App Key: {{ view.dropbox_app_key or '（未設定）' }}</li>
+          <li>App Secret: {{ view.dropbox_app_secret or '（未設定）' }}</li>
+          <li>Refresh Token: {{ view.dropbox_refresh_token or '（無し/非表示）' }}</li>
+          <li>Access Token: {{ view.dropbox_access_token or '（無し/非表示）' }}</li>
+        </ul>
+
+      {% elif view.connected_provider == 'gcs' and view.is_gcs_connected %}
+        <p class="ok">Google Cloud Storage と連携済みです。</p>
+        <ul class="muted token-list wrap">
+          <li>バケット: <span class="mono">{{ view.gcs_bucket or '（未設定）' }}</span></li>
+          <li>サービスアカウントJSON: {{ view.gcs_sa_json_mask }}</li>
+          {% if view.gcs_oauth_refresh_token %}
+            <li>OAuth Refresh Token: <span class="mono">{{ view.gcs_oauth_refresh_token }}</span></li>
+          {% endif %}
+        </ul>
+
+      {% else %}
+        <p class="warn">アクティブな連携はありません。</p>
+        <p class="muted">下の「手動設定フォーム」から設定できます（Dropbox / GCS はフォーム内のボタンからOAuthも実行可能）。</p>
+      {% endif %}
+
+    {% else %}
+      <p class="muted">まだ有効な設定が登録されていません。</p>
+      <p class="muted">下の「手動設定フォーム」から設定してください（Dropbox / GCS はフォーム内のボタンからOAuthも実行可能）。</p>
+    {% endif %}
+
+    <div class="row">
+      <a class="btn-ghost" href="{{ url_for('org_dashboard', org_id=org_id) }}">ダッシュボードへ戻る</a>
+    </div>
+  </div>
+
+  <!-- 手動設定フォーム -->
+  <div class="card">
+    {% if error %}
+      <p class="error">エラー: {{ error }}</p>
+    {% elif saved %}
+      <p class="ok">保存しました。現在の設定がアクティブになりました。</p>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="storage-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+      <div class="field">
+        <label for="provider">プロバイダ</label>
+        <select id="provider" name="provider">
+          <option value="dropbox"  {% if view.provider=='dropbox' %}selected{% endif %}>Dropbox</option>
+          <option value="gcs"      {% if view.provider=='gcs' %}selected{% endif %}>Google Cloud Storage</option>
+          <!-- 以下は将来拡張の保存欄 -->
+          <option value="s3"       {% if view.provider=='s3' %}selected{% endif %}>Amazon S3</option>
+          <option value="onedrive" {% if view.provider=='onedrive' %}selected{% endif %}>Microsoft OneDrive</option>
+          <option value="box"      {% if view.provider=='box' %}selected{% endif %}>Box</option>
+          <option value="gdrive"   {% if view.provider=='gdrive' %}selected{% endif %}>Google Drive</option>
+          <option value="pcloud"   {% if view.provider=='pcloud' %}selected{% endif %}>pCloud</option>
+          <option value="mega"     {% if view.provider=='mega' %}selected{% endif %}>MEGA</option>
+        </select>
+        <p class="muted" style="margin-top:6px">
+          ※ 現在、アプリのアップロード実装は <strong>Dropbox / GCS</strong> に対応しています。他の項目は将来拡張のための保存欄です。
+        </p>
+      </div>
+
+      <!-- Dropbox -->
+      <fieldset id="section-dropbox" style="{% if view.provider!='dropbox' %}display:none{% endif %}">
+        <legend>Dropbox（refresh_token 推奨）</legend>
+        <div class="grid">
+          <div class="field">
+            <label>App Key</label>
+            <input type="text" name="dropbox_app_key" placeholder="App Key">
+            <small class="muted wrap mono">保存済: {{ view.dropbox_app_key or '―' }}</small>
+          </div>
+          <div class="field">
+            <label>App Secret</label>
+            <input type="text" name="dropbox_app_secret" placeholder="App Secret">
+            <small class="muted wrap mono">保存済: {{ view.dropbox_app_secret or '―' }}</small>
+          </div>
+          <div class="field">
+            <label>Refresh Token（推奨）</label>
+            <input type="text" name="dropbox_refresh_token" placeholder="Refresh Token">
+            <small class="muted wrap mono">保存済: {{ view.dropbox_refresh_token or '―' }}</small>
+          </div>
+          <div class="field">
+            <label>Access Token（旧式/代替）</label>
+            <input type="text" name="dropbox_access_token" placeholder="Access Token">
+            <small class="muted wrap mono">保存済: {{ view.dropbox_access_token or '―' }}</small>
+          </div>
+        </div>
+        <div class="row">
+          <a class="btn" href="{{ url_for('storage_oauth_dropbox_start', org_id=org_id) }}">Dropbox にログインして連携</a>
+        </div>
+      </fieldset>
+
+      <!-- GCS -->
+      <fieldset id="section-gcs" style="{% if view.provider!='gcs' %}display:none{% endif %}">
+        <legend>Google Cloud Storage</legend>
+        <div class="grid">
+          <div class="field">
+            <label>バケット名</label>
+            <input type="text" name="gcs_bucket" placeholder="example-bucket" value="{{ view.gcs_bucket or '' }}">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>サービスアカウントJSON（テキストで貼付）</label>
+            <textarea class="mono" name="gcs_sa_json" rows="6" placeholder='{ "type": "service_account", ... }'></textarea>
+            <small class="muted">保存状況: {{ view.gcs_sa_json_mask }}</small>
+          </div>
+          <div class="field">
+            <label>または JSON ファイルをアップロード</label>
+            <input type="file" name="gcs_sa_file" accept=".json,application/json">
+          </div>
+        </div>
+        <div class="row">
+          <a class="btn" href="{{ url_for('storage_oauth_gcs_start', org_id=org_id) }}">Google にログインして連携</a>
+        </div>
+      </fieldset>
+
+      <!-- S3（保存のみ） -->
+      <fieldset id="section-s3" style="{% if view.provider!='s3' %}display:none{% endif %}">
+        <legend>Amazon S3</legend>
+        <div class="grid">
+          <div class="field">
+            <label>Access Key ID</label>
+            <input type="text" name="s3_access_key_id" placeholder="AKIA...">
+          </div>
+          <div class="field">
+            <label>Secret Access Key</label>
+            <input type="password" name="s3_secret_access_key" placeholder="********">
+          </div>
+          <div class="field">
+            <label>Bucket</label>
+            <input type="text" name="s3_bucket" placeholder="my-bucket">
+          </div>
+          <div class="field">
+            <label>Region</label>
+            <input type="text" name="s3_region" placeholder="ap-northeast-1">
+          </div>
+          <div class="field">
+            <label><input type="checkbox" name="s3_public_read"> 公開（public-read）で保存</label>
+          </div>
+        </div>
+        <p class="muted">※ 環境変数 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / S3_BUCKET / AWS_REGION でも可。</p>
+      </fieldset>
+
+      <!-- OneDrive（保存のみ） -->
+      <fieldset id="section-onedrive" style="{% if view.provider!='onedrive' %}display:none{% endif %}">
+        <legend>Microsoft OneDrive（簡易：アクセストークン直指定）</legend>
+        <div class="grid">
+          <div class="field">
+            <label>Access Token</label>
+            <input type="text" name="onedrive_access_token" placeholder="Bearer トークン">
+          </div>
+          <div class="field">
+            <label>Drive ID（任意 / 省略時 me）</label>
+            <input type="text" name="onedrive_drive_id" placeholder="b!xxxxxxxxxxxxxxx">
+          </div>
+        </div>
+        <p class="warn">※ 本番は refresh_token＋client_id/secret で自動更新フローを実装推奨。</p>
+      </fieldset>
+
+      <!-- Box（保存のみ） -->
+      <fieldset id="section-box" style="{% if view.provider!='box' %}display:none{% endif %}">
+        <legend>Box（簡易：Access Token + 保存フォルダID）</legend>
+        <div class="grid">
+          <div class="field">
+            <label>Access Token</label>
+            <input type="text" name="box_access_token" placeholder="Developer / OAuth Access Token">
+          </div>
+          <div class="field">
+            <label>Folder ID</label>
+            <input type="text" name="box_folder_id" placeholder="0（ルート）など">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Google Drive（保存のみ） -->
+      <fieldset id="section-gdrive" style="{% if view.provider!='gdrive' %}display:none{% endif %}">
+        <legend>Google Drive（簡易：アクセストークン直指定）</legend>
+        <div class="grid">
+          <div class="field">
+            <label>Access Token</label>
+            <input type="text" name="gdrive_access_token" placeholder="Bearer トークン">
+          </div>
+          <div class="field">
+            <label>Folder ID（任意）</label>
+            <input type="text" name="gdrive_folder_id" placeholder="xxxxxxxxxxxxxxxxx">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- pCloud（保存のみ） -->
+      <fieldset id="section-pcloud" style="{% if view.provider!='pcloud' %}display:none{% endif %}">
+        <legend>pCloud（まずは保存のみ）</legend>
+        <div class="grid">
+          <div class="field">
+            <label>Access Token</label>
+            <input type="text" name="pcloud_access_token" placeholder="pcloud token">
+          </div>
+        </div>
+        <p class="muted">※ SDK導入後にアップロード対応可能。</p>
+      </fieldset>
+
+      <!-- MEGA（保存のみ） -->
+      <fieldset id="section-mega" style="{% if view.provider!='mega' %}display:none{% endif %}">
+        <legend>MEGA（まずは保存のみ）</legend>
+        <div class="grid">
+          <div class="field">
+            <label>アカウント（メール）</label>
+            <input type="text" name="mega_email" placeholder="user@example.com">
+          </div>
+          <div class="field">
+            <label>セッション/キー等（任意）</label>
+            <input type="text" name="mega_session" placeholder="セッション文字列等">
+          </div>
+        </div>
+        <p class="muted">※ SDK導入後にアップロード対応可能。平文パスワードは保存しない運用を推奨。</p>
+      </fieldset>
+
+      <div class="field">
+        <label>備考</label>
+        <input type="text" name="備考" value="{{ view.備考 or '' }}">
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="btn" type="submit">保存して有効化</button>
+        <a class="btn-ghost" href="{{ url_for('org_dashboard', org_id=org_id) }}">ダッシュボードへ戻る</a>
+      </div>
+      <p class="muted" style="margin-top:8px">現在の状態: {{ view.status or '―' }} / 更新: {{ view.更新日時 or '―' }}</p>
+    </form>
+
+    <noscript>
+      <p class="muted">※JavaScriptを有効にすると、選択中のプロバイダのみが表示されます。</p>
+    </noscript>
+  </div>
+
+  <script>
+    const providerSel = document.getElementById('provider');
+    const sections = {
+      dropbox:  document.getElementById('section-dropbox'),
+      gcs:      document.getElementById('section-gcs'),
+      s3:       document.getElementById('section-s3'),
+      onedrive: document.getElementById('section-onedrive'),
+      box:      document.getElementById('section-box'),
+      gdrive:   document.getElementById('section-gdrive'),
+      pcloud:   document.getElementById('section-pcloud'),
+      mega:     document.getElementById('section-mega')
+    };
+    function setDisabled(container, disabled){
+      if(!container) return;
+      container.querySelectorAll('input,textarea,select').forEach(el=>{ el.disabled = disabled; });
+    }
+    function toggleProvider(){
+      const v = providerSel.value;
+      Object.entries(sections).forEach(([key, el])=>{
+        if(!el) return;
+        const show = (key === v);
+        el.style.display = show ? '' : 'none';
+        setDisabled(el, !show);
+      });
+    }
+    toggleProvider();
+    providerSel.addEventListener('change', toggleProvider);
+  </script>
+</body>
+</html>

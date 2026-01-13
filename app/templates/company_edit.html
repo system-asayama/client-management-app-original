@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>会社基本情報 編集</title>
+    <style>
+        body { font-family: sans-serif; margin: 22px; }
+        h2 { margin-bottom: 14px; }
+        form { max-width: 540px; }
+        label { display: block; margin-top: 12px; margin-bottom: 3px; font-size: 14px; }
+        input, select { font-size: 15px; padding: 4px 8px; width: 100%; box-sizing: border-box; }
+        .submit-btn {
+            margin-top: 24px; padding: 8px 30px; font-size: 15px;
+            background: #f08c2d; color: #fff; border: none; border-radius: 3px; cursor: pointer;
+        }
+        .back-link { margin-top: 20px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <h2>会社基本情報 編集</h2>
+    <form action="{{ url_for('company_edit', company_id=company['id']) }}" method="post" autocomplete="off">
+        <label for="顧問先ID">顧問先</label>
+        <select name="顧問先ID" id="顧問先ID" required>
+            {% for c in clients %}
+            <option value="{{ c['id'] }}" {% if company['顧問先ID'] == c['id'] %}selected{% endif %}>
+                {{ c['name'] }}（{{ c['type'] }}）
+            </option>
+            {% endfor %}
+        </select>
+        <label for="会社名">会社名</label>
+        <input type="text" name="会社名" id="会社名" value="{{ company['会社名'] }}" required>
+        <label for="郵便番号">郵便番号</label>
+        <input type="text" name="郵便番号" id="郵便番号" value="{{ company['郵便番号'] }}">
+        <label for="都道府県">都道府県</label>
+        <input type="text" name="都道府県" id="都道府県" value="{{ company['都道府県'] }}">
+        <label for="市区町村番地">市区町村・番地</label>
+        <input type="text" name="市区町村番地" id="市区町村番地" value="{{ company['市区町村番地'] }}">
+        <label for="建物名部屋番号">建物名・部屋番号</label>
+        <input type="text" name="建物名部屋番号" id="建物名部屋番号" value="{{ company['建物名部屋番号'] }}">
+        <label for="電話番号1">電話番号1</label>
+        <input type="text" name="電話番号1" id="電話番号1" value="{{ company['電話番号1'] }}">
+        <label for="電話番号2">電話番号2</label>
+        <input type="text" name="電話番号2" id="電話番号2" value="{{ company['電話番号2'] }}">
+        <label for="ファックス番号">ファックス番号</label>
+        <input type="text" name="ファックス番号" id="ファックス番号" value="{{ company['ファックス番号'] }}">
+        <label for="メールアドレス">メールアドレス</label>
+        <input type="email" name="メールアドレス" id="メールアドレス" value="{{ company['メールアドレス'] }}">
+        <label for="担当者名">担当者名</label>
+        <input type="text" name="担当者名" id="担当者名" value="{{ company['担当者名'] }}">
+        <label for="業種">業種</label>
+        <input type="text" name="業種" id="業種" value="{{ company['業種'] }}">
+        <label for="従業員数">従業員数</label>
+        <input type="number" name="従業員数" id="従業員数" min="0" value="{{ company['従業員数'] }}">
+        <label for="法人番号">法人番号</label>
+        <input type="text" name="法人番号" id="法人番号" value="{{ company['法人番号'] }}">
+        <button type="submit" class="submit-btn">更新</button>
+    </form>
+    <a href="{{ url_for('company_list') }}" class="back-link">← 会社一覧へ戻る</a>
+</body>
+</html>

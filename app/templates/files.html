@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ファイル共有</title>
+</head>
+<body>
+    <h2>📁 ファイル一覧</h2>
+    <a href="{{ url_for('dashboard') }}">← ダッシュボードへ戻る</a>
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">アップロード</button>
+    </form>
+    <ul>
+        {% for f in files %}
+            <li>
+                <a href="{{ f[1] }}" target="_blank">Dropboxファイルを開く</a>
+                <small>（{{ f[2] }}さん / {{ f[3] }}）</small>
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>アカウント作成（メール登録）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif; margin: 24px; }
+    .card { max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #ddd; border-radius: 12px; }
+    h1 { margin: 0 0 16px; font-size: 20px; }
+    .row { margin-bottom: 12px; }
+    label { display:block; font-size: 14px; margin-bottom: 6px; }
+    input[type="email"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; }
+    .error { background: #ffecec; color: #b10000; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+    .ok { background: #ecfff0; color: #046b2c; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+    .btn { appearance:none; border:0; padding: 10px 16px; border-radius: 8px; cursor:pointer; font-size: 14px; background:#1f6feb; color:#fff; }
+    .links { margin-top: 12px; }
+    a { color:#1f6feb; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>アカウント作成（メール登録）</h1>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if sent %}
+      <div class="ok">
+        {{ to }} に確認メールを送信しました。メール内のリンクをクリックして初回セットアップにお進みください。
+      </div>
+      <div class="links">
+        <a href="{{ url_for('login') }}">ログイン画面に戻る</a>
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('signup_email') }}">
+        <div class="row">
+          <label for="email">メールアドレス</label>
+          <input id="email" name="email" type="email" required
+                 value="{{ (form.email or '') if form else '' }}">
+        </div>
+        <button class="btn" type="submit">登録してメールを受け取る</button>
+      </form>
+      <div class="links">
+        <a href="{{ url_for('login') }}">ログイン画面に戻る</a>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

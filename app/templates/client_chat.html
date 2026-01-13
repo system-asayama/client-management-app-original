@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>{{ client['name'] }} - チャット</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .chat-box { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+    .msg { margin-bottom: 8px; }
+    .sender { font-weight: bold; }
+    .timestamp { font-size: 0.8em; color: #666; }
+    form { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>{{ client['name'] }} とのチャット</h1>
+  <div class="chat-box">
+    {% for m in messages %}
+      <div class="msg">
+        <span class="sender">{{ m['sender'] }}</span>:
+        {{ m['message'] }} <span class="timestamp">[{{ m['timestamp'] }}]</span>
+      </div>
+    {% endfor %}
+  </div>
+  <form method="post">
+    <input type="text" name="message" placeholder="メッセージを入力" required>
+    <button type="submit">送信</button>
+  </form>
+  <p><a href="{{ url_for('client_info', client_id=client['id']) }}">顧問先ページに戻る</a></p>
+</body>
+</html>

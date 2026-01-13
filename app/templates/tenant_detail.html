@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}テナント詳細情報{% endblock %}
+{% block content %}
+<style>
+  .tenant-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .tenant-info-row {
+    display: block;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .tenant-info-row:last-of-type {
+    border-bottom: none;
+  }
+  
+  .tenant-info-label {
+    font-weight: 600;
+    display: inline-block;
+    width: 120px;
+    color: #374151;
+  }
+  
+  .tenant-info-value {
+    display: inline;
+  }
+  
+  .tenant-name {
+    font-weight: bold;
+  }
+  
+  .tenant-slug code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  
+  .tenant-date {
+    color: #666;
+  }
+  
+  .tenant-actions {
+    padding-top: 12px;
+    margin-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  
+  .btn.small {
+    display: inline-block;
+    margin: 4px 4px 4px 0;
+    font-size: 0.9em;
+    padding: 8px 12px;
+  }
+  
+  .btn.delete {
+    background: #d32f2f;
+    color: white;
+    cursor: pointer;
+  }
+  
+  .tenant-actions form {
+    display: inline-block;
+  }
+</style>
+
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant['name'] if tenant else 'テナント名' }}</div>
+  <h1 style="margin-top:12px">テナント詳細情報</h1>
+</div>
+
+<div class="tenant-card">
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">テナントID:</span>
+    <span class="tenant-info-value">{{ tenant.id }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">名称:</span>
+    <span class="tenant-info-value tenant-name">{{ tenant['name'] }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">Slug:</span>
+    <span class="tenant-info-value tenant-slug"><code>{{ tenant.slug }}</code></span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">郵便番号:</span>
+    <span class="tenant-info-value">{{ tenant['postal_code'] }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">住所:</span>
+    <span class="tenant-info-value">{{ tenant['address'] }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">電話番号:</span>
+    <span class="tenant-info-value">{{ tenant['phone'] }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">e-mailアドレス:</span>
+    <span class="tenant-info-value">{{ tenant['email'] }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">OpenAI APIキー:</span>
+    <span class="tenant-info-value">{{ ('*' * 20 + tenant['openai_api_key'][-8:]) if tenant['openai_api_key'] else '未設定' }}</span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">有効:</span>
+    <span class="tenant-info-value">
+      {% if tenant.active == 1 %}
+      <span style="color:#16a34a;font-weight:bold">✓ 有効</span>
+      {% else %}
+      <span style="color:#dc2626;font-weight:bold">× 無効</span>
+      {% endif %}
+    </span>
+  </div>
+  
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">作成日時:</span>
+    <span class="tenant-info-value tenant-date">{{ tenant.created_at }}</span>
+  </div>
+  
+  {% if tenant.updated_at %}
+  <div class="tenant-info-row">
+    <span class="tenant-info-label">更新日時:</span>
+    <span class="tenant-info-value tenant-date">{{ tenant.updated_at }}</span>
+  </div>
+  {% endif %}
+  
+  <div class="tenant-actions">
+    <a class="btn small" href="{{ url_for('tenant_admin.me_edit') }}">編集</a>
+    <button class="btn small delete" onclick="showDeleteModal('{{ tenant['name'] }}')">削除</button>
+  </div>
+  
+  <div class="tenant-actions" style="border-top:none; padding-top:8px">
+    <a class="btn small" href="{{ url_for('tenant_admin.tenant_admins') }}">テナント管理者管理</a>
+    <a class="btn small" href="{{ url_for('tenant_admin.stores') }}">店舗管理</a>
+  </div>
+  
+  <div class="tenant-actions" style="border-top:none; padding-top:8px">
+    <a class="btn small" href="{{ url_for('tenant_admin.tenant_apps') }}">利用可能アプリ一覧</a>
+    <a class="btn small sub" href="{{ url_for('tenant_admin.tenant_info') }}">戻る</a>
+  </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div id="deleteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:8px;max-width:500px;width:90%;">
+    <h2 style="color:#d32f2f;margin-top:0">⚠️ 警告</h2>
+    <p style="margin-bottom:20px;line-height:1.6">
+      <strong id="tenantName"></strong> を削除すると、以下の関連データも全て削除されます：
+    </p>
+    <ul style="margin-bottom:20px;line-height:1.8;color:#666">
+      <li>テナントに紐づく全ての管理者</li>
+      <li>テナントに紐づく全ての従業員</li>
+      <li>テナントに紐づく全ての店舗</li>
+      <li>テナントに紐づく全てのアプリ設定</li>
+    </ul>
+    <p style="margin-bottom:20px;color:#d32f2f;font-weight:bold">
+      この操作は取り消せません。
+    </p>
+    <p style="margin-bottom:10px">
+      削除を実行するには、ログイン時のパスワードを入力してください：
+    </p>
+    <form id="deleteForm" method="post" action="{{ url_for('tenant_admin.tenant_delete') }}">
+      {% if session.csrf_token %}<input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">{% endif %}
+      <input type="password" name="password" placeholder="パスワード" required 
+             style="width:100%;padding:10px;margin-bottom:20px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" class="btn sub" onclick="hideDeleteModal()">キャンセル</button>
+        <button type="submit" class="btn" style="background:#d32f2f">削除する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showDeleteModal(tenantName) {
+  document.getElementById('tenantName').textContent = tenantName;
+  document.getElementById('deleteModal').style.display = 'block';
+}
+
+function hideDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  document.getElementById('deleteForm').reset();
+}
+
+// モーダル外をクリックしたら閉じる
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    hideDeleteModal();
+  }
+});
+</script>
+{% endblock %}

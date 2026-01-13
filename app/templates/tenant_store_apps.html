@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+  <div style="font-size:1.1em;font-weight:bold;color:#888;margin-top:4px">{{ store.名称 if store else '店舗名' }}</div>
+  <h2 style="margin-top:12px">利用可能アプリ一覧</h2>
+</div>
+
+<p>{{ tenant.名称 if tenant else 'テナント' }} {{ store.名称 if store else '店舗' }} で利用可能なアプリ一覧です。</p>
+
+{% if apps %}
+<div class="app-list">
+  {% for app in apps %}
+  <div class="app-card">
+    <h3>{{ app.display_name }}</h3>
+    <p>{{ app.description if app.description else '' }}</p>
+    <a href="{{ app.url }}" class="btn">開く</a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p style="color:#666;margin-top:20px">現在、利用可能なアプリはありません。</p>
+{% endif %}
+
+<div style="margin-top:20px">
+  <a class="btn sub" href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">店舗詳細に戻る</a>
+</div>
+
+<style>
+  .app-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  
+  .app-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  
+  .app-card h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+  }
+  
+  .app-card p {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 12px;
+  }
+</style>
+{% endblock %}

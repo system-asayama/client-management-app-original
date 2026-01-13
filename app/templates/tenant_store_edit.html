@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}店舗編集{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+  <div style="font-size:1.1em;font-weight:bold;color:#888;margin-top:4px">{{ store['名称'] if store else '店舗名' }}</div>
+  <h1 style="margin-top:12px">店舗編集</h1>
+</div>
+
+<form method="post">
+  {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+  
+  <div class="form-group">
+    <label for="name">名称</label>
+    <input type="text" id="name" name="name" value="{{ store['名称'] }}" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="slug">Slug</label>
+    <input type="text" id="slug" name="slug" value="{{ store.slug }}" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="postal_code">郵便番号</label>
+    <input type="text" id="postal_code" name="postal_code" value="{{ store['郵便番号'] or '' }}">
+  </div>
+  
+  <div class="form-group">
+    <label for="address">住所</label>
+    <input type="text" id="address" name="address" value="{{ store['住所'] or '' }}">
+  </div>
+  
+  <div class="form-group">
+    <label for="phone">電話番号</label>
+    <input type="text" id="phone" name="phone" value="{{ store['電話番号'] or '' }}">
+  </div>
+  
+  <div class="form-group">
+    <label for="email">e-mailアドレス</label>
+    <input type="email" id="email" name="email" value="{{ store.email or '' }}">
+  </div>
+  
+  <div class="form-group">
+    <label for="openai_api_key">OpenAI APIキー</label>
+    <input type="password" id="openai_api_key" name="openai_api_key" value="{{ store.openai_api_key or '' }}" placeholder="sk-...">
+    <p class="small" style="color:#666;margin-top:4px">この店舗配下のアプリに適用されます。未設定の場合はテナント設定のキーが使用されます。</p>
+  </div>
+  
+  <div class="form-group">
+    <label for="active">有効/無効</label>
+    <select id="active" name="active">
+      <option value="1" {% if store.active == 1 or store.active is none %}selected{% endif %}>有効</option>
+      <option value="0" {% if store.active == 0 %}selected{% endif %}>無効</option>
+    </select>
+  </div>
+  
+  <div class="actions">
+    <button type="submit" class="btn">更新</button>
+    <a href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}" class="btn sub">キャンセル</a>
+  </div>
+</form>
+{% endblock %}

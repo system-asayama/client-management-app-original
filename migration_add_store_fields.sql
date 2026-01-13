@@ -1,0 +1,7 @@
+-- 店舗テーブルに新しいカラムを追加
+ALTER TABLE `T_店舗` ADD COLUMN `郵便番号` VARCHAR(10) NULL AFTER `slug`;
+ALTER TABLE `T_店舗` ADD COLUMN `住所` VARCHAR(500) NULL AFTER `郵便番号`;
+ALTER TABLE `T_店舗` ADD COLUMN `電話番号` VARCHAR(20) NULL AFTER `住所`;
+ALTER TABLE `T_店舗` ADD COLUMN `email` VARCHAR(255) NULL AFTER `電話番号`;
+ALTER TABLE `T_店舗` ADD COLUMN `openai_api_key` VARCHAR(255) NULL AFTER `email`;
+ALTER TABLE `T_店舗` ADD COLUMN `updated_at` DATETIME NULL AFTER `created_at`;

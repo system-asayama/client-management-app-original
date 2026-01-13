@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}テナント編集{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+  <h1 style="margin-top:12px">テナント編集</h1>
+</div>
+
+<div class="card" style="max-width:640px">
+  <form method="post" autocomplete="off">
+    <label>名称</label>
+    <input name="name" value="{{ tenant.名称 }}" required>
+
+    <label>slug（URL等に使う短い識別子）</label>
+    <input name="slug" value="{{ tenant.slug }}" required
+           pattern="[a-z0-9][a-z0-9-]{1,62}[a-z0-9]">
+    <div class="small" style="color:#666">英小文字・数字・ハイフンのみ（先頭末尾は英数）。</div>
+
+    <label>郵便番号</label>
+    <input name="postal_code" value="{{ tenant['郵便番号'] or '' }}">
+
+    <label>住所</label>
+    <input name="address" value="{{ tenant['住所'] or '' }}">
+
+    <label>電話番号</label>
+    <input name="phone" value="{{ tenant['電話番号'] or '' }}">
+
+    <label>e-mailアドレス</label>
+    <input type="email" name="email" value="{{ tenant.email or '' }}">
+
+    <label>OpenAI APIキー</label>
+    <input type="password" name="openai_api_key" value="{{ tenant.openai_api_key or '' }}" placeholder="sk-...">
+    <p class="small" style="color:#666;margin-top:4px">このテナント配下のアプリに適用されます。</p>
+
+    <label>有効/無効</label>
+    <select name="active">
+      <option value="1" {% if tenant.有効 == 1 %}selected{% endif %}>有効</option>
+      <option value="0" {% if tenant.有効 == 0 %}selected{% endif %}>無効</option>
+    </select>
+
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn" type="submit">保存する</button>
+      <a class="btn sub" href="{{ url_for('system_admin.tenants') }}">戻る</a>
+    </div>
+  </form>
+</div>
+
+{% if get_flashed_messages() %}
+<div style="margin-top:20px">
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ category }}" style="padding:12px;margin-bottom:8px;border-radius:4px;
+         {% if category == 'success' %}background:#d4edda;color:#155724;border:1px solid #c3e6cb{% endif %}
+         {% if category == 'error' %}background:#f8d7da;color:#721c24;border:1px solid #f5c6cb{% endif %}">
+      {{ message }}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

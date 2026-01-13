@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}店舗新規作成{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+  <h2 style="margin-top:12px">店舗新規作成</h2>
+</div>
+
+<form method="post">
+  {% if session.csrf_token %}
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+  {% endif %}
+  
+  <div class="form-group">
+    <label for="name">名称</label>
+    <input type="text" id="name" name="name" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="slug">Slug</label>
+    <input type="text" id="slug" name="slug" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="postal_code">郵便番号</label>
+    <input type="text" id="postal_code" name="postal_code">
+  </div>
+  
+  <div class="form-group">
+    <label for="address">住所</label>
+    <input type="text" id="address" name="address">
+  </div>
+  
+  <div class="form-group">
+    <label for="phone">電話番号</label>
+    <input type="text" id="phone" name="phone">
+  </div>
+  
+  <div class="form-group">
+    <label for="email">e-mailアドレス</label>
+    <input type="email" id="email" name="email">
+  </div>
+  
+  <div class="form-group">
+    <label for="openai_api_key">OpenAI APIキー</label>
+    <input type="text" id="openai_api_key" name="openai_api_key">
+    <p class="small" style="color:#666;margin-top:4px">この店舗配下のアプリに適用されます。未設定の場合はテナント設定のキーが使用されます。</p>
+  </div>
+  
+  <div class="actions">
+    <button type="submit" class="btn">作成</button>
+    <a href="{{ url_for('tenant_admin.stores') }}" class="btn sub">キャンセル</a>
+  </div>
+</form>
+{% endblock %}

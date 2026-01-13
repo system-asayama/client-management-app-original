@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant['name'] if tenant else 'テナント名' }}</div>
+  <h2 style="margin-top:12px">テナント情報の編集</h2>
+</div>
+<p class="small" style="color:#666">テナントの基本情報を編集します。</p>
+
+<form method="post" action="">
+  {% if session.csrf_token %}
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+  {% endif %}
+
+  <div class="card" style="max-width:680px">
+    <div class="row">
+      <label>名称 <span style="color:red">*</span></label>
+      <input name="name" value="{{ tenant['name'] if tenant else '' }}" required>
+    </div>
+
+    <div class="row">
+      <label>slug <span style="color:red">*</span></label>
+      <input name="slug" value="{{ tenant['slug'] if tenant else '' }}" required>
+      <p class="small" style="color:#666">URL に使う英数字・ハイフンの識別子</p>
+    </div>
+
+    <div class="row">
+      <label>郵便番号</label>
+      <input name="postal_code" value="{{ tenant['postal_code'] if tenant else '' }}" placeholder="例: 123-4567">
+    </div>
+
+    <div class="row">
+      <label>住所</label>
+      <input name="address" value="{{ tenant['address'] if tenant else '' }}" placeholder="例: 東京都渋谷区...">
+    </div>
+
+    <div class="row">
+      <label>電話番号</label>
+      <input name="phone" value="{{ tenant['phone'] if tenant else '' }}" placeholder="例: 03-1234-5678">
+    </div>
+
+    <div class="row">
+      <label>メールアドレス</label>
+      <input type="email" name="email" value="{{ tenant['email'] if tenant else '' }}" placeholder="例: info@example.com">
+    </div>
+
+    <div class="row">
+      <label>OpenAI APIキー</label>
+      <input type="text" name="openai_api_key" value="{{ tenant['openai_api_key'] if tenant else '' }}" placeholder="sk-...">
+      <p class="small" style="color:#666">テナント内の全店舗で使用されるOpenAI APIキーを設定します</p>
+    </div>
+
+    <div class="row">
+      <label>有効/無効</label>
+      <select name="active" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:1em">
+        <option value="1" {% if tenant and tenant['active'] == 1 %}selected{% endif %}>有効</option>
+        <option value="0" {% if tenant and tenant['active'] == 0 %}selected{% endif %}>無効</option>
+      </select>
+    </div>
+
+    <div class="actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn" type="submit">保存</button>
+      <a class="btn sub" href="{{ url_for('tenant_admin.tenant_info') }}">戻る</a>
+    </div>
+  </div>
+</form>
+{% endblock %}

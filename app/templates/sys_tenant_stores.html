@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}店舗一覧 - {{ tenant.name }}{% endblock %}
+{% block content %}
+<style>
+  .store-name-link {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  .store-name-link:hover {
+    text-decoration: underline;
+    color: #007bff;
+  }
+  @media (max-width: 768px) {
+    .store-table {
+      display: none;
+    }
+    .store-cards {
+      display: block;
+    }
+    .store-card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .store-card-row {
+      display: flex;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .store-card-row:last-child {
+      border-bottom: none;
+    }
+    .store-card-label {
+      font-weight: bold;
+      color: #666;
+      min-width: 80px;
+      white-space: nowrap;
+    }
+    .store-card-value {
+      flex: 1;
+      color: #333;
+    }
+    .store-card-actions {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px solid #f0f0f0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .store-card-actions .btn {
+      font-size: 0.9em;
+      padding: 6px 12px;
+    }
+    .store-card-actions form {
+      display: inline;
+    }
+  }
+  @media (min-width: 769px) {
+    .store-table {
+      display: table;
+    }
+    .store-cards {
+      display: none;
+    }
+  }
+</style>
+
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+  <h1 style="margin-top:12px">店舗一覧</h1>
+</div>
+
+<div style="margin-bottom:20px">
+  <a class="btn" href="{{ url_for('tenant_admin.store_new') }}">新規作成</a>
+  <a class="btn sub" href="{{ url_for('system_admin.tenant_detail', tid=tenant.id) }}">戻る</a>
+</div>
+
+<!-- 検索フィールド -->
+<div style="margin-bottom:20px">
+  <input type="text" id="searchInput" placeholder="店舗名またはSlugで検索..." 
+         style="width:100%;max-width:400px;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+  <span id="searchResult" style="margin-left:10px;color:#666"></span>
+</div>
+
+{% if stores %}
+<!-- デスクトップ用テーブル -->
+<table class="store-table" style="width:100%;border-collapse:collapse">
+  <thead>
+    <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
+      <th style="padding:12px;text-align:left">店舗ID</th>
+      <th style="padding:12px;text-align:left">名称</th>
+      <th style="padding:12px;text-align:left">Slug</th>
+      <th style="padding:12px;text-align:left">有効</th>
+      <th style="padding:12px;text-align:left">操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for store in stores %}
+    <tr class="store-row" data-name="{{ store.name }}" data-slug="{{ store.slug }}" 
+        style="border-bottom:1px solid #eee">
+      <td style="padding:12px">{{ store.id }}</td>
+      <td style="padding:12px"><a href="{{ url_for('system_admin.tenant_store_detail', tid=tenant.id, sid=store.id) }}" class="store-name-link">{{ store.name }}</a></td>
+      <td style="padding:12px"><code>{{ store.slug }}</code></td>
+      <td style="padding:12px">
+        {% if store.active == 1 %}
+          <span style="color:green">✓ 有効</span>
+        {% else %}
+          <span style="color:#d32f2f">× 無効</span>
+        {% endif %}
+      </td>
+      <td style="padding:12px">
+        <div style="display:flex;gap:8px">
+          <a class="btn small" href="{{ url_for('system_admin.tenant_store_detail', tid=tenant.id, sid=store.id) }}">詳細</a>
+          <a class="btn small secondary" href="{{ url_for('tenant_admin.store_edit', store_id=store.id) }}">編集</a>
+          <button class="btn small" type="button" style="background:#d32f2f" 
+                  data-store-id="{{ store.id }}" data-store-name="{{ store.name }}" 
+                  onclick="showDeleteModal(this.getAttribute('data-store-id'), this.getAttribute('data-store-name'))">削除</button>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- スマホ用カード -->
+<div class="store-cards">
+  {% for store in stores %}
+  <div class="store-card" data-name="{{ store.name }}" data-slug="{{ store.slug }}">
+    <div class="store-card-row">
+      <div class="store-card-label">店舗ID:</div>
+      <div class="store-card-value">{{ store.id }}</div>
+    </div>
+    <div class="store-card-row">
+      <div class="store-card-label">名称:</div>
+      <div class="store-card-value"><a href="{{ url_for('system_admin.tenant_store_detail', tid=tenant.id, sid=store.id) }}" class="store-name-link">{{ store.name }}</a></div>
+    </div>
+    <div class="store-card-row">
+      <div class="store-card-label">Slug:</div>
+      <div class="store-card-value"><code>{{ store.slug }}</code></div>
+    </div>
+    <div class="store-card-row">
+      <div class="store-card-label">有効:</div>
+      <div class="store-card-value">
+        {% if store.active == 1 %}
+          <span style="color:green">✓ 有効</span>
+        {% else %}
+          <span style="color:#d32f2f">× 無効</span>
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="store-card-actions">
+      <a class="btn small" href="{{ url_for('system_admin.tenant_store_detail', tid=tenant.id, sid=store.id) }}">詳細</a>
+      <a class="btn small secondary" href="{{ url_for('tenant_admin.store_edit', store_id=store.id) }}">編集</a>
+      <button class="btn small" type="button" style="background:#d32f2f" 
+              data-store-id="{{ store.id }}" data-store-name="{{ store.name }}" 
+              onclick="showDeleteModal(this.getAttribute('data-store-id'), this.getAttribute('data-store-name'))">削除</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p>店舗がまだ登録されていません。</p>
+{% endif %}
+
+<!-- 削除確認モーダル -->
+<div id="deleteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:8px;max-width:500px;width:90%;">
+    <h2 style="color:#d32f2f;margin-top:0">⚠️ 警告</h2>
+    <p style="margin-bottom:20px;line-height:1.6">
+      <strong id="deleteStoreName"></strong> を削除すると、以下の関連データも全て削除されます：
+    </p>
+    <ul style="margin-bottom:20px;line-height:1.8;color:#666">
+      <li>店舗に紐づく全ての管理者の紐付け</li>
+      <li>店舗に紐づく全ての従業員の紐付け</li>
+      <li>店舗に紐づく全てのアプリ設定</li>
+    </ul>
+    <p style="margin-bottom:20px;color:#d32f2f;font-weight:bold">
+      この操作は取り消せません。
+    </p>
+    <p style="margin-bottom:10px">
+      削除を実行するには、ログイン時のパスワードを入力してください：
+    </p>
+    <form id="deleteForm" method="post" action="">
+      <input type="password" name="password" placeholder="パスワード" required 
+             style="width:100%;padding:10px;margin-bottom:20px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" class="btn sub" onclick="hideDeleteModal()">キャンセル</button>
+        <button type="submit" class="btn" style="background:#d32f2f">削除する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// 削除確認モーダル関数
+function showDeleteModal(storeId, storeName) {
+  document.getElementById('deleteStoreName').textContent = storeName;
+  document.getElementById('deleteForm').action = '/tenant_admin/stores/' + storeId + '/delete';
+  document.getElementById('deleteModal').style.display = 'block';
+}
+
+function hideDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  document.getElementById('deleteForm').reset();
+}
+
+// モーダル外をクリックしたら閉じる
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    hideDeleteModal();
+  }
+});
+
+// 検索機能
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const searchResult = document.getElementById('searchResult');
+  const storeRows = document.querySelectorAll('.store-row');
+  const storeCards = document.querySelectorAll('.store-card');
+  
+  function performSearch() {
+    const query = searchInput.value.toLowerCase().trim();
+    let visibleCount = 0;
+    
+    // テーブル行を検索
+    storeRows.forEach(function(row) {
+      const name = row.dataset.name.toLowerCase();
+      const slug = row.dataset.slug.toLowerCase();
+      
+      if (query === '' || name.includes(query) || slug.includes(query)) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+    
+    // カードを検索
+    storeCards.forEach(function(card) {
+      const name = card.dataset.name.toLowerCase();
+      const slug = card.dataset.slug.toLowerCase();
+      
+      if (query === '' || name.includes(query) || slug.includes(query)) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+    
+    // 検索結果を表示
+    if (query === '') {
+      searchResult.textContent = '';
+    } else {
+      const totalCount = storeRows.length;
+      searchResult.textContent = visibleCount + ' / ' + totalCount + ' 件表示中';
+    }
+  }
+  
+  // 入力イベントをリスン
+  searchInput.addEventListener('input', performSearch);
+  searchInput.addEventListener('keyup', performSearch);
+});
+</script>
+{% endblock %}

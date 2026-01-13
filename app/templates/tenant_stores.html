@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}店舗一覧{% endblock %}
+{% block content %}
+<style>
+  .store-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+  }
+  
+  .store-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+  
+  .store-table thead tr {
+    background: #f5f5f5;
+    border-bottom: 2px solid #ddd;
+  }
+  
+  .store-table th {
+    padding: 8px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  
+  .store-table tbody tr {
+    border-bottom: 1px solid #eee;
+  }
+  
+  .store-table td {
+    padding: 8px;
+    white-space: nowrap;
+  }
+  
+  .store-table td.store-name {
+    font-weight: bold;
+  }
+  
+  .store-table td.store-slug code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  
+  .store-table td.store-date {
+    color: #666;
+  }
+  
+  .store-table td.store-actions {
+    white-space: nowrap;
+  }
+  
+  .store-table .btn.small {
+    font-size: 0.9em;
+    padding: 4px 8px;
+  }
+  
+  .store-table .btn.delete {
+    background: #d32f2f;
+  }
+  
+  /* スマホ用カード型レイアウト */
+  @media (max-width: 768px) {
+    .store-table-wrapper {
+      overflow-x: visible;
+    }
+    
+    .store-table thead {
+      display: none;
+    }
+    
+    .store-table tbody {
+      display: block;
+    }
+    
+    .store-table tbody tr {
+      display: block;
+      margin-bottom: 16px;
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+    
+    .store-table td {
+      display: block;
+      padding: 8px 0;
+      white-space: normal;
+      border: none;
+    }
+    
+    .store-table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      display: inline-block;
+      width: 100px;
+      color: #374151;
+    }
+    
+    .store-table td.store-actions {
+      padding-top: 12px;
+      margin-top: 8px;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .store-table td.store-actions::before {
+      display: none;
+    }
+    
+    .store-table .btn.small {
+      display: inline-block;
+      margin: 4px 4px 4px 0;
+      font-size: 0.9em;
+      padding: 8px 12px;
+    }
+    
+    .store-table td.store-actions form {
+      display: inline-block;
+    }
+  }
+</style>
+
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+  <h1 style="margin-top:12px">店舗一覧</h1>
+</div>
+
+<div style="margin-bottom:20px">
+  <a class="btn" href="{{ url_for('tenant_admin.store_new') }}">新規作成</a>
+  <a class="btn sub" href="{{ url_for('tenant_admin.dashboard') }}">戻る</a>
+</div>
+
+{% if stores %}
+<div style="margin-bottom:20px">
+  <input type="text" id="searchInput" placeholder="店舗名またはSlugで検索..." 
+         style="width:100%;max-width:500px;padding:12px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+</div>
+{% endif %}
+
+{% if stores %}
+<div class="store-table-wrapper">
+  <table class="store-table">
+    <thead>
+      <tr>
+        <th>店舗ID</th>
+        <th>名称</th>
+        <th>Slug</th>
+        <th>有効</th>
+        <th>作成日時</th>
+        <th>更新日時</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for store in stores %}
+      <tr>
+        <td data-label="店舗ID: ">{{ store.id }}</td>
+        <td data-label="名称: " class="store-name">
+          <a href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">{{ store['名称'] }}</a>
+        </td>
+        <td data-label="Slug: " class="store-slug"><code>{{ store.slug }}</code></td>
+        <td data-label="有効: ">
+          {% if store.active == 1 %}
+            <span style="color:#2e7d32">✓ 有効</span>
+          {% else %}
+            <span style="color:#d32f2f">× 無効</span>
+          {% endif %}
+        </td>
+        <td data-label="作成日時: " class="store-date">{{ store.created_at }}</td>
+        <td data-label="更新日時: " class="store-date">{{ store.updated_at }}</td>
+        <td class="store-actions">
+          <a class="btn small" href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">詳細</a>
+          <a class="btn small" href="{{ url_for('tenant_admin.store_edit', store_id=store.id) }}">編集</a>
+          <button class="btn small delete" type="button" 
+                  onclick="showDeleteModal({{ store.id }}, '{{ store['名称'] }}')">削除</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p style="color:#666">店舗が登録されていません。</p>
+{% endif %}
+
+<!-- 削除確認モーダル -->
+<div id="deleteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:8px;max-width:500px;width:90%;">
+    <h2 style="color:#d32f2f;margin-top:0">⚠️ 警告</h2>
+    <p style="margin-bottom:20px;line-height:1.6">
+      <strong id="storeName"></strong> を削除すると、以下の関連データも全て削除されます：
+    </p>
+    <ul style="margin-bottom:20px;line-height:1.8;color:#666">
+      <li>店舗に紐づく全ての管理者の紐付け</li>
+      <li>店舗に紐づく全ての従業員の紐付け</li>
+      <li>店舗に紐づく全てのアプリ設定</li>
+    </ul>
+    <p style="margin-bottom:20px;color:#d32f2f;font-weight:bold">
+      この操作は取り消せません。
+    </p>
+    <p style="margin-bottom:10px">
+      削除を実行するには、ログイン時のパスワードを入力してください：
+    </p>
+    <form id="deleteForm" method="post" action="">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <input type="password" name="password" placeholder="パスワード" required 
+             style="width:100%;padding:10px;margin-bottom:20px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" class="btn sub" onclick="hideDeleteModal()">キャンセル</button>
+        <button type="submit" class="btn" style="background:#d32f2f">削除する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// 検索機能
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+  searchInput.addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('.store-table tbody tr');
+    
+    rows.forEach(function(row) {
+      const storeName = row.querySelector('.store-name').textContent.toLowerCase();
+      const storeSlug = row.querySelector('.store-slug').textContent.toLowerCase();
+      
+      if (storeName.includes(searchTerm) || storeSlug.includes(searchTerm)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  });
+}
+
+function showDeleteModal(storeId, storeName) {
+  document.getElementById('storeName').textContent = storeName;
+  document.getElementById('deleteForm').action = '/tenant_admin/stores/' + storeId + '/delete';
+  document.getElementById('deleteModal').style.display = 'block';
+}
+
+function hideDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  document.getElementById('deleteForm').reset();
+}
+
+// モーダル外をクリックしたら閉じる
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    hideDeleteModal();
+  }
+});
+</script>
+{% endblock %}

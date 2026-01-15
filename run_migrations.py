@@ -339,4 +339,10 @@ def run_migrations():
             conn.rollback()
             raise
         
+        print("\n" + "=" * 60)
+        print("マイグレーション完了")
+        print("=" * 60)
         conn.close()
+    except Exception as e:
+        print(f"\n⚠️  マイグレーション全体でエラーが発生しました: {e}")
+        raise

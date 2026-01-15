@@ -309,3 +309,78 @@ def company_delete(company_id):
         return redirect(url_for('clients.clients'))
     finally:
         db.close()
+
+
+# ========================================
+# チャット機能
+# ========================================
+
+@bp.route('/chat', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chat():
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    
+    from datetime import datetime
+    from app.db import get_db
+    
+    db = get_db()
+    
+    if request.method == 'POST':
+        sender = session.get('username', 'Unknown')
+        message = request.form.get('message', '')
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        db.execute(
+            'INSERT INTO "T_メッセージ" (sender, message, timestamp) VALUES (?, ?, ?)',
+            (sender, message, timestamp)
+        )
+        db.commit()
+        return redirect(url_for('clients.chat'))
+    
+    messages = db.execute('SELECT * FROM "T_メッセージ" ORDER BY id DESC LIMIT 20').fetchall()
+    return render_template('chat.html', messages=list(reversed(messages)))
+
+
+# ========================================
+# ファイル共有機能
+# ========================================
+
+@bp.route('/files', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def files():
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    
+    from datetime import datetime
+    from app.db import get_db
+    from werkzeug.utils import secure_filename
+    import os
+    
+    db = get_db()
+    
+    if request.method == 'POST':
+        f = request.files.get('file')
+        if f and f.filename:
+            # ファイルを一時的に保存（実際のストレージ連携は後で実装）
+            filename = secure_filename(f.filename)
+            upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+            filepath = os.path.join(upload_folder, filename)
+            f.save(filepath)
+            
+            uploader = session.get('username', 'Unknown')
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # filenameにファイルパスを保存（元のスキーマに合わせる）
+            db.execute(
+                'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (?, ?, ?)',
+                (filename, uploader, timestamp)
+            )
+            db.commit()
+            return redirect(url_for('clients.files'))
+    
+    files_list = db.execute('SELECT * FROM "T_ファイル" ORDER BY id DESC').fetchall()
+    return render_template('files.html', files=files_list)

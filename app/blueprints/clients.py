@@ -14,7 +14,10 @@ bp = Blueprint('clients', __name__, url_prefix='/clients')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def clients():
     """顧問先一覧"""
+    print(f"[DEBUG] Session keys: {list(session.keys())}")
+    print(f"[DEBUG] Session content: {dict(session)}")
     tenant_id = session.get('tenant_id')
+    print(f"[DEBUG] tenant_id from session: {tenant_id}")
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_admin.dashboard'))

@@ -59,7 +59,7 @@
         {% for c in clients %}
         <tr>
             <td>
-                <a href="{{ url_for('client_info', client_id=c['id']) }}" class="detail-link">詳細</a>
+                <a href="{{ url_for('clients.client_info', client_id=c['id']) }}" class="detail-link">詳細</a>
             </td>
             <td>{{ c['type'] }}</td>
             <td>{{ c['name'] }}</td>

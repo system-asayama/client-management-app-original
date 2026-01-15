@@ -2,10 +2,8 @@
 顧問先管理用モデル
 """
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-
-Base = declarative_base()
+from app.db import Base
 
 
 class TClient(Base):

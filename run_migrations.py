@@ -166,6 +166,79 @@ def run_migrations():
             conn.rollback()
             raise
         
+        # マイグレーション: T_会社基本情報テーブル作成
+        print("\n[マイグレーション] T_会社基本情報テーブル作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'T_会社基本情報'
+                    );
+                """)
+                exists = cur.fetchone()[0]
+                
+                if not exists:
+                    print("  - T_会社基本情報 テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_会社基本情報" (
+                            id SERIAL PRIMARY KEY,
+                            "顧問先ID" INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            "会社名" VARCHAR(255),
+                            "郵便番号" VARCHAR(20),
+                            "都道府県" VARCHAR(50),
+                            "市区町村番地" VARCHAR(255),
+                            "建物名部屋番号" VARCHAR(255),
+                            "電話番号1" VARCHAR(50),
+                            "電話番号2" VARCHAR(50),
+                            "ファックス番号" VARCHAR(50),
+                            "メールアドレス" VARCHAR(255),
+                            "担当者名" VARCHAR(100),
+                            "業種" VARCHAR(100),
+                            "従業員数" INTEGER,
+                            "法人番号" VARCHAR(50)
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_会社基本情報 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_会社基本情報 テーブルは既に存在します（スキップ）")
+            else:
+                # SQLite用の処理
+                cur.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='T_会社基本情報'
+                """)
+                if not cur.fetchone():
+                    print("  - T_会社基本情報 テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_会社基本情報" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            "顧問先ID" INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            "会社名" TEXT,
+                            "郵便番号" TEXT,
+                            "都道府県" TEXT,
+                            "市区町村番地" TEXT,
+                            "建物名部屋番号" TEXT,
+                            "電話番号1" TEXT,
+                            "電話番号2" TEXT,
+                            "ファックス番号" TEXT,
+                            "メールアドレス" TEXT,
+                            "担当者名" TEXT,
+                            "業種" TEXT,
+                            "従業員数" INTEGER,
+                            "法人番号" TEXT
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_会社基本情報 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_会社基本情報 テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+            raise
+        
         conn.close()
         
         print("\n" + "=" * 60)
@@ -178,48 +251,6 @@ def run_migrations():
         print("=" * 60)
         return 1
 
+
 if __name__ == "__main__":
     sys.exit(run_migrations())
-
-# ========================================
-# Migration: T_会社基本情報テーブル作成
-# ========================================
-print("\n[Migration] T_会社基本情報テーブル作成")
-try:
-    result = conn.execute(text("""
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_name = 'T_会社基本情報'
-        );
-    """))
-    exists = result.scalar()
-    
-    if not exists:
-        print("📝 T_会社基本情報 テーブルを作成中...")
-        conn.execute(text("""
-            CREATE TABLE "T_会社基本情報" (
-                id SERIAL PRIMARY KEY,
-                "顧問先ID" INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
-                "会社名" VARCHAR(255),
-                "郵便番号" VARCHAR(20),
-                "都道府県" VARCHAR(50),
-                "市区町村番地" VARCHAR(255),
-                "建物名部屋番号" VARCHAR(255),
-                "電話番号1" VARCHAR(50),
-                "電話番号2" VARCHAR(50),
-                "ファックス番号" VARCHAR(50),
-                "メールアドレス" VARCHAR(255),
-                "担当者名" VARCHAR(100),
-                "業種" VARCHAR(100),
-                "従業員数" INTEGER,
-                "法人番号" VARCHAR(50)
-            );
-        """))
-        conn.commit()
-        print("✅ T_会社基本情報 テーブルを作成しました")
-    else:
-        print("✅ T_会社基本情報 テーブルは既に存在します")
-except Exception as e:
-    print(f"❌ エラー: {e}")
-    conn.rollback()
-

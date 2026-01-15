@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>会社基本情報 - {{ company['会社名'] }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h2 { margin-bottom: 12px; }
+        table { border-collapse: collapse; min-width: 480px; }
+        th, td {
+            border: 1px solid #aaa; padding: 7px 14px;
+            font-size: 14px; text-align: left;
+        }
+        th { background: #f7f7f7; width: 130px; }
+
+        /* 🔹 ボタン風リンクスタイル */
+        .nav-btn {
+            display: inline-block;
+            margin-right: 8px;
+            padding: 6px 16px;
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-btn:hover {
+            background-color: #e0e0e0;
+        }
+
+        .back-link {
+            margin-top: 20px;
+            display: inline-block;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h2>会社基本情報</h2>
+
+    <!-- 🔹 ナビゲーションボタン -->
+    <div style="margin-bottom: 10px;">
+        <a href="{{ url_for('tenant_admin.dashboard') }}" class="nav-btn">🏠 ホーム</a>
+        <a href="javascript:history.back()" class="nav-btn">← 戻る</a>
+    </div>
+
+    <table>
+        <tr><th>顧問先ID</th><td>{{ company['顧問先ID'] }}</td></tr>
+        <tr><th>会社名</th><td>{{ company['会社名'] }}</td></tr>
+        <tr><th>郵便番号</th><td>{{ company['郵便番号'] }}</td></tr>
+        <tr><th>都道府県</th><td>{{ company['都道府県'] }}</td></tr>
+        <tr><th>市区町村・番地</th><td>{{ company['市区町村番地'] }}</td></tr>
+        <tr><th>建物名・部屋番号</th><td>{{ company['建物名部屋番号'] }}</td></tr>
+        <tr><th>電話番号1</th><td>{{ company['電話番号1'] }}</td></tr>
+        <tr><th>電話番号2</th><td>{{ company['電話番号2'] }}</td></tr>
+        <tr><th>ファックス番号</th><td>{{ company['ファックス番号'] }}</td></tr>
+        <tr><th>メールアドレス</th><td>{{ company['メールアドレス'] }}</td></tr>
+        <tr><th>担当者名</th><td>{{ company['担当者名'] }}</td></tr>
+        <tr><th>業種</th><td>{{ company['業種'] }}</td></tr>
+        <tr><th>従業員数</th><td>{{ company['従業員数'] }}</td></tr>
+        <tr><th>法人番号</th><td>{{ company['法人番号'] }}</td></tr>
+    </table>
+
+    <br>
+    <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>
+</body>
+</html>

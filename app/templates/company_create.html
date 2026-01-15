@@ -29,7 +29,7 @@
         顧問先: <strong>{{ client['name'] }}</strong>（{{ client['type'] }}）<br>
         顧問先ID: {{ client['id'] }}
     </div>
-    <form action="{{ url_for('company_create', client_id=client['id']) }}" method="post" autocomplete="off">
+    <form action="{{ url_for('clients.company_create', client_id=client['id']) }}" method="post" autocomplete="off">
         <input type="hidden" name="顧問先ID" value="{{ client['id'] }}">
 
         <label for="会社名">会社名</label>
@@ -73,6 +73,6 @@
 
         <button type="submit" class="submit-btn">登録</button>
     </form>
-    <a href="{{ url_for('client_info', client_id=client['id']) }}" class="back-link">← 顧問先情報へ戻る</a>
+    <a href="{{ url_for('clients.client_info', client_id=client['id']) }}" class="back-link">← 顧問先情報へ戻る</a>
 </body>
 </html>

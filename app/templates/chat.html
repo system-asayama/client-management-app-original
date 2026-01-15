@@ -6,7 +6,7 @@
 </head>
 <body>
     <h2>💬 チャットルーム</h2>
-    <a href="{{ url_for('dashboard') }}">← ダッシュボードへ戻る</a>
+    <a href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードへ戻る</a>
     <div style="border:1px solid #aaa; padding:10px; height:300px; overflow-y:scroll;">
         {% for msg in messages %}
             <p><strong>{{ msg[1] }}:</strong> {{ msg[2] }} <small>({{ msg[3] }})</small></p>

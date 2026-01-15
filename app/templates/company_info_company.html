@@ -64,6 +64,19 @@
     </table>
 
     <br>
+    <div style="margin-top: 20px;">
+        <a href="{{ url_for('clients.company_edit', company_id=company.id) }}"
+           style="display:inline-block; margin-right:10px; padding:6px 18px; background:#f08c2d; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
+            編集
+        </a>
+        <form action="{{ url_for('clients.company_delete', company_id=company.id) }}" method="post" style="display:inline-block;" onsubmit="return confirm('本当に削除しますか？');">
+            <button type="submit"
+                    style="padding:6px 18px; background:#d9534f; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:14px;">
+                削除
+            </button>
+        </form>
+    </div>
+    <br>
     <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>
 </body>
 </html>

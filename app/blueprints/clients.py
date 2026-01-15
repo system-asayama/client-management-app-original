@@ -323,23 +323,26 @@ def chat():
         return redirect(url_for('tenant_admin.dashboard'))
     
     from datetime import datetime
-    from app.db import get_db
+    from app.utils.db import get_db, _sql
     
-    db = get_db()
+    conn = get_db()
+    cur = conn.cursor()
     
     if request.method == 'POST':
         sender = session.get('username', 'Unknown')
         message = request.form.get('message', '')
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        db.execute(
-            'INSERT INTO "T_メッセージ" (sender, message, timestamp) VALUES (?, ?, ?)',
-            (sender, message, timestamp)
-        )
-        db.commit()
+        sql = _sql(conn, 'INSERT INTO "T_メッセージ" (sender, message, timestamp) VALUES (%s, %s, %s)')
+        cur.execute(sql, (sender, message, timestamp))
+        conn.commit()
+        conn.close()
         return redirect(url_for('clients.chat'))
     
-    messages = db.execute('SELECT * FROM "T_メッセージ" ORDER BY id DESC LIMIT 20').fetchall()
+    sql = _sql(conn, 'SELECT * FROM "T_メッセージ" ORDER BY id DESC LIMIT 20')
+    cur.execute(sql)
+    messages = cur.fetchall()
+    conn.close()
     return render_template('chat.html', messages=list(reversed(messages)))
 
 
@@ -355,11 +358,12 @@ def files():
         return redirect(url_for('tenant_admin.dashboard'))
     
     from datetime import datetime
-    from app.db import get_db
+    from app.utils.db import get_db, _sql
     from werkzeug.utils import secure_filename
     import os
     
-    db = get_db()
+    conn = get_db()
+    cur = conn.cursor()
     
     if request.method == 'POST':
         f = request.files.get('file')
@@ -375,12 +379,14 @@ def files():
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
             # filenameにファイルパスを保存（元のスキーマに合わせる）
-            db.execute(
-                'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (?, ?, ?)',
-                (filename, uploader, timestamp)
-            )
-            db.commit()
+            sql = _sql(conn, 'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (%s, %s, %s)')
+            cur.execute(sql, (filename, uploader, timestamp))
+            conn.commit()
+            conn.close()
             return redirect(url_for('clients.files'))
     
-    files_list = db.execute('SELECT * FROM "T_ファイル" ORDER BY id DESC').fetchall()
+    sql = _sql(conn, 'SELECT * FROM "T_ファイル" ORDER BY id DESC')
+    cur.execute(sql)
+    files_list = cur.fetchall()
+    conn.close()
     return render_template('files.html', files=files_list)

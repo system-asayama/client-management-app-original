@@ -1901,7 +1901,8 @@ AVAILABLE_APPS = [
     {
         'name': 'client-management',
         'display_name': '顧問先管理',
-        'url': '/clients',
+        'url': '/clients/',
+        'description': '顧問先情報を管理します',
         'scope': 'tenant'
     }
 ]

@@ -13,8 +13,11 @@
     <div style="margin-top:20px">
       {% for app in apps %}
       <div class="card" style="margin-bottom:16px">
-        <h3 style="color:#6B46C1;margin-bottom:8px">{{ app.display_name }}</h3>
-        <p style="color:#666;margin:0">{{ app.description or '利用可能なアプリの一覧を表示' }}</p>
+        <h3 style="color:#6B46C1;margin-bottom:8px">
+          <a href="{{ app.url }}" style="text-decoration:none;color:#6B46C1">{{ app.display_name }}</a>
+        </h3>
+        <p style="color:#666;margin:8px 0">{{ app.description or '利用可能なアプリの一覧を表示' }}</p>
+        <a href="{{ app.url }}" class="btn" style="margin-top:12px">アプリを開く</a>
       </div>
       {% endfor %}
     </div>

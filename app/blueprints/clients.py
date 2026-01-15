@@ -11,7 +11,7 @@ bp = Blueprint('clients', __name__, url_prefix='/clients')
 
 
 @bp.route('/')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def clients():
     """顧問先一覧"""
     tenant_id = session.get('tenant_id')
@@ -67,7 +67,7 @@ def add_client():
 
 
 @bp.route('/<int:client_id>')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def client_info(client_id):
     """顧問先詳細"""
     tenant_id = session.get('tenant_id')
@@ -91,7 +91,7 @@ def client_info(client_id):
 
 
 @bp.route('/<int:client_id>/chat')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def client_chat(client_id):
     """顧問先チャット"""
     tenant_id = session.get('tenant_id')

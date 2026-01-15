@@ -46,7 +46,7 @@ def dashboard():
                     app_setting = db.query(TTenpoAppSetting).filter(
                         and_(
                             TTenpoAppSetting.store_id == store_id,
-                            TTenpoAppSetting.app_name == app['name']
+                            TTenpoAppSetting.app_id == app['name']
                         )
                     ).first()
                     enabled = app_setting.enabled if app_setting else 1
@@ -85,7 +85,7 @@ def available_apps():
                     app_setting = db.query(TTenpoAppSetting).filter(
                         and_(
                             TTenpoAppSetting.store_id == store_id,
-                            TTenpoAppSetting.app_name == app['name']
+                            TTenpoAppSetting.app_id == app['name']
                         )
                     ).first()
                     enabled = app_setting.enabled if app_setting else 1

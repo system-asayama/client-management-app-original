@@ -1,95 +1,115 @@
 """
-顧問先管理ブループリント
+顧問先管理ブループリント（SQLAlchemy版）
 """
-from flask import Blueprint, render_template, request, redirect, url_for, session
-from app.db import get_conn
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from app.db import SessionLocal
+from app.models_clients import TClient
+from app.utils.decorators import require_roles, ROLES
+from sqlalchemy import and_
 
 bp = Blueprint('clients', __name__, url_prefix='/clients')
 
 
 @bp.route('/')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def clients():
     """顧問先一覧"""
-    if 'user' not in session:
-        return redirect(url_for('auth.login'))
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
     
-    conn = get_conn()
-    rows = conn.execute("SELECT * FROM T_顧問先 ORDER BY id DESC").fetchall()
-    conn.close()
-    return render_template('clients.html', clients=rows)
+    db = SessionLocal()
+    try:
+        clients = db.query(TClient).filter(TClient.tenant_id == tenant_id).order_by(TClient.id.desc()).all()
+        return render_template('clients.html', clients=clients)
+    finally:
+        db.close()
 
 
 @bp.route('/add', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def add_client():
     """顧問先追加"""
-    if 'user' not in session:
-        return redirect(url_for('auth.login'))
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
     
     if request.method == 'POST':
-        client_type = request.form['type']
-        name = request.form['name']
-        email = request.form['email']
-        phone = request.form['phone']
-        notes = request.form['notes']
+        client_type = request.form.get('type')
+        name = request.form.get('name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        notes = request.form.get('notes')
         
-        conn = get_conn()
-        conn.execute(
-            "INSERT INTO T_顧問先 (type, name, email, phone, notes) VALUES (?, ?, ?, ?, ?)",
-            (client_type, name, email, phone, notes)
-        )
-        conn.commit()
-        conn.close()
-        return redirect(url_for('clients.clients'))
+        db = SessionLocal()
+        try:
+            new_client = TClient(
+                tenant_id=tenant_id,
+                type=client_type,
+                name=name,
+                email=email,
+                phone=phone,
+                notes=notes
+            )
+            db.add(new_client)
+            db.commit()
+            flash('顧問先を追加しました', 'success')
+            return redirect(url_for('clients.clients'))
+        except Exception as e:
+            db.rollback()
+            flash(f'エラーが発生しました: {str(e)}', 'error')
+        finally:
+            db.close()
     
     return render_template('add_client.html')
 
 
 @bp.route('/<int:client_id>')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def client_info(client_id):
     """顧問先詳細"""
-    if 'user' not in session:
-        return redirect(url_for('auth.login'))
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
     
-    conn = get_conn()
-    client = conn.execute("SELECT * FROM T_顧問先 WHERE id = ?", (client_id,)).fetchone()
-    company = conn.execute("SELECT * FROM T_会社基本情報 WHERE 顧問先ID = ?", (client_id,)).fetchone()
-    conn.close()
-    
-    if client is None:
-        return "顧問先が見つかりません", 404
-    
-    return render_template('client_info.html', client=client, company=company)
-
-
-@bp.route('/<int:client_id>/chat', methods=['GET', 'POST'])
-def client_chat(client_id):
-    """顧問先別チャット"""
-    if 'user' not in session:
-        return redirect(url_for('auth.login'))
-    
-    conn = get_conn()
-    client = conn.execute("SELECT * FROM T_顧問先 WHERE id = ?", (client_id,)).fetchone()
-    
-    if client is None:
-        conn.close()
-        return "顧問先が見つかりません", 404
-    
-    if request.method == 'POST':
-        from datetime import datetime
-        sender = session['user']
-        message = request.form['message']
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
         
-        conn.execute(
-            "INSERT INTO T_メッセージ (sender, message, timestamp, client_id) VALUES (?, ?, ?, ?)",
-            (sender, message, timestamp, client_id)
-        )
-        conn.commit()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        
+        return render_template('client_info.html', client=client)
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/chat')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def client_chat(client_id):
+    """顧問先チャット"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
     
-    messages = conn.execute(
-        "SELECT * FROM T_メッセージ WHERE client_id = ? ORDER BY id DESC LIMIT 20",
-        (client_id,)
-    ).fetchall()
-    conn.close()
-    
-    return render_template('client_chat.html', client=client, messages=reversed(messages))
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        
+        # チャット機能は今後実装
+        return render_template('client_chat.html', client=client, messages=[])
+    finally:
+        db.close()

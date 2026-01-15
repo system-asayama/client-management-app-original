@@ -328,22 +328,23 @@ def chat():
     conn = get_db()
     cur = conn.cursor()
     
-    if request.method == 'POST':
-        sender = session.get('username', 'Unknown')
-        message = request.form.get('message', '')
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        if request.method == 'POST':
+            sender = session.get('username', 'Unknown')
+            message = request.form.get('message', '')
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            sql = _sql(conn, 'INSERT INTO "T_メッセージ" (sender, message, timestamp) VALUES (%s, %s, %s)')
+            cur.execute(sql, (sender, message, timestamp))
+            # autocommit=Trueのためconn.commit()は不要
+            return redirect(url_for('clients.chat'))
         
-        sql = _sql(conn, 'INSERT INTO "T_メッセージ" (sender, message, timestamp) VALUES (%s, %s, %s)')
-        cur.execute(sql, (sender, message, timestamp))
-        conn.commit()
+        sql = _sql(conn, 'SELECT * FROM "T_メッセージ" ORDER BY id DESC LIMIT 20')
+        cur.execute(sql)
+        messages = cur.fetchall()
+        return render_template('chat.html', messages=list(reversed(messages)))
+    finally:
         conn.close()
-        return redirect(url_for('clients.chat'))
-    
-    sql = _sql(conn, 'SELECT * FROM "T_メッセージ" ORDER BY id DESC LIMIT 20')
-    cur.execute(sql)
-    messages = cur.fetchall()
-    conn.close()
-    return render_template('chat.html', messages=list(reversed(messages)))
 
 
 # ========================================
@@ -365,28 +366,29 @@ def files():
     conn = get_db()
     cur = conn.cursor()
     
-    if request.method == 'POST':
-        f = request.files.get('file')
-        if f and f.filename:
-            # ファイルを一時的に保存（実際のストレージ連携は後で実装）
-            filename = secure_filename(f.filename)
-            upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
-            os.makedirs(upload_folder, exist_ok=True)
-            filepath = os.path.join(upload_folder, filename)
-            f.save(filepath)
-            
-            uploader = session.get('username', 'Unknown')
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
-            # filenameにファイルパスを保存（元のスキーマに合わせる）
-            sql = _sql(conn, 'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (%s, %s, %s)')
-            cur.execute(sql, (filename, uploader, timestamp))
-            conn.commit()
-            conn.close()
-            return redirect(url_for('clients.files'))
-    
-    sql = _sql(conn, 'SELECT * FROM "T_ファイル" ORDER BY id DESC')
-    cur.execute(sql)
-    files_list = cur.fetchall()
-    conn.close()
-    return render_template('files.html', files=files_list)
+    try:
+        if request.method == 'POST':
+            f = request.files.get('file')
+            if f and f.filename:
+                # ファイルを一時的に保存（実際のストレージ連携は後で実装）
+                filename = secure_filename(f.filename)
+                upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
+                os.makedirs(upload_folder, exist_ok=True)
+                filepath = os.path.join(upload_folder, filename)
+                f.save(filepath)
+                
+                uploader = session.get('username', 'Unknown')
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                # filenameにファイルパスを保存（元のスキーマに合わせる）
+                sql = _sql(conn, 'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (%s, %s, %s)')
+                cur.execute(sql, (filename, uploader, timestamp))
+                # autocommit=Trueのためconn.commit()は不要
+                return redirect(url_for('clients.files'))
+        
+        sql = _sql(conn, 'SELECT * FROM "T_ファイル" ORDER BY id DESC')
+        cur.execute(sql)
+        files_list = cur.fetchall()
+        return render_template('files.html', files=files_list)
+    finally:
+        conn.close()

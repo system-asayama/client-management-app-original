@@ -126,6 +126,46 @@ def run_migrations():
             conn.rollback()
             raise
         
+        # マイグレーション4: T_テナントアプリ設定とT_店舗アプリ設定のapp_name→app_idに変更
+        print("\n[マイグレーション] T_テナントアプリ設定とT_店舗アプリ設定のapp_name→app_idに変更...")
+        
+        try:
+            if _is_pg(conn):
+                # T_テナントアプリ設定のapp_nameをapp_idに変更
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'T_テナントアプリ設定' AND column_name = 'app_name'
+                """)
+                if cur.fetchone():
+                    print("  - T_テナントアプリ設定.app_nameをapp_idに変更します...")
+                    cur.execute('ALTER TABLE "T_テナントアプリ設定" RENAME COLUMN app_name TO app_id')
+                    conn.commit()
+                    print("  ✅ T_テナントアプリ設定.app_nameをapp_idに変更しました")
+                else:
+                    print("  ℹ️  T_テナントアプリ設定.app_nameは既にapp_idです（スキップ）")
+                
+                # T_店舗アプリ設定のapp_nameをapp_idに変更
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'T_店舗アプリ設定' AND column_name = 'app_name'
+                """)
+                if cur.fetchone():
+                    print("  - T_店舗アプリ設定.app_nameをapp_idに変更します...")
+                    cur.execute('ALTER TABLE "T_店舗アプリ設定" RENAME COLUMN app_name TO app_id')
+                    conn.commit()
+                    print("  ✅ T_店舗アプリ設定.app_nameをapp_idに変更しました")
+                else:
+                    print("  ℹ️  T_店舗アプリ設定.app_nameは既にapp_idです（スキップ）")
+            else:
+                # SQLite: カラム名変更はテーブル再作成が必要
+                print("  ℹ️  SQLiteではカラム名変更をスキップします")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+            raise
+        
         conn.close()
         
         print("\n" + "=" * 60)

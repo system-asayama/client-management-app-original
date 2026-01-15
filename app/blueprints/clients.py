@@ -31,7 +31,7 @@ def clients():
 
 
 @bp.route('/add', methods=['GET', 'POST'])
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def add_client():
     """顧問先追加"""
     tenant_id = session.get('tenant_id')

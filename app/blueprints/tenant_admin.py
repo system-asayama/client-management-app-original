@@ -53,7 +53,6 @@ def dashboard():
         tenant_name = tenant.名称 if tenant else None
         
         # AVAILABLE_APPSからテナントレベルのアプリをフィルタリング
-        from ..blueprints.tenant_admin import AVAILABLE_APPS
         tenant_apps = [app for app in AVAILABLE_APPS if app.get('scope') == 'tenant']
         
         return render_template('tenant_admin_dashboard.html', 

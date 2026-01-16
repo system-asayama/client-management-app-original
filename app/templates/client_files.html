@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ client.name }} - ファイル共有</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .upload-form { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        .file-list { list-style: none; padding: 0; }
+        .file-item { padding: 10px; margin: 5px 0; background: #fff; border: 1px solid #ddd; border-radius: 3px; }
+        .file-link { color: #0066cc; text-decoration: none; font-weight: bold; }
+        .file-link:hover { text-decoration: underline; }
+        .file-meta { font-size: 0.9em; color: #666; margin-left: 10px; }
+        .nav-links { margin-top: 20px; }
+        .nav-links a { margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <h1>📁 {{ client.name }} のファイル共有</h1>
+    
+    <div class="upload-form">
+        <h3>ファイルをアップロード</h3>
+        <form method="post" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">アップロード</button>
+        </form>
+    </div>
+    
+    <h3>アップロード済みファイル</h3>
+    {% if files %}
+    <ul class="file-list">
+        {% for f in files %}
+        <li class="file-item">
+            <a href="{{ f.file_url }}" target="_blank" class="file-link">{{ f.filename }}</a>
+            <span class="file-meta">
+                アップロード者: {{ f.uploader }} | 
+                日時: {{ f.timestamp.strftime('%Y-%m-%d %H:%M') if f.timestamp else 'N/A' }}
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>まだファイルがアップロードされていません。</p>
+    {% endif %}
+    
+    <div class="nav-links">
+        <a href="{{ url_for('clients.client_info', client_id=client.id) }}">← 顧問先ページに戻る</a> |
+        <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> |
+        <a href="{{ url_for('tenant_admin.dashboard') }}">🏠 ホーム</a>
+    </div>
+</body>
+</html>

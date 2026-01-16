@@ -26,6 +26,10 @@
     <input type="text" name="message" placeholder="メッセージを入力" required>
     <button type="submit">送信</button>
   </form>
-  <p><a href="{{ url_for('client_info', client_id=client['id']) }}">顧問先ページに戻る</a></p>
+  <p>
+    <a href="{{ url_for('clients.client_info', client_id=client['id']) }}">← 顧問先ページに戻る</a> |
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> |
+    <a href="{{ url_for('tenant_admin.dashboard') }}">🏠 ホーム</a>
+  </p>
 </body>
 </html>

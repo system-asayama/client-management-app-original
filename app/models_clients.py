@@ -19,3 +19,26 @@ class TClient(Base):
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TMessage(Base):
+    """T_メッセージテーブル（顧問先ごとのチャット）"""
+    __tablename__ = 'T_メッセージ'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    sender = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class TFile(Base):
+    """T_ファイルテーブル（顧問先ごとのファイル共有）"""
+    __tablename__ = 'T_ファイル'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_url = Column(Text, nullable=False)
+    uploader = Column(String(255), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)

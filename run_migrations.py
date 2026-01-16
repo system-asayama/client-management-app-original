@@ -346,3 +346,6 @@ def run_migrations():
     except Exception as e:
         print(f"\n⚠️  マイグレーション全体でエラーが発生しました: {e}")
         raise
+
+if __name__ == "__main__":
+    run_migrations()

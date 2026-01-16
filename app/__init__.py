@@ -236,6 +236,12 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ storage blueprint 登録エラー: {e}")
 
+    try:
+        from .blueprints.tenant_storage import bp as tenant_storage_bp
+        app.register_blueprint(tenant_storage_bp)
+    except Exception as e:
+        print(f"⚠️ tenant_storage blueprint 登録エラー: {e}")
+
     # debug blueprint登録
     try:
         from .blueprints.debug_routes import debug_bp

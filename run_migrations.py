@@ -381,6 +381,68 @@ def run_migrations():
             conn.rollback()
             raise
         
+        # マイグレーション: T_外部ストレージ連携テーブル作成
+        print("\n[マイグレーション] T_外部ストレージ連携テーブル作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'T_外部ストレージ連携'
+                    );
+                """)
+                exists = cur.fetchone()[0]
+                
+                if not exists:
+                    print("  - T_外部ストレージ連携 テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_外部ストレージ連携" (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id) ON DELETE CASCADE,
+                            provider VARCHAR(50) NOT NULL,
+                            access_token TEXT,
+                            refresh_token TEXT,
+                            bucket_name TEXT,
+                            service_account_json TEXT,
+                            status VARCHAR(20) DEFAULT 'active',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_外部ストレージ連携 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_外部ストレージ連携 テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='T_外部ストレージ連携'
+                """)
+                if not cur.fetchone():
+                    print("  - T_外部ストレージ連携 テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_外部ストレージ連携" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id) ON DELETE CASCADE,
+                            provider TEXT NOT NULL,
+                            access_token TEXT,
+                            refresh_token TEXT,
+                            bucket_name TEXT,
+                            service_account_json TEXT,
+                            status TEXT DEFAULT 'active',
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_外部ストレージ連携 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_外部ストレージ連携 テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+            raise
+        
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

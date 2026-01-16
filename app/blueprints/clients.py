@@ -360,8 +360,7 @@ def files():
     
     from datetime import datetime
     from app.utils.db import get_db, _sql
-    from werkzeug.utils import secure_filename
-    import os
+    from app.utils.storage import storage_manager
     
     conn = get_db()
     cur = conn.cursor()
@@ -370,20 +369,22 @@ def files():
         if request.method == 'POST':
             f = request.files.get('file')
             if f and f.filename:
-                # ファイルを一時的に保存（実際のストレージ連携は後で実装）
-                filename = secure_filename(f.filename)
-                upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
-                os.makedirs(upload_folder, exist_ok=True)
-                filepath = os.path.join(upload_folder, filename)
-                f.save(filepath)
-                
                 uploader = session.get('username', 'Unknown')
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
-                # filenameにファイルパスを保存（元のスキーマに合わせる）
-                sql = _sql(conn, 'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (%s, %s, %s)')
-                cur.execute(sql, (filename, uploader, timestamp))
-                # autocommit=Trueのためconn.commit()は不要
+                # S3にアップロード
+                if storage_manager.is_enabled():
+                    result = storage_manager.upload_file(f, f.filename)
+                    if result['success']:
+                        # filenameにS3のURLを保存
+                        sql = _sql(conn, 'INSERT INTO "T_ファイル" (filename, uploader, timestamp) VALUES (%s, %s, %s)')
+                        cur.execute(sql, (result['url'], uploader, timestamp))
+                        flash('ファイルをアップロードしました', 'success')
+                    else:
+                        flash(f'アップロードエラー: {result["error"]}', 'error')
+                else:
+                    flash('ストレージ連携が設定されていません。環境変数を確認してください。', 'error')
+                
                 return redirect(url_for('clients.files'))
         
         sql = _sql(conn, 'SELECT * FROM "T_ファイル" ORDER BY id DESC')

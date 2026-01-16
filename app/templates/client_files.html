@@ -19,6 +19,16 @@
 <body>
     <h1>📁 {{ client.name }} のファイル共有</h1>
     
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div style="padding: 10px; margin: 10px 0; border-radius: 4px; {% if category == 'error' %}background: #ffebee; color: #c62828;{% else %}background: #e8f5e9; color: #2e7d32;{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
     <div class="upload-form">
         <h3>ファイルをアップロード</h3>
         <form method="post" enctype="multipart/form-data">

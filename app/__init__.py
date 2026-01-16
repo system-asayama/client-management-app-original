@@ -236,6 +236,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ storage blueprint 登録エラー: {e}")
 
+    # debug blueprint登録
+    try:
+        from .blueprints.debug_routes import debug_bp
+        app.register_blueprint(debug_bp)
+    except Exception as e:
+        print(f"⚠️ debug blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

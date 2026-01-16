@@ -256,6 +256,7 @@ def run_migrations():
                     cur.execute("""
                         CREATE TABLE "T_メッセージ" (
                             id SERIAL PRIMARY KEY,
+                            client_id INTEGER REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
                             sender VARCHAR(255) NOT NULL,
                             message TEXT NOT NULL,
                             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -265,6 +266,19 @@ def run_migrations():
                     print("  ✅ T_メッセージ テーブルを作成しました")
                 else:
                     print("  ℹ️  T_メッセージ テーブルは既に存在します（スキップ）")
+                    # client_idカラムが存在するか確認し、なければ追加
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name = 'T_メッセージ' AND column_name = 'client_id';
+                    """)
+                    if not cur.fetchone():
+                        print("  - client_idカラムを追加中...")
+                        cur.execute("""
+                            ALTER TABLE "T_メッセージ" 
+                            ADD COLUMN client_id INTEGER REFERENCES "T_顧問先"(id) ON DELETE CASCADE;
+                        """)
+                        conn.commit()
+                        print("  ✅ client_idカラムを追加しました")
             else:
                 cur.execute("""
                     SELECT name FROM sqlite_master 
@@ -306,7 +320,9 @@ def run_migrations():
                     cur.execute("""
                         CREATE TABLE "T_ファイル" (
                             id SERIAL PRIMARY KEY,
+                            client_id INTEGER REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
                             filename TEXT NOT NULL,
+                            file_url TEXT NOT NULL,
                             uploader VARCHAR(255) NOT NULL,
                             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );
@@ -315,6 +331,32 @@ def run_migrations():
                     print("  ✅ T_ファイル テーブルを作成しました")
                 else:
                     print("  ℹ️  T_ファイル テーブルは既に存在します（スキップ）")
+                    # client_idカラムが存在するか確認し、なければ追加
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name = 'T_ファイル' AND column_name = 'client_id';
+                    """)
+                    if not cur.fetchone():
+                        print("  - client_idカラムを追加中...")
+                        cur.execute("""
+                            ALTER TABLE "T_ファイル" 
+                            ADD COLUMN client_id INTEGER REFERENCES "T_顧問先"(id) ON DELETE CASCADE;
+                        """)
+                        conn.commit()
+                        print("  ✅ client_idカラムを追加しました")
+                    # file_urlカラムが存在するか確認し、なければ追加
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name = 'T_ファイル' AND column_name = 'file_url';
+                    """)
+                    if not cur.fetchone():
+                        print("  - file_urlカラムを追加中...")
+                        cur.execute("""
+                            ALTER TABLE "T_ファイル" 
+                            ADD COLUMN file_url TEXT NOT NULL DEFAULT '';
+                        """)
+                        conn.commit()
+                        print("  ✅ file_urlカラムを追加しました")
             else:
                 cur.execute("""
                     SELECT name FROM sqlite_master 

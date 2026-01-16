@@ -3,7 +3,7 @@
 """
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from app.db import SessionLocal
-from app.models import TTenant
+from app.models_login import TTenant
 from sqlalchemy import text
 from app.utils.decorators import require_roles, ROLES
 

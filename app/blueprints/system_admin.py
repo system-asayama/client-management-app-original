@@ -1686,7 +1686,8 @@ def app_management():
                     db.commit()
                     flash(f'アプリを無効化しました', 'success')
             
-            return redirect(url_for('system_admin.app_management'))
+            # テナント選択を維持してリダイレクト
+            return redirect(url_for('system_admin.app_management', tenant_id=tenant_id))
         
         # GETリクエスト
         # 全テナントを取得
@@ -1694,6 +1695,15 @@ def app_management():
         
         # 利用可能アプリ一覧を取得
         available_apps = AVAILABLE_APPS
+        
+        # 選択されたテナントIDを取得
+        selected_tenant_id = request.args.get('tenant_id', type=int)
+        selected_tenant = None
+        
+        if selected_tenant_id:
+            selected_tenant = db.query(TTenant).filter(
+                and_(TTenant.id == selected_tenant_id, TTenant.有効 == 1)
+            ).first()
         
         # 各テナントのアプリ設定を取得
         tenant_app_settings = {}
@@ -1706,10 +1716,11 @@ def app_management():
         return render_template('system_admin_app_management.html',
                              tenants=tenants,
                              available_apps=available_apps,
-                             tenant_app_settings=tenant_app_settings)
+                             tenant_app_settings=tenant_app_settings,
+                             selected_tenant_id=selected_tenant_id,
+                             selected_tenant=selected_tenant)
     finally:
         db.close()
-
 
 @bp.route('/select_tenant_from_mypage', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])

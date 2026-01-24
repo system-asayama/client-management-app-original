@@ -3,6 +3,202 @@
 {% block title %}アプリ管理 - システム管理者{% endblock %}
 
 {% block content %}
+<style>
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #2196F3;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+.app-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.app-list-table th,
+.app-list-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.app-list-table th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+.app-list-table tr:hover {
+  background-color: #f9f9f9;
+}
+
+.app-scope-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.scope-tenant {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.scope-store {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.tenant-select-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.app-settings-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.select-box {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+.btn-primary {
+  background-color: #2196F3;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #1976d2;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.alert {
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+}
+
+.alert-success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.alert-error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.app-info-section {
+  margin-top: 40px;
+}
+
+.app-info-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .app-list-table {
+    font-size: 0.9em;
+  }
+  
+  .app-list-table th,
+  .app-list-table td {
+    padding: 10px 5px;
+  }
+  
+  .toggle-switch {
+    width: 50px;
+    height: 28px;
+  }
+  
+  .toggle-slider:before {
+    height: 20px;
+    width: 20px;
+  }
+  
+  input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+  }
+}
+</style>
+
 <div class="container">
     <h1>アプリ管理</h1>
     
@@ -14,120 +210,100 @@
         {% endif %}
     {% endwith %}
     
-    <div class="card">
+    <!-- テナント選択 -->
+    <div class="tenant-select-card">
         <h2>テナント別アプリ使用設定</h2>
         <p>各テナントで使用可能なアプリケーションを管理します。</p>
         
-        {% if tenants %}
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>テナント名</th>
-                        {% for app in available_apps %}
-                        <th>{{ app.icon }} {{ app.name }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tenant in tenants %}
-                    <tr>
-                        <td>{{ tenant.名称 }}</td>
-                        {% for app in available_apps %}
-                        <td>
-                            {% set is_enabled = tenant_app_settings.get(tenant.id, {}).get(app.id, 0) %}
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="tenant_id" value="{{ tenant.id }}">
-                                <input type="hidden" name="app_id" value="{{ app.id }}">
-                                {% if is_enabled %}
-                                    <input type="hidden" name="action" value="disable">
-                                    <button type="submit" class="btn btn-sm btn-success">有効</button>
-                                {% else %}
-                                    <input type="hidden" name="action" value="enable">
-                                    <button type="submit" class="btn btn-sm btn-secondary">無効</button>
-                                {% endif %}
-                            </form>
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p>テナントが登録されていません。</p>
-        {% endif %}
-        
-        <a href="{{ url_for('system_admin.dashboard') }}" class="btn btn-secondary">ダッシュボードに戻る</a>
+        <form method="GET" action="{{ url_for('system_admin.app_management') }}">
+            <label for="tenant_id" style="display:block; margin-bottom:8px; font-weight:bold;">テナントを選択:</label>
+            <select id="tenant_id" name="tenant_id" class="select-box" onchange="this.form.submit()">
+                <option value="">-- テナントを選択してください --</option>
+                {% for tenant in tenants %}
+                <option value="{{ tenant.id }}" {% if selected_tenant_id == tenant.id %}selected{% endif %}>
+                    {{ tenant.名称 }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
     </div>
     
-    <div class="card mt-4">
+    <!-- アプリ設定 -->
+    {% if selected_tenant_id and selected_tenant %}
+    <div class="app-settings-card">
+        <h2>{{ selected_tenant.名称 }} のアプリ設定</h2>
+        
+        <table class="app-list-table">
+            <thead>
+                <tr>
+                    <th style="width: 40%;">アプリ名</th>
+                    <th style="width: 20%;">スコープ</th>
+                    <th style="width: 30%;">説明</th>
+                    <th style="width: 10%; text-align: center;">使用可否</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in available_apps %}
+                <tr>
+                    <td>
+                        <strong>{{ app.icon }} {{ app.name }}</strong>
+                    </td>
+                    <td>
+                        {% if app.scope == 'tenant' %}
+                        <span class="app-scope-badge scope-tenant">テナント</span>
+                        {% elif app.scope == 'store' %}
+                        <span class="app-scope-badge scope-store">店舗</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <small>{{ app.description }}</small>
+                    </td>
+                    <td style="text-align: center;">
+                        {% set is_enabled = tenant_app_settings.get(selected_tenant_id, {}).get(app.id, 0) %}
+                        <form method="POST" action="{{ url_for('system_admin.app_management') }}" style="display: inline;">
+                            <input type="hidden" name="tenant_id" value="{{ selected_tenant_id }}">
+                            <input type="hidden" name="app_id" value="{{ app.id }}">
+                            <input type="hidden" name="action" value="{% if is_enabled %}disable{% else %}enable{% endif %}">
+                            
+                            <label class="toggle-switch">
+                                <input type="checkbox" {% if is_enabled %}checked{% endif %} onchange="this.form.submit()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    
+    <!-- 利用可能なアプリ一覧 -->
+    <div class="app-info-section">
         <h2>利用可能なアプリ一覧</h2>
         {% for app in available_apps %}
-        <div class="app-info">
+        <div class="app-info-card">
             <h3>{{ app.icon }} {{ app.name }}</h3>
             <p>{{ app.description }}</p>
-            <p><strong>スコープ:</strong> {{ app.scope }}</p>
+            <p><strong>スコープ:</strong> 
+                {% if app.scope == 'tenant' %}
+                <span class="app-scope-badge scope-tenant">テナント</span>
+                {% elif app.scope == 'store' %}
+                <span class="app-scope-badge scope-store">店舗</span>
+                {% endif %}
+            </p>
+            {% if app.routes %}
             <p><strong>機能:</strong></p>
             <ul>
                 {% for route in app.routes %}
                 <li>{{ route.name }} ({{ route.path }})</li>
                 {% endfor %}
             </ul>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
+    
+    <a href="{{ url_for('system_admin.dashboard') }}" class="btn btn-secondary">ダッシュボードに戻る</a>
 </div>
-
-<style>
-.app-info {
-    border: 1px solid #ddd;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-}
-.table {
-    width: 100%;
-    border-collapse: collapse;
-}
-.table th, .table td {
-    border: 1px solid #ddd;
-    padding: 10px;
-    text-align: center;
-}
-.table th {
-    background-color: #f5f5f5;
-}
-.btn {
-    padding: 5px 15px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-}
-.btn-success {
-    background-color: #28a745;
-    color: white;
-}
-.btn-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-.btn-sm {
-    font-size: 0.875rem;
-}
-.alert {
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-}
-.alert-success {
-    background-color: #d4edda;
-    color: #155724;
-}
-.alert-error {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-.mt-4 {
-    margin-top: 2rem;
-}
-</style>
 {% endblock %}

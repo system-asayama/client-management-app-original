@@ -83,7 +83,8 @@
 
 {% if admins %}
 <!-- デスクトップ用テーブル -->
-<table class="admin-table" style="width:100%;border-collapse:collapse;font-size:0.85em">
+<div style="overflow-x:auto">
+<table class="admin-table" style="width:100%;border-collapse:collapse;font-size:0.85em;margin:0 auto">
   <thead>
     <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
       <th style="padding:8px;text-align:left;white-space:nowrap">ID</th>
@@ -91,6 +92,7 @@
       <th style="padding:8px;text-align:left;white-space:nowrap">氏名</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">オーナー</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">管理権限</th>
+      <th style="padding:8px;text-align:left;white-space:nowrap">全テナント<br>管理権限</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">有効</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">作成日時</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">更新日時</th>
@@ -118,6 +120,15 @@
           <span style="color:green;font-weight:bold">✓ 有</span>
         {% else %}
           <span style="color:#999">無</span>
+        {% endif %}
+      </td>
+      <td style="padding:8px;white-space:nowrap">
+        {% if a.is_owner == 1 %}
+          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
+        {% elif a.can_manage_all_tenants == 1 %}
+          <span style="color:green;font-weight:bold">✓ 全テナント</span>
+        {% else %}
+          <span style="color:#999">作成/招待のみ</span>
         {% endif %}
       </td>
       <td style="padding:8px;white-space:nowrap">
@@ -158,9 +169,10 @@
           {% if is_owner() and a.is_owner != 1 %}
             <form method="post" action="{{ url_for('system_admin.toggle_manage_permission', admin_id=a.id) }}" style="display:inline">
               <button class="btn small" type="submit" style="background:{% if a.can_manage_admins == 1 %}#999{% else %}#4caf50{% endif %};font-size:0.9em;padding:4px 8px">
-                {% if a.can_manage_admins == 1 %}権限剥奪{% else %}権限付与{% endif %}
+                {% if a.can_manage_admins == 1 %}管理権限剥奪{% else %}管理権限付与{% endif %}
               </button>
             </form>
+
           <form method="post" action="{{ url_for('system_admin.transfer_ownership', admin_id=a.id) }}" 
                 class="transfer-ownership-form" data-admin-name="{{ a.name }}" style="display:inline">
             <button class="btn small" type="submit" style="background:#ff6f00;font-size:0.9em;padding:4px 8px">オーナー移譲</button>
@@ -174,6 +186,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 
 <!-- スマホ用カード -->
 <div class="admin-cards">
@@ -210,6 +223,18 @@
           <span style="color:green;font-weight:bold">✓ 有</span>
         {% else %}
           <span style="color:#999">無</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="admin-card-row">
+      <div class="admin-card-label">全テナント<br>管理権限:</div>
+      <div class="admin-card-value">
+        {% if a.is_owner == 1 %}
+          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
+        {% elif a.can_manage_all_tenants == 1 %}
+          <span style="color:green;font-weight:bold">✓ 全テナント</span>
+        {% else %}
+          <span style="color:#999">作成/招待のみ</span>
         {% endif %}
       </div>
     </div>
@@ -261,9 +286,10 @@
         {% if is_owner() and a.is_owner != 1 %}
           <form method="post" action="{{ url_for('system_admin.toggle_manage_permission', admin_id=a.id) }}">
             <button class="btn small" type="submit" style="background:{% if a.can_manage_admins == 1 %}#999{% else %}#4caf50{% endif %}">
-              {% if a.can_manage_admins == 1 %}権限剥奪{% else %}権限付与{% endif %}
+              {% if a.can_manage_admins == 1 %}管理権限剥奪{% else %}管理権限付与{% endif %}
             </button>
           </form>
+
           <form method="post" action="{{ url_for('system_admin.transfer_ownership', admin_id=a.id) }}" 
                 class="transfer-ownership-form" data-admin-name="{{ a.name }}">
             <button class="btn small" type="submit" style="background:#ff6f00">オーナー移譲</button>

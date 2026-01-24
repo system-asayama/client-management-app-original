@@ -12,6 +12,14 @@ try:
     from . import models_company  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
+    
+    # ログインシステムの自動マイグレーション実行
+    try:
+        from .auto_migrations import run_auto_migrations
+        run_auto_migrations()
+        print("✅ ログインシステム自動マイグレーション完了")
+    except Exception as e:
+        print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
 except Exception as e:
     print(f"⚠️ データベーステーブル作成エラー: {e}")
 

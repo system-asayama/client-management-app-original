@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAppSetting, TTenpoAppSetting, TTenantAdminTenant
+from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAppSetting, TTenpoAppSetting, TTenantAdminTenant, TSystemAdminTenant
 from sqlalchemy import func, and_, or_
 from ..utils.decorators import ROLES
 from ..utils.decorators import require_roles
@@ -39,6 +39,64 @@ def can_manage_system_admins():
     try:
         user = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
         return user and (user.is_owner == 1 or user.can_manage_admins == 1)
+    finally:
+        db.close()
+
+
+def can_access_tenant(tenant_id):
+    """
+    現在のユーザーが指定されたテナントにアクセスできるかどうかを判定
+    
+    アクセス可能な条件:
+    1. 全テナント管理権限を持つシステム管理者（can_manage_all_tenants=1）
+    2. オーナー権限を持つシステム管理者（is_owner=1）※後方互換性のため
+    3. 自分で作成したテナント（created_by_admin_id）
+    4. 招待されたテナント（T_システム管理者_テナント中間テーブル）
+    
+    Args:
+        tenant_id: テナントID
+        
+    Returns:
+        bool: アクセス可能な場合はTrue
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return False
+    
+    db = SessionLocal()
+    try:
+        user = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not user:
+            return False
+        
+        # 全テナント管理権限を持つ場合は全てのテナントにアクセス可能
+        if hasattr(user, 'can_manage_all_tenants') and user.can_manage_all_tenants == 1:
+            return True
+        
+        # オーナー権限を持つ場合は全てのテナントにアクセス可能（後方互換性）
+        if user.is_owner == 1:
+            return True
+        
+        # 自分で作成したテナントの場合はアクセス可能
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if tenant and hasattr(tenant, 'created_by_admin_id') and tenant.created_by_admin_id == user_id:
+            return True
+        
+        # 招待されたテナントの場合はアクセス可能
+        try:
+            invited = db.query(TSystemAdminTenant).filter(
+                and_(
+                    TSystemAdminTenant.admin_id == user_id,
+                    TSystemAdminTenant.tenant_id == tenant_id
+                )
+            ).first()
+            if invited:
+                return True
+        except Exception:
+            # テーブルが存在しない場合はスキップ
+            pass
+        
+        return False
     finally:
         db.close()
 
@@ -991,7 +1049,8 @@ def tenant_admin_edit(tid, admin_id):
             'email': admin.email,
             'active': admin.active,
             'is_owner': admin.is_owner,
-            'can_manage_admins': admin.can_manage_admins
+            'can_manage_admins': admin.can_manage_admins,
+            'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0)
         }
         
         # テナント一覧を取得
@@ -1239,6 +1298,7 @@ def system_admins():
                 'id': a.id,
                 'login_id': a.login_id,
                 'name': a.name,
+                'email': a.email,
                 'active': a.active,
                 'created_at': a.created_at,
                 'updated_at': a.updated_at,
@@ -1300,6 +1360,11 @@ def system_admin_new():
             # 最初の管理者の場合は自動的にオーナーにする
             is_first_admin = (existing_admin_count == 0)
             
+            # フォームから権限設定を取得
+            active = 1 if request.form.get('active') == '1' else 0
+            can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
+            can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
+            
             # システム管理者作成
             hashed_password = generate_password_hash(password)
             new_admin = TKanrisha(
@@ -1309,9 +1374,10 @@ def system_admin_new():
                 password_hash=hashed_password,
                 role=ROLES["SYSTEM_ADMIN"],
                 tenant_id=None,
-                active=1,
+                active=active if not is_first_admin else 1,
                 is_owner=1 if is_first_admin else 0,
-                can_manage_admins=1 if is_first_admin else 0
+                can_manage_admins=can_manage if not is_first_admin else 1,
+                can_manage_all_tenants=can_manage_all_tenants if not is_first_admin else 1
             )
             db.add(new_admin)
             db.commit()
@@ -1371,6 +1437,7 @@ def system_admin_edit(admin_id):
             password = request.form.get('password', '').strip()
             active = 1 if request.form.get('active') == '1' else 0
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
+            can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             
             if not login_id or not name:
                 flash('ログインIDと氏名は必須です', 'error')
@@ -1394,6 +1461,9 @@ def system_admin_edit(admin_id):
                         # オーナーでない場合のみ管理権限を変更可能
                         if admin.is_owner != 1:
                             admin.can_manage_admins = can_manage
+                            # can_manage_all_tenantsが存在する場合のみ更新
+                            if hasattr(admin, 'can_manage_all_tenants'):
+                                admin.can_manage_all_tenants = can_manage_all_tenants
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -1416,7 +1486,8 @@ def system_admin_edit(admin_id):
             'email': admin.email,
             'active': admin.active,
             'is_owner': admin.is_owner,
-            'can_manage_admins': admin.can_manage_admins
+            'can_manage_admins': admin.can_manage_admins,
+            'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0)
         }
         
         return render_template('sys_system_admin_edit.html', admin=admin_data)

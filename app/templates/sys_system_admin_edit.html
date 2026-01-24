@@ -73,6 +73,24 @@
       {% endif %}
     </div>
 
+    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
+      <label style="display:flex;align-items:center;cursor:{% if admin.is_owner == 1 %}not-allowed{% else %}pointer{% endif %};margin:0">
+        <input name="can_manage_all_tenants" type="checkbox" value="1" 
+               {% if admin.can_manage_all_tenants == 1 or admin.is_owner == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}
+               style="width:auto;margin-right:8px">
+        <span style="font-weight:normal">全テナント管理権限</span>
+      </label>
+      <div class="small" style="color:#666;margin-top:4px">
+        有効にすると、すべてのテナントにアクセスできます。無効の場合は、自分で作成または招待されたテナントのみアクセス可能です。
+      </div>
+      {% if admin.is_owner == 1 %}
+        <div class="small" style="color:#666;margin-top:4px">
+          ※ オーナーは常に全テナント管理権限を持ちます
+        </div>
+      {% endif %}
+    </div>
+
     <div style="margin-top:24px;display:flex;gap:8px">
       <button class="btn" type="submit">更新する</button>
       <a class="btn sub" href="{{ url_for('system_admin.system_admins') }}">キャンセル</a>

@@ -74,6 +74,27 @@
       </div>
     </div>
 
+    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
+      <label style="display:flex;align-items:center;cursor:pointer;margin:0">
+        <input name="can_distribute_apps" type="checkbox" value="1"
+               style="width:auto;margin-right:8px">
+        <span style="font-weight:normal">アプリ配布権限</span>
+      </label>
+      <div class="small" style="color:#666;margin-top:4px;margin-left:28px">
+        チェックを入れると、このシステム管理者は他のシステム管理者にアプリを配布できます。また、他のシステム管理者のプランを設定できます。
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
+      <label style="margin:0;margin-bottom:8px;display:block">アプリ使用上限数（プラン）</label>
+      <input name="app_limit" type="number" min="0" step="1"
+             placeholder="空欄=無制限"
+             style="max-width:200px">
+      <div class="small" style="color:#666;margin-top:4px">
+        このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。
+      </div>
+    </div>
+
     <div style="margin-top:24px;display:flex;gap:8px">
       <button class="btn" type="submit">作成する</button>
       <a class="btn sub" href="{{ url_for('system_admin.system_admins') }}">キャンセル</a>

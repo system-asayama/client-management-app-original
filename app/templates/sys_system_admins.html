@@ -95,6 +95,8 @@
       <th style="padding:8px;text-align:left;white-space:nowrap">オーナー</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">管理権限</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">全テナント<br>管理権限</th>
+      <th style="padding:8px;text-align:left;white-space:nowrap">アプリ<br>配布権限</th>
+      <th style="padding:8px;text-align:left;white-space:nowrap">プラン<br>（上限数）</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">有効</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">作成日時</th>
       <th style="padding:8px;text-align:left;white-space:nowrap">更新日時</th>
@@ -131,6 +133,24 @@
           <span style="color:green;font-weight:bold">✓ 全テナント</span>
         {% else %}
           <span style="color:#999">作成/招待のみ</span>
+        {% endif %}
+      </td>
+      <td style="padding:8px;white-space:nowrap">
+        {% if a.is_owner == 1 %}
+          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
+        {% elif a.can_distribute_apps == 1 %}
+          <span style="color:green;font-weight:bold">✓ 有</span>
+        {% else %}
+          <span style="color:#999">無</span>
+        {% endif %}
+      </td>
+      <td style="padding:8px;white-space:nowrap">
+        {% if a.is_owner == 1 %}
+          <span style="color:green;font-weight:bold">無制限</span>
+        {% elif a.app_limit is not none %}
+          <span style="color:#333">{{ a.app_limit }}アプリ</span>
+        {% else %}
+          <span style="color:green">無制限</span>
         {% endif %}
       </td>
       <td style="padding:8px;white-space:nowrap">
@@ -237,6 +257,30 @@
           <span style="color:green;font-weight:bold">✓ 全テナント</span>
         {% else %}
           <span style="color:#999">作成/招待のみ</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="admin-card-row">
+      <div class="admin-card-label">アプリ<br>配布権限:</div>
+      <div class="admin-card-value">
+        {% if a.is_owner == 1 %}
+          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
+        {% elif a.can_distribute_apps == 1 %}
+          <span style="color:green;font-weight:bold">✓ 有</span>
+        {% else %}
+          <span style="color:#999">無</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="admin-card-row">
+      <div class="admin-card-label">プラン<br>（上限数）:</div>
+      <div class="admin-card-value">
+        {% if a.is_owner == 1 %}
+          <span style="color:green;font-weight:bold">無制限</span>
+        {% elif a.app_limit is not none %}
+          <span style="color:#333">{{ a.app_limit }}アプリ</span>
+        {% else %}
+          <span style="color:green">無制限</span>
         {% endif %}
       </div>
     </div>

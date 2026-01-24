@@ -91,6 +91,42 @@
       {% endif %}
     </div>
 
+    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
+      <label style="display:flex;align-items:center;cursor:{% if admin.is_owner == 1 %}not-allowed{% else %}pointer{% endif %};margin:0">
+        <input name="can_distribute_apps" type="checkbox" value="1" 
+               {% if admin.can_distribute_apps == 1 or admin.is_owner == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}
+               style="width:auto;margin-right:8px">
+        <span style="font-weight:normal">アプリ配布権限</span>
+      </label>
+      <div class="small" style="color:#666;margin-top:4px">
+        有効にすると、他のシステム管理者にアプリを配布できます。また、他のシステム管理者のプランを設定できます。
+      </div>
+      {% if admin.is_owner == 1 %}
+        <div class="small" style="color:#666;margin-top:4px">
+          ※ オーナーは常にアプリ配布権限を持ちます
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
+      <label style="margin:0;margin-bottom:8px;display:block">アプリ使用上限数（プラン）</label>
+      <input name="app_limit" type="number" min="0" step="1"
+             value="{{ admin.app_limit if admin.app_limit is not none else '' }}"
+             placeholder="空欄=無制限"
+             {% if admin.is_owner == 1 %}disabled{% endif %}
+             style="max-width:200px">
+      <div class="small" style="color:#666;margin-top:4px">
+        このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。
+      </div>
+      {% if admin.is_owner == 1 %}
+        <div class="small" style="color:#666;margin-top:4px">
+          ※ オーナーは常に無制限プランです
+        </div>
+        <input name="app_limit" type="hidden" value="">
+      {% endif %}
+    </div>
+
     <div style="margin-top:24px;display:flex;gap:8px">
       <button class="btn" type="submit">更新する</button>
       <a class="btn sub" href="{{ url_for('system_admin.system_admins') }}">キャンセル</a>

@@ -1698,6 +1698,10 @@ def app_management():
             app_id = request.form.get('app_id')
             action = request.form.get('action')  # 'enable' or 'disable'
             
+            # デバッグログ
+            print(f"[DEBUG] POST received: tenant_id={tenant_id}, app_id={app_id}, action={action}")
+            print(f"[DEBUG] Form data: {dict(request.form)}")
+            
             if not tenant_id or not app_id:
                 flash('テナントとアプリを選択してください', 'error')
                 return redirect(url_for('system_admin.app_management'))
@@ -1713,6 +1717,7 @@ def app_management():
             if action == 'enable':
                 if not app_setting:
                     # 新規作成
+                    print(f"[DEBUG] Creating new app_setting for tenant_id={tenant_id}, app_id={app_id}")
                     app_setting = TTenantAppSetting(
                         tenant_id=tenant_id,
                         app_id=app_id,
@@ -1720,14 +1725,20 @@ def app_management():
                     )
                     db.add(app_setting)
                 else:
+                    print(f"[DEBUG] Updating existing app_setting to enabled=1")
                     app_setting.enabled = 1
                 db.commit()
+                print(f"[DEBUG] Committed: enabled=1")
                 flash(f'アプリを有効化しました', 'success')
             elif action == 'disable':
                 if app_setting:
+                    print(f"[DEBUG] Updating existing app_setting to enabled=0")
                     app_setting.enabled = 0
                     db.commit()
+                    print(f"[DEBUG] Committed: enabled=0")
                     flash(f'アプリを無効化しました', 'success')
+                else:
+                    print(f"[DEBUG] No app_setting found for disable action")
             
             # テナント選択を維持してリダイレクト
             return redirect(url_for('system_admin.app_management', tenant_id=tenant_id))

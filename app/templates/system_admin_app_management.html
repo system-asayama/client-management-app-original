@@ -259,15 +259,15 @@ input:checked + .toggle-slider:before {
                         <small>{{ app.description }}</small>
                     </td>
                     <td style="text-align: center;">
-                        {% set is_enabled = tenant_app_settings.get(selected_tenant_id, {}).get(app.id, 0) %}
-                        <form method="POST" action="{{ url_for('system_admin.app_management') }}" style="display: inline;" id="form_{{ app.id }}">
+                        {% set is_enabled = tenant_app_settings.get(selected_tenant_id, {}).get(app.name, 0) %}
+                        <form method="POST" action="{{ url_for('system_admin.app_management') }}" style="display: inline;" id="form_{{ app.name }}">
                             <input type="hidden" name="tenant_id" value="{{ selected_tenant_id }}">
-                            <input type="hidden" name="app_id" value="{{ app.id }}">
-                            <input type="hidden" name="action" id="action_{{ app.id }}" value="{% if is_enabled %}disable{% else %}enable{% endif %}">
+                            <input type="hidden" name="app_id" value="{{ app.name }}">
+                            <input type="hidden" name="action" id="action_{{ app.name }}" value="{% if is_enabled %}disable{% else %}enable{% endif %}">
                             
                             <label class="toggle-switch">
                                 <input type="checkbox" {% if is_enabled %}checked{% endif %} 
-                                       onchange="document.getElementById('action_{{ app.id }}').value = this.checked ? 'enable' : 'disable'; this.form.submit();">
+                                       onchange="document.getElementById('action_{{ app.name }}').value = this.checked ? 'enable' : 'disable'; this.form.submit();">
                                 <span class="toggle-slider"></span>
                             </label>
                         </form>

@@ -38,7 +38,7 @@ def get_openai_api_key(store_id=None, tenant_id=None, app_name=None):
             cur.execute(_sql(conn, '''
                 SELECT openai_api_key, store_id 
                 FROM "T_店舗アプリ設定" 
-                WHERE store_id = %s AND app_name = %s
+                WHERE store_id = %s AND app_id = %s
             '''), (store_id, app_name))
             result = cur.fetchone()
             if result and result[0]:
@@ -66,7 +66,7 @@ def get_openai_api_key(store_id=None, tenant_id=None, app_name=None):
             cur.execute(_sql(conn, '''
                 SELECT openai_api_key 
                 FROM "T_テナントアプリ設定" 
-                WHERE tenant_id = %s AND app_name = %s
+                WHERE tenant_id = %s AND app_id = %s
             '''), (tenant_id, app_name))
             result = cur.fetchone()
             if result and result[0]:

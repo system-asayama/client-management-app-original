@@ -1914,10 +1914,10 @@ def employee_new():
 # {'name': 'app-name', 'display_name': 'アプリ表示名', 'scope': 'store'/'tenant'}
 AVAILABLE_APPS = [
     {
-        'name': 'accounting',
-        'display_name': '会計システム',
+        'name': 'client-management',
+        'display_name': '顧問先管理システム',
         'scope': 'tenant',
-        'description': '会計・経理管理システム'
+        'description': '顧問先・クライアント管理システム'
     }
 ]
 

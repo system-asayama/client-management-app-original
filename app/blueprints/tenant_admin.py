@@ -1912,6 +1912,7 @@ def employee_new():
 # 利用可能なアプリ一覧
 # 将来的にアプリを追加する場合は、以下の形式で追加してください：
 # {'name': 'app-name', 'display_name': 'アプリ表示名', 'scope': 'store'/'tenant'}
+# 顧問先管理システムのアプリ定義
 AVAILABLE_APPS = [
     {
         'name': 'client-management',

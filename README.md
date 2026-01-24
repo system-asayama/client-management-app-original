@@ -1,8 +1,17 @@
-# Login System App
+# Client Management System (顧問先管理システム)
 
-Flask製の多階層ロール認証システム
+Flask製の顧問先・クライアント管理システム
 
-## 機能
+## 概要
+
+このアプリケーションは、税理士法人や会計事務所が顧問先（クライアント）を効率的に管理するためのシステムです。
+
+## 主な機能
+
+### 顧問先管理
+- 顧問先の登録・編集・削除
+- 顧問先情報の一覧表示
+- 顧問先詳細情報の閲覧
 
 ### 4ロール認証システム
 - **システム管理者 (system_admin)**: 全テナント横断の最高権限
@@ -20,10 +29,6 @@ Flask製の多階層ロール認証システム
 - CSRF保護
 - セッション管理
 - ロールベースアクセス制御
-
-### 初回セットアップ
-- 管理者未作成時に自動誘導
-- 最初のシステム管理者作成機能
 
 ## セットアップ
 
@@ -45,7 +50,7 @@ cp .env.example .env
 
 ```env
 SECRET_KEY=your-secret-key-here-change-in-production
-DATABASE_URL=postgresql://postgres:password@localhost:5432/accounting_dev
+DATABASE_URL=postgresql://postgres:password@localhost:5432/client_management_dev
 ```
 
 ### 3. アプリケーションの起動
@@ -69,6 +74,10 @@ gunicorn wsgi:app
 ```
 
 ## データベーススキーマ
+
+### T_顧問先 (T_Client)
+- 顧問先情報を管理
+- フィールド: id, tenant_id, name, postal_code, address, phone, email, created_at, updated_at
 
 ### T_管理者
 - システム管理者、テナント管理者、管理者のログイン情報を管理
@@ -100,28 +109,33 @@ gunicorn wsgi:app
 - `/admin/` - 管理者ダッシュボード
 - `/employee/mypage` - 従業員マイページ
 
+### 顧問先管理
+- `/clients/` - 顧問先一覧
+- `/clients/add` - 顧問先追加
+- `/clients/<id>` - 顧問先詳細
+- `/clients/<id>/edit` - 顧問先編集
+- `/clients/<id>/delete` - 顧問先削除
+
 ## ディレクトリ構造
 
 ```
-login-system-app/
+client-management-app-original/
 ├── app/
 │   ├── __init__.py          # アプリケーションファクトリ
 │   ├── config.py            # 設定ファイル
 │   ├── logging.py           # ロギング設定
+│   ├── models_clients.py    # 顧問先モデル
 │   ├── utils/               # ユーティリティモジュール
-│   │   ├── __init__.py
-│   │   ├── db.py            # DB接続・スキーマ初期化
-│   │   ├── security.py      # セキュリティ関連
-│   │   └── decorators.py    # デコレータ（require_roles等）
 │   ├── blueprints/          # Blueprint（機能別ルート）
-│   │   ├── __init__.py
-│   │   ├── health.py        # ヘルスチェック
+│   │   ├── clients.py       # 顧問先管理
 │   │   ├── auth.py          # 認証関連
 │   │   ├── system_admin.py  # システム管理者
 │   │   ├── tenant_admin.py  # テナント管理者
-│   │   ├── admin.py         # 管理者
-│   │   └── employee.py      # 従業員
+│   │   └── ...
 │   └── templates/           # Jinjaテンプレート
+│       ├── clients.html     # 顧問先一覧
+│       ├── client_info.html # 顧問先詳細
+│       └── ...
 ├── database/                # SQLiteデータベース（.gitignore）
 ├── requirements.txt         # 依存パッケージ
 ├── .env.example             # 環境変数サンプル
@@ -147,6 +161,17 @@ python wsgi.py
 3. 最初のシステム管理者アカウントを作成
 4. ログイン画面からログイン
 
+## アプリ識別情報
+
+- **アプリ名**: `client-management`
+- **表示名**: 顧問先管理システム
+- **スコープ**: tenant
+- **説明**: 顧問先・クライアント管理システム
+
 ## ライセンス
 
 MIT License
+
+---
+
+最終更新: 2026-01-24

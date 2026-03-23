@@ -36,18 +36,60 @@ def client_chat(client_id):
         reader_id = session.get('user_name', user_name)
 
         if request.method == 'POST':
-            message_text = request.form.get('message')
-            if message_text:
+            message_text = (request.form.get('message') or '').strip()
+            uploaded_file = request.files.get('chat_file')
+
+            if uploaded_file and uploaded_file.filename:
+                # ファイル送信処理
+                try:
+                    from app.utils.tenant_storage_adapter import get_storage_adapter
+                    adapter = get_storage_adapter(tenant_id)
+                    client_folder = getattr(client, 'storage_folder_path', None)
+                    file_url = adapter.upload(
+                        uploaded_file.stream, uploaded_file.filename, client_id,
+                        client_folder_path=client_folder,
+                        subfolder=None
+                    )
+                    # ファイルをT_ファイル共有に保存
+                    from app.models_clients import TFile
+                    new_file = TFile(
+                        client_id=client_id,
+                        filename=uploaded_file.filename,
+                        file_url=file_url,
+                        uploader=user_name,
+                        timestamp=datetime.now()
+                    )
+                    db.add(new_file)
+                    # チャットにファイルメッセージを追加
+                    new_message = TMessage(
+                        client_id=client_id,
+                        sender=user_name,
+                        sender_type='staff',
+                        message=message_text if message_text else None,
+                        message_type='file',
+                        file_url=file_url,
+                        file_name=uploaded_file.filename,
+                        timestamp=datetime.now()
+                    )
+                    db.add(new_message)
+                    db.commit()
+                    flash(f'ファイル「{uploaded_file.filename}」を送信しました', 'success')
+                except Exception as e:
+                    db.rollback()
+                    flash(f'ファイル送信エラー: {str(e)}', 'error')
+            elif message_text:
+                # テキストメッセージ送信
                 new_message = TMessage(
                     client_id=client_id,
                     sender=user_name,
                     sender_type='staff',
                     message=message_text,
+                    message_type='text',
                     timestamp=datetime.now()
                 )
                 db.add(new_message)
                 db.commit()
-                return redirect(url_for('chat.client_chat', client_id=client_id))
+            return redirect(url_for('chat.client_chat', client_id=client_id))
 
         # メッセージ一覧を取得
         messages = db.query(TMessage).filter(

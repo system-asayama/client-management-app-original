@@ -30,7 +30,10 @@ class TMessage(Base):
     client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
     sender = Column(String(255), nullable=False)
     sender_type = Column(String(20), default='staff')  # 'staff'=税理士側, 'client'=クライアント側
-    message = Column(Text, nullable=False)
+    message = Column(Text, nullable=True)  # ファイルメッセージの場合はNone可
+    message_type = Column(String(20), default='text')  # 'text'=テキスト, 'file'=ファイル, 'file_notify'=ファイル共有通知
+    file_url = Column(Text, nullable=True)   # ファイルメッセージの場合のファイルURL
+    file_name = Column(String(255), nullable=True)  # ファイル名
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 

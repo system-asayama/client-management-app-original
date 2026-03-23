@@ -53,6 +53,19 @@ def client_files(client_id):
                         timestamp=datetime.now()
                     )
                     db.add(new_file)
+                    # ファイル共有通知をチャットに追加
+                    from app.models_clients import TMessage
+                    notify_msg = TMessage(
+                        client_id=client_id,
+                        sender=user_name,
+                        sender_type='staff',
+                        message=f'ファイルが共有されました: {f.filename}',
+                        message_type='file_notify',
+                        file_url=file_url,
+                        file_name=f.filename,
+                        timestamp=datetime.now()
+                    )
+                    db.add(notify_msg)
                     db.commit()
                     flash(f'ファイル「{f.filename}」をアップロードしました', 'success')
                 except RuntimeError as e:

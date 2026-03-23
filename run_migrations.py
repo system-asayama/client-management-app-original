@@ -670,6 +670,53 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_メッセージにファイル対応カラムを追加
+        print("\n[マイグレーション] T_メッセージにmessage_type/file_url/file_nameカラムを追加")
+        try:
+            if _is_pg(conn):
+                for col_name, col_def in [
+                    ('message_type', "VARCHAR(20) DEFAULT 'text'"),
+                    ('file_url', 'TEXT'),
+                    ('file_name', 'VARCHAR(500)'),
+                ]:
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'T_メッセージ' AND column_name = %s
+                    """, (col_name,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "T_メッセージ" ADD COLUMN {col_name} {col_def}')
+                        conn.commit()
+                        print(f"  ✅ {col_name}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {col_name}カラムは既に存在します（スキップ）")
+                # messageカラムをNULL許容に変更
+                cur.execute("""
+                    SELECT is_nullable FROM information_schema.columns
+                    WHERE table_name = 'T_メッセージ' AND column_name = 'message'
+                """)
+                row = cur.fetchone()
+                if row and row[0] == 'NO':
+                    cur.execute('ALTER TABLE "T_メッセージ" ALTER COLUMN message DROP NOT NULL')
+                    conn.commit()
+                    print("  ✅ messageカラムをNULL許容に変更しました")
+            else:
+                cur.execute('PRAGMA table_info("T_メッセージ")')
+                columns = [row[1] for row in cur.fetchall()]
+                for col_name, col_def in [
+                    ('message_type', "TEXT DEFAULT 'text'"),
+                    ('file_url', 'TEXT'),
+                    ('file_name', 'TEXT'),
+                ]:
+                    if col_name not in columns:
+                        cur.execute(f'ALTER TABLE "T_メッセージ" ADD COLUMN {col_name} {col_def}')
+                        conn.commit()
+                        print(f"  ✅ {col_name}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {col_name}カラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

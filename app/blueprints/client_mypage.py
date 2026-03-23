@@ -103,12 +103,51 @@ def chat():
         client = db.query(TClient).filter(TClient.id == client_id).first()
         if request.method == 'POST':
             message_text = (request.form.get('message') or '').strip()
-            if message_text:
+            uploaded_file = request.files.get('chat_file')
+
+            if uploaded_file and uploaded_file.filename:
+                # ファイル送信処理
+                try:
+                    from app.utils.tenant_storage_adapter import get_storage_adapter
+                    adapter = get_storage_adapter(tenant_id)
+                    client_folder = getattr(client, 'storage_folder_path', None)
+                    file_url = adapter.upload(
+                        uploaded_file.stream, uploaded_file.filename, client_id,
+                        client_folder_path=client_folder,
+                        subfolder=None
+                    )
+                    # ファイルをT_ファイル共有に保存
+                    from app.models_clients import TFile
+                    new_file = TFile(
+                        client_id=client_id,
+                        filename=uploaded_file.filename,
+                        file_url=file_url,
+                        uploader=user_name
+                    )
+                    db.add(new_file)
+                    # チャットにファイルメッセージを追加
+                    new_msg = TMessage(
+                        client_id=client_id,
+                        sender=user_name,
+                        sender_type='client',
+                        message=message_text if message_text else None,
+                        message_type='file',
+                        file_url=file_url,
+                        file_name=uploaded_file.filename
+                    )
+                    db.add(new_msg)
+                    db.commit()
+                    flash(f'ファイル「{uploaded_file.filename}」を送信しました', 'success')
+                except Exception as e:
+                    db.rollback()
+                    flash(f'ファイル送信エラー: {str(e)}', 'error')
+            elif message_text:
                 new_msg = TMessage(
                     client_id=client_id,
                     sender=user_name,
                     sender_type='client',
-                    message=message_text
+                    message=message_text,
+                    message_type='text'
                 )
                 db.add(new_msg)
                 db.commit()
@@ -171,7 +210,7 @@ def files():
                     adapter = get_storage_adapter(tenant_id)
                     client_folder = getattr(client, 'storage_folder_path', None)
                     file_url = adapter.upload(
-                        f, f.filename, client_id,
+                        f.stream, f.filename, client_id,
                         client_folder_path=client_folder,
                         subfolder=subfolder if subfolder else None
                     )
@@ -182,9 +221,21 @@ def files():
                         uploader=user_name
                     )
                     db.add(new_file)
+                    # ファイル共有通知をチャットに追加
+                    notify_msg = TMessage(
+                        client_id=client_id,
+                        sender=user_name,
+                        sender_type='client',
+                        message=f'ファイルが共有されました: {f.filename}',
+                        message_type='file_notify',
+                        file_url=file_url,
+                        file_name=f.filename
+                    )
+                    db.add(notify_msg)
                     db.commit()
-                    flash('ファイルをアップロードしました。', 'success')
+                    flash(f'ファイル「{f.filename}」をアップロードしました。', 'success')
                 except Exception as e:
+                    db.rollback()
                     flash(f'アップロードエラー: {str(e)}', 'error')
             else:
                 flash('ファイルを選択してください。', 'warning')

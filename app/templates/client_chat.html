@@ -63,6 +63,54 @@
     .message-meta { font-size: 11px; margin-bottom: 4px; }
     .message-mine .message-meta { text-align: right; color: rgba(255,255,255,0.7); }
     .message-other .message-meta { color: #888; }
+    /* ファイルメッセージ */
+    .file-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 4px;
+    }
+    .file-message-mine {
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    .file-message-mine:hover { background: rgba(255,255,255,0.25); }
+    .file-message-other {
+        background: #e3f2fd;
+        color: #1565c0;
+        border: 1px solid #bbdefb;
+    }
+    .file-message-other:hover { background: #bbdefb; }
+    .file-icon { font-size: 18px; }
+    /* ファイル共有通知 */
+    .file-notify-wrapper {
+        display: flex;
+        justify-content: center;
+        margin: 4px 0;
+    }
+    .file-notify-bubble {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 12px;
+        color: #795548;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .file-notify-bubble a {
+        color: #1565c0;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .file-notify-bubble a:hover { text-decoration: underline; }
     /* 既読マーク */
     .read-status {
         font-size: 11px;
@@ -92,11 +140,17 @@
         border: 1px solid #ef5350;
         border-radius: 10px;
     }
+    /* 入力エリア */
     .chat-input-area {
-        padding: 16px 20px;
+        padding: 12px 16px;
         border-top: 1px solid #e0e0e0;
         display: flex;
-        gap: 10px;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .chat-input-row {
+        display: flex;
+        gap: 8px;
         align-items: flex-end;
     }
     .chat-input {
@@ -123,6 +177,38 @@
         white-space: nowrap;
     }
     .btn-send:hover { background: #283593; }
+    /* ファイル添付ボタン */
+    .btn-attach {
+        padding: 8px 12px;
+        background: #f5f5f5;
+        color: #555;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-attach:hover { background: #eeeeee; }
+    .file-preview {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: #e3f2fd;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #1565c0;
+    }
+    .file-preview.visible { display: flex; }
+    .file-preview .remove-file {
+        cursor: pointer;
+        color: #e53935;
+        font-weight: bold;
+        margin-left: auto;
+    }
     .empty-chat { text-align: center; color: #aaa; padding: 40px; font-size: 14px; }
     .empty-chat .icon { font-size: 48px; display: block; margin-bottom: 12px; }
     @media (max-width: 768px) {
@@ -158,17 +244,46 @@
               </div>
             {% endif %}
 
-            {% set is_mine = (msg.sender_type == 'staff') %}
-            <div class="message-wrapper {{ 'mine' if is_mine else 'other' }}">
-              <div class="message-bubble {{ 'message-mine' if is_mine else 'message-other' }}">
-                <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
-                {{ msg.message }}
+            {% set msg_type = msg.message_type if msg.message_type else 'text' %}
+
+            {# ファイル共有通知（中央表示） #}
+            {% if msg_type == 'file_notify' %}
+              <div class="file-notify-wrapper">
+                <div class="file-notify-bubble">
+                  📎 {{ msg.sender }}が
+                  {% if msg.file_url %}
+                    <a href="{{ msg.file_url }}" target="_blank">{{ msg.file_name or 'ファイル' }}</a>
+                  {% else %}
+                    {{ msg.file_name or 'ファイル' }}
+                  {% endif %}
+                  を共有しました
+                  <span style="color:#aaa; margin-left:4px;">{{ msg.timestamp.strftime('%m/%d %H:%M') if msg.timestamp else '' }}</span>
+                </div>
               </div>
-              {# 自分（staff）が送ったメッセージにクライアントの既読マーク #}
-              {% if is_mine and msg.id in client_read_ids %}
-                <div class="read-status">既読</div>
-              {% endif %}
-            </div>
+            {% else %}
+              {% set is_mine = (msg.sender_type == 'staff') %}
+              <div class="message-wrapper {{ 'mine' if is_mine else 'other' }}">
+                <div class="message-bubble {{ 'message-mine' if is_mine else 'message-other' }}">
+                  <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
+                  {# テキスト部分 #}
+                  {% if msg.message %}
+                    <div>{{ msg.message }}</div>
+                  {% endif %}
+                  {# ファイル添付 #}
+                  {% if msg_type == 'file' and msg.file_url %}
+                    <a href="{{ msg.file_url }}" target="_blank"
+                       class="file-message {{ 'file-message-mine' if is_mine else 'file-message-other' }}">
+                      <span class="file-icon">📎</span>
+                      <span>{{ msg.file_name or 'ファイルをダウンロード' }}</span>
+                    </a>
+                  {% endif %}
+                </div>
+                {# 自分（staff）が送ったメッセージにクライアントの既読マーク #}
+                {% if is_mine and msg.id in client_read_ids %}
+                  <div class="read-status">既読</div>
+                {% endif %}
+              </div>
+            {% endif %}
           {% endfor %}
         {% else %}
           <div class="empty-chat">
@@ -178,10 +293,23 @@
         {% endif %}
       </div>
       <div class="chat-input-area">
-        <form method="post" style="display:flex; gap:10px; width:100%; align-items:flex-end;">
-          <textarea class="chat-input" name="message" placeholder="メッセージを入力..." rows="1"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}"></textarea>
-          <button type="submit" class="btn-send">送信 ➤</button>
+        <form method="post" enctype="multipart/form-data" id="chatForm">
+          <div id="filePreview" class="file-preview">
+            <span class="file-icon">📎</span>
+            <span id="filePreviewName"></span>
+            <span class="remove-file" onclick="removeFile()">✕</span>
+          </div>
+          <div class="chat-input-row">
+            <label class="btn-attach" for="chatFileInput" title="ファイルを添付">
+              📎
+            </label>
+            <input type="file" id="chatFileInput" name="chat_file" style="display:none"
+                   onchange="onFileSelected(this)">
+            <textarea class="chat-input" name="message" id="messageInput"
+                      placeholder="メッセージを入力..." rows="1"
+                      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('chatForm').submit();}"></textarea>
+            <button type="submit" class="btn-send">送信 ➤</button>
+          </div>
         </form>
       </div>
     </div>
@@ -193,6 +321,23 @@
       unreadDivider.scrollIntoView({ block: 'center' });
     } else {
       chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function onFileSelected(input) {
+      const preview = document.getElementById('filePreview');
+      const previewName = document.getElementById('filePreviewName');
+      if (input.files && input.files[0]) {
+        previewName.textContent = input.files[0].name;
+        preview.classList.add('visible');
+      } else {
+        preview.classList.remove('visible');
+      }
+    }
+
+    function removeFile() {
+      const input = document.getElementById('chatFileInput');
+      input.value = '';
+      document.getElementById('filePreview').classList.remove('visible');
     }
   </script>
 </body>

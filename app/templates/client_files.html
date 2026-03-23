@@ -2,62 +2,208 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ client.name }} - ファイル共有</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .upload-form { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-        .file-list { list-style: none; padding: 0; }
-        .file-item { padding: 10px; margin: 5px 0; background: #fff; border: 1px solid #ddd; border-radius: 3px; }
-        .file-link { color: #0066cc; text-decoration: none; font-weight: bold; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 16px; background: #f4f6f9; color: #333; }
+        h1 { font-size: 1.4rem; color: #1a237e; margin-bottom: 16px; }
+        h3 { font-size: 1.1rem; color: #333; margin: 0 0 12px; }
+        .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .flash { padding: 10px 14px; margin-bottom: 10px; border-radius: 6px; font-size: 0.9rem; }
+        .flash.error { background: #ffebee; color: #c62828; }
+        .flash.success { background: #e8f5e9; color: #2e7d32; }
+        .flash.warning { background: #fff8e1; color: #f57f17; }
+
+        /* フォルダ選択 */
+        .folder-section { margin-bottom: 16px; }
+        .folder-label { font-size: 0.85rem; font-weight: bold; color: #555; margin-bottom: 6px; display: block; }
+        .folder-select-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        select#subfolder { flex: 1; min-width: 180px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+        .btn-new-folder { padding: 8px 14px; background: #e8eaf6; color: #3949ab; border: 1px solid #9fa8da; border-radius: 6px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+        .btn-new-folder:hover { background: #c5cae9; }
+
+        /* 新規フォルダ入力 */
+        #new-folder-row { display: none; margin-top: 10px; }
+        .new-folder-input-row { display: flex; gap: 8px; align-items: center; }
+        #new-folder-name { flex: 1; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; }
+        .btn-create { padding: 8px 14px; background: #3949ab; color: #fff; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+        .btn-create:hover { background: #283593; }
+        .btn-cancel-folder { padding: 8px 12px; background: #eee; color: #555; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+
+        /* アップロードフォーム */
+        .upload-form { }
+        .file-input-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+        input[type="file"] { flex: 1; min-width: 0; font-size: 0.9rem; }
+        .btn-upload { padding: 10px 20px; background: #1a237e; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; white-space: nowrap; }
+        .btn-upload:hover { background: #283593; }
+        .selected-folder-badge { display: inline-block; background: #e8eaf6; color: #3949ab; border-radius: 20px; padding: 4px 12px; font-size: 0.82rem; margin-top: 8px; }
+
+        /* ファイル一覧 */
+        .file-list { list-style: none; padding: 0; margin: 0; }
+        .file-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .file-item:last-child { border-bottom: none; }
+        .file-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .file-info { flex: 1; min-width: 0; }
+        .file-link { color: #1a237e; text-decoration: none; font-weight: bold; font-size: 0.95rem; word-break: break-all; }
         .file-link:hover { text-decoration: underline; }
-        .file-meta { font-size: 0.9em; color: #666; margin-left: 10px; }
-        .nav-links { margin-top: 20px; }
-        .nav-links a { margin-right: 15px; }
+        .file-meta { font-size: 0.8rem; color: #888; margin-top: 3px; }
+        .empty-msg { color: #aaa; font-size: 0.9rem; padding: 16px 0; }
+
+        /* ナビ */
+        .nav-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+        .nav-links a { color: #1a237e; text-decoration: none; font-size: 0.9rem; }
+        .nav-links a:hover { text-decoration: underline; }
+
+        @media (max-width: 480px) {
+            .file-input-row { flex-direction: column; align-items: stretch; }
+            .btn-upload { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <h1>📁 {{ client.name }} のファイル共有</h1>
-    
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-            <div style="padding: 10px; margin: 10px 0; border-radius: 4px; {% if category == 'error' %}background: #ffebee; color: #c62828;{% else %}background: #e8f5e9; color: #2e7d32;{% endif %}">
-                {{ message }}
-            </div>
+            <div class="flash {{ category }}">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
-    
-    <div class="upload-form">
+
+    <!-- アップロードカード -->
+    <div class="card">
         <h3>ファイルをアップロード</h3>
-        <form method="post" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <button type="submit">アップロード</button>
+
+        {% if storage_configured %}
+        <!-- フォルダ選択 -->
+        <div class="folder-section">
+            <span class="folder-label">📂 保存先フォルダを選択</span>
+            <div class="folder-select-row">
+                <select id="subfolder" name="subfolder">
+                    <option value="">── 自動（年月フォルダ）</option>
+                    {% for folder in folders %}
+                    <option value="{{ folder }}">{{ folder }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" class="btn-new-folder" onclick="toggleNewFolder()">＋ 新規フォルダ</button>
+            </div>
+
+            <!-- 新規フォルダ作成 -->
+            <div id="new-folder-row">
+                <div class="new-folder-input-row" style="margin-top:8px;">
+                    <input type="text" id="new-folder-name" placeholder="フォルダ名を入力">
+                    <button type="button" class="btn-create" onclick="createFolder()">作成</button>
+                    <button type="button" class="btn-cancel-folder" onclick="toggleNewFolder()">キャンセル</button>
+                </div>
+                <div id="folder-create-msg" style="font-size:0.82rem;margin-top:4px;"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" id="upload-form">
+            {% if storage_configured %}
+            <input type="hidden" name="subfolder" id="subfolder-hidden" value="">
+            {% endif %}
+            <div class="file-input-row">
+                <input type="file" name="file" required>
+                <button type="submit" class="btn-upload">⬆ アップロード</button>
+            </div>
+            {% if storage_configured %}
+            <div id="selected-folder-display"></div>
+            {% endif %}
         </form>
     </div>
-    
-    <h3>アップロード済みファイル</h3>
-    {% if files %}
-    <ul class="file-list">
-        {% for f in files %}
-        <li class="file-item">
-            <a href="{{ f.file_url }}" target="_blank" class="file-link">{{ f.filename }}</a>
-            <span class="file-meta">
-                アップロード者: {{ f.uploader }} | 
-                日時: {{ f.timestamp.strftime('%Y-%m-%d %H:%M') if f.timestamp else 'N/A' }}
-            </span>
-        </li>
-        {% endfor %}
-    </ul>
-    {% else %}
-    <p>まだファイルがアップロードされていません。</p>
-    {% endif %}
-    
+
+    <!-- ファイル一覧カード -->
+    <div class="card">
+        <h3>アップロード済みファイル</h3>
+        {% if files %}
+        <ul class="file-list">
+            {% for f in files %}
+            <li class="file-item">
+                <span class="file-icon">📄</span>
+                <div class="file-info">
+                    <a href="{{ f.file_url }}" target="_blank" class="file-link">{{ f.filename }}</a>
+                    <div class="file-meta">
+                        アップロード者: {{ f.uploader }} &nbsp;|&nbsp;
+                        {{ f.timestamp.strftime('%Y-%m-%d %H:%M') if f.timestamp else 'N/A' }}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-msg">まだファイルがアップロードされていません。</p>
+        {% endif %}
+    </div>
+
     <div class="nav-links">
-        <a href="{{ url_for('clients.client_info', client_id=client.id) }}">← 顧問先ページに戻る</a> |
-        <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> |
+        <a href="{{ url_for('clients.client_info', client_id=client.id) }}">← 顧問先ページに戻る</a>
+        <a href="{{ url_for('clients.clients') }}">顧問先一覧</a>
         <a href="{{ url_for('tenant_admin.dashboard') }}">🏠 ホーム</a>
     </div>
+
+    <script>
+        const clientId = {{ client.id }};
+
+        function toggleNewFolder() {
+            const row = document.getElementById('new-folder-row');
+            row.style.display = row.style.display === 'none' ? 'block' : 'none';
+            if (row.style.display === 'block') {
+                document.getElementById('new-folder-name').focus();
+            }
+        }
+
+        function createFolder() {
+            const name = document.getElementById('new-folder-name').value.trim();
+            const msg = document.getElementById('folder-create-msg');
+            if (!name) { msg.style.color='#c62828'; msg.textContent='フォルダ名を入力してください'; return; }
+            msg.style.color='#555'; msg.textContent='作成中...';
+            fetch(`/files/client/${clientId}/folders/create`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({folder_name: name})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // セレクトに追加して選択
+                    const sel = document.getElementById('subfolder');
+                    const opt = document.createElement('option');
+                    opt.value = name; opt.textContent = name;
+                    sel.appendChild(opt);
+                    sel.value = name;
+                    updateHiddenSubfolder();
+                    msg.style.color='#2e7d32'; msg.textContent=`「${name}」を作成しました`;
+                    document.getElementById('new-folder-name').value = '';
+                    setTimeout(() => { document.getElementById('new-folder-row').style.display='none'; msg.textContent=''; }, 1500);
+                } else {
+                    msg.style.color='#c62828'; msg.textContent = data.error || '作成に失敗しました';
+                }
+            })
+            .catch(() => { msg.style.color='#c62828'; msg.textContent='通信エラーが発生しました'; });
+        }
+
+        function updateHiddenSubfolder() {
+            const sel = document.getElementById('subfolder');
+            if (!sel) return;
+            const val = sel ? sel.value : '';
+            document.getElementById('subfolder-hidden').value = val;
+            const disp = document.getElementById('selected-folder-display');
+            if (val) {
+                disp.innerHTML = `<span class="selected-folder-badge">📂 保存先: ${val}</span>`;
+            } else {
+                disp.innerHTML = `<span class="selected-folder-badge">📂 保存先: 自動（年月フォルダ）</span>`;
+            }
+        }
+
+        const sel = document.getElementById('subfolder');
+        if (sel) {
+            sel.addEventListener('change', updateHiddenSubfolder);
+            updateHiddenSubfolder();
+        }
+    </script>
 </body>
 </html>

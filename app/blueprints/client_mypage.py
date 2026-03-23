@@ -155,6 +155,7 @@ def chat():
 @require_client_login
 def files():
     """クライアントファイル共有"""
+    from flask import jsonify
     client_id = session.get('client_id')
     tenant_id = session.get('tenant_id')
     user_name = session.get('user_name', '匿名')
@@ -164,12 +165,16 @@ def files():
 
         if request.method == 'POST':
             f = request.files.get('file')
+            subfolder = request.form.get('subfolder', '').strip()
             if f and f.filename:
                 try:
                     adapter = get_storage_adapter(tenant_id)
-                    # 顧問先のフォルダパスを取得
                     client_folder = getattr(client, 'storage_folder_path', None)
-                    file_url = adapter.upload(f, f.filename, client_id, client_folder_path=client_folder)
+                    file_url = adapter.upload(
+                        f, f.filename, client_id,
+                        client_folder_path=client_folder,
+                        subfolder=subfolder if subfolder else None
+                    )
                     new_file = TFile(
                         client_id=client_id,
                         filename=f.filename,
@@ -188,11 +193,73 @@ def files():
         file_list = db.query(TFile).filter(
             TFile.client_id == client_id
         ).order_by(TFile.timestamp.desc()).all()
+
+        # ストレージフォルダ一覧を取得
+        folders = []
+        storage_configured = False
+        client_folder = getattr(client, 'storage_folder_path', None)
+        if client_folder:
+            try:
+                adapter = get_storage_adapter(tenant_id)
+                folders = adapter.list_folders(client_folder)
+                storage_configured = True
+            except Exception:
+                pass
+
         return render_template(
             'client_mypage_files.html',
             client=client,
-            files=file_list
+            files=file_list,
+            folders=folders,
+            storage_configured=storage_configured
         )
+    finally:
+        db.close()
+
+
+@bp.route('/files/folders', methods=['GET'])
+@require_client_login
+def list_folders():
+    """フォルダ一覧をJSON形式で返す（Ajax用）"""
+    from flask import jsonify
+    client_id = session.get('client_id')
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(TClient.id == client_id).first()
+        client_folder = getattr(client, 'storage_folder_path', None)
+        if not client_folder:
+            return jsonify({'folders': [], 'message': 'フォルダパスが設定されていません'})
+        adapter = get_storage_adapter(tenant_id)
+        folders = adapter.list_folders(client_folder)
+        return jsonify({'folders': folders})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/files/folders/create', methods=['POST'])
+@require_client_login
+def create_folder():
+    """新しいフォルダを作成する（Ajax用）"""
+    from flask import jsonify
+    client_id = session.get('client_id')
+    tenant_id = session.get('tenant_id')
+    folder_name = (request.json or {}).get('folder_name', '').strip() if request.is_json else request.form.get('folder_name', '').strip()
+    if not folder_name:
+        return jsonify({'error': 'フォルダ名を入力してください'}), 400
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(TClient.id == client_id).first()
+        client_folder = getattr(client, 'storage_folder_path', None)
+        if not client_folder:
+            return jsonify({'error': 'フォルダパスが設定されていません'}), 400
+        adapter = get_storage_adapter(tenant_id)
+        adapter.create_folder(client_folder, folder_name)
+        return jsonify({'success': True, 'folder_name': folder_name})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         db.close()
 

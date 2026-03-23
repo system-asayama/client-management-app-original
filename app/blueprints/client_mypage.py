@@ -13,7 +13,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_client_users import TClientUser, TClientInvitation
-from app.models_clients import TClient, TMessage, TFile
+from app.models_clients import TClient, TMessage, TFile, TMessageRead
+from sqlalchemy import func
 from app.utils.tenant_storage_adapter import get_storage_adapter
 
 bp = Blueprint('client_mypage', __name__, url_prefix='/mypage')
@@ -54,10 +55,21 @@ def require_client_admin(f):
 def dashboard():
     """クライアントマイページ ダッシュボード"""
     client_id = session.get('client_id')
+    reader_id = session.get('login_id', '')
     db = SessionLocal()
     try:
         client = db.query(TClient).filter(TClient.id == client_id).first()
-        # 未読メッセージ数（最新5件）
+        # 未読メッセージ数（staff=税理士側が送ったメッセージのうち未読のもの）
+        all_staff_msgs = db.query(TMessage).filter(
+            TMessage.client_id == client_id,
+            TMessage.sender_type == 'staff'
+        ).all()
+        read_ids = {r.message_id for r in db.query(TMessageRead).filter(
+            TMessageRead.reader_type == 'client',
+            TMessageRead.reader_id == reader_id
+        ).all()}
+        unread_count = sum(1 for m in all_staff_msgs if m.id not in read_ids)
+        # 最近のメッセージ（最新5件）
         recent_messages = db.query(TMessage).filter(
             TMessage.client_id == client_id
         ).order_by(TMessage.timestamp.desc()).limit(5).all()
@@ -69,7 +81,8 @@ def dashboard():
             'client_mypage_dashboard.html',
             client=client,
             recent_messages=recent_messages,
-            recent_files=recent_files
+            recent_files=recent_files,
+            unread_count=unread_count
         )
     finally:
         db.close()
@@ -84,6 +97,7 @@ def chat():
     """クライアントチャット"""
     client_id = session.get('client_id')
     user_name = session.get('user_name', '匿名')
+    reader_id = session.get('login_id', '')
     db = SessionLocal()
     try:
         client = db.query(TClient).filter(TClient.id == client_id).first()
@@ -93,6 +107,7 @@ def chat():
                 new_msg = TMessage(
                     client_id=client_id,
                     sender=user_name,
+                    sender_type='client',
                     message=message_text
                 )
                 db.add(new_msg)
@@ -102,10 +117,32 @@ def chat():
         messages = db.query(TMessage).filter(
             TMessage.client_id == client_id
         ).order_by(TMessage.timestamp.asc()).all()
+
+        # 既読済みメッセージIDセット
+        read_ids = {r.message_id for r in db.query(TMessageRead).filter(
+            TMessageRead.reader_type == 'client',
+            TMessageRead.reader_id == reader_id
+        ).all()}
+
+        # staff側の未読メッセージを既読に登録（ページを開いたら全て既読）
+        first_unread_id = None
+        for msg in messages:
+            if msg.sender_type == 'staff' and msg.id not in read_ids:
+                if first_unread_id is None:
+                    first_unread_id = msg.id
+                db.add(TMessageRead(
+                    message_id=msg.id,
+                    reader_type='client',
+                    reader_id=reader_id
+                ))
+        db.commit()
+
         return render_template(
             'client_mypage_chat.html',
             client=client,
-            messages=messages
+            messages=messages,
+            read_ids=read_ids,
+            first_unread_id=first_unread_id
         )
     finally:
         db.close()

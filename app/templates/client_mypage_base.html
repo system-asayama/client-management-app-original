@@ -318,8 +318,12 @@
                 <span class="icon">🏠</span> ダッシュボード
             </a>
             <a href="{{ url_for('client_mypage.chat') }}"
-               class="nav-item {% if request.endpoint == 'client_mypage.chat' %}active{% endif %}">
-                <span class="icon">💬</span> チャット
+               class="nav-item {% if request.endpoint == 'client_mypage.chat' %}active{% endif %}"
+               style="display:flex; align-items:center; justify-content:space-between;">
+                <span><span class="icon">💬</span> チャット</span>
+                {% if unread_count is defined and unread_count > 0 %}
+                <span style="background:#ef5350; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; min-width:18px; text-align:center;">{{ unread_count }}</span>
+                {% endif %}
             </a>
             <a href="{{ url_for('client_mypage.files') }}"
                class="nav-item {% if request.endpoint in ('client_mypage.files',) %}active{% endif %}">

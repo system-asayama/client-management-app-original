@@ -565,6 +565,84 @@ def run_migrations():
             conn.rollback()
             raise
 
+        # マイグレーション: T_メッセージにsender_typeカラムを追加
+        print("\n[マイグレーション] T_メッセージにsender_typeカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_メッセージ' AND column_name = 'sender_type'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_メッセージ" ADD COLUMN sender_type VARCHAR(20) DEFAULT \'staff\'')
+                    conn.commit()
+                    print("  ✅ sender_typeカラムを追加しました")
+                else:
+                    print("  ℹ️  sender_typeカラムは既に存在します（スキップ）")
+            else:
+                cur.execute('PRAGMA table_info("T_メッセージ")')
+                columns = [row[1] for row in cur.fetchall()]
+                if 'sender_type' not in columns:
+                    cur.execute('ALTER TABLE "T_メッセージ" ADD COLUMN sender_type TEXT DEFAULT \'staff\'')
+                    conn.commit()
+                    print("  ✅ sender_typeカラムを追加しました")
+                else:
+                    print("  ℹ️  sender_typeカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_メッセージ既読テーブル作成
+        print("\n[マイグレーション] T_メッセージ既読テーブル作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables
+                        WHERE table_name = 'T_メッセージ既読'
+                    );
+                """)
+                exists = cur.fetchone()[0]
+                if not exists:
+                    cur.execute("""
+                        CREATE TABLE "T_メッセージ既読" (
+                            id SERIAL PRIMARY KEY,
+                            message_id INTEGER NOT NULL REFERENCES "T_メッセージ"(id) ON DELETE CASCADE,
+                            reader_type VARCHAR(20) NOT NULL,
+                            reader_id VARCHAR(255) NOT NULL,
+                            read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(message_id, reader_type, reader_id)
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_メッセージ既読 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_メッセージ既読 テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("""
+                    SELECT name FROM sqlite_master
+                    WHERE type='table' AND name='T_メッセージ既読'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_メッセージ既読" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            message_id INTEGER NOT NULL REFERENCES "T_メッセージ"(id) ON DELETE CASCADE,
+                            reader_type TEXT NOT NULL,
+                            reader_id TEXT NOT NULL,
+                            read_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(message_id, reader_type, reader_id)
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_メッセージ既読 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_メッセージ既読 テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+            raise
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

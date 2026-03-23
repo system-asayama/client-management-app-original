@@ -31,6 +31,12 @@
         flex-direction: column;
         gap: 12px;
     }
+    .message-wrapper {
+        display: flex;
+        flex-direction: column;
+    }
+    .message-wrapper.mine { align-items: flex-end; }
+    .message-wrapper.other { align-items: flex-start; }
     .message-bubble {
         max-width: 70%;
         padding: 10px 14px;
@@ -39,13 +45,11 @@
         line-height: 1.5;
     }
     .message-mine {
-        align-self: flex-end;
         background: #1a237e;
         color: #fff;
         border-bottom-right-radius: 4px;
     }
     .message-other {
-        align-self: flex-start;
         background: #f0f2f5;
         color: #333;
         border-bottom-left-radius: 4px;
@@ -56,6 +60,36 @@
     }
     .message-mine .message-meta { text-align: right; color: rgba(255,255,255,0.7); }
     .message-other .message-meta { color: #888; }
+    /* 既読マーク */
+    .read-status {
+        font-size: 11px;
+        color: #90caf9;
+        margin-top: 3px;
+        text-align: right;
+    }
+    /* 未読区切り線 */
+    .unread-divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 8px 0;
+    }
+    .unread-divider::before,
+    .unread-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #ef5350;
+    }
+    .unread-divider span {
+        font-size: 11px;
+        color: #ef5350;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 2px 8px;
+        border: 1px solid #ef5350;
+        border-radius: 10px;
+    }
     .chat-input-area {
         padding: 16px 20px;
         border-top: 1px solid #e0e0e0;
@@ -103,16 +137,9 @@
             max-width: 85%;
             font-size: 15px;
         }
-        .chat-input-area {
-            padding: 10px 12px;
-        }
-        .btn-send {
-            padding: 10px 14px;
-            font-size: 14px;
-        }
-        .chat-messages {
-            padding: 12px;
-        }
+        .chat-input-area { padding: 10px 12px; }
+        .btn-send { padding: 10px 14px; font-size: 14px; }
+        .chat-messages { padding: 12px; }
     }
 </style>
 
@@ -122,20 +149,30 @@
     </div>
     <div class="chat-messages" id="chatMessages">
         {% if messages %}
+            {% set ns = namespace(divider_shown=false) %}
             {% for msg in messages %}
-            <div>
-                {% if msg.sender == session.get('user_name') %}
-                <div class="message-bubble message-mine">
-                    <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
-                    {{ msg.message }}
-                </div>
-                {% else %}
-                <div class="message-bubble message-other">
-                    <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
-                    {{ msg.message }}
-                </div>
+                {# 未読区切り線（最初の未読メッセージの直前に表示） #}
+                {% if first_unread_id and msg.id == first_unread_id and not ns.divider_shown %}
+                    {% set ns.divider_shown = true %}
+                    <div class="unread-divider" id="unreadDivider">
+                        <span>ここから未読</span>
+                    </div>
                 {% endif %}
-            </div>
+
+                {% set is_mine = (msg.sender_type == 'client') %}
+                <div class="message-wrapper {{ 'mine' if is_mine else 'other' }}">
+                    <div class="message-bubble {{ 'message-mine' if is_mine else 'message-other' }}">
+                        <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
+                        {{ msg.message }}
+                    </div>
+                    {# 自分（クライアント）が送ったメッセージに既読マーク #}
+                    {% if is_mine %}
+                        {# staffが既読にしているか確認 #}
+                        {% if msg.id in read_ids %}
+                            <div class="read-status">既読</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
             {% endfor %}
         {% else %}
             <div class="empty-chat">
@@ -154,8 +191,13 @@
 </div>
 
 <script>
-    // 最下部にスクロール
     const chatMessages = document.getElementById('chatMessages');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    const unreadDivider = document.getElementById('unreadDivider');
+    // 未読区切り線があればそこへ、なければ最下部へスクロール
+    if (unreadDivider) {
+        unreadDivider.scrollIntoView({ block: 'center' });
+    } else {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 </script>
 {% endblock %}

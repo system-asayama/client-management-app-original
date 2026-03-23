@@ -2,34 +2,198 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <title>{{ client['name'] }} - チャット</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ client.name }} - チャット</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    .chat-box { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
-    .msg { margin-bottom: 8px; }
-    .sender { font-weight: bold; }
-    .timestamp { font-size: 0.8em; color: #666; }
-    form { margin-top: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', sans-serif; background: #f5f6fa; color: #333; }
+    .page-wrapper { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .breadcrumb { font-size: 13px; color: #888; margin-bottom: 12px; }
+    .breadcrumb a { color: #1a237e; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .chat-container {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 130px);
+        min-height: 400px;
+    }
+    .chat-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #e0e0e0;
+        font-weight: 700;
+        font-size: 15px;
+        color: #1a237e;
+        background: #f8f9ff;
+        border-radius: 10px 10px 0 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .message-wrapper { display: flex; flex-direction: column; }
+    .message-wrapper.mine { align-items: flex-end; }
+    .message-wrapper.other { align-items: flex-start; }
+    .message-bubble {
+        max-width: 70%;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .message-mine {
+        background: #1a237e;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+    }
+    .message-other {
+        background: #f0f2f5;
+        color: #333;
+        border-bottom-left-radius: 4px;
+    }
+    .message-meta { font-size: 11px; margin-bottom: 4px; }
+    .message-mine .message-meta { text-align: right; color: rgba(255,255,255,0.7); }
+    .message-other .message-meta { color: #888; }
+    /* 既読マーク */
+    .read-status {
+        font-size: 11px;
+        color: #90caf9;
+        margin-top: 3px;
+        text-align: right;
+    }
+    /* 未読区切り線 */
+    .unread-divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 8px 0;
+    }
+    .unread-divider::before, .unread-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #ef5350;
+    }
+    .unread-divider span {
+        font-size: 11px;
+        color: #ef5350;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 2px 8px;
+        border: 1px solid #ef5350;
+        border-radius: 10px;
+    }
+    .chat-input-area {
+        padding: 16px 20px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+    }
+    .chat-input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        font-size: 14px;
+        outline: none;
+        resize: none;
+        max-height: 100px;
+        font-family: inherit;
+    }
+    .chat-input:focus { border-color: #1a237e; }
+    .btn-send {
+        padding: 10px 20px;
+        background: #1a237e;
+        color: #fff;
+        border: none;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .btn-send:hover { background: #283593; }
+    .empty-chat { text-align: center; color: #aaa; padding: 40px; font-size: 14px; }
+    .empty-chat .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+    @media (max-width: 768px) {
+        .page-wrapper { padding: 10px; }
+        .chat-container { height: calc(100vh - 90px); }
+        .message-bubble { max-width: 85%; font-size: 15px; }
+        .chat-input-area { padding: 10px 12px; }
+        .btn-send { padding: 10px 14px; }
+        .chat-messages { padding: 12px; }
+    }
   </style>
 </head>
 <body>
-  <h1>{{ client['name'] }} とのチャット</h1>
-  <div class="chat-box">
-    {% for m in messages %}
-      <div class="msg">
-        <span class="sender">{{ m['sender'] }}</span>:
-        {{ m['message'] }} <span class="timestamp">[{{ m['timestamp'] }}]</span>
+  <div class="page-wrapper">
+    <div class="breadcrumb">
+      <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+      <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+      チャット
+    </div>
+    <div class="chat-container">
+      <div class="chat-header">
+        💬 {{ client.name }} との会話
       </div>
-    {% endfor %}
+      <div class="chat-messages" id="chatMessages">
+        {% if messages %}
+          {% set ns = namespace(divider_shown=false) %}
+          {% for msg in messages %}
+            {# 未読区切り線 #}
+            {% if first_unread_id and msg.id == first_unread_id and not ns.divider_shown %}
+              {% set ns.divider_shown = true %}
+              <div class="unread-divider" id="unreadDivider">
+                <span>ここから未読</span>
+              </div>
+            {% endif %}
+
+            {% set is_mine = (msg.sender_type == 'staff') %}
+            <div class="message-wrapper {{ 'mine' if is_mine else 'other' }}">
+              <div class="message-bubble {{ 'message-mine' if is_mine else 'message-other' }}">
+                <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
+                {{ msg.message }}
+              </div>
+              {# 自分（staff）が送ったメッセージにクライアントの既読マーク #}
+              {% if is_mine and msg.id in client_read_ids %}
+                <div class="read-status">既読</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-chat">
+            <span class="icon">💬</span>
+            まだメッセージはありません。<br>最初のメッセージを送ってみましょう。
+          </div>
+        {% endif %}
+      </div>
+      <div class="chat-input-area">
+        <form method="post" style="display:flex; gap:10px; width:100%; align-items:flex-end;">
+          <textarea class="chat-input" name="message" placeholder="メッセージを入力..." rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}"></textarea>
+          <button type="submit" class="btn-send">送信 ➤</button>
+        </form>
+      </div>
+    </div>
   </div>
-  <form method="post">
-    <input type="text" name="message" placeholder="メッセージを入力" required>
-    <button type="submit">送信</button>
-  </form>
-  <p>
-    <a href="{{ url_for('clients.client_info', client_id=client['id']) }}">← 顧問先ページに戻る</a> |
-    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> |
-    <a href="{{ url_for('tenant_admin.dashboard') }}">🏠 ホーム</a>
-  </p>
+  <script>
+    const chatMessages = document.getElementById('chatMessages');
+    const unreadDivider = document.getElementById('unreadDivider');
+    if (unreadDivider) {
+      unreadDivider.scrollIntoView({ block: 'center' });
+    } else {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 """
 顧問先管理用モデル
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from datetime import datetime
 from app.db import Base
 
@@ -28,8 +28,20 @@ class TMessage(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
     sender = Column(String(255), nullable=False)
+    sender_type = Column(String(20), default='staff')  # 'staff'=税理士側, 'client'=クライアント側
     message = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class TMessageRead(Base):
+    """T_メッセージ既読テーブル（誰がどのメッセージを既読にしたか）"""
+    __tablename__ = 'T_メッセージ既読'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(Integer, ForeignKey('T_メッセージ.id'), nullable=False)
+    reader_type = Column(String(20), nullable=False)  # 'staff'=税理士側, 'client'=クライアント側
+    reader_id = Column(String(255), nullable=False)   # ログインIDまたはユーザー識別子
+    read_at = Column(DateTime, default=datetime.utcnow)
 
 
 class TFile(Base):

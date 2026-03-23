@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from datetime import datetime
 from app.db import get_conn, SessionLocal
 from app.utils.decorators import require_roles, ROLES
-from app.models_clients import TClient, TMessage
+from app.models_clients import TClient, TMessage, TMessageRead
 from sqlalchemy import and_
 
 bp = Blueprint('chat', __name__, url_prefix='/chat')
@@ -33,25 +33,54 @@ def client_chat(client_id):
             flash('顧問先が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
         
+        reader_id = session.get('user_name', user_name)
+
         if request.method == 'POST':
             message_text = request.form.get('message')
             if message_text:
                 new_message = TMessage(
                     client_id=client_id,
                     sender=user_name,
+                    sender_type='staff',
                     message=message_text,
                     timestamp=datetime.now()
                 )
                 db.add(new_message)
                 db.commit()
                 return redirect(url_for('chat.client_chat', client_id=client_id))
-        
+
         # メッセージ一覧を取得
         messages = db.query(TMessage).filter(
             TMessage.client_id == client_id
         ).order_by(TMessage.id.asc()).all()
-        
-        return render_template('client_chat.html', client=client, messages=messages)
+
+        # 既読済みメッセージIDセット（staff側が既読にしたもの）
+        read_ids = {r.message_id for r in db.query(TMessageRead).filter(
+            TMessageRead.reader_type == 'staff',
+            TMessageRead.reader_id == reader_id
+        ).all()}
+
+        # client側の未読メッセージを既読に登録
+        first_unread_id = None
+        for msg in messages:
+            if msg.sender_type == 'client' and msg.id not in read_ids:
+                if first_unread_id is None:
+                    first_unread_id = msg.id
+                db.add(TMessageRead(
+                    message_id=msg.id,
+                    reader_type='staff',
+                    reader_id=reader_id
+                ))
+        db.commit()
+
+        # client側が既読にしたメッセージIDセット（自分（staff）が送ったメッセージの既読状態）
+        client_read_ids = {r.message_id for r in db.query(TMessageRead).filter(
+            TMessageRead.reader_type == 'client'
+        ).all()}
+
+        return render_template('client_chat.html', client=client, messages=messages,
+                               read_ids=read_ids, first_unread_id=first_unread_id,
+                               client_read_ids=client_read_ids)
     finally:
         db.close()
 

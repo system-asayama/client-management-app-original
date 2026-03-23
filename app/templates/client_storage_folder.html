@@ -26,15 +26,15 @@
         }
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
-        input[type="text"] {
+        input[type="text"], select {
             width: 100%;
             padding: 10px 14px;
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 15px;
-            font-family: monospace;
         }
-        input[type="text"]:focus {
+        input[type="text"] { font-family: monospace; }
+        input[type="text"]:focus, select:focus {
             outline: none;
             border-color: #1a237e;
             box-shadow: 0 0 0 2px rgba(26,35,126,0.15);
@@ -78,16 +78,34 @@
         .btn-primary:hover { background: #283593; }
         .btn-secondary { background: #f0f0f0; color: #333; }
         .btn-secondary:hover { background: #e0e0e0; }
+        .btn-outline { background: #fff; color: #3949ab; border: 1px solid #9fa8da; font-size: 13px; padding: 8px 14px; }
+        .btn-outline:hover { background: #e8eaf6; }
         .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
         .flash.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
         .flash.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+        .or-divider { text-align: center; color: #aaa; font-size: 13px; margin: 10px 0; }
+        #new-folder-section { display: none; margin-top: 12px; }
+        .new-folder-row { display: flex; gap: 8px; align-items: center; }
+        .new-folder-row input { flex: 1; }
+        .btn-create { padding: 10px 16px; background: #3949ab; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .btn-create:hover { background: #283593; }
+        #new-folder-msg { font-size: 12px; margin-top: 6px; }
+        .selected-badge {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
         <h2>📂 ストレージフォルダ設定</h2>
-        <p class="subtitle">この顧問先のファイルを保存するフォルダパスを設定します</p>
+        <p class="subtitle">この顧問先のファイルを保存するフォルダを設定します</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -103,22 +121,58 @@
         </div>
         {% endif %}
 
-        <div class="hint">
-            <strong>設定例：</strong><br>
-            <code>/clients/株式会社A</code> や <code>/顧問先/田中商店</code> のように、<br>
-            テナントのストレージ内でこの顧問先専用のフォルダパスを指定してください。<br><br>
-            未設定の場合は <code>/tenant-{テナントID}/client-{顧問先ID}/{年月}/</code> に自動保存されます。
-        </div>
+        <form method="POST" id="folderForm">
+            <input type="hidden" name="storage_folder_path" id="storage_folder_path" value="{{ client.storage_folder_path or '' }}">
 
-        <form method="POST">
+            {% if storage_configured %}
+            <!-- ストレージ設定済み：フォルダ選択UI -->
             <div class="form-group">
-                <label for="storage_folder_path">フォルダパス</label>
-                <input type="text"
-                       id="storage_folder_path"
-                       name="storage_folder_path"
-                       value="{{ client.storage_folder_path or '' }}"
-                       placeholder="/clients/{{ client.name }}">
+                <label>📁 フォルダを選択</label>
+                <select id="folder-select" onchange="onFolderSelect(this)">
+                    <option value="">── 自動（デフォルト）</option>
+                    {% for folder in storage_folders %}
+                    <option value="{{ folder }}" {% if client.storage_folder_path == folder %}selected{% endif %}>{{ folder }}</option>
+                    {% endfor %}
+                    {% if client.storage_folder_path and client.storage_folder_path not in storage_folders %}
+                    <option value="{{ client.storage_folder_path }}" selected>{{ client.storage_folder_path }}（現在の設定）</option>
+                    {% endif %}
+                </select>
+                <div id="selected-display"></div>
             </div>
+
+            <div class="or-divider">── または ──</div>
+
+            <!-- 新規フォルダ作成 -->
+            <div class="form-group">
+                <button type="button" class="btn btn-outline" onclick="toggleNewFolder()">＋ 新しいフォルダを作成</button>
+                <div id="new-folder-section">
+                    <div class="new-folder-row" style="margin-top:10px;">
+                        <input type="text" id="new-folder-name" placeholder="フォルダ名を入力（例: 株式会社A）">
+                        <button type="button" class="btn-create" onclick="createFolder()">作成</button>
+                    </div>
+                    <div id="new-folder-msg"></div>
+                </div>
+            </div>
+
+            {% else %}
+            <!-- ストレージ未設定：手入力 -->
+            <div class="hint">
+                <strong>設定例：</strong><br>
+                <code>/clients/株式会社A</code> や <code>/顧問先/田中商店</code> のように、<br>
+                テナントのストレージ内でこの顧問先専用のフォルダパスを指定してください。<br><br>
+                未設定の場合は <code>/tenant-{テナントID}/client-{顧問先ID}/{年月}/</code> に自動保存されます。<br><br>
+                ※ ストレージ連携設定を行うと、フォルダを一覧から選択できるようになります。
+            </div>
+            <div class="form-group">
+                <label for="folder-manual">フォルダパス（手入力）</label>
+                <input type="text"
+                       id="folder-manual"
+                       placeholder="/clients/{{ client.name }}"
+                       value="{{ client.storage_folder_path or '' }}"
+                       oninput="document.getElementById('storage_folder_path').value = this.value">
+            </div>
+            {% endif %}
+
             <div class="btn-row">
                 <button type="submit" class="btn btn-primary">💾 保存</button>
                 <a href="{{ url_for('clients.client_info', client_id=client.id) }}" class="btn btn-secondary">← 戻る</a>
@@ -126,5 +180,60 @@
         </form>
     </div>
 </div>
+
+<script>
+function onFolderSelect(sel) {
+    document.getElementById('storage_folder_path').value = sel.value;
+    const disp = document.getElementById('selected-display');
+    if (sel.value) {
+        disp.innerHTML = `<span class="selected-badge">✅ 選択中: ${sel.value}</span>`;
+    } else {
+        disp.innerHTML = `<span class="selected-badge">自動（デフォルト）</span>`;
+    }
+}
+
+function toggleNewFolder() {
+    const sec = document.getElementById('new-folder-section');
+    sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+    if (sec.style.display === 'block') document.getElementById('new-folder-name').focus();
+}
+
+function createFolder() {
+    const name = document.getElementById('new-folder-name').value.trim();
+    const msg = document.getElementById('new-folder-msg');
+    if (!name) { msg.style.color='#c62828'; msg.textContent='フォルダ名を入力してください'; return; }
+    msg.style.color='#555'; msg.textContent='作成中...';
+
+    fetch('/files/client/folders/create_root', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder_name: name})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const sel = document.getElementById('folder-select');
+            const opt = document.createElement('option');
+            const path = '/' + name;
+            opt.value = path; opt.textContent = path;
+            sel.appendChild(opt);
+            sel.value = path;
+            onFolderSelect(sel);
+            msg.style.color='#2e7d32'; msg.textContent=`「${path}」を作成しました`;
+            document.getElementById('new-folder-name').value = '';
+            setTimeout(() => { document.getElementById('new-folder-section').style.display='none'; msg.textContent=''; }, 1500);
+        } else {
+            msg.style.color='#c62828'; msg.textContent = data.error || '作成に失敗しました';
+        }
+    })
+    .catch(() => { msg.style.color='#c62828'; msg.textContent='通信エラーが発生しました'; });
+}
+
+// 初期表示
+window.addEventListener('DOMContentLoaded', () => {
+    const sel = document.getElementById('folder-select');
+    if (sel) onFolderSelect(sel);
+});
+</script>
 </body>
 </html>

@@ -152,3 +152,23 @@ def create_folder(client_id):
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
+
+
+@bp.route('/client/folders/create_root', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def create_root_folder():
+    """ストレージのルートに新しいフォルダを作成する（ストレージフォルダ設定ページ用）"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': 'テナントが選択されていません'}), 403
+
+    folder_name = request.json.get('folder_name', '').strip() if request.is_json else request.form.get('folder_name', '').strip()
+    if not folder_name:
+        return jsonify({'error': 'フォルダ名を入力してください'}), 400
+
+    try:
+        adapter = get_storage_adapter(tenant_id)
+        adapter.create_folder('/', folder_name)
+        return jsonify({'success': True, 'folder_path': '/' + folder_name})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

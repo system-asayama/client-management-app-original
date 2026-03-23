@@ -10,7 +10,7 @@ import secrets
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_client_users import TClientUser, TClientInvitation
 from app.models_clients import TClient, TMessage, TFile
@@ -306,3 +306,72 @@ def toggle_member(user_id):
     finally:
         db.close()
     return redirect(url_for('client_mypage.members'))
+
+
+# ===========================
+# アカウント設定
+# ===========================
+@bp.route('/account', methods=['GET', 'POST'])
+@require_client_login
+def account_settings():
+    """ログインID・パスワード変更"""
+    user_id = session.get('user_id')
+    client_id = session.get('client_id')
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(TClient.id == client_id).first()
+        user = db.query(TClientUser).filter(TClientUser.id == user_id).first()
+        if not user:
+            flash('ユーザーが見つかりません。', 'error')
+            return redirect(url_for('client_mypage.dashboard'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+
+            # ログインID変更
+            if action == 'change_login_id':
+                new_login_id = (request.form.get('new_login_id') or '').strip()
+                current_password = request.form.get('current_password_id') or ''
+                if not new_login_id:
+                    flash('新しいログインIDを入力してください。', 'error')
+                elif not check_password_hash(user.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません。', 'error')
+                else:
+                    # 重複チェック
+                    existing = db.query(TClientUser).filter(
+                        TClientUser.login_id == new_login_id,
+                        TClientUser.id != user_id
+                    ).first()
+                    if existing:
+                        flash('そのログインIDはすでに使用されています。', 'error')
+                    else:
+                        user.login_id = new_login_id
+                        db.commit()
+                        session['login_id'] = new_login_id
+                        flash('ログインIDを変更しました。', 'success')
+
+            # パスワード変更
+            elif action == 'change_password':
+                current_password = request.form.get('current_password') or ''
+                new_password = request.form.get('new_password') or ''
+                confirm_password = request.form.get('confirm_password') or ''
+                if not check_password_hash(user.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません。', 'error')
+                elif len(new_password) < 8:
+                    flash('新しいパスワードは8文字以上で入力してください。', 'error')
+                elif new_password != confirm_password:
+                    flash('新しいパスワードと確認用パスワードが一致しません。', 'error')
+                else:
+                    user.password_hash = generate_password_hash(new_password)
+                    db.commit()
+                    flash('パスワードを変更しました。', 'success')
+
+            return redirect(url_for('client_mypage.account_settings'))
+
+        return render_template(
+            'client_mypage_account.html',
+            client=client,
+            user=user
+        )
+    finally:
+        db.close()

@@ -337,6 +337,11 @@
             {% endif %}
         </nav>
         <div class="sidebar-footer">
+            <a href="{{ url_for('client_mypage.account_settings') }}"
+               class="nav-item {% if request.endpoint == 'client_mypage.account_settings' %}active{% endif %}"
+               style="border-left-color: transparent; padding: 10px 20px; font-size:13px;">
+                <span class="icon">⚙️</span> アカウント設定
+            </a>
             <a href="{{ url_for('client_auth.logout') }}" class="btn-logout">
                 <span>🚪</span> ログアウト
             </a>

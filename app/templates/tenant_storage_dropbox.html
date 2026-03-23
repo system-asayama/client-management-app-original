@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Dropbox連携設定{% endblock %}
+
+{% block content %}
+<style>
+    .storage-page { max-width: 640px; margin: 0 auto; }
+    .breadcrumb { font-size: 13px; color: #888; margin-bottom: 16px; }
+    .breadcrumb a { color: #1a237e; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .page-title { font-size: 22px; font-weight: 700; color: #1a237e; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .page-desc { font-size: 14px; color: #666; margin-bottom: 28px; }
+
+    .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+    .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+    .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+    .flash-warning { background: #fff8e1; color: #f57f17; border-left: 4px solid #f57f17; }
+    .flash-info    { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+
+    /* 連携中バナー */
+    .connected-banner {
+        background: #f1f8e9;
+        border: 1.5px solid #a5d6a7;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .connected-banner .info { flex: 1; }
+    .connected-banner .label { font-size: 11px; font-weight: 700; color: #388e3c; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+    .connected-banner .value { font-size: 14px; color: #333; }
+    .btn-disconnect {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+        cursor: pointer; border: 1.5px solid #e57373; background: #fff; color: #c62828;
+        transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-disconnect:hover { background: #ffebee; }
+
+    /* フォームカード */
+    .form-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+        padding: 28px 28px 24px;
+        margin-bottom: 24px;
+    }
+    .form-card-title {
+        font-size: 16px; font-weight: 700; color: #333;
+        margin-bottom: 16px; padding-bottom: 12px;
+        border-bottom: 2px solid #e8eaf6;
+    }
+
+    /* 手順ボックス */
+    .howto-box {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #5d4037;
+        line-height: 1.7;
+    }
+    .howto-box strong { color: #e65100; }
+    .howto-box a { color: #1565c0; }
+    .howto-box ol { margin: 8px 0 0 16px; padding: 0; }
+
+    /* フォーム要素 */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
+    .form-label .required { color: #e53935; margin-left: 4px; }
+    .form-input {
+        width: 100%; padding: 10px 14px;
+        border: 1.5px solid #ddd; border-radius: 8px;
+        font-size: 14px; color: #333;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+    .form-input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
+    .form-hint { font-size: 12px; color: #999; margin-top: 5px; }
+
+    .btn-submit {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 11px 28px; border-radius: 8px;
+        font-size: 15px; font-weight: 700;
+        background: #1a237e; color: #fff;
+        border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-submit:hover { background: #283593; }
+
+    .btn-back {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 20px; border-radius: 6px;
+        font-size: 14px; font-weight: 600;
+        background: #e8eaf6; color: #1a237e;
+        text-decoration: none; transition: all 0.2s;
+    }
+    .btn-back:hover { background: #c5cae9; }
+</style>
+
+<div class="storage-page">
+    <div class="breadcrumb">
+        <a href="{{ url_for('tenant_storage.storage_settings') }}">ストレージ連携設定</a> &rsaquo; Dropbox
+    </div>
+
+    <div class="page-title">📂 Dropbox 連携設定</div>
+    <div class="page-desc">Dropboxのアクセストークンを入力して連携します。</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if view.is_connected and view.provider == 'dropbox' %}
+    <div class="connected-banner">
+        <div class="info">
+            <div class="label">✅ 連携中</div>
+            <div class="value">アクセストークン: {{ view.dropbox_access_token }}</div>
+        </div>
+        <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage') }}"
+              onsubmit="return confirm('Dropbox連携を解除しますか？');">
+            <input type="hidden" name="provider" value="dropbox">
+            <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="form-card">
+        <div class="form-card-title">
+            {% if view.is_connected and view.provider == 'dropbox' %}アクセストークンを更新{% else %}Dropboxと連携{% endif %}
+        </div>
+
+        <div class="howto-box">
+            <strong>⚠️ アクセストークンの取得方法</strong>
+            <ol>
+                <li><a href="https://www.dropbox.com/developers/apps" target="_blank">Dropbox App Console</a> にアクセス</li>
+                <li>「Create app」をクリック</li>
+                <li>Scoped access / Full Dropbox を選択</li>
+                <li>アプリ名を入力して作成</li>
+                <li>Permissions タブで以下の権限を有効化:<br>
+                    &nbsp;&nbsp;・files.content.write<br>
+                    &nbsp;&nbsp;・files.content.read<br>
+                    &nbsp;&nbsp;・sharing.write
+                </li>
+                <li>Settings タブで「Generate access token」をクリック</li>
+            </ol>
+        </div>
+
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label" for="dropbox_access_token">
+                    アクセストークン <span class="required">*</span>
+                </label>
+                <input type="text" class="form-input" id="dropbox_access_token"
+                       name="dropbox_access_token"
+                       placeholder="sl.xxxxxxxxxxxxxxxxxxxxx" required>
+                <div class="form-hint">Dropboxで生成したアクセストークンを入力してください</div>
+            </div>
+            <button type="submit" class="btn-submit">📂 Dropboxと連携</button>
+        </form>
+    </div>
+
+    <a href="{{ url_for('tenant_storage.storage_settings') }}" class="btn-back">← ストレージ設定に戻る</a>
+</div>
+{% endblock %}

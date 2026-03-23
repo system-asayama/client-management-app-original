@@ -167,7 +167,9 @@ def files():
             if f and f.filename:
                 try:
                     adapter = get_storage_adapter(tenant_id)
-                    file_url = adapter.upload(f, client_id)
+                    # 顧問先のフォルダパスを取得
+                    client_folder = getattr(client, 'storage_folder_path', None)
+                    file_url = adapter.upload(f, f.filename, client_id, client_folder_path=client_folder)
                     new_file = TFile(
                         client_id=client_id,
                         filename=f.filename,

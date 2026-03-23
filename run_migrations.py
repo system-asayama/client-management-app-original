@@ -643,6 +643,33 @@ def run_migrations():
             conn.rollback()
             raise
 
+        # マイグレーション: T_顧問先にstorage_folder_pathカラムを追加
+        print("\n[マイグレーション] T_顧問先にstorage_folder_pathカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_顧問先' AND column_name = 'storage_folder_path'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_顧問先" ADD COLUMN storage_folder_path VARCHAR(500)')
+                    conn.commit()
+                    print("  ✅ storage_folder_pathカラムを追加しました")
+                else:
+                    print("  ℹ️  storage_folder_pathカラムは既に存在します（スキップ）")
+            else:
+                cur.execute('PRAGMA table_info("T_顧問先")')
+                columns = [row[1] for row in cur.fetchall()]
+                if 'storage_folder_path' not in columns:
+                    cur.execute('ALTER TABLE "T_顧問先" ADD COLUMN storage_folder_path TEXT')
+                    conn.commit()
+                    print("  ✅ storage_folder_pathカラムを追加しました")
+                else:
+                    print("  ℹ️  storage_folder_pathカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

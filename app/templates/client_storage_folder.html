@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ストレージフォルダ設定 - {{ client.name }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; color: #333; }
+        .container { max-width: 600px; margin: 40px auto; padding: 0 16px; }
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 32px;
+        }
+        h2 { font-size: 20px; color: #1a237e; margin-bottom: 8px; }
+        .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+        .client-name {
+            background: #e8eaf6;
+            border-radius: 6px;
+            padding: 10px 16px;
+            font-weight: bold;
+            color: #1a237e;
+            margin-bottom: 24px;
+        }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            font-family: monospace;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #1a237e;
+            box-shadow: 0 0 0 2px rgba(26,35,126,0.15);
+        }
+        .hint {
+            background: #f8f9fa;
+            border-left: 3px solid #1a237e;
+            padding: 12px 16px;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .hint code {
+            background: #e8eaf6;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .current-path {
+            background: #fff3e0;
+            border: 1px solid #ffcc02;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .current-path strong { color: #e65100; }
+        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary { background: #1a237e; color: #fff; }
+        .btn-primary:hover { background: #283593; }
+        .btn-secondary { background: #f0f0f0; color: #333; }
+        .btn-secondary:hover { background: #e0e0e0; }
+        .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
+        .flash.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .flash.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h2>📂 ストレージフォルダ設定</h2>
+        <p class="subtitle">この顧問先のファイルを保存するフォルダパスを設定します</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+
+        <div class="client-name">🏢 {{ client.name }}</div>
+
+        {% if client.storage_folder_path %}
+        <div class="current-path">
+            現在の設定: <strong>{{ client.storage_folder_path }}</strong>
+        </div>
+        {% endif %}
+
+        <div class="hint">
+            <strong>設定例：</strong><br>
+            <code>/clients/株式会社A</code> や <code>/顧問先/田中商店</code> のように、<br>
+            テナントのストレージ内でこの顧問先専用のフォルダパスを指定してください。<br><br>
+            未設定の場合は <code>/tenant-{テナントID}/client-{顧問先ID}/{年月}/</code> に自動保存されます。
+        </div>
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="storage_folder_path">フォルダパス</label>
+                <input type="text"
+                       id="storage_folder_path"
+                       name="storage_folder_path"
+                       value="{{ client.storage_folder_path or '' }}"
+                       placeholder="/clients/{{ client.name }}">
+            </div>
+            <div class="btn-row">
+                <button type="submit" class="btn btn-primary">💾 保存</button>
+                <a href="{{ url_for('clients.client_info', client_id=client.id) }}" class="btn btn-secondary">← 戻る</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

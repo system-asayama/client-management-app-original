@@ -20,7 +20,7 @@ class StorageAdapterBase:
         self.config = storage_config
         self.tenant_id = tenant_id
     
-    def upload(self, file_stream, original_name, client_id: int) -> str:
+    def upload(self, file_stream, original_name, client_id: int, client_folder_path: str = None) -> str:
         """
         ファイルをアップロードして、ダウンロード/共有URL を返す
         
@@ -28,6 +28,7 @@ class StorageAdapterBase:
             file_stream: ファイルストリーム
             original_name: 元のファイル名
             client_id: 顧問先ID
+            client_folder_path: 顧問先のストレージ内保存先フォルダパス（未設定の場合はNone）
             
         Returns:
             str: ダウンロード/共有URL
@@ -52,15 +53,19 @@ class DropboxAdapter(StorageAdapterBase):
         
         return dropbox.Dropbox(token)
     
-    def upload(self, file_stream, original_name, client_id: int) -> str:
+    def upload(self, file_stream, original_name, client_id: int, client_folder_path: str = None) -> str:
         """Dropboxにファイルをアップロード"""
         import dropbox
         
         dbx = self._get_client()
         safe = secure_filename(original_name) or 'uploaded'
         today = datetime.now().strftime('%Y-%m')
-        # テナントID/顧問先ID/年月/ファイル名 の構造で保存
-        dropbox_path = f'/tenant-{self.tenant_id}/client-{client_id}/{today}/{safe}'
+        # 顧問先のフォルダパスが設定されている場合はそちらを使用、未設定の場合は自動パス
+        if client_folder_path:
+            base_path = client_folder_path.rstrip('/')
+            dropbox_path = f'{base_path}/{today}/{safe}'
+        else:
+            dropbox_path = f'/tenant-{self.tenant_id}/client-{client_id}/{today}/{safe}'
         
         data = file_stream.read()
         dbx.files_upload(data, dropbox_path, mode=dropbox.files.WriteMode.overwrite)
@@ -109,13 +114,17 @@ class GCSAdapter(StorageAdapterBase):
         bucket = client.bucket(bucket_name)
         return client, bucket
     
-    def upload(self, file_stream, original_name, client_id: int) -> str:
+    def upload(self, file_stream, original_name, client_id: int, client_folder_path: str = None) -> str:
         """GCSにファイルをアップロード"""
         _, bucket = self._get_client_and_bucket()
         safe = secure_filename(original_name) or 'uploaded'
         today = datetime.now().strftime('%Y-%m')
-        # テナントID/顧問先ID/年月/ファイル名 の構造で保存
-        object_name = f'tenant-{self.tenant_id}/client-{client_id}/{today}/{safe}'
+        # 顧問先のフォルダパスが設定されている場合はそちらを使用、未設定の場合は自動パス
+        if client_folder_path:
+            base_path = client_folder_path.strip('/')
+            object_name = f'{base_path}/{today}/{safe}'
+        else:
+            object_name = f'tenant-{self.tenant_id}/client-{client_id}/{today}/{safe}'
         
         blob = bucket.blob(object_name)
         blob.upload_from_file(file_stream)

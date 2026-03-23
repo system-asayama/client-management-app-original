@@ -454,6 +454,44 @@ def toggle_client_account(client_id, user_id):
 
 
 # ========================================
+# ストレージフォルダパス設定
+# ========================================
+
+@bp.route('/<int:client_id>/storage_folder', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def client_storage_folder(client_id):
+    """顧問先のストレージ保存先フォルダパス設定"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        if request.method == 'POST':
+            folder_path = request.form.get('storage_folder_path', '').strip()
+            # 先頭の/を保証し、末尾の/を除去
+            if folder_path and not folder_path.startswith('/'):
+                folder_path = '/' + folder_path
+            folder_path = folder_path.rstrip('/')
+            client.storage_folder_path = folder_path if folder_path else None
+            db.commit()
+            flash('ストレージフォルダパスを保存しました', 'success')
+            return redirect(url_for('clients.client_info', client_id=client_id))
+
+        return render_template('client_storage_folder.html', client=client)
+    finally:
+        db.close()
+
+
+# ========================================
 # チャット機能
 # ========================================
 

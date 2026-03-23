@@ -17,6 +17,7 @@ class TClient(Base):
     email = Column(String(255))
     phone = Column(String(50))
     notes = Column(Text)
+    storage_folder_path = Column(String(500))  # ストレージ内の保存先フォルダパス（例: /clients/株式会社A）
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -41,8 +41,11 @@ def client_files(client_id):
                     # テナントのストレージアダプタを取得
                     adapter = get_storage_adapter(tenant_id)
                     
+                    # 顧問先のフォルダパスを取得（設定されている場合はそちらを使用）
+                    client_folder = getattr(client, 'storage_folder_path', None)
+                    
                     # ファイルをアップロード
-                    file_url = adapter.upload(f.stream, f.filename, client_id)
+                    file_url = adapter.upload(f.stream, f.filename, client_id, client_folder_path=client_folder)
                     
                     # データベースに記録
                     new_file = TFile(

@@ -350,6 +350,19 @@ def account_settings():
                         session['login_id'] = new_login_id
                         flash('ログインIDを変更しました。', 'success')
 
+            # メールアドレス変更
+            elif action == 'change_email':
+                new_email = (request.form.get('new_email') or '').strip()
+                current_password = request.form.get('current_password_email') or ''
+                if not new_email:
+                    flash('新しいメールアドレスを入力してください。', 'error')
+                elif not check_password_hash(user.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません。', 'error')
+                else:
+                    user.email = new_email
+                    db.commit()
+                    flash('メールアドレスを変更しました。', 'success')
+
             # パスワード変更
             elif action == 'change_password':
                 current_password = request.form.get('current_password') or ''

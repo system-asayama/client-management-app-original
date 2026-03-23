@@ -1,0 +1,134 @@
+{% extends 'client_mypage_base.html' %}
+
+{% block title %}ファイル共有 | クライアントポータル{% endblock %}
+{% block page_title %}📁 ファイル共有{% endblock %}
+
+{% block content %}
+<style>
+    .upload-area {
+        border: 2px dashed #c5cae9;
+        border-radius: 10px;
+        padding: 32px;
+        text-align: center;
+        background: #f8f9ff;
+        margin-bottom: 24px;
+        transition: border-color 0.2s;
+    }
+    .upload-area:hover { border-color: #1a237e; }
+    .upload-icon { font-size: 40px; margin-bottom: 10px; }
+    .upload-area p { color: #666; font-size: 14px; margin-bottom: 16px; }
+    .file-input-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 24px;
+        background: #1a237e;
+        color: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .file-input-label:hover { background: #283593; }
+    input[type="file"] { display: none; }
+    .selected-file {
+        margin-top: 12px;
+        font-size: 13px;
+        color: #555;
+    }
+    .btn-upload {
+        display: none;
+        margin-top: 12px;
+        padding: 10px 24px;
+        background: #2e7d32;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-upload:hover { background: #1b5e20; }
+    .file-table-wrap { overflow-x: auto; }
+    .file-ext {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #e8eaf6;
+        color: #1a237e;
+        text-transform: uppercase;
+    }
+    .empty-state { text-align: center; color: #aaa; padding: 40px; font-size: 14px; }
+    .empty-state .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+</style>
+
+<!-- アップロードエリア -->
+<div class="card">
+    <div class="card-title">ファイルをアップロード</div>
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📤</div>
+            <p>ファイルを選択してアップロードしてください</p>
+            <label class="file-input-label" for="fileInput">
+                📎 ファイルを選択
+            </label>
+            <input type="file" id="fileInput" name="file" onchange="onFileSelected(this)">
+            <div class="selected-file" id="selectedFileName"></div>
+            <button type="submit" class="btn-upload" id="uploadBtn">⬆️ アップロード</button>
+        </div>
+    </form>
+</div>
+
+<!-- ファイル一覧 -->
+<div class="card">
+    <div class="card-title">アップロード済みファイル一覧</div>
+    {% if files %}
+    <div class="file-table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ファイル名</th>
+                    <th>アップロード者</th>
+                    <th>日時</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in files %}
+                <tr>
+                    <td>
+                        <span class="file-ext">{{ file.filename.rsplit('.', 1)[-1] if '.' in file.filename else 'file' }}</span>
+                        &nbsp;{{ file.filename }}
+                    </td>
+                    <td>{{ file.uploader }}</td>
+                    <td>{{ file.timestamp.strftime('%Y/%m/%d %H:%M') if file.timestamp else '' }}</td>
+                    <td>
+                        {% if file.file_url %}
+                        <a href="{{ file.file_url }}" target="_blank" class="btn btn-secondary" style="font-size:12px; padding:6px 12px;">
+                            ⬇️ ダウンロード
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <span class="icon">📁</span>
+        まだファイルはありません。<br>上のエリアからファイルをアップロードしてください。
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function onFileSelected(input) {
+    const fileName = input.files[0] ? input.files[0].name : '';
+    document.getElementById('selectedFileName').textContent = fileName ? `選択中: ${fileName}` : '';
+    document.getElementById('uploadBtn').style.display = fileName ? 'inline-block' : 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アカウント登録</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1565c0 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 480px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .header-icon { font-size: 48px; display: block; margin-bottom: 8px; }
+        .header h1 { font-size: 22px; color: #1a237e; font-weight: 700; }
+        .header .client-name {
+            font-size: 14px;
+            color: #555;
+            margin-top: 6px;
+            background: #e8eaf6;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .role-admin { background: #fff3e0; color: #e65100; }
+        .role-employee { background: #e8f5e9; color: #2e7d32; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus { border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.1); }
+        input[readonly] { background: #f5f5f5; color: #666; }
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: #1a237e;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .btn-submit:hover { background: #283593; }
+        .error-msg {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+        .hint { font-size: 12px; color: #888; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <span class="header-icon">✉️</span>
+            <h1>アカウント登録</h1>
+            <div class="client-name">🏢 {{ client.name }}</div>
+            <div>
+                {% if invitation.role == 'client_admin' %}
+                <span class="role-badge role-admin">管理者として招待されています</span>
+                {% else %}
+                <span class="role-badge role-employee">メンバーとして招待されています</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form method="post">
+            <div class="form-group">
+                <label for="login_id">ログインID <span style="color:red">*</span></label>
+                <input type="text" id="login_id" name="login_id" placeholder="半角英数字で入力" required>
+                <p class="hint">ログイン時に使用するIDです。後から変更できません。</p>
+            </div>
+            <div class="form-group">
+                <label for="name">お名前 <span style="color:red">*</span></label>
+                <input type="text" id="name" name="name" placeholder="例：山田 太郎" required>
+            </div>
+            <div class="form-group">
+                <label for="email">メールアドレス <span style="color:red">*</span></label>
+                <input type="email" id="email" name="email"
+                    value="{{ invitation.email or '' }}"
+                    {% if invitation.email %}readonly{% endif %}
+                    placeholder="example@company.com" required>
+            </div>
+            <div class="form-group">
+                <label for="password">パスワード <span style="color:red">*</span></label>
+                <input type="password" id="password" name="password" placeholder="8文字以上" required>
+                <p class="hint">8文字以上で設定してください。</p>
+            </div>
+            <div class="form-group">
+                <label for="confirm">パスワード（確認） <span style="color:red">*</span></label>
+                <input type="password" id="confirm" name="confirm" placeholder="もう一度入力" required>
+            </div>
+            <button type="submit" class="btn-submit">アカウントを作成する</button>
+        </form>
+    </div>
+</body>
+</html>

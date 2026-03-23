@@ -62,8 +62,12 @@
             💬 チャット
         </a>
         <a href="{{ url_for('files.client_files', client_id=client['id']) }}"
-           style="display:inline-block; margin:8px 0; padding:10px 24px; background:#9c27b0; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
+           style="display:inline-block; margin:8px 8px 8px 0; padding:10px 24px; background:#9c27b0; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
             📁 ファイル共有
+        </a>
+        <a href="{{ url_for('clients.client_accounts', client_id=client['id']) }}"
+           style="display:inline-block; margin:8px 0; padding:10px 24px; background:#1a237e; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
+            👤 クライアントアカウント管理
         </a>
     </div>
 

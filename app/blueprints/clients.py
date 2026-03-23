@@ -312,6 +312,148 @@ def company_delete(company_id):
 
 
 # ========================================
+# クライアントアカウント管理（税理士事務所側）
+# ========================================
+
+@bp.route('/<int:client_id>/accounts')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def client_accounts(client_id):
+    """顧問先のクライアントアカウント一覧"""
+    from app.models_client_users import TClientUser
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        users = db.query(TClientUser).filter(
+            TClientUser.client_id == client_id
+        ).order_by(TClientUser.id.asc()).all()
+        return render_template('client_accounts.html', client=client, users=users)
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/accounts/issue', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def issue_client_account(client_id):
+    """クライアント初期アカウント発行"""
+    import secrets
+    from datetime import datetime, timedelta
+    from app.models_client_users import TClientUser, TClientInvitation
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        invite_url = None
+        if request.method == 'POST':
+            issue_type = request.form.get('issue_type', 'invite')  # invite or direct
+
+            if issue_type == 'invite':
+                # 招待リンク方式
+                email = (request.form.get('email') or '').strip()
+                role = request.form.get('role') or 'client_admin'
+                if role not in ('client_admin', 'client_employee'):
+                    role = 'client_admin'
+                token = secrets.token_urlsafe(32)
+                expires_at = datetime.utcnow() + timedelta(days=7)
+                invitation = TClientInvitation(
+                    client_id=client_id,
+                    token=token,
+                    email=email if email else None,
+                    role=role,
+                    invited_by_role=session.get('role'),
+                    invited_by_id=session.get('user_id'),
+                    used=0,
+                    expires_at=expires_at
+                )
+                db.add(invitation)
+                db.commit()
+                from flask import url_for as _url_for
+                invite_url = _url_for('client_auth.accept_invite', token=token, _external=True)
+                flash('招待リンクを作成しました。', 'success')
+            else:
+                # 直接アカウント作成方式
+                from werkzeug.security import generate_password_hash
+                login_id = (request.form.get('login_id') or '').strip()
+                name = (request.form.get('name') or '').strip()
+                email = (request.form.get('email') or '').strip()
+                password = request.form.get('password') or ''
+                role = request.form.get('role') or 'client_admin'
+                if role not in ('client_admin', 'client_employee'):
+                    role = 'client_admin'
+
+                if not login_id or not name or not email or not password:
+                    flash('すべての項目を入力してください。', 'error')
+                    return render_template('issue_client_account.html', client=client, invite_url=None)
+
+                existing = db.query(TClientUser).filter(TClientUser.login_id == login_id).first()
+                if existing:
+                    flash('このログインIDはすでに使用されています。', 'error')
+                    return render_template('issue_client_account.html', client=client, invite_url=None)
+
+                new_user = TClientUser(
+                    client_id=client_id,
+                    login_id=login_id,
+                    name=name,
+                    email=email,
+                    password_hash=generate_password_hash(password),
+                    role=role,
+                    active=1
+                )
+                db.add(new_user)
+                db.commit()
+                flash(f'クライアントアカウントを作成しました。ログインID: {login_id}', 'success')
+                return redirect(url_for('clients.client_accounts', client_id=client_id))
+
+        return render_template('issue_client_account.html', client=client, invite_url=invite_url)
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/accounts/<int:user_id>/toggle', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def toggle_client_account(client_id, user_id):
+    """クライアントアカウントの有効/無効切り替え"""
+    from app.models_client_users import TClientUser
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        user = db.query(TClientUser).filter(
+            TClientUser.id == user_id,
+            TClientUser.client_id == client_id
+        ).first()
+        if user:
+            user.active = 0 if user.active == 1 else 1
+            db.commit()
+            status = '有効' if user.active == 1 else '無効'
+            flash(f'{user.name} を{status}にしました。', 'success')
+        else:
+            flash('ユーザーが見つかりません。', 'error')
+    finally:
+        db.close()
+    return redirect(url_for('clients.client_accounts', client_id=client_id))
+
+
+# ========================================
 # チャット機能
 # ========================================
 

@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block title %}クライアントアカウント発行 | {{ client.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .breadcrumb { font-size: 13px; color: #888; margin-bottom: 16px; }
+    .breadcrumb a { color: #1a237e; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 28px;
+        margin-bottom: 24px;
+        max-width: 600px;
+    }
+    .card-title { font-size: 17px; font-weight: 700; color: #1a237e; margin-bottom: 20px; }
+    .tab-switcher {
+        display: flex;
+        gap: 0;
+        margin-bottom: 24px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .tab-btn {
+        flex: 1;
+        padding: 12px;
+        background: #f5f5f5;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        color: #666;
+        transition: all 0.2s;
+    }
+    .tab-btn.active { background: #1a237e; color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+    input[type="text"], input[type="email"], input[type="password"], select {
+        width: 100%;
+        padding: 11px 13px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+    }
+    input:focus, select:focus { border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
+    .hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 11px 22px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        text-decoration: none;
+    }
+    .btn-primary { background: #1a237e; color: #fff; }
+    .btn-primary:hover { background: #283593; }
+    .btn-secondary { background: #e8eaf6; color: #1a237e; }
+    .btn-secondary:hover { background: #c5cae9; }
+    .invite-url-box {
+        background: #e8f5e9;
+        border: 1px solid #a5d6a7;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    .invite-url-box h3 { font-size: 15px; color: #2e7d32; margin-bottom: 10px; }
+    .url-display {
+        background: #fff;
+        border: 1px solid #c8e6c9;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 13px;
+        word-break: break-all;
+        color: #1565c0;
+        margin-bottom: 10px;
+    }
+    .btn-copy {
+        padding: 8px 16px;
+        background: #2e7d32;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .flash-msg { padding: 12px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 16px; }
+    .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+    .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    <a href="{{ url_for('clients.client_accounts', client_id=client.id) }}">クライアントアカウント管理</a> &rsaquo;
+    アカウント発行
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card">
+    <div class="card-title">👤 クライアントアカウント発行 — {{ client.name }}</div>
+
+    <!-- タブ切り替え -->
+    <div class="tab-switcher">
+        <button class="tab-btn active" onclick="switchTab('invite', this)">✉️ 招待リンクを送る</button>
+        <button class="tab-btn" onclick="switchTab('direct', this)">⚡ 直接アカウント作成</button>
+    </div>
+
+    <!-- 招待リンク方式 -->
+    <div id="tab-invite" class="tab-content active">
+        <p style="font-size:13px; color:#666; margin-bottom:16px;">
+            招待リンクを作成して、クライアントに送付します。クライアント自身がリンクからアカウントを登録します。
+        </p>
+        <form method="post">
+            <input type="hidden" name="issue_type" value="invite">
+            <div class="form-group">
+                <label>メールアドレス（任意）</label>
+                <input type="email" name="email" placeholder="example@company.com">
+                <p class="hint">入力した場合、登録フォームに自動入力されます。</p>
+            </div>
+            <div class="form-group">
+                <label>権限</label>
+                <select name="role">
+                    <option value="client_admin">管理者（会社情報編集・メンバー管理も可能）</option>
+                    <option value="client_employee">メンバー（チャット・ファイル共有のみ）</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">招待リンクを作成</button>
+        </form>
+
+        {% if invite_url %}
+        <div class="invite-url-box">
+            <h3>✅ 招待リンクが作成されました</h3>
+            <div class="url-display" id="inviteUrl">{{ invite_url }}</div>
+            <button class="btn-copy" onclick="copyUrl()">📋 URLをコピー</button>
+            <p style="font-size:12px; color:#666; margin-top:8px;">⏰ 有効期限: 7日間</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 直接作成方式 -->
+    <div id="tab-direct" class="tab-content">
+        <p style="font-size:13px; color:#666; margin-bottom:16px;">
+            ログインIDとパスワードを直接設定してアカウントを作成します。作成後にクライアントに情報を伝えてください。
+        </p>
+        <form method="post">
+            <input type="hidden" name="issue_type" value="direct">
+            <div class="form-group">
+                <label>ログインID <span style="color:red">*</span></label>
+                <input type="text" name="login_id" placeholder="半角英数字" required>
+            </div>
+            <div class="form-group">
+                <label>名前 <span style="color:red">*</span></label>
+                <input type="text" name="name" placeholder="例: 山田 太郎" required>
+            </div>
+            <div class="form-group">
+                <label>メールアドレス <span style="color:red">*</span></label>
+                <input type="email" name="email" placeholder="example@company.com" required>
+            </div>
+            <div class="form-group">
+                <label>パスワード <span style="color:red">*</span></label>
+                <input type="password" name="password" placeholder="8文字以上" required>
+                <p class="hint">8文字以上で設定してください。</p>
+            </div>
+            <div class="form-group">
+                <label>権限</label>
+                <select name="role">
+                    <option value="client_admin">管理者（会社情報編集・メンバー管理も可能）</option>
+                    <option value="client_employee">メンバー（チャット・ファイル共有のみ）</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">アカウントを作成</button>
+        </form>
+    </div>
+</div>
+
+<a href="{{ url_for('clients.client_accounts', client_id=client.id) }}" class="btn btn-secondary">← 戻る</a>
+
+<script>
+function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    btn.classList.add('active');
+}
+function copyUrl() {
+    const url = document.getElementById('inviteUrl').textContent;
+    navigator.clipboard.writeText(url).then(() => alert('URLをコピーしました！'));
+}
+</script>
+{% endblock %}

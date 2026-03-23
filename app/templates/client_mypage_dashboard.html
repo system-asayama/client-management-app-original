@@ -1,0 +1,150 @@
+{% extends 'client_mypage_base.html' %}
+
+{% block title %}ダッシュボード | クライアントポータル{% endblock %}
+{% block page_title %}ダッシュボード{% endblock %}
+
+{% block content %}
+<style>
+    .welcome-banner {
+        background: linear-gradient(135deg, #1a237e 0%, #1565c0 100%);
+        color: #fff;
+        border-radius: 10px;
+        padding: 28px 32px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .welcome-icon { font-size: 48px; }
+    .welcome-text h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .welcome-text p { font-size: 14px; opacity: 0.85; }
+    .quick-links {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .quick-link-card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 24px;
+        text-decoration: none;
+        color: #333;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+    }
+    .quick-link-card:hover {
+        border-color: #1a237e;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(26,35,126,0.15);
+    }
+    .quick-link-icon { font-size: 36px; margin-bottom: 10px; }
+    .quick-link-title { font-size: 15px; font-weight: 700; color: #1a237e; margin-bottom: 4px; }
+    .quick-link-desc { font-size: 12px; color: #888; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .message-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 14px;
+    }
+    .message-item:last-child { border-bottom: none; }
+    .message-sender { font-weight: 600; color: #1a237e; margin-bottom: 2px; }
+    .message-text { color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .message-time { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .file-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 14px;
+    }
+    .file-item:last-child { border-bottom: none; }
+    .file-icon { font-size: 20px; }
+    .file-name { flex: 1; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-time { font-size: 11px; color: #aaa; }
+    .empty-state { text-align: center; color: #aaa; padding: 20px 0; font-size: 14px; }
+    @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+
+<!-- ウェルカムバナー -->
+<div class="welcome-banner">
+    <div class="welcome-icon">👋</div>
+    <div class="welcome-text">
+        <h2>ようこそ、{{ session.get('user_name', '') }}さん</h2>
+        <p>{{ client.name }} のクライアントポータルへようこそ。</p>
+    </div>
+</div>
+
+<!-- クイックリンク -->
+<div class="quick-links">
+    <a href="{{ url_for('client_mypage.chat') }}" class="quick-link-card">
+        <div class="quick-link-icon">💬</div>
+        <div class="quick-link-title">チャット</div>
+        <div class="quick-link-desc">担当者とメッセージ</div>
+    </a>
+    <a href="{{ url_for('client_mypage.files') }}" class="quick-link-card">
+        <div class="quick-link-icon">📁</div>
+        <div class="quick-link-title">ファイル共有</div>
+        <div class="quick-link-desc">書類のやり取り</div>
+    </a>
+    <a href="{{ url_for('client_mypage.company') }}" class="quick-link-card">
+        <div class="quick-link-icon">🏛️</div>
+        <div class="quick-link-title">会社基本情報</div>
+        <div class="quick-link-desc">会社情報の確認・編集</div>
+    </a>
+    {% if session.get('role') == 'client_admin' %}
+    <a href="{{ url_for('client_mypage.members') }}" class="quick-link-card">
+        <div class="quick-link-icon">👥</div>
+        <div class="quick-link-title">メンバー管理</div>
+        <div class="quick-link-desc">従業員の招待・管理</div>
+    </a>
+    {% endif %}
+</div>
+
+<!-- 最近のアクティビティ -->
+<div class="two-col">
+    <!-- 最近のチャット -->
+    <div class="card">
+        <div class="card-title">💬 最近のメッセージ</div>
+        {% if recent_messages %}
+            {% for msg in recent_messages %}
+            <div class="message-item">
+                <div class="message-sender">{{ msg.sender }}</div>
+                <div class="message-text">{{ msg.message }}</div>
+                <div class="message-time">{{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
+            </div>
+            {% endfor %}
+            <div style="margin-top:12px;">
+                <a href="{{ url_for('client_mypage.chat') }}" class="btn btn-secondary" style="font-size:13px;">すべて見る →</a>
+            </div>
+        {% else %}
+            <div class="empty-state">まだメッセージはありません</div>
+        {% endif %}
+    </div>
+
+    <!-- 最近のファイル -->
+    <div class="card">
+        <div class="card-title">📁 最近のファイル</div>
+        {% if recent_files %}
+            {% for file in recent_files %}
+            <div class="file-item">
+                <span class="file-icon">📄</span>
+                <span class="file-name">{{ file.filename }}</span>
+                <span class="file-time">{{ file.timestamp.strftime('%m/%d') if file.timestamp else '' }}</span>
+            </div>
+            {% endfor %}
+            <div style="margin-top:12px;">
+                <a href="{{ url_for('client_mypage.files') }}" class="btn btn-secondary" style="font-size:13px;">すべて見る →</a>
+            </div>
+        {% else %}
+            <div class="empty-state">まだファイルはありません</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

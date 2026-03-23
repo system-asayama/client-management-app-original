@@ -1,0 +1,141 @@
+{% extends 'client_mypage_base.html' %}
+
+{% block title %}チャット | クライアントポータル{% endblock %}
+{% block page_title %}💬 チャット{% endblock %}
+
+{% block content %}
+<style>
+    .chat-container {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 180px);
+        min-height: 400px;
+    }
+    .chat-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #e0e0e0;
+        font-weight: 700;
+        font-size: 15px;
+        color: #1a237e;
+        background: #f8f9ff;
+        border-radius: 10px 10px 0 0;
+    }
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .message-bubble {
+        max-width: 70%;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .message-mine {
+        align-self: flex-end;
+        background: #1a237e;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+    }
+    .message-other {
+        align-self: flex-start;
+        background: #f0f2f5;
+        color: #333;
+        border-bottom-left-radius: 4px;
+    }
+    .message-meta {
+        font-size: 11px;
+        margin-bottom: 4px;
+    }
+    .message-mine .message-meta { text-align: right; color: rgba(255,255,255,0.7); }
+    .message-other .message-meta { color: #888; }
+    .chat-input-area {
+        padding: 16px 20px;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+    }
+    .chat-input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        font-size: 14px;
+        outline: none;
+        resize: none;
+        max-height: 100px;
+        font-family: inherit;
+    }
+    .chat-input:focus { border-color: #1a237e; }
+    .btn-send {
+        padding: 10px 20px;
+        background: #1a237e;
+        color: #fff;
+        border: none;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .btn-send:hover { background: #283593; }
+    .empty-chat {
+        text-align: center;
+        color: #aaa;
+        padding: 40px;
+        font-size: 14px;
+    }
+    .empty-chat .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+</style>
+
+<div class="chat-container">
+    <div class="chat-header">
+        担当者との会話 — {{ client.name }}
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        {% if messages %}
+            {% for msg in messages %}
+            <div>
+                {% if msg.sender == session.get('user_name') %}
+                <div class="message-bubble message-mine">
+                    <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
+                    {{ msg.message }}
+                </div>
+                {% else %}
+                <div class="message-bubble message-other">
+                    <div class="message-meta">{{ msg.sender }} · {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') if msg.timestamp else '' }}</div>
+                    {{ msg.message }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-chat">
+                <span class="icon">💬</span>
+                まだメッセージはありません。<br>最初のメッセージを送ってみましょう。
+            </div>
+        {% endif %}
+    </div>
+    <div class="chat-input-area">
+        <form method="post" style="display:flex; gap:10px; width:100%; align-items:flex-end;">
+            <textarea class="chat-input" name="message" placeholder="メッセージを入力..." rows="1"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}"></textarea>
+            <button type="submit" class="btn-send">送信 ➤</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // 最下部にスクロール
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+</script>
+{% endblock %}

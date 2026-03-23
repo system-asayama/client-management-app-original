@@ -1,0 +1,92 @@
+{% extends 'client_mypage_base.html' %}
+
+{% block title %}メンバー招待 | クライアントポータル{% endblock %}
+{% block page_title %}✉️ メンバーを招待{% endblock %}
+
+{% block content %}
+<style>
+    .invite-form { max-width: 500px; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+    input[type="email"], select {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 15px;
+        outline: none;
+    }
+    input:focus, select:focus { border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.1); }
+    .hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .invite-url-box {
+        background: #e8f5e9;
+        border: 1px solid #a5d6a7;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 24px;
+    }
+    .invite-url-box h3 { font-size: 15px; color: #2e7d32; margin-bottom: 10px; }
+    .url-display {
+        background: #fff;
+        border: 1px solid #c8e6c9;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 13px;
+        word-break: break-all;
+        color: #1565c0;
+        margin-bottom: 10px;
+    }
+    .btn-copy {
+        padding: 8px 16px;
+        background: #2e7d32;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .btn-copy:hover { background: #1b5e20; }
+    .expire-note { font-size: 12px; color: #666; margin-top: 8px; }
+</style>
+
+<div class="card">
+    <div class="invite-form">
+        <form method="post">
+            <div class="form-group">
+                <label for="email">招待するメールアドレス（任意）</label>
+                <input type="email" id="email" name="email" placeholder="example@company.com">
+                <p class="hint">入力した場合、登録フォームにメールアドレスが自動入力されます。</p>
+            </div>
+            <div class="form-group">
+                <label for="role">権限</label>
+                <select id="role" name="role">
+                    <option value="client_employee">メンバー（チャット・ファイル共有のみ）</option>
+                    <option value="client_admin">管理者（会社情報編集・メンバー管理も可能）</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="submit" class="btn btn-primary">招待リンクを作成</button>
+                <a href="{{ url_for('client_mypage.members') }}" class="btn btn-secondary">キャンセル</a>
+            </div>
+        </form>
+
+        {% if invite_url %}
+        <div class="invite-url-box">
+            <h3>✅ 招待リンクが作成されました</h3>
+            <div class="url-display" id="inviteUrl">{{ invite_url }}</div>
+            <button class="btn-copy" onclick="copyUrl()">📋 URLをコピー</button>
+            <p class="expire-note">⏰ このリンクの有効期限は7日間です。招待したい方にURLを共有してください。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function copyUrl() {
+    const url = document.getElementById('inviteUrl').textContent;
+    navigator.clipboard.writeText(url).then(() => {
+        alert('URLをコピーしました！');
+    });
+}
+</script>
+{% endblock %}

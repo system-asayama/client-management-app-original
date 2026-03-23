@@ -1,0 +1,193 @@
+{% extends 'client_mypage_base.html' %}
+
+{% block title %}会社基本情報 | クライアントポータル{% endblock %}
+{% block page_title %}🏛️ 会社基本情報{% endblock %}
+
+{% block content %}
+<style>
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    .form-group { margin-bottom: 0; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+    input[type="text"], input[type="email"], input[type="number"], select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+        background: #fff;
+    }
+    input:focus, select:focus { border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
+    input[readonly], input[disabled] { background: #f5f5f5; color: #666; cursor: not-allowed; }
+    .readonly-value {
+        padding: 10px 12px;
+        background: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #555;
+        min-height: 40px;
+    }
+    .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a237e;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 20px 0 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #e8eaf6;
+    }
+    .permission-notice {
+        background: #fff3e0;
+        color: #e65100;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-bottom: 20px;
+        border-left: 4px solid #ff9800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    @media (max-width: 768px) { .info-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="card">
+    {% if not can_edit %}
+    <div class="permission-notice">
+        🔒 会社基本情報の編集は管理者のみ可能です。閲覧のみできます。
+    </div>
+    {% endif %}
+
+    <form method="post" {% if not can_edit %}onsubmit="return false;"{% endif %}>
+        <div class="section-title">基本情報</div>
+        <div class="info-grid">
+            <div class="form-group">
+                <label>会社名</label>
+                {% if can_edit %}
+                <input type="text" name="会社名" value="{{ company_info.会社名 if company_info and company_info.会社名 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.会社名 if company_info and company_info.会社名 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>法人番号</label>
+                {% if can_edit %}
+                <input type="text" name="法人番号" value="{{ company_info.法人番号 if company_info and company_info.法人番号 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.法人番号 if company_info and company_info.法人番号 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>業種</label>
+                {% if can_edit %}
+                <input type="text" name="業種" value="{{ company_info.業種 if company_info and company_info.業種 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.業種 if company_info and company_info.業種 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>従業員数</label>
+                {% if can_edit %}
+                <input type="number" name="従業員数" value="{{ company_info.従業員数 if company_info and company_info.従業員数 else '' }}" min="0">
+                {% else %}
+                <div class="readonly-value">{{ company_info.従業員数 if company_info and company_info.従業員数 else '未設定' }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section-title">所在地</div>
+        <div class="info-grid">
+            <div class="form-group">
+                <label>郵便番号</label>
+                {% if can_edit %}
+                <input type="text" name="郵便番号" value="{{ company_info.郵便番号 if company_info and company_info.郵便番号 else '' }}" placeholder="例: 100-0001">
+                {% else %}
+                <div class="readonly-value">{{ company_info.郵便番号 if company_info and company_info.郵便番号 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>都道府県</label>
+                {% if can_edit %}
+                <input type="text" name="都道府県" value="{{ company_info.都道府県 if company_info and company_info.都道府県 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.都道府県 if company_info and company_info.都道府県 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>市区町村番地</label>
+                {% if can_edit %}
+                <input type="text" name="市区町村番地" value="{{ company_info.市区町村番地 if company_info and company_info.市区町村番地 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.市区町村番地 if company_info and company_info.市区町村番地 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>建物名・部屋番号</label>
+                {% if can_edit %}
+                <input type="text" name="建物名部屋番号" value="{{ company_info.建物名部屋番号 if company_info and company_info.建物名部屋番号 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.建物名部屋番号 if company_info and company_info.建物名部屋番号 else '未設定' }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section-title">連絡先</div>
+        <div class="info-grid">
+            <div class="form-group">
+                <label>電話番号1</label>
+                {% if can_edit %}
+                <input type="text" name="電話番号1" value="{{ company_info.電話番号1 if company_info and company_info.電話番号1 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.電話番号1 if company_info and company_info.電話番号1 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>電話番号2</label>
+                {% if can_edit %}
+                <input type="text" name="電話番号2" value="{{ company_info.電話番号2 if company_info and company_info.電話番号2 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.電話番号2 if company_info and company_info.電話番号2 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>ファックス番号</label>
+                {% if can_edit %}
+                <input type="text" name="ファックス番号" value="{{ company_info.ファックス番号 if company_info and company_info.ファックス番号 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.ファックス番号 if company_info and company_info.ファックス番号 else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>メールアドレス</label>
+                {% if can_edit %}
+                <input type="email" name="メールアドレス" value="{{ company_info.メールアドレス if company_info and company_info.メールアドレス else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.メールアドレス if company_info and company_info.メールアドレス else '未設定' }}</div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label>担当者名</label>
+                {% if can_edit %}
+                <input type="text" name="担当者名" value="{{ company_info.担当者名 if company_info and company_info.担当者名 else '' }}">
+                {% else %}
+                <div class="readonly-value">{{ company_info.担当者名 if company_info and company_info.担当者名 else '未設定' }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if can_edit %}
+        <div style="margin-top: 24px; display: flex; gap: 12px;">
+            <button type="submit" class="btn btn-primary">💾 保存する</button>
+            <a href="{{ url_for('client_mypage.dashboard') }}" class="btn btn-secondary">キャンセル</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

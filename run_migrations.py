@@ -443,6 +443,128 @@ def run_migrations():
             conn.rollback()
             raise
         
+        # マイグレーション: T_クライアントユーザーテーブル作成
+        print("\n[マイグレーション] T_クライアントユーザーテーブル作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'T_クライアントユーザー'
+                    );
+                """)
+                exists = cur.fetchone()[0]
+                if not exists:
+                    print("  - T_クライアントユーザー テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_クライアントユーザー" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            login_id VARCHAR(255) UNIQUE NOT NULL,
+                            name VARCHAR(255) NOT NULL,
+                            email VARCHAR(255) NOT NULL,
+                            password_hash TEXT,
+                            role VARCHAR(50) DEFAULT 'client_employee',
+                            active INTEGER DEFAULT 1,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_クライアントユーザー テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_クライアントユーザー テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='T_クライアントユーザー'
+                """)
+                if not cur.fetchone():
+                    print("  - T_クライアントユーザー テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_クライアントユーザー" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            login_id TEXT UNIQUE NOT NULL,
+                            name TEXT NOT NULL,
+                            email TEXT NOT NULL,
+                            password_hash TEXT,
+                            role TEXT DEFAULT 'client_employee',
+                            active INTEGER DEFAULT 1,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_クライアントユーザー テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_クライアントユーザー テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+            raise
+
+        # マイグレーション: T_クライアント招待テーブル作成
+        print("\n[マイグレーション] T_クライアント招待テーブル作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'T_クライアント招待'
+                    );
+                """)
+                exists = cur.fetchone()[0]
+                if not exists:
+                    print("  - T_クライアント招待 テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_クライアント招待" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            token VARCHAR(255) UNIQUE NOT NULL,
+                            email VARCHAR(255),
+                            role VARCHAR(50) DEFAULT 'client_employee',
+                            invited_by_role VARCHAR(50),
+                            invited_by_id INTEGER,
+                            used INTEGER DEFAULT 0,
+                            expires_at TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_クライアント招待 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_クライアント招待 テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='T_クライアント招待'
+                """)
+                if not cur.fetchone():
+                    print("  - T_クライアント招待 テーブルを作成中...")
+                    cur.execute("""
+                        CREATE TABLE "T_クライアント招待" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            token TEXT UNIQUE NOT NULL,
+                            email TEXT,
+                            role TEXT DEFAULT 'client_employee',
+                            invited_by_role TEXT,
+                            invited_by_id INTEGER,
+                            used INTEGER DEFAULT 0,
+                            expires_at TEXT,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    conn.commit()
+                    print("  ✅ T_クライアント招待 テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_クライアント招待 テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+            raise
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}クライアントポータル{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        /* ===== サイドバー ===== */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 240px;
+            height: 100vh;
+            background: linear-gradient(180deg, #1a237e 0%, #283593 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .sidebar-header {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        .sidebar-header .portal-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .sidebar-header .client-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-header .user-info {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 4px;
+        }
+        .role-badge {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-top: 4px;
+        }
+        .role-admin { background: rgba(255,152,0,0.3); color: #ffcc80; }
+        .role-employee { background: rgba(76,175,80,0.3); color: #a5d6a7; }
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 0;
+            overflow-y: auto;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .nav-item.active {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            border-left-color: #90caf9;
+        }
+        .nav-item .icon { font-size: 18px; width: 22px; text-align: center; }
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+        }
+        .btn-logout {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 13px;
+            padding: 8px 0;
+            transition: color 0.2s;
+        }
+        .btn-logout:hover { color: #fff; }
+        /* ===== メインコンテンツ ===== */
+        .main-content {
+            margin-left: 240px;
+            min-height: 100vh;
+        }
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .topbar h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a237e;
+        }
+        .content {
+            padding: 32px;
+        }
+        /* ===== フラッシュメッセージ ===== */
+        .flash-container { margin-bottom: 20px; }
+        .flash-msg {
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+        .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+        .flash-warning { background: #fff8e1; color: #f57f17; border-left: 4px solid #f57f17; }
+        .flash-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+        /* ===== カード ===== */
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e8eaf6;
+        }
+        /* ===== ボタン ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #1a237e; color: #fff; }
+        .btn-primary:hover { background: #283593; }
+        .btn-secondary { background: #e8eaf6; color: #1a237e; }
+        .btn-secondary:hover { background: #c5cae9; }
+        .btn-danger { background: #ffebee; color: #c62828; }
+        .btn-danger:hover { background: #ffcdd2; }
+        /* ===== テーブル ===== */
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: #f5f5f5;
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        td {
+            padding: 12px 14px;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        tr:hover td { background: #fafafa; }
+        /* ===== レスポンシブ ===== */
+        @media (max-width: 768px) {
+            .sidebar { width: 200px; }
+            .main-content { margin-left: 200px; }
+            .content { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- サイドバー -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="portal-label">Client Portal</div>
+            <div class="client-name">🏢 {{ session.get('client_name', '') }}</div>
+            <div class="user-info">{{ session.get('user_name', '') }}</div>
+            {% if session.get('role') == 'client_admin' %}
+            <span class="role-badge role-admin">管理者</span>
+            {% else %}
+            <span class="role-badge role-employee">メンバー</span>
+            {% endif %}
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('client_mypage.dashboard') }}"
+               class="nav-item {% if request.endpoint == 'client_mypage.dashboard' %}active{% endif %}">
+                <span class="icon">🏠</span> ダッシュボード
+            </a>
+            <a href="{{ url_for('client_mypage.chat') }}"
+               class="nav-item {% if request.endpoint == 'client_mypage.chat' %}active{% endif %}">
+                <span class="icon">💬</span> チャット
+            </a>
+            <a href="{{ url_for('client_mypage.files') }}"
+               class="nav-item {% if request.endpoint in ('client_mypage.files',) %}active{% endif %}">
+                <span class="icon">📁</span> ファイル共有
+            </a>
+            <a href="{{ url_for('client_mypage.company') }}"
+               class="nav-item {% if request.endpoint == 'client_mypage.company' %}active{% endif %}">
+                <span class="icon">🏛️</span> 会社基本情報
+            </a>
+            {% if session.get('role') == 'client_admin' %}
+            <a href="{{ url_for('client_mypage.members') }}"
+               class="nav-item {% if request.endpoint in ('client_mypage.members', 'client_mypage.invite_member') %}active{% endif %}">
+                <span class="icon">👥</span> メンバー管理
+            </a>
+            {% endif %}
+        </nav>
+        <div class="sidebar-footer">
+            <a href="{{ url_for('client_auth.logout') }}" class="btn-logout">
+                <span>🚪</span> ログアウト
+            </a>
+        </div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <div class="main-content">
+        <div class="topbar">
+            <h2>{% block page_title %}{% endblock %}</h2>
+            <div style="font-size:13px; color:#666;">
+                {{ session.get('client_name', '') }} | {{ session.get('user_name', '') }}
+            </div>
+        </div>
+        <div class="content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-container">
+                    {% for category, message in messages %}
+                    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>

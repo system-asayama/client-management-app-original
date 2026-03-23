@@ -10,6 +10,7 @@ try:
     from . import models_auth  # noqa: F401
     from . import models_clients  # noqa: F401
     from . import models_company  # noqa: F401
+    from . import models_client_users  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -249,6 +250,19 @@ def create_app() -> Flask:
         app.register_blueprint(tenant_storage_bp)
     except Exception as e:
         print(f"⚠️ tenant_storage blueprint 登録エラー: {e}")
+
+    # クライアントマイページ関連blueprints
+    try:
+        from .blueprints.client_auth import bp as client_auth_bp
+        app.register_blueprint(client_auth_bp)
+    except Exception as e:
+        print(f"⚠️ client_auth blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.client_mypage import bp as client_mypage_bp
+        app.register_blueprint(client_mypage_bp)
+    except Exception as e:
+        print(f"⚠️ client_mypage blueprint 登録エラー: {e}")
 
     # debug blueprint登録
     try:

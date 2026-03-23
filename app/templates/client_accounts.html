@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}クライアントアカウント管理 | {{ client.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .page-header h2 { font-size: 20px; color: #1a237e; }
+    .breadcrumb { font-size: 13px; color: #888; margin-bottom: 8px; }
+    .breadcrumb a { color: #1a237e; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+    .card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e8eaf6;
+    }
+    .role-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .role-admin { background: #fff3e0; color: #e65100; }
+    .role-employee { background: #e8f5e9; color: #2e7d32; }
+    .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-active { background: #e8f5e9; color: #2e7d32; }
+    .status-inactive { background: #f5f5f5; color: #999; }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .btn-primary { background: #1a237e; color: #fff; }
+    .btn-primary:hover { background: #283593; }
+    .btn-secondary { background: #e8eaf6; color: #1a237e; }
+    .btn-secondary:hover { background: #c5cae9; }
+    .btn-danger { background: #ffebee; color: #c62828; }
+    .btn-danger:hover { background: #ffcdd2; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f5f5f5; padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 600; color: #555; border-bottom: 2px solid #e0e0e0; }
+    td { padding: 12px 14px; font-size: 14px; color: #333; border-bottom: 1px solid #f0f0f0; }
+    tr:hover td { background: #fafafa; }
+    .flash-msg { padding: 12px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 16px; }
+    .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+    .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+    .flash-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+    .flash-warning { background: #fff8e1; color: #f57f17; border-left: 4px solid #f57f17; }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    クライアントアカウント管理
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="page-header">
+    <h2>👤 クライアントアカウント管理 — {{ client.name }}</h2>
+    <a href="{{ url_for('clients.issue_client_account', client_id=client.id) }}" class="btn btn-primary">
+        ➕ アカウント発行 / 招待
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-title">登録済みアカウント一覧</div>
+    {% if users %}
+    <table>
+        <thead>
+            <tr>
+                <th>名前</th>
+                <th>ログインID</th>
+                <th>メールアドレス</th>
+                <th>権限</th>
+                <th>ステータス</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td><strong>{{ user.name }}</strong></td>
+                <td><code style="font-size:13px;">{{ user.login_id }}</code></td>
+                <td>{{ user.email }}</td>
+                <td>
+                    {% if user.role == 'client_admin' %}
+                    <span class="role-badge role-admin">管理者</span>
+                    {% else %}
+                    <span class="role-badge role-employee">メンバー</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.active == 1 %}
+                    <span class="status-badge status-active">有効</span>
+                    {% else %}
+                    <span class="status-badge status-inactive">無効</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="post"
+                          action="{{ url_for('clients.toggle_client_account', client_id=client.id, user_id=user.id) }}"
+                          style="display:inline;"
+                          onsubmit="return confirm('{{ user.name }} を{{ '無効' if user.active == 1 else '有効' }}にしますか？');">
+                        <button type="submit" class="btn {% if user.active == 1 %}btn-danger{% else %}btn-secondary{% endif %}"
+                                style="font-size:12px; padding:6px 12px;">
+                            {% if user.active == 1 %}無効にする{% else %}有効にする{% endif %}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center; color:#aaa; padding:40px; font-size:14px;">
+        <div style="font-size:48px; margin-bottom:12px;">👤</div>
+        まだクライアントアカウントはありません。<br>
+        「アカウント発行 / 招待」ボタンから最初のアカウントを作成してください。
+    </div>
+    {% endif %}
+</div>
+
+<div style="margin-top:8px;">
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}" class="btn btn-secondary">← 顧問先詳細に戻る</a>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'client_mypage_base.html' %}
+
+{% block title %}メンバー管理 | クライアントポータル{% endblock %}
+{% block page_title %}👥 メンバー管理{% endblock %}
+
+{% block content %}
+<style>
+    .role-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .role-admin { background: #fff3e0; color: #e65100; }
+    .role-employee { background: #e8f5e9; color: #2e7d32; }
+    .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .status-active { background: #e8f5e9; color: #2e7d32; }
+    .status-inactive { background: #f5f5f5; color: #999; }
+    .action-bar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 16px;
+    }
+</style>
+
+<div class="action-bar">
+    <a href="{{ url_for('client_mypage.invite_member') }}" class="btn btn-primary">
+        ✉️ メンバーを招待
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-title">メンバー一覧</div>
+    {% if users %}
+    <table>
+        <thead>
+            <tr>
+                <th>名前</th>
+                <th>ログインID</th>
+                <th>メールアドレス</th>
+                <th>権限</th>
+                <th>ステータス</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td><strong>{{ user.name }}</strong></td>
+                <td><code style="font-size:13px;">{{ user.login_id }}</code></td>
+                <td>{{ user.email }}</td>
+                <td>
+                    {% if user.role == 'client_admin' %}
+                    <span class="role-badge role-admin">管理者</span>
+                    {% else %}
+                    <span class="role-badge role-employee">メンバー</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.active == 1 %}
+                    <span class="status-badge status-active">有効</span>
+                    {% else %}
+                    <span class="status-badge status-inactive">無効</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.id != session.get('user_id') %}
+                    <form method="post" action="{{ url_for('client_mypage.toggle_member', user_id=user.id) }}"
+                          style="display:inline;"
+                          onsubmit="return confirm('{{ user.name }} を{{ '無効' if user.active == 1 else '有効' }}にしますか？');">
+                        <button type="submit" class="btn {% if user.active == 1 %}btn-danger{% else %}btn-secondary{% endif %}"
+                                style="font-size:12px; padding:6px 12px;">
+                            {% if user.active == 1 %}無効にする{% else %}有効にする{% endif %}
+                        </button>
+                    </form>
+                    {% else %}
+                    <span style="font-size:12px; color:#aaa;">（自分）</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center; color:#aaa; padding:40px; font-size:14px;">
+        <div style="font-size:48px; margin-bottom:12px;">👥</div>
+        まだメンバーはいません。招待ボタンからメンバーを追加してください。
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クライアントログイン</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1565c0 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .logo-icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .logo h1 {
+            font-size: 22px;
+            color: #1a237e;
+            font-weight: 700;
+        }
+        .logo p {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        input:focus {
+            border-color: #1a237e;
+            box-shadow: 0 0 0 3px rgba(26,35,126,0.1);
+        }
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: #1a237e;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 8px;
+        }
+        .btn-login:hover { background: #283593; }
+        .error-msg {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+        .flash-msg {
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+        .flash-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+        .back-link {
+            text-align: center;
+            margin-top: 24px;
+        }
+        .back-link a {
+            color: #666;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <span class="logo-icon">🏢</span>
+            <h1>クライアントポータル</h1>
+            <p>顧問先専用マイページ</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form method="post">
+            <div class="form-group">
+                <label for="login_id">ログインID</label>
+                <input type="text" id="login_id" name="login_id" placeholder="ログインIDを入力" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">パスワード</label>
+                <input type="password" id="password" name="password" placeholder="パスワードを入力" required>
+            </div>
+            <button type="submit" class="btn-login">ログイン</button>
+        </form>
+
+        <div class="back-link">
+            <a href="{{ url_for('auth.select_login') }}">← 管理者ログインはこちら</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -11,6 +11,57 @@
             background: #f0f2f5;
             min-height: 100vh;
         }
+
+        /* ===== トップナビバー（モバイル用） ===== */
+        .topnav {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px;
+            background: linear-gradient(90deg, #1a237e 0%, #283593 100%);
+            color: #fff;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 200;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .topnav-title {
+            font-size: 15px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: calc(100% - 80px);
+        }
+        .hamburger-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .hamburger-btn span {
+            display: block;
+            width: 24px;
+            height: 2px;
+            background: #fff;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        /* ===== オーバーレイ ===== */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 150;
+        }
+        .sidebar-overlay.active { display: block; }
+
         /* ===== サイドバー ===== */
         .sidebar {
             position: fixed;
@@ -21,7 +72,8 @@
             color: #fff;
             display: flex;
             flex-direction: column;
-            z-index: 100;
+            z-index: 160;
+            transition: transform 0.3s ease;
         }
         .sidebar-header {
             padding: 24px 20px 20px;
@@ -66,7 +118,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 12px 20px;
+            padding: 14px 20px;
             color: rgba(255,255,255,0.8);
             text-decoration: none;
             font-size: 14px;
@@ -99,6 +151,7 @@
             transition: color 0.2s;
         }
         .btn-logout:hover { color: #fff; }
+
         /* ===== メインコンテンツ ===== */
         .main-content {
             margin-left: 240px;
@@ -117,9 +170,14 @@
             font-weight: 700;
             color: #1a237e;
         }
+        .topbar-user {
+            font-size: 13px;
+            color: #666;
+        }
         .content {
             padding: 32px;
         }
+
         /* ===== フラッシュメッセージ ===== */
         .flash-container { margin-bottom: 20px; }
         .flash-msg {
@@ -132,6 +190,7 @@
         .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
         .flash-warning { background: #fff8e1; color: #f57f17; border-left: 4px solid #f57f17; }
         .flash-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+
         /* ===== カード ===== */
         .card {
             background: #fff;
@@ -148,6 +207,7 @@
             padding-bottom: 12px;
             border-bottom: 2px solid #e8eaf6;
         }
+
         /* ===== ボタン ===== */
         .btn {
             display: inline-flex;
@@ -168,6 +228,7 @@
         .btn-secondary:hover { background: #c5cae9; }
         .btn-danger { background: #ffebee; color: #c62828; }
         .btn-danger:hover { background: #ffcdd2; }
+
         /* ===== テーブル ===== */
         table { width: 100%; border-collapse: collapse; }
         th {
@@ -186,17 +247,61 @@
             border-bottom: 1px solid #f0f0f0;
         }
         tr:hover td { background: #fafafa; }
+
         /* ===== レスポンシブ ===== */
         @media (max-width: 768px) {
-            .sidebar { width: 200px; }
-            .main-content { margin-left: 200px; }
-            .content { padding: 16px; }
+            /* サイドバーを隠す */
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            /* トップナビを表示 */
+            .topnav {
+                display: flex;
+            }
+            /* メインコンテンツをフル幅に */
+            .main-content {
+                margin-left: 0;
+                padding-top: 56px;
+            }
+            /* トップバーを非表示（モバイルではtopnavが代替） */
+            .topbar {
+                display: none;
+            }
+            .content {
+                padding: 16px;
+            }
+            /* テーブルをスクロール可能に */
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            /* カードのパディングを縮小 */
+            .card {
+                padding: 16px;
+            }
         }
     </style>
 </head>
 <body>
+
+    <!-- モバイル用トップナビ -->
+    <div class="topnav">
+        <div class="topnav-title">🏢 {{ session.get('client_name', '') }}</div>
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="メニューを開く">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+
+    <!-- オーバーレイ -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <!-- サイドバー -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="portal-label">Client Portal</div>
             <div class="client-name">🏢 {{ session.get('client_name', '') }}</div>
@@ -242,7 +347,7 @@
     <div class="main-content">
         <div class="topbar">
             <h2>{% block page_title %}{% endblock %}</h2>
-            <div style="font-size:13px; color:#666;">
+            <div class="topbar-user">
                 {{ session.get('client_name', '') }} | {{ session.get('user_name', '') }}
             </div>
         </div>
@@ -259,5 +364,27 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+
+    <script>
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        hamburgerBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+        });
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        });
+        // ナビリンクをクリックしたらサイドバーを閉じる
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+            });
+        });
+    </script>
 </body>
 </html>

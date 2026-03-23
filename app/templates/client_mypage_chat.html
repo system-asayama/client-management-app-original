@@ -94,6 +94,26 @@
         font-size: 14px;
     }
     .empty-chat .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+    @media (max-width: 768px) {
+        .chat-container {
+            height: calc(100vh - 56px - 32px);
+            border-radius: 8px;
+        }
+        .message-bubble {
+            max-width: 85%;
+            font-size: 15px;
+        }
+        .chat-input-area {
+            padding: 10px 12px;
+        }
+        .btn-send {
+            padding: 10px 14px;
+            font-size: 14px;
+        }
+        .chat-messages {
+            padding: 12px;
+        }
+    }
 </style>
 
 <div class="chat-container">

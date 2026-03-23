@@ -69,7 +69,16 @@
     .file-name { flex: 1; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .file-time { font-size: 11px; color: #aaa; }
     .empty-state { text-align: center; color: #aaa; padding: 20px 0; font-size: 14px; }
-    @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) {
+        .two-col { grid-template-columns: 1fr; }
+        .welcome-banner { padding: 20px 16px; gap: 12px; }
+        .welcome-icon { font-size: 36px; }
+        .welcome-text h2 { font-size: 18px; }
+        .quick-links { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .quick-link-card { padding: 16px 12px; }
+        .quick-link-icon { font-size: 28px; margin-bottom: 6px; }
+        .quick-link-title { font-size: 13px; }
+    }
 </style>
 
 <!-- ウェルカムバナー -->

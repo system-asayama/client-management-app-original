@@ -188,8 +188,14 @@
     font-size: 0.7rem;
     font-weight: 600;
     padding: 1px 5px;
-    margin-left: 4px;
+    margin-top: 2px;
     vertical-align: middle;
+  }
+  .deadline-table th:nth-child(1),
+  .deadline-table td:nth-child(1) {
+    width: 140px;
+    min-width: 140px;
+    white-space: nowrap;
   }
   @media (max-width: 640px) {
     .deadline-table th:nth-child(3),
@@ -298,16 +304,18 @@
             {% endif %}
             <tr>
               <td>
-                <span class="deadline-date {{ date_class }}">
-                  {{ d.date.strftime('%m/%d') }}
-                  {% if days_diff == 0 %}（今日）
-                  {% elif days_diff > 0 and days_diff <= 7 %}（残{{ days_diff }}日）
-                  {% elif days_diff > 0 and days_diff <= 30 %}（残{{ days_diff }}日）
+                <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;">
+                  <span class="deadline-date {{ date_class }}">
+                    {{ d.date.strftime('%m/%d') }}
+                    {% if days_diff == 0 %}（今日）
+                    {% elif days_diff > 0 and days_diff <= 7 %}（残{{ days_diff }}日）
+                    {% elif days_diff > 0 and days_diff <= 30 %}（残{{ days_diff }}日）
+                    {% endif %}
+                  </span>
+                  {% if d.get('adjusted') %}
+                    <span class="adjusted-badge" title="元の期限日: {{ d.original_date.strftime('%m/%d') }}（土日祝振替）">振替</span>
                   {% endif %}
-                </span>
-                {% if d.get('adjusted') %}
-                  <span class="adjusted-badge" title="元の期限日: {{ d.original_date.strftime('%m/%d') }}（土日祝振替）">振替</span>
-                {% endif %}
+                </div>
               </td>
               <td>
                 <span class="type-badge" style="background-color:{{ d.color }}">

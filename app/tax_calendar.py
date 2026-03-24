@@ -302,18 +302,21 @@ def get_common_deadlines(year=None):
     deadlines = []
 
     for y in [year - 1, year, year + 1]:
-        # 源泉所得税納付（毎月10日）
+        # 源泉所得税納付（毎月10日：前月分を納付）
         for month in range(1, 13):
             raw = date(y, month, 10)
             d, r = _deadline(raw)
+            # 納付対象は前月分（1月は前年12月分）
+            prev_year = y - 1 if month == 1 else y
+            prev_month = 12 if month == 1 else month - 1
             deadlines.append({
                 'date': d,
                 'original_date': r,
                 'adjusted': d != r,
-                'type': f'源泉所得税納付（{y}年{month}月分）',
+                'type': f'源泉所得税納付（{prev_year}年{prev_month}月分）',
                 'category': 'withholding_tax',
                 'color': '#006064',
-                'note': f'{y}年{month}月分',
+                'note': f'{prev_year}年{prev_month}月分',
             })
 
         # 源泉所得税納付（納期特例：1月20日・7月10日）
@@ -388,12 +391,14 @@ def get_withholding_deadlines_for_client(client, year=None):
                  'withholding_special', '#37474f',
                  f'{y}年1～6月分')
         else:
-            # 毎月10日納付
+            # 毎月10日納付（前月分を納付）
             for month in range(1, 13):
+                prev_year = y - 1 if month == 1 else y
+                prev_month = 12 if month == 1 else month - 1
                 _add(date(y, month, 10),
-                     f'源泉所得税納付（{y}年{month}月分）',
+                     f'源泉所得税納付（{prev_year}年{prev_month}月分）',
                      'withholding_tax', '#006064',
-                     f'{y}年{month}月分')
+                     f'{prev_year}年{prev_month}月分')
 
     # 重複除去・ソート
     seen = set()

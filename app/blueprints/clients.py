@@ -1895,12 +1895,15 @@ def add_tax_record(client_id):
 
         # GET
         client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        filing_tax_offices = db.query(TFilingOfficeTaxOffice).filter(
+            TFilingOfficeTaxOffice.client_id == client_id).all()
         filing_prefectures = db.query(TFilingOfficePrefecture).filter(
             TFilingOfficePrefecture.client_id == client_id).all()
         filing_municipalities = db.query(TFilingOfficeMunicipality).filter(
             TFilingOfficeMunicipality.client_id == client_id).all()
         return render_template('client_tax_record_edit.html', client=client,
                                record=None, client_fiscal_month=client_fiscal_month,
+                               filing_tax_offices=filing_tax_offices,
                                filing_prefectures=filing_prefectures,
                                filing_municipalities=filing_municipalities,
                                enumerate=enumerate)
@@ -1988,12 +1991,15 @@ def edit_tax_record(client_id, record_id):
             TTaxRecordMunicipality.tax_record_id == rec.id
         ).all()
         client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        filing_tax_offices = db.query(TFilingOfficeTaxOffice).filter(
+            TFilingOfficeTaxOffice.client_id == client_id).all()
         filing_prefectures = db.query(TFilingOfficePrefecture).filter(
             TFilingOfficePrefecture.client_id == client_id).all()
         filing_municipalities = db.query(TFilingOfficeMunicipality).filter(
             TFilingOfficeMunicipality.client_id == client_id).all()
         return render_template('client_tax_record_edit.html', client=client,
                                record=rec, client_fiscal_month=client_fiscal_month,
+                               filing_tax_offices=filing_tax_offices,
                                filing_prefectures=filing_prefectures,
                                filing_municipalities=filing_municipalities,
                                enumerate=enumerate)

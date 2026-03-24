@@ -162,6 +162,18 @@
     border-left: 4px solid #2e7d32;
   }
   .fiscal-info-card strong { color: #1b5e20; }
+  .adjusted-badge {
+    display: inline-block;
+    background: #fff3e0;
+    color: #e65100;
+    border: 1px solid #ffb74d;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
   @media (max-width: 640px) {
     .deadline-table th:nth-child(3),
     .deadline-table td:nth-child(3) { display: none; }
@@ -271,6 +283,9 @@
                   {% elif days_diff > 0 and days_diff <= 30 %}（残{{ days_diff }}日）
                   {% endif %}
                 </span>
+                {% if d.get('adjusted') %}
+                  <span class="adjusted-badge" title="元の期限日: {{ d.original_date.strftime('%m/%d') }}（土日祝振替）">振替</span>
+                {% endif %}
               </td>
               <td>
                 <span class="type-badge" style="background-color:{{ d.color }}">

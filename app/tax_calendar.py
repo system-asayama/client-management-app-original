@@ -1,9 +1,108 @@
 """
 税務年間カレンダー 期限計算ロジック
+土日祝日の場合は翌営業日に自動調整
 """
 from datetime import date, timedelta
 import calendar
 
+
+# ========== 祝日判定 ==========
+
+def _get_jp_holidays(year):
+    """
+    指定年の日本の祝日セットを返す（簡易実装）
+    振替休日も含む
+    """
+    holidays = set()
+
+    def add(d):
+        holidays.add(d)
+
+    # 元日
+    add(date(year, 1, 1))
+    # 成人の日（1月第2月曜）
+    add(_nth_weekday(year, 1, 0, 2))
+    # 建国記念の日
+    add(date(year, 2, 11))
+    # 天皇誕生日
+    add(date(year, 2, 23))
+    # 春分の日（概算：3月20日または21日）
+    add(_shunbun(year))
+    # 昭和の日
+    add(date(year, 4, 29))
+    # 憲法記念日
+    add(date(year, 5, 3))
+    # みどりの日
+    add(date(year, 5, 4))
+    # こどもの日
+    add(date(year, 5, 5))
+    # 海の日（7月第3月曜）
+    add(_nth_weekday(year, 7, 0, 3))
+    # 山の日
+    add(date(year, 8, 11))
+    # 敬老の日（9月第3月曜）
+    add(_nth_weekday(year, 9, 0, 3))
+    # 秋分の日（概算：9月22日または23日）
+    add(_shubun(year))
+    # スポーツの日（10月第2月曜）
+    add(_nth_weekday(year, 10, 0, 2))
+    # 文化の日
+    add(date(year, 11, 3))
+    # 勤労感謝の日
+    add(date(year, 11, 23))
+
+    # 振替休日の計算（日曜日の祝日 → 翌月曜日）
+    base = set(holidays)
+    for h in sorted(base):
+        if h.weekday() == 6:  # 日曜
+            substitute = h + timedelta(days=1)
+            while substitute in holidays:
+                substitute += timedelta(days=1)
+            holidays.add(substitute)
+
+    return holidays
+
+
+def _nth_weekday(year, month, weekday, n):
+    """year年month月のn番目のweekday曜日（weekday: 0=月, 6=日）"""
+    first = date(year, month, 1)
+    diff = (weekday - first.weekday()) % 7
+    return first + timedelta(days=diff + (n - 1) * 7)
+
+
+def _shunbun(year):
+    """春分の日（概算）"""
+    day = int(20.8431 + 0.242194 * (year - 1980) - int((year - 1980) / 4))
+    return date(year, 3, day)
+
+
+def _shubun(year):
+    """秋分の日（概算）"""
+    day = int(23.2488 + 0.242194 * (year - 1980) - int((year - 1980) / 4))
+    return date(year, 9, day)
+
+
+# 祝日キャッシュ
+_holiday_cache = {}
+
+
+def is_holiday(d):
+    """土日または祝日かどうか判定"""
+    if d.weekday() >= 5:  # 土=5, 日=6
+        return True
+    if d.year not in _holiday_cache:
+        _holiday_cache[d.year] = _get_jp_holidays(d.year)
+    return d in _holiday_cache[d.year]
+
+
+def next_business_day(d):
+    """土日祝日の場合は翌営業日を返す"""
+    while is_holiday(d):
+        d += timedelta(days=1)
+    return d
+
+
+# ========== ユーティリティ ==========
 
 def last_day_of_month(year, month):
     """指定年月の末日を返す"""
@@ -19,6 +118,14 @@ def add_months(dt, months):
     return date(year, month, day)
 
 
+def _deadline(d):
+    """期限日を翌営業日調整して返す（元の日付も保持）"""
+    adjusted = next_business_day(d)
+    return adjusted, d  # (調整後, 元の日付)
+
+
+# ========== 法人税務期限 ==========
+
 def get_corporate_deadlines(fiscal_end_month, year=None):
     """
     法人の税務申告期限一覧を返す
@@ -30,27 +137,21 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
 
     deadlines = []
 
-    # 決算月から2ヶ月後が申告期限
-    # 例：3月決算 → 5月末が申告期限
-    fiscal_end = last_day_of_month(year, fiscal_end_month)
-    # 前期の決算も含める（今年の決算月が過去の場合は来年分も）
     for offset_year in [-1, 0, 1]:
         fy_end_year = year + offset_year
         fy_end = last_day_of_month(fy_end_year, fiscal_end_month)
-        fy_start_month = (fiscal_end_month % 12) + 1
-        fy_start_year = fy_end_year if fiscal_end_month != 12 else fy_end_year
-        if fiscal_end_month == 12:
-            fy_start_year = fy_end_year
-        else:
-            fy_start_year = fy_end_year
 
         # 法人税・地方法人税申告（決算月末から2ヶ月後末日）
-        corp_tax_deadline = last_day_of_month(
+        raw_corp = last_day_of_month(
             fy_end_year + (1 if fiscal_end_month + 2 > 12 else 0),
             (fiscal_end_month + 2 - 1) % 12 + 1
         )
+        corp_tax_deadline, corp_tax_raw = _deadline(raw_corp)
+
         deadlines.append({
             'date': corp_tax_deadline,
+            'original_date': corp_tax_raw,
+            'adjusted': corp_tax_deadline != corp_tax_raw,
             'type': '法人税・地方法人税申告',
             'category': 'corporate_tax',
             'color': '#1a237e',
@@ -58,9 +159,10 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
         })
 
         # 消費税申告（決算月末から2ヶ月後末日）
-        consumption_deadline = corp_tax_deadline
         deadlines.append({
-            'date': consumption_deadline,
+            'date': corp_tax_deadline,
+            'original_date': corp_tax_raw,
+            'adjusted': corp_tax_deadline != corp_tax_raw,
             'type': '消費税申告',
             'category': 'consumption_tax',
             'color': '#880e4f',
@@ -70,6 +172,8 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
         # 法人住民税・事業税申告（決算月末から2ヶ月後末日）
         deadlines.append({
             'date': corp_tax_deadline,
+            'original_date': corp_tax_raw,
+            'adjusted': corp_tax_deadline != corp_tax_raw,
             'type': '法人住民税・事業税申告',
             'category': 'local_tax',
             'color': '#1b5e20',
@@ -81,9 +185,12 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
         interim_end_year = fy_end_year + (1 if fiscal_end_month + 6 > 12 else 0)
         interim_deadline_month = (interim_end_month + 2 - 1) % 12 + 1
         interim_deadline_year = interim_end_year + (1 if interim_end_month + 2 > 12 else 0)
-        interim_deadline = last_day_of_month(interim_deadline_year, interim_deadline_month)
+        raw_interim = last_day_of_month(interim_deadline_year, interim_deadline_month)
+        interim_deadline, interim_raw = _deadline(raw_interim)
         deadlines.append({
             'date': interim_deadline,
+            'original_date': interim_raw,
+            'adjusted': interim_deadline != interim_raw,
             'type': '法人税中間申告',
             'category': 'interim_tax',
             'color': '#e65100',
@@ -91,8 +198,12 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
         })
 
         # 償却資産申告（毎年1月末）
+        raw_dep = date(fy_end_year + 1 if fiscal_end_month > 1 else fy_end_year, 1, 31)
+        dep_deadline, dep_raw = _deadline(raw_dep)
         deadlines.append({
-            'date': date(fy_end_year + 1 if fiscal_end_month > 1 else fy_end_year, 1, 31),
+            'date': dep_deadline,
+            'original_date': dep_raw,
+            'adjusted': dep_deadline != dep_raw,
             'type': '償却資産申告',
             'category': 'depreciable_assets',
             'color': '#4a148c',
@@ -111,6 +222,8 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
     return unique
 
 
+# ========== 個人税務期限 ==========
+
 def get_individual_deadlines(year=None):
     """
     個人（確定申告等）の税務申告期限一覧を返す
@@ -121,69 +234,49 @@ def get_individual_deadlines(year=None):
     deadlines = []
 
     for y in [year - 1, year, year + 1]:
+        def add_dl(raw, dtype, category, color, note=''):
+            d, r = _deadline(raw)
+            deadlines.append({
+                'date': d,
+                'original_date': r,
+                'adjusted': d != r,
+                'type': dtype,
+                'category': category,
+                'color': color,
+                'note': note,
+            })
+
         # 所得税確定申告（3月15日）
-        deadlines.append({
-            'date': date(y, 3, 15),
-            'type': f'所得税確定申告（{y-1}年分）',
-            'category': 'income_tax',
-            'color': '#1a237e',
-            'note': f'{y-1}年1月1日〜12月31日分',
-        })
+        add_dl(date(y, 3, 15),
+               f'所得税確定申告（{y-1}年分）', 'income_tax', '#1a237e',
+               f'{y-1}年1月1日〜12月31日分')
 
         # 消費税確定申告（3月31日）
-        deadlines.append({
-            'date': date(y, 3, 31),
-            'type': f'消費税確定申告（{y-1}年分）',
-            'category': 'consumption_tax',
-            'color': '#880e4f',
-            'note': f'{y-1}年分',
-        })
+        add_dl(date(y, 3, 31),
+               f'消費税確定申告（{y-1}年分）', 'consumption_tax', '#880e4f',
+               f'{y-1}年分')
 
         # 住民税申告（3月15日）
-        deadlines.append({
-            'date': date(y, 3, 15),
-            'type': f'住民税申告（{y-1}年分）',
-            'category': 'resident_tax',
-            'color': '#1b5e20',
-            'note': f'{y-1}年分',
-        })
+        add_dl(date(y, 3, 15),
+               f'住民税申告（{y-1}年分）', 'resident_tax', '#1b5e20',
+               f'{y-1}年分')
 
         # 所得税予定納税（第1期：7月31日）
-        deadlines.append({
-            'date': date(y, 7, 31),
-            'type': f'所得税予定納税 第1期（{y}年）',
-            'category': 'estimated_tax',
-            'color': '#e65100',
-            'note': '',
-        })
+        add_dl(date(y, 7, 31),
+               f'所得税予定納税 第1期（{y}年）', 'estimated_tax', '#e65100')
 
         # 所得税予定納税（第2期：11月30日）
-        deadlines.append({
-            'date': date(y, 11, 30),
-            'type': f'所得税予定納税 第2期（{y}年）',
-            'category': 'estimated_tax',
-            'color': '#e65100',
-            'note': '',
-        })
+        add_dl(date(y, 11, 30),
+               f'所得税予定納税 第2期（{y}年）', 'estimated_tax', '#e65100')
 
         # 償却資産申告（1月末）
-        deadlines.append({
-            'date': date(y, 1, 31),
-            'type': f'償却資産申告（{y}年）',
-            'category': 'depreciable_assets',
-            'color': '#4a148c',
-            'note': '',
-        })
+        add_dl(date(y, 1, 31),
+               f'償却資産申告（{y}年）', 'depreciable_assets', '#4a148c')
 
-        # 青色申告承認申請（3月15日または開業から2ヶ月以内）
-        # 年末調整（1月31日：源泉徴収票等提出）
-        deadlines.append({
-            'date': date(y, 1, 31),
-            'type': f'源泉徴収票・給与支払報告書提出（{y-1}年分）',
-            'category': 'withholding',
-            'color': '#006064',
-            'note': f'{y-1}年分',
-        })
+        # 源泉徴収票・給与支払報告書提出（1月31日）
+        add_dl(date(y, 1, 31),
+               f'源泉徴収票・給与支払報告書提出（{y-1}年分）', 'withholding', '#006064',
+               f'{y-1}年分')
 
     # 重複除去・ソート
     seen = set()
@@ -197,6 +290,8 @@ def get_individual_deadlines(year=None):
     return unique
 
 
+# ========== 共通期限（源泉所得税等） ==========
+
 def get_common_deadlines(year=None):
     """
     法人・個人共通の定期的な税務期限（源泉所得税等）
@@ -209,8 +304,12 @@ def get_common_deadlines(year=None):
     for y in [year - 1, year, year + 1]:
         # 源泉所得税納付（毎月10日）
         for month in range(1, 13):
+            raw = date(y, month, 10)
+            d, r = _deadline(raw)
             deadlines.append({
-                'date': date(y, month, 10),
+                'date': d,
+                'original_date': r,
+                'adjusted': d != r,
                 'type': f'源泉所得税納付（{y}年{month}月分）',
                 'category': 'withholding_tax',
                 'color': '#006064',
@@ -218,20 +317,20 @@ def get_common_deadlines(year=None):
             })
 
         # 源泉所得税納付（納期特例：1月20日・7月10日）
-        deadlines.append({
-            'date': date(y, 1, 20),
-            'type': f'源泉所得税納付 納期特例（{y-1}年7〜12月分）',
-            'category': 'withholding_special',
-            'color': '#37474f',
-            'note': f'{y-1}年7〜12月分',
-        })
-        deadlines.append({
-            'date': date(y, 7, 10),
-            'type': f'源泉所得税納付 納期特例（{y}年1〜6月分）',
-            'category': 'withholding_special',
-            'color': '#37474f',
-            'note': f'{y}年1〜6月分',
-        })
+        for raw, label in [
+            (date(y, 1, 20), f'源泉所得税納付 納期特例（{y-1}年7〜12月分）'),
+            (date(y, 7, 10), f'源泉所得税納付 納期特例（{y}年1〜6月分）'),
+        ]:
+            d, r = _deadline(raw)
+            deadlines.append({
+                'date': d,
+                'original_date': r,
+                'adjusted': d != r,
+                'type': label,
+                'category': 'withholding_special',
+                'color': '#37474f',
+                'note': label,
+            })
 
     seen = set()
     unique = []
@@ -243,6 +342,8 @@ def get_common_deadlines(year=None):
 
     return unique
 
+
+# ========== 顧問先別全期限 ==========
 
 def get_all_deadlines_for_client(client, year=None):
     """

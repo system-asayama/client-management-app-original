@@ -126,11 +126,12 @@ def _deadline(d):
 
 # ========== 法人税務期限 ==========
 
-def get_corporate_deadlines(fiscal_end_month, year=None):
+def get_corporate_deadlines(fiscal_end_month, year=None, tax_filing_extension=False):
     """
     法人の税務申告期限一覧を返す
-    fiscal_end_month: 決算月（1〜12）
+    fiscal_end_month: 決算月（1～12）
     year: 基準年（Noneの場合は今年）
+    tax_filing_extension: 申告期限延長の有無（Trueの場合、法人税・消費税の申告期限は3ヶ月後、納付期限は2ヶ月後）
     """
     if year is None:
         year = date.today().year
@@ -141,39 +142,91 @@ def get_corporate_deadlines(fiscal_end_month, year=None):
         fy_end_year = year + offset_year
         fy_end = last_day_of_month(fy_end_year, fiscal_end_month)
 
-        # 法人税・地方法人税申告（決算月末から2ヶ月後末日）
-        raw_corp = last_day_of_month(
+        # 納付期限：決算月末から2ヶ月後末日（延長の有無にかかわらず共通）
+        raw_pay = last_day_of_month(
             fy_end_year + (1 if fiscal_end_month + 2 > 12 else 0),
             (fiscal_end_month + 2 - 1) % 12 + 1
         )
-        corp_tax_deadline, corp_tax_raw = _deadline(raw_corp)
+        pay_deadline, pay_raw = _deadline(raw_pay)
 
-        deadlines.append({
-            'date': corp_tax_deadline,
-            'original_date': corp_tax_raw,
-            'adjusted': corp_tax_deadline != corp_tax_raw,
-            'type': '法人税・地方法人税申告',
-            'category': 'corporate_tax',
-            'color': '#1a237e',
-            'fiscal_year_end': fy_end,
-        })
+        if tax_filing_extension:
+            # 申告期限：決算月末から3ヶ月後末日（1ヶ月延長）
+            raw_filing = last_day_of_month(
+                fy_end_year + (1 if fiscal_end_month + 3 > 12 else 0),
+                (fiscal_end_month + 3 - 1) % 12 + 1
+            )
+            filing_deadline, filing_raw = _deadline(raw_filing)
 
-        # 消費税申告（決算月末から2ヶ月後末日）
-        deadlines.append({
-            'date': corp_tax_deadline,
-            'original_date': corp_tax_raw,
-            'adjusted': corp_tax_deadline != corp_tax_raw,
-            'type': '消費税申告',
-            'category': 'consumption_tax',
-            'color': '#880e4f',
-            'fiscal_year_end': fy_end,
-        })
+            # 法人税申告（延長）
+            deadlines.append({
+                'date': filing_deadline,
+                'original_date': filing_raw,
+                'adjusted': filing_deadline != filing_raw,
+                'type': '法人税・地方法人税申告（期限延長）',
+                'category': 'corporate_tax_filing',
+                'color': '#1a237e',
+                'fiscal_year_end': fy_end,
+                'note': '申告期限延長適用',
+            })
+            # 法人税納付（延長なし）
+            deadlines.append({
+                'date': pay_deadline,
+                'original_date': pay_raw,
+                'adjusted': pay_deadline != pay_raw,
+                'type': '法人税納付（見込み納付）',
+                'category': 'corporate_tax_payment',
+                'color': '#5c6bc0',
+                'fiscal_year_end': fy_end,
+                'note': '申告期限延長でも納付期限は延長不可',
+            })
+            # 消費税申告（延長）
+            deadlines.append({
+                'date': filing_deadline,
+                'original_date': filing_raw,
+                'adjusted': filing_deadline != filing_raw,
+                'type': '消費税申告（期限延長）',
+                'category': 'consumption_tax_filing',
+                'color': '#880e4f',
+                'fiscal_year_end': fy_end,
+                'note': '申告期限延長適用',
+            })
+            # 消費税納付（延長なし）
+            deadlines.append({
+                'date': pay_deadline,
+                'original_date': pay_raw,
+                'adjusted': pay_deadline != pay_raw,
+                'type': '消費税納付（見込み納付）',
+                'category': 'consumption_tax_payment',
+                'color': '#ad1457',
+                'fiscal_year_end': fy_end,
+                'note': '申告期限延長でも納付期限は延長不可',
+            })
+        else:
+            # 延長なし：申告期限＝納付期限（2ヶ月後）
+            deadlines.append({
+                'date': pay_deadline,
+                'original_date': pay_raw,
+                'adjusted': pay_deadline != pay_raw,
+                'type': '法人税・地方法人税申告',
+                'category': 'corporate_tax',
+                'color': '#1a237e',
+                'fiscal_year_end': fy_end,
+            })
+            deadlines.append({
+                'date': pay_deadline,
+                'original_date': pay_raw,
+                'adjusted': pay_deadline != pay_raw,
+                'type': '消費税申告',
+                'category': 'consumption_tax',
+                'color': '#880e4f',
+                'fiscal_year_end': fy_end,
+            })
 
         # 法人住民税・事業税申告（決算月末から2ヶ月後末日）
         deadlines.append({
-            'date': corp_tax_deadline,
-            'original_date': corp_tax_raw,
-            'adjusted': corp_tax_deadline != corp_tax_raw,
+            'date': pay_deadline,
+            'original_date': pay_raw,
+            'adjusted': pay_deadline != pay_raw,
             'type': '法人住民税・事業税申告',
             'category': 'local_tax',
             'color': '#1b5e20',
@@ -428,7 +481,8 @@ def get_all_deadlines_for_client(client, year=None):
             int(client.fiscal_year_end) if client.fiscal_year_end and client.fiscal_year_end.isdigit() else None
         )
         if fiscal_end:
-            for d in get_corporate_deadlines(fiscal_end, year):
+            has_extension = bool(getattr(client, 'tax_filing_extension', 0) or 0)
+            for d in get_corporate_deadlines(fiscal_end, year, tax_filing_extension=has_extension):
                 d['client_id'] = client.id
                 d['client_name'] = client.name
                 d['client_type'] = '法人'

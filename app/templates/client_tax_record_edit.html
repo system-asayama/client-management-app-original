@@ -154,7 +154,7 @@
               <button type="button" class="btn-remove-entity" onclick="removeEntity('pref_{{ i }}')">✕ 削除</button>
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label">都道府県 <span style="color:red">*</span></label>
+              <label class="form-label">都道府県税事務所 <span style="color:red">*</span></label>
               <select name="pref_name_{{ i }}" class="form-input" required>
                 {% for fp in filing_prefectures %}
                   <option value="{{ fp.prefecture_name }}" {% if pref.prefecture_name == fp.prefecture_name %}selected{% endif %}>{{ fp.prefecture_name }}</option>
@@ -191,7 +191,7 @@
       </div>
       <input type="hidden" name="pref_count" id="prefCount" value="{{ record.prefectures|length if record and record.prefectures else 0 }}">
       {% if filing_prefectures %}
-        <button type="button" class="btn-add-entity" onclick="addPrefecture()">＋ 都道府県を追加</button>
+        <button type="button" class="btn-add-entity" onclick="addPrefecture()">＋ 都道府県税事務所を追加</button>
       {% endif %}
     </div>
 
@@ -213,7 +213,7 @@
               <button type="button" class="btn-remove-entity" onclick="removeEntity('muni_{{ i }}')">✕ 削除</button>
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label">市区町村 <span style="color:red">*</span></label>
+              <label class="form-label">市区町村役所 <span style="color:red">*</span></label>
               <select name="muni_name_{{ i }}" class="form-input" required>
                 {% for fm in filing_municipalities %}
                   <option value="{{ fm.municipality_name }}" {% if muni.municipality_name == fm.municipality_name %}selected{% endif %}>{{ fm.municipality_name }}</option>
@@ -239,7 +239,7 @@
       </div>
       <input type="hidden" name="muni_count" id="muniCount" value="{{ record.municipalities|length if record and record.municipalities else 0 }}">
       {% if filing_municipalities %}
-        <button type="button" class="btn-add-entity" onclick="addMunicipality()" style="background:#e0f2f1; color:#00695c; border-color:#80cbc4;">＋ 市区町村を追加</button>
+        <button type="button" class="btn-add-entity" onclick="addMunicipality()" style="background:#e0f2f1; color:#00695c; border-color:#80cbc4;">＋ 市区町村役所を追加</button>
       {% endif %}
     </div>
 
@@ -258,21 +258,33 @@ let muniCount = parseInt(document.getElementById('muniCount').value);
 const filingPrefectures = {{ filing_prefectures | map(attribute='prefecture_name') | list | tojson }};
 const filingMunicipalities = {{ filing_municipalities | map(attribute='municipality_name') | list | tojson }};
 
-function addPrefecture() {
-  if (filingPrefectures.length === 0) {
-    alert('先に税務申告基本情報の編集から申告先の都道府県を登録してください。');
-    return;
-  }
+// ── 新規追加時：申告先を全件自動展開 ──
+{% if not record %}
+window.addEventListener('DOMContentLoaded', function() {
+  // 都道府県税事務所を全件自動追加
+  filingPrefectures.forEach(function(name) {
+    _addPrefectureWithName(name);
+  });
+  // 市区町村役所を全件自動追加
+  filingMunicipalities.forEach(function(name) {
+    _addMunicipalityWithName(name);
+  });
+});
+{% endif %}
+
+function _addPrefectureWithName(selectedName) {
   const i = prefCount;
-  const options = filingPrefectures.map(name => `<option value="${name}">${name}</option>`).join('');
+  const options = filingPrefectures.map(name =>
+    `<option value="${name}"${name === selectedName ? ' selected' : ''}>${name}</option>`
+  ).join('');
   const html = `
     <div class="sub-entity-block" id="pref_${i}">
       <div class="sub-entity-header">
-        <span class="sub-entity-label">都道府県 ${i + 1}</span>
+        <span class="sub-entity-label">都道府県税事務所 ${i + 1}</span>
         <button type="button" class="btn-remove-entity" onclick="removeEntity('pref_${i}')">✕ 削除</button>
       </div>
       <div class="form-group" style="margin-bottom:10px;">
-        <label class="form-label">都道府県 <span style="color:red">*</span></label>
+        <label class="form-label">都道府県税事務所 <span style="color:red">*</span></label>
         <select name="pref_name_${i}" class="form-input" required>${options}</select>
         <input type="hidden" name="pref_id_${i}" value="">
       </div>
@@ -300,21 +312,27 @@ function addPrefecture() {
   document.getElementById('prefCount').value = prefCount;
 }
 
-function addMunicipality() {
-  if (filingMunicipalities.length === 0) {
-    alert('先に税務申告基本情報の編集から申告先の市区町村を登録してください。');
+function addPrefecture() {
+  if (filingPrefectures.length === 0) {
+    alert('先に税務申告基本情報の編集から申告先の都道府県税事務所を登録してください。');
     return;
   }
+  _addPrefectureWithName(filingPrefectures[0]);
+}
+
+function _addMunicipalityWithName(selectedName) {
   const i = muniCount;
-  const options = filingMunicipalities.map(name => `<option value="${name}">${name}</option>`).join('');
+  const options = filingMunicipalities.map(name =>
+    `<option value="${name}"${name === selectedName ? ' selected' : ''}>${name}</option>`
+  ).join('');
   const html = `
     <div class="sub-entity-block municipality" id="muni_${i}">
       <div class="sub-entity-header">
-        <span class="sub-entity-label municipality">市区町村 ${i + 1}</span>
+        <span class="sub-entity-label municipality">市区町村役所 ${i + 1}</span>
         <button type="button" class="btn-remove-entity" onclick="removeEntity('muni_${i}')">✕ 削除</button>
       </div>
       <div class="form-group" style="margin-bottom:10px;">
-        <label class="form-label">市区町村 <span style="color:red">*</span></label>
+        <label class="form-label">市区町村役所 <span style="color:red">*</span></label>
         <select name="muni_name_${i}" class="form-input" required>${options}</select>
         <input type="hidden" name="muni_id_${i}" value="">
       </div>
@@ -332,6 +350,14 @@ function addMunicipality() {
   document.getElementById('municipalityContainer').insertAdjacentHTML('beforeend', html);
   muniCount++;
   document.getElementById('muniCount').value = muniCount;
+}
+
+function addMunicipality() {
+  if (filingMunicipalities.length === 0) {
+    alert('先に税務申告基本情報の編集から申告先の市区町村役所を登録してください。');
+    return;
+  }
+  _addMunicipalityWithName(filingMunicipalities[0]);
 }
 
 function removeEntity(id) {

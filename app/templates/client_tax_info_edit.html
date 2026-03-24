@@ -204,6 +204,9 @@ function addFilingOffice(officeType) {
     if (data.success) {
       input.value = '';
       location.reload();
+    } else if (data.duplicate) {
+      alert(data.error);
+      input.value = '';
     } else {
       alert(data.error || '追加に失敗しました。');
     }

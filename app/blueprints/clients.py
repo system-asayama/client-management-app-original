@@ -1450,10 +1450,31 @@ def add_filing_office(client_id):
         if not client:
             return jsonify({'success': False, 'error': '顧問先が見つかりません'})
         if office_type == 'tax_office':
+            # 重複チェック
+            existing = db.query(TFilingOfficeTaxOffice).filter(
+                TFilingOfficeTaxOffice.client_id == client_id,
+                TFilingOfficeTaxOffice.tax_office_name == name
+            ).first()
+            if existing:
+                return jsonify({'success': False, 'duplicate': True, 'error': f'「{name}」は既に登録されています'})
             obj = TFilingOfficeTaxOffice(client_id=client_id, tax_office_name=name)
         elif office_type == 'prefecture':
+            # 重複チェック
+            existing = db.query(TFilingOfficePrefecture).filter(
+                TFilingOfficePrefecture.client_id == client_id,
+                TFilingOfficePrefecture.prefecture_name == name
+            ).first()
+            if existing:
+                return jsonify({'success': False, 'duplicate': True, 'error': f'「{name}」は既に登録されています'})
             obj = TFilingOfficePrefecture(client_id=client_id, prefecture_name=name)
         elif office_type == 'municipality':
+            # 重複チェック
+            existing = db.query(TFilingOfficeMunicipality).filter(
+                TFilingOfficeMunicipality.client_id == client_id,
+                TFilingOfficeMunicipality.municipality_name == name
+            ).first()
+            if existing:
+                return jsonify({'success': False, 'duplicate': True, 'error': f'「{name}」は既に登録されています'})
             obj = TFilingOfficeMunicipality(client_id=client_id, municipality_name=name)
         else:
             return jsonify({'success': False, 'error': '不正なタイプです'})

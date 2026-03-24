@@ -4,20 +4,36 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from app.db import SessionLocal
 from app.models_clients import TClient
+from app.models_login import TTenant
 from app.utils.decorators import require_roles, ROLES
 from sqlalchemy import and_
 
 bp = Blueprint('clients', __name__, url_prefix='/clients')
 
 
+def _get_profession(tenant_id):
+    """テナントの士業種別を取得"""
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        return getattr(tenant, 'profession', None) or ''
+    finally:
+        db.close()
+
+
+PROFESSION_LABELS = {
+    'tax': '税理士',
+    'legal': '弁護士',
+    'accounting': '公認会計士',
+    'sr': '社労士',
+}
+
+
 @bp.route('/')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def clients():
     """顧問先一覧"""
-    print(f"[DEBUG] Session keys: {list(session.keys())}")
-    print(f"[DEBUG] Session content: {dict(session)}")
     tenant_id = session.get('tenant_id')
-    print(f"[DEBUG] tenant_id from session: {tenant_id}")
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_admin.dashboard'))
@@ -25,7 +41,9 @@ def clients():
     db = SessionLocal()
     try:
         clients = db.query(TClient).filter(TClient.tenant_id == tenant_id).order_by(TClient.id.desc()).all()
-        return render_template('clients.html', clients=clients)
+        profession = _get_profession(tenant_id)
+        return render_template('clients.html', clients=clients, profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
     finally:
         db.close()
 
@@ -38,6 +56,8 @@ def add_client():
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_admin.dashboard'))
+    
+    profession = _get_profession(tenant_id)
     
     if request.method == 'POST':
         client_type = request.form.get('type')
@@ -54,8 +74,31 @@ def add_client():
                 name=name,
                 email=email,
                 phone=phone,
-                notes=notes
+                notes=notes,
+                # 共通追加情報
+                address=request.form.get('address') or None,
+                industry=request.form.get('industry') or None,
+                fiscal_year_end=request.form.get('fiscal_year_end') or None,
+                contract_start_date=request.form.get('contract_start_date') or None,
             )
+            # 士業固有フィールド
+            if profession == 'tax':
+                new_client.tax_accountant_code = request.form.get('tax_accountant_code') or None
+                new_client.tax_id_number = request.form.get('tax_id_number') or None
+            elif profession == 'legal':
+                new_client.case_number = request.form.get('case_number') or None
+                new_client.case_type = request.form.get('case_type') or None
+                new_client.opposing_party = request.form.get('opposing_party') or None
+            elif profession == 'accounting':
+                new_client.audit_type = request.form.get('audit_type') or None
+                new_client.listed = int(request.form.get('listed', 0))
+            elif profession == 'sr':
+                emp = request.form.get('employee_count')
+                new_client.employee_count = int(emp) if emp and emp.isdigit() else None
+                new_client.labor_insurance_number = request.form.get('labor_insurance_number') or None
+                new_client.social_insurance_number = request.form.get('social_insurance_number') or None
+                new_client.payroll_closing_day = request.form.get('payroll_closing_day') or None
+
             db.add(new_client)
             db.commit()
             flash('顧問先を追加しました', 'success')
@@ -66,7 +109,8 @@ def add_client():
         finally:
             db.close()
     
-    return render_template('add_client.html')
+    return render_template('add_client.html', profession=profession,
+                           profession_label=PROFESSION_LABELS.get(profession, ''))
 
 
 @bp.route('/<int:client_id>')
@@ -92,8 +136,68 @@ def client_info(client_id):
         
         # 会社基本情報を取得
         company = db.query(TCompanyInfo).filter(TCompanyInfo.顧問先ID == client_id).first()
+        profession = _get_profession(tenant_id)
         
-        return render_template('client_info.html', client=client, company=company)
+        return render_template('client_info.html', client=client, company=company,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def edit_client(client_id):
+    """顧問先編集"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    profession = _get_profession(tenant_id)
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        if request.method == 'POST':
+            client.type = request.form.get('type') or client.type
+            client.name = request.form.get('name') or client.name
+            client.email = request.form.get('email') or None
+            client.phone = request.form.get('phone') or None
+            client.notes = request.form.get('notes') or None
+            client.address = request.form.get('address') or None
+            client.industry = request.form.get('industry') or None
+            client.fiscal_year_end = request.form.get('fiscal_year_end') or None
+            client.contract_start_date = request.form.get('contract_start_date') or None
+
+            if profession == 'tax':
+                client.tax_accountant_code = request.form.get('tax_accountant_code') or None
+                client.tax_id_number = request.form.get('tax_id_number') or None
+            elif profession == 'legal':
+                client.case_number = request.form.get('case_number') or None
+                client.case_type = request.form.get('case_type') or None
+                client.opposing_party = request.form.get('opposing_party') or None
+            elif profession == 'accounting':
+                client.audit_type = request.form.get('audit_type') or None
+                client.listed = int(request.form.get('listed', 0))
+            elif profession == 'sr':
+                emp = request.form.get('employee_count')
+                client.employee_count = int(emp) if emp and emp.isdigit() else None
+                client.labor_insurance_number = request.form.get('labor_insurance_number') or None
+                client.social_insurance_number = request.form.get('social_insurance_number') or None
+                client.payroll_closing_day = request.form.get('payroll_closing_day') or None
+
+            db.commit()
+            flash('顧問先情報を更新しました', 'success')
+            return redirect(url_for('clients.client_info', client_id=client_id))
+
+        return render_template('edit_client.html', client=client, profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
     finally:
         db.close()
 
@@ -117,7 +221,6 @@ def client_chat(client_id):
             flash('顧問先が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
         
-        # チャット機能は今後実装
         return render_template('client_chat.html', client=client, messages=[])
     finally:
         db.close()
@@ -126,6 +229,7 @@ def client_chat(client_id):
 # ========================================
 # 会社基本情報管理機能
 # ========================================
+
 
 @bp.route('/company/<int:company_id>')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])

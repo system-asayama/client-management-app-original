@@ -717,6 +717,78 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_テナントにprofessionカラムを追加
+        print("\n[マイグレーション] T_テナントにprofessionカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_テナント' AND column_name = 'profession'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_テナント" ADD COLUMN profession VARCHAR(50)')
+                    conn.commit()
+                    print("  ✅ professionカラムを追加しました")
+                else:
+                    print("  ℹ️  professionカラムは既に存在します（スキップ）")
+            else:
+                cur.execute('PRAGMA table_info("T_テナント")')
+                columns = [row[1] for row in cur.fetchall()]
+                if 'profession' not in columns:
+                    cur.execute('ALTER TABLE "T_テナント" ADD COLUMN profession TEXT')
+                    conn.commit()
+                    print("  ✅ professionカラムを追加しました")
+                else:
+                    print("  ℹ️  professionカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_顧問先に士業固有カラムを追加
+        print("\n[マイグレーション] T_顧問先に士業固有カラムを追加")
+        client_columns = [
+            ('address',                  'VARCHAR(500)'),
+            ('industry',                 'VARCHAR(100)'),
+            ('fiscal_year_end',          'VARCHAR(10)'),
+            ('contract_start_date',      'VARCHAR(20)'),
+            ('tax_accountant_code',      'VARCHAR(50)'),
+            ('tax_id_number',            'VARCHAR(20)'),
+            ('case_number',              'VARCHAR(100)'),
+            ('case_type',                'VARCHAR(100)'),
+            ('opposing_party',           'VARCHAR(255)'),
+            ('audit_type',               'VARCHAR(100)'),
+            ('listed',                   'INTEGER DEFAULT 0'),
+            ('employee_count',           'INTEGER'),
+            ('labor_insurance_number',   'VARCHAR(50)'),
+            ('social_insurance_number',  'VARCHAR(50)'),
+            ('payroll_closing_day',      'VARCHAR(10)'),
+        ]
+        try:
+            for col_name, col_def in client_columns:
+                if _is_pg(conn):
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'T_顧問先' AND column_name = %s
+                    """, (col_name,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "T_顧問先" ADD COLUMN {col_name} {col_def}')
+                        conn.commit()
+                        print(f"  ✅ {col_name}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {col_name}カラムは既に存在します（スキップ）")
+                else:
+                    cur.execute('PRAGMA table_info("T_顧問先")')
+                    columns = [row[1] for row in cur.fetchall()]
+                    if col_name not in columns:
+                        cur.execute(f'ALTER TABLE "T_顧問先" ADD COLUMN {col_name} TEXT')
+                        conn.commit()
+                        print(f"  ✅ {col_name}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {col_name}カラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

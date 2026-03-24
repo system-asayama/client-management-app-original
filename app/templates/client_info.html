@@ -1,91 +1,261 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>顧問先情報 - {{ client['name'] }}</title>
-    <style>
-        .nav-btn {
-            display: inline-block;
-            margin-right: 8px;
-            padding: 6px 16px;
-            background-color: #f0f0f0;
-            color: #333;
-            border: 1px solid #aaa;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 14px;
-        }
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 顧問先詳細{% endblock %}
 
-        .nav-btn:hover {
-            background-color: #e0e0e0;
-        }
-    </style>
-</head>
-<body>
-    <h2>顧問先情報</h2>
+{% block content %}
+<style>
+  .page-wrap { max-width: 800px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
 
-    <!-- 🔹 ナビゲーションボタン -->
-    <div style="margin-bottom: 10px;">
-        <a href="{{ url_for('clients.clients') }}" class="nav-btn">🏠 ホーム</a>
-        <a href="javascript:history.back()" class="nav-btn">← 戻る</a>
+  .client-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .client-name { font-size: 22px; font-weight: 700; color: #1a237e; }
+  .client-type-badge {
+    display: inline-block; padding: 3px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; margin-left: 10px;
+    background: #e8eaf6; color: #3949ab;
+  }
+  .profession-badge {
+    display: inline-block; padding: 4px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 700;
+  }
+  .badge-tax        { background: #e3f2fd; color: #1565c0; }
+  .badge-legal      { background: #fce4ec; color: #880e4f; }
+  .badge-accounting { background: #e8f5e9; color: #1b5e20; }
+  .badge-sr         { background: #fff8e1; color: #e65100; }
+  .badge-none       { background: #f5f5f5; color: #777; }
+
+  .info-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 24px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin: 0 0 14px;
+  }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  @media (max-width: 540px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-item {}
+  .info-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 2px; }
+  .info-value { font-size: 14px; color: #333; font-weight: 500; }
+  .info-value.empty { color: #bbb; font-style: italic; }
+
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .action-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 14px 10px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    text-align: center; transition: all 0.2s;
+  }
+  .action-btn .icon { font-size: 22px; margin-bottom: 5px; }
+  .btn-chat     { background: #fff8e1; color: #e65100; border: 2px solid #ffcc80; }
+  .btn-chat:hover { background: #ffe0b2; }
+  .btn-files    { background: #f3e5f5; color: #7b1fa2; border: 2px solid #ce93d8; }
+  .btn-files:hover { background: #e1bee7; }
+  .btn-accounts { background: #e8eaf6; color: #1a237e; border: 2px solid #9fa8da; }
+  .btn-accounts:hover { background: #c5cae9; }
+  .btn-company  { background: #e8f5e9; color: #1b5e20; border: 2px solid #a5d6a7; }
+  .btn-company:hover { background: #c8e6c9; }
+  .btn-storage  { background: #e0f7fa; color: #006064; border: 2px solid #80deea; }
+  .btn-storage:hover { background: #b2ebf2; }
+  .btn-edit     { background: #fff3e0; color: #e65100; border: 2px solid #ffcc80; }
+  .btn-edit:hover { background: #ffe0b2; }
+
+  .notes-box {
+    background: #fafafa; border-radius: 8px; padding: 12px 14px;
+    font-size: 14px; color: #555; white-space: pre-wrap;
+    border: 1px solid #eee; min-height: 40px;
+  }
+  .storage-path {
+    font-family: monospace; background: #f5f5f5;
+    padding: 6px 10px; border-radius: 6px;
+    font-size: 13px; color: #555;
+  }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo; {{ client.name }}
+  </div>
+
+  <div class="client-header">
+    <div>
+      <div class="client-name">
+        {{ client.name }}
+        {% if client.type %}<span class="client-type-badge">{{ client.type }}</span>{% endif %}
+      </div>
+      <div style="margin-top:8px">
+        {% if profession == 'tax' %}<span class="profession-badge badge-tax">税理士</span>
+        {% elif profession == 'legal' %}<span class="profession-badge badge-legal">弁護士</span>
+        {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">公認会計士</span>
+        {% elif profession == 'sr' %}<span class="profession-badge badge-sr">社労士</span>
+        {% else %}<span class="profession-badge badge-none">士業未設定</span>
+        {% endif %}
+      </div>
     </div>
+    <a href="{{ url_for('clients.edit_client', client_id=client.id) }}" class="action-btn btn-edit" style="min-width:100px; flex-direction:row; gap:6px; padding:10px 16px;">
+      &#9998; 編集
+    </a>
+  </div>
 
-    <table border="1" cellpadding="6">
-        <tr><th>ID</th><td>{{ client['id'] }}</td></tr>
-        <tr><th>区分</th><td>{{ client['type'] }}</td></tr>
-        <tr><th>名称</th><td>{{ client['name'] }}</td></tr>
-        <tr><th>メール</th><td>{{ client['email'] }}</td></tr>
-        <tr><th>電話番号</th><td>{{ client['phone'] }}</td></tr>
-        <tr><th>メモ</th><td>{{ client['notes'] }}</td></tr>
-    </table>
-
-    <br>
-
-    <!-- ▼ 会社基本情報ページへのボタン -->
+  <!-- アクションボタン -->
+  <div class="action-grid">
+    <a href="{{ url_for('chat.client_chat', client_id=client.id) }}" class="action-btn btn-chat">
+      <span class="icon">&#128172;</span> チャット
+    </a>
+    <a href="{{ url_for('files.client_files', client_id=client.id) }}" class="action-btn btn-files">
+      <span class="icon">&#128193;</span> ファイル共有
+    </a>
+    <a href="{{ url_for('clients.client_accounts', client_id=client.id) }}" class="action-btn btn-accounts">
+      <span class="icon">&#128100;</span> アカウント管理
+    </a>
     {% if company %}
-    <a href="{{ url_for('clients.company_info', company_id=company.id) }}"
-       style="display:inline-block; margin:12px 8px 12px 0; padding:6px 18px; background:#4ca9df; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
-        会社基本情報を見る
+    <a href="{{ url_for('clients.company_info', company_id=company.id) }}" class="action-btn btn-company">
+      <span class="icon">&#127970;</span> 会社基本情報
     </a>
     {% else %}
-    <!-- ▼ 会社基本情報登録ページへのボタン -->
-    <a href="{{ url_for('clients.company_create', client_id=client['id']) }}"
-       style="display:inline-block; margin:12px 0; padding:6px 18px; background:#7bb661; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
-        会社基本情報を登録
+    <a href="{{ url_for('clients.company_create', client_id=client.id) }}" class="action-btn btn-company">
+      <span class="icon">&#127970;</span> 会社情報を登録
     </a>
     {% endif %}
+    <a href="{{ url_for('clients.client_storage_folder', client_id=client.id) }}" class="action-btn btn-storage">
+      <span class="icon">&#128194;</span> ストレージ設定
+    </a>
+  </div>
 
-    <!-- ▼ チャットとファイル共有へのボタン -->
-    <div style="margin-top: 20px;">
-        <a href="{{ url_for('chat.client_chat', client_id=client['id']) }}"
-           style="display:inline-block; margin:8px 8px 8px 0; padding:10px 24px; background:#ff9800; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
-            💬 チャット
-        </a>
-        <a href="{{ url_for('files.client_files', client_id=client['id']) }}"
-           style="display:inline-block; margin:8px 8px 8px 0; padding:10px 24px; background:#9c27b0; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
-            📁 ファイル共有
-        </a>
-        <a href="{{ url_for('clients.client_accounts', client_id=client['id']) }}"
-           style="display:inline-block; margin:8px 8px 8px 0; padding:10px 24px; background:#1a237e; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
-            👤 クライアントアカウント管理
-        </a>
-        <a href="{{ url_for('clients.client_storage_folder', client_id=client['id']) }}"
-           style="display:inline-block; margin:8px 0; padding:10px 24px; background:#2e7d32; color:#fff; border-radius:4px; text-decoration:none; font-size:15px; font-weight:bold;">
-            📂 ストレージフォルダ設定
-        </a>
+  <!-- 基本情報 -->
+  <div class="info-card">
+    <div class="section-title">基本情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">メールアドレス</div>
+        <div class="info-value {% if not client.email %}empty{% endif %}">{{ client.email or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">電話番号</div>
+        <div class="info-value {% if not client.phone %}empty{% endif %}">{{ client.phone or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">住所</div>
+        <div class="info-value {% if not client.address %}empty{% endif %}">{{ client.address or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">業種</div>
+        <div class="info-value {% if not client.industry %}empty{% endif %}">{{ client.industry or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">契約開始日</div>
+        <div class="info-value {% if not client.contract_start_date %}empty{% endif %}">{{ client.contract_start_date or '未登録' }}</div>
+      </div>
+      {% if profession != 'legal' %}
+      <div class="info-item">
+        <div class="info-label">決算月</div>
+        <div class="info-value {% if not client.fiscal_year_end %}empty{% endif %}">{{ client.fiscal_year_end or '未登録' }}</div>
+      </div>
+      {% endif %}
     </div>
-    {% if client['storage_folder_path'] %}
-    <p style="margin-top:8px; font-size:13px; color:#555;">
-        📂 保存先フォルダ: <code style="background:#f0f0f0; padding:2px 6px; border-radius:3px;">{{ client['storage_folder_path'] }}</code>
-    </p>
+  </div>
+
+  <!-- 士業固有情報 -->
+  {% if profession == 'tax' %}
+  <div class="info-card">
+    <div class="section-title">税理士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">顧問先コード</div>
+        <div class="info-value {% if not client.tax_accountant_code %}empty{% endif %}">{{ client.tax_accountant_code or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">法人番号 / マイナンバー</div>
+        <div class="info-value {% if not client.tax_id_number %}empty{% endif %}">{{ client.tax_id_number or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% elif profession == 'legal' %}
+  <div class="info-card">
+    <div class="section-title">弁護士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">事件番号</div>
+        <div class="info-value {% if not client.case_number %}empty{% endif %}">{{ client.case_number or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">事件種別</div>
+        <div class="info-value {% if not client.case_type %}empty{% endif %}">{{ client.case_type or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">相手方</div>
+        <div class="info-value {% if not client.opposing_party %}empty{% endif %}">{{ client.opposing_party or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% elif profession == 'accounting' %}
+  <div class="info-card">
+    <div class="section-title">公認会計士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">監査種別</div>
+        <div class="info-value {% if not client.audit_type %}empty{% endif %}">{{ client.audit_type or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">上場区分</div>
+        <div class="info-value">{{ '上場' if client.listed else '非上場' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% elif profession == 'sr' %}
+  <div class="info-card">
+    <div class="section-title">社労士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">従業員数</div>
+        <div class="info-value {% if not client.employee_count %}empty{% endif %}">{{ (client.employee_count | string + '名') if client.employee_count else '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">給与締め日</div>
+        <div class="info-value {% if not client.payroll_closing_day %}empty{% endif %}">{{ client.payroll_closing_day or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">労働保険番号</div>
+        <div class="info-value {% if not client.labor_insurance_number %}empty{% endif %}">{{ client.labor_insurance_number or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">社会保険番号（事業所整理記号）</div>
+        <div class="info-value {% if not client.social_insurance_number %}empty{% endif %}">{{ client.social_insurance_number or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- メモ -->
+  {% if client.notes %}
+  <div class="info-card">
+    <div class="section-title">メモ</div>
+    <div class="notes-box">{{ client.notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ストレージフォルダ -->
+  <div class="info-card">
+    <div class="section-title">ストレージフォルダ</div>
+    {% if client.storage_folder_path %}
+    <div class="storage-path">{{ client.storage_folder_path }}</div>
     {% else %}
-    <p style="margin-top:8px; font-size:13px; color:#999;">
-        📂 保存先フォルダ: 未設定（自動パスを使用）
-    </p>
+    <div style="color:#bbb; font-size:14px;">未設定（自動パスを使用）</div>
     {% endif %}
+  </div>
 
-    <br>
-
-    <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>
-</body>
-</html>
+</div>
+{% endblock %}

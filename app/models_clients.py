@@ -18,6 +18,32 @@ class TClient(Base):
     phone = Column(String(50))
     notes = Column(Text)
     storage_folder_path = Column(String(500))  # ストレージ内の保存先フォルダパス（例: /clients/株式会社A）
+
+    # 士業共通追加情報
+    address = Column(String(500), nullable=True)          # 住所・所在地
+    industry = Column(String(100), nullable=True)         # 業種
+    fiscal_year_end = Column(String(10), nullable=True)   # 決算月（税理士・公認会計士用）
+    contract_start_date = Column(String(20), nullable=True)  # 契約開始日
+
+    # 税理士固有
+    tax_accountant_code = Column(String(50), nullable=True)   # 顧問先コード
+    tax_id_number = Column(String(20), nullable=True)         # 法人番号 / マイナンバー
+
+    # 弁護士固有
+    case_number = Column(String(100), nullable=True)      # 事件番号
+    case_type = Column(String(100), nullable=True)        # 事件種別（民事・刑事・家事等）
+    opposing_party = Column(String(255), nullable=True)   # 相手方
+
+    # 公認会計士固有
+    audit_type = Column(String(100), nullable=True)       # 監査種別（法定監査・任意監査等）
+    listed = Column(Integer, nullable=True, default=0)    # 上場区分（0=非上場, 1=上場）
+
+    # 社労士固有
+    employee_count = Column(Integer, nullable=True)                  # 従業員数
+    labor_insurance_number = Column(String(50), nullable=True)       # 労働保険番号
+    social_insurance_number = Column(String(50), nullable=True)      # 社会保険番号（事業所整理記号）
+    payroll_closing_day = Column(String(10), nullable=True)          # 給与締め日
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -44,6 +44,18 @@
     </div>
 
     <div class="row">
+      <label>士業種別</label>
+      <select name="profession" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:1em">
+        <option value="" {% if not tenant or not tenant.get('profession') %}selected{% endif %}>未設定</option>
+        <option value="tax" {% if tenant and tenant.get('profession') == 'tax' %}selected{% endif %}>📊 税理士</option>
+        <option value="legal" {% if tenant and tenant.get('profession') == 'legal' %}selected{% endif %}>⚖️ 弁護士</option>
+        <option value="accounting" {% if tenant and tenant.get('profession') == 'accounting' %}selected{% endif %}>📈 公認会計士</option>
+        <option value="sr" {% if tenant and tenant.get('profession') == 'sr' %}selected{% endif %}>👥 社労士</option>
+      </select>
+      <p class="small" style="color:#666">士業種別を設定すると、顧問先管理の入力項目が士業に合わせて最適化されます</p>
+    </div>
+
+    <div class="row">
       <label>OpenAI APIキー</label>
       <input type="text" name="openai_api_key" value="{{ tenant['openai_api_key'] if tenant else '' }}" placeholder="sk-...">
       <p class="small" style="color:#666">テナント内の全店舗で使用されるOpenAI APIキーを設定します</p>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}顧問先追加{% endblock %}
+{% block title %}{{ client.name }} - 顧問先編集{% endblock %}
 
 {% block content %}
 <style>
@@ -33,7 +33,6 @@
   .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
     outline: none; border-color: #1a237e;
   }
-  .form-row .hint { font-size: 12px; color: #999; margin-top: 4px; }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   @media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } }
   .profession-badge {
@@ -63,14 +62,15 @@
 
 <div class="page-wrap">
   <div class="breadcrumb">
-    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo; 顧問先追加
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo; 編集
   </div>
-  <div class="page-title">顧問先追加</div>
+  <div class="page-title">顧問先情報の編集</div>
   <div style="margin-bottom:16px">
-    {% if profession == 'tax' %}<span class="profession-badge badge-tax">&#128202; 税理士</span>
-    {% elif profession == 'legal' %}<span class="profession-badge badge-legal">&#9878; 弁護士</span>
-    {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">&#128200; 公認会計士</span>
-    {% elif profession == 'sr' %}<span class="profession-badge badge-sr">&#128101; 社労士</span>
+    {% if profession == 'tax' %}<span class="profession-badge badge-tax">税理士</span>
+    {% elif profession == 'legal' %}<span class="profession-badge badge-legal">弁護士</span>
+    {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">公認会計士</span>
+    {% elif profession == 'sr' %}<span class="profession-badge badge-sr">社労士</span>
     {% else %}<span class="profession-badge badge-none">士業未設定</span>
     {% endif %}
   </div>
@@ -89,8 +89,8 @@
           <label>区分 <span class="req">*</span></label>
           <select name="type" required>
             <option value="">選択してください</option>
-            <option value="個人">{% if profession == 'legal' %}個人（自然人）{% else %}個人{% endif %}</option>
-            <option value="法人">{% if profession == 'legal' %}法人・団体{% else %}法人{% endif %}</option>
+            <option value="個人" {% if client.type == '個人' %}selected{% endif %}>{% if profession == 'legal' %}個人（自然人）{% else %}個人{% endif %}</option>
+            <option value="法人" {% if client.type == '法人' %}selected{% endif %}>{% if profession == 'legal' %}法人・団体{% else %}法人{% endif %}</option>
           </select>
         </div>
         <div class="form-row">
@@ -100,31 +100,31 @@
             {% else %}名称{% endif %}
             <span class="req">*</span>
           </label>
-          <input type="text" name="name" required placeholder="例: 株式会社○○">
+          <input type="text" name="name" required value="{{ client.name or '' }}">
         </div>
       </div>
       <div class="form-grid">
         <div class="form-row">
           <label>メールアドレス</label>
-          <input type="email" name="email" placeholder="例: info@example.com">
+          <input type="email" name="email" value="{{ client.email or '' }}">
         </div>
         <div class="form-row">
           <label>電話番号</label>
-          <input type="text" name="phone" placeholder="例: 03-1234-5678">
+          <input type="text" name="phone" value="{{ client.phone or '' }}">
         </div>
       </div>
       <div class="form-row">
         <label>住所</label>
-        <input type="text" name="address" placeholder="例: 東京都渋谷区○○1-2-3">
+        <input type="text" name="address" value="{{ client.address or '' }}">
       </div>
       <div class="form-grid">
         <div class="form-row">
           <label>業種</label>
-          <input type="text" name="industry" placeholder="例: 製造業、小売業">
+          <input type="text" name="industry" value="{{ client.industry or '' }}">
         </div>
         <div class="form-row">
           <label>契約開始日</label>
-          <input type="date" name="contract_start_date">
+          <input type="date" name="contract_start_date" value="{{ client.contract_start_date or '' }}">
         </div>
       </div>
       {% if profession != 'legal' %}
@@ -133,7 +133,7 @@
         <select name="fiscal_year_end">
           <option value="">選択してください</option>
           {% for m in range(1, 13) %}
-          <option value="{{ m }}月">{{ m }}月</option>
+          <option value="{{ m }}月" {% if client.fiscal_year_end == (m|string + '月') %}selected{% endif %}>{{ m }}月</option>
           {% endfor %}
         </select>
       </div>
@@ -144,11 +144,11 @@
       <div class="form-grid">
         <div class="form-row">
           <label>顧問先コード</label>
-          <input type="text" name="tax_accountant_code" placeholder="例: C-001">
+          <input type="text" name="tax_accountant_code" value="{{ client.tax_accountant_code or '' }}">
         </div>
         <div class="form-row">
           <label>法人番号 / マイナンバー</label>
-          <input type="text" name="tax_id_number" placeholder="例: 1234567890123">
+          <input type="text" name="tax_id_number" value="{{ client.tax_id_number or '' }}">
         </div>
       </div>
 
@@ -157,28 +157,21 @@
       <div class="form-grid">
         <div class="form-row">
           <label>事件番号</label>
-          <input type="text" name="case_number" placeholder="例: 令和6年（ワ）第1234号">
+          <input type="text" name="case_number" value="{{ client.case_number or '' }}">
         </div>
         <div class="form-row">
           <label>事件種別</label>
           <select name="case_type">
             <option value="">選択してください</option>
-            <option value="民事訴訟">民事訴訟</option>
-            <option value="刑事弁護">刑事弁護</option>
-            <option value="家事事件">家事事件（離婚・相続等）</option>
-            <option value="労働事件">労働事件</option>
-            <option value="倒産・再生">倒産・再生</option>
-            <option value="企業法務">企業法務・顧問</option>
-            <option value="不動産">不動産関連</option>
-            <option value="交通事故">交通事故</option>
-            <option value="債権回収">債権回収</option>
-            <option value="その他">その他</option>
+            {% for ct in ['民事訴訟','刑事弁護','家事事件','労働事件','倒産・再生','企業法務','不動産','交通事故','債権回収','その他'] %}
+            <option value="{{ ct }}" {% if client.case_type == ct %}selected{% endif %}>{{ ct }}</option>
+            {% endfor %}
           </select>
         </div>
       </div>
       <div class="form-row">
         <label>相手方</label>
-        <input type="text" name="opposing_party" placeholder="例: 株式会社○○ / 山田 花子">
+        <input type="text" name="opposing_party" value="{{ client.opposing_party or '' }}">
       </div>
 
       {% elif profession == 'accounting' %}
@@ -188,18 +181,16 @@
           <label>監査種別</label>
           <select name="audit_type">
             <option value="">選択してください</option>
-            <option value="法定監査">法定監査</option>
-            <option value="任意監査">任意監査</option>
-            <option value="レビュー">レビュー</option>
-            <option value="合意された手続き">合意された手続き</option>
-            <option value="コンサルティング">コンサルティング</option>
+            {% for at in ['法定監査','任意監査','レビュー','合意された手続き','コンサルティング'] %}
+            <option value="{{ at }}" {% if client.audit_type == at %}selected{% endif %}>{{ at }}</option>
+            {% endfor %}
           </select>
         </div>
         <div class="form-row">
           <label>上場区分</label>
           <select name="listed">
-            <option value="0">非上場</option>
-            <option value="1">上場</option>
+            <option value="0" {% if not client.listed %}selected{% endif %}>非上場</option>
+            <option value="1" {% if client.listed %}selected{% endif %}>上場</option>
           </select>
         </div>
       </div>
@@ -209,41 +200,39 @@
       <div class="form-grid">
         <div class="form-row">
           <label>従業員数</label>
-          <input type="number" name="employee_count" min="0" placeholder="例: 50">
+          <input type="number" name="employee_count" min="0" value="{{ client.employee_count or '' }}">
         </div>
         <div class="form-row">
           <label>給与締め日</label>
           <select name="payroll_closing_day">
             <option value="">選択してください</option>
-            <option value="末日">末日</option>
-            <option value="10日">10日</option>
-            <option value="15日">15日</option>
-            <option value="20日">20日</option>
-            <option value="25日">25日</option>
+            {% for d in ['末日','10日','15日','20日','25日'] %}
+            <option value="{{ d }}" {% if client.payroll_closing_day == d %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
           </select>
         </div>
       </div>
       <div class="form-grid">
         <div class="form-row">
           <label>労働保険番号</label>
-          <input type="text" name="labor_insurance_number" placeholder="例: 12-345678-901">
+          <input type="text" name="labor_insurance_number" value="{{ client.labor_insurance_number or '' }}">
         </div>
         <div class="form-row">
           <label>社会保険番号（事業所整理記号）</label>
-          <input type="text" name="social_insurance_number" placeholder="例: 01-イロハ">
+          <input type="text" name="social_insurance_number" value="{{ client.social_insurance_number or '' }}">
         </div>
       </div>
       {% endif %}
 
       <div class="section-title">メモ</div>
       <div class="form-row">
-        <textarea name="notes" rows="3" placeholder="備考・メモを入力してください"></textarea>
+        <textarea name="notes" rows="3">{{ client.notes or '' }}</textarea>
       </div>
     </div>
 
     <div>
-      <button type="submit" class="btn-submit">+ 顧問先を追加</button>
-      <a href="{{ url_for('clients.clients') }}" class="btn-back">← キャンセル</a>
+      <button type="submit" class="btn-submit">保存する</button>
+      <a href="{{ url_for('clients.client_info', client_id=client.id) }}" class="btn-back">← キャンセル</a>
     </div>
   </form>
 </div>

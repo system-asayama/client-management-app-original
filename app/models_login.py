@@ -54,6 +54,7 @@ class TTenant(Base):
     電話番号 = Column(String(20), nullable=True)
     email = Column(String(255), nullable=True)
     openai_api_key = Column(String(255), nullable=True)
+    profession = Column(String(50), nullable=True, comment='士業種別: tax=税理士, legal=弁護士, accounting=公認会計士, sr=社労士')
     有効 = Column(Integer, default=1)
     created_by_admin_id = Column(Integer, ForeignKey('T_管理者.id'), nullable=True, comment='このテナントを作成したシステム管理者のID')
     created_at = Column(DateTime, server_default=func.now())

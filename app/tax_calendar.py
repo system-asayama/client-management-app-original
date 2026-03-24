@@ -658,26 +658,38 @@ def calc_interim_amounts(client, year, db_session=None):
 
         amounts = {}
 
-        # 法人税・地方法人税中間（前期の1/2）
+        # 前期の事業年度月数（通常は12ヶ月）
+        prev_months = getattr(rec, 'fiscal_months', None) or 12
+        if prev_months <= 0:
+            prev_months = 12
+
+        def interim_calc(annual_tax, target_months):
+            """国税庁規定に従った中間納付額計算
+            前期確定税額 ÷ 前期月数（1円未満切り捨て）× 中間申告対象期間の月数
+            """
+            return int(annual_tax // prev_months) * target_months
+
+        # 法人税・地方法人税中間（対象期間：6ヶ月）
         if rec.corporate_tax:
-            amounts['corp_tax_interim'] = rec.corporate_tax // 2
+            amounts['corp_tax_interim'] = interim_calc(rec.corporate_tax, 6)
         if rec.local_corporate_tax:
-            amounts['local_corp_tax_interim'] = rec.local_corporate_tax // 2
+            amounts['local_corp_tax_interim'] = interim_calc(rec.local_corporate_tax, 6)
 
         # 消費税中間（前期消費税額による回数・金額）
+        # 年一回：6ヶ月分、年三回：3ヶ月分、年十一回：1ヶ月分
         if rec.consumption_tax:
             ct = rec.consumption_tax
             if ct <= 480000:
                 amounts['consumption_tax_interim_times'] = 1
-                amounts['consumption_tax_interim_amount'] = ct // 2
+                amounts['consumption_tax_interim_amount'] = interim_calc(ct, 6)
             elif ct <= 4000000:
                 amounts['consumption_tax_interim_times'] = 3
-                amounts['consumption_tax_interim_amount'] = ct // 4
+                amounts['consumption_tax_interim_amount'] = interim_calc(ct, 3)
             else:
                 amounts['consumption_tax_interim_times'] = 11
-                amounts['consumption_tax_interim_amount'] = ct // 12
+                amounts['consumption_tax_interim_amount'] = interim_calc(ct, 1)
 
-        # 都道府県税中間
+        # 都道府県税中間（対象期間：6ヶ月）
         prefs = db_session.query(TTaxRecordPrefecture).filter(
             TTaxRecordPrefecture.tax_record_id == rec.id
         ).all()
@@ -685,24 +697,24 @@ def calc_interim_amounts(client, year, db_session=None):
         for p in prefs:
             pref_interim = {'name': p.prefecture_name}
             if p.income_levy:
-                pref_interim['income_levy'] = p.income_levy // 2
+                pref_interim['income_levy'] = interim_calc(p.income_levy, 6)
             if p.business_tax:
-                pref_interim['business_tax'] = p.business_tax // 2
+                pref_interim['business_tax'] = interim_calc(p.business_tax, 6)
             if p.special_business_tax:
-                pref_interim['special_business_tax'] = p.special_business_tax // 2
+                pref_interim['special_business_tax'] = interim_calc(p.special_business_tax, 6)
             if len(pref_interim) > 1:
                 pref_interims.append(pref_interim)
         if pref_interims:
             amounts['pref_interims'] = pref_interims
 
-        # 市区町村税中間
+        # 市区町村税中間（対象期間：6ヶ月）
         munis = db_session.query(TTaxRecordMunicipality).filter(
             TTaxRecordMunicipality.tax_record_id == rec.id
         ).all()
         muni_interims = []
         for m in munis:
             if m.corporate_tax_levy:
-                muni_interims.append({'name': m.municipality_name, 'corp_levy': m.corporate_tax_levy // 2})
+                muni_interims.append({'name': m.municipality_name, 'corp_levy': interim_calc(m.corporate_tax_levy, 6)})
         if muni_interims:
             amounts['muni_interims'] = muni_interims
 

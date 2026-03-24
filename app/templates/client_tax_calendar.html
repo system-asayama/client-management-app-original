@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}税務年間カレンダー - {{ client.name }}{% endblock %}
+{% block content %}
+<style>
+  .calendar-header {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .calendar-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+  }
+  .calendar-header p {
+    margin: 0;
+    opacity: 0.85;
+    font-size: 0.9rem;
+  }
+  .client-type-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 0.82rem;
+    margin-left: 8px;
+  }
+  .filter-bar {
+    background: white;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .year-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .year-nav a {
+    background: #e8eaf6;
+    color: #1a237e;
+    border-radius: 6px;
+    padding: 6px 12px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .year-nav a:hover { background: #c5cae9; }
+  .year-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1a237e;
+    min-width: 60px;
+    text-align: center;
+  }
+  .month-section { margin-bottom: 24px; }
+  .month-title {
+    background: #e8eaf6;
+    color: #1a237e;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 10px 16px;
+    border-radius: 8px 8px 0 0;
+    border-left: 4px solid #1a237e;
+  }
+  .month-title.current-month {
+    background: #1a237e;
+    color: white;
+  }
+  .deadline-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .deadline-table th {
+    background: #f5f5f5;
+    font-size: 0.8rem;
+    color: #666;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+  }
+  .deadline-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9rem;
+  }
+  .deadline-table tr:last-child td { border-bottom: none; }
+  .deadline-table tr:hover td { background: #fafafa; }
+  .deadline-date {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .deadline-date.past { color: #9e9e9e; }
+  .deadline-date.today { color: #d32f2f; }
+  .deadline-date.soon { color: #f57c00; }
+  .deadline-date.future { color: #1a237e; }
+  .type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+  }
+  .empty-month {
+    background: white;
+    border-radius: 0 0 8px 8px;
+    padding: 14px;
+    color: #9e9e9e;
+    font-size: 0.9rem;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: white;
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .summary-card .num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1a237e;
+  }
+  .summary-card .label {
+    font-size: 0.78rem;
+    color: #666;
+    margin-top: 2px;
+  }
+  .breadcrumb {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 12px;
+  }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .fiscal-info-card {
+    background: #e8f5e9;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    color: #1b5e20;
+    border-left: 4px solid #2e7d32;
+  }
+  .fiscal-info-card strong { color: #1b5e20; }
+  @media (max-width: 640px) {
+    .deadline-table th:nth-child(3),
+    .deadline-table td:nth-child(3) { display: none; }
+  }
+</style>
+
+<!-- パンくずリスト -->
+<div class="breadcrumb">
+  <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> ›
+  <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> ›
+  税務年間カレンダー
+</div>
+
+<div class="calendar-header">
+  <h1>📅 税務年間カレンダー
+    <span class="client-type-badge">{{ client.type or '未設定' }}</span>
+  </h1>
+  <p>{{ client.name }}</p>
+</div>
+
+<!-- 決算月情報 -->
+{% if client.fiscal_year_end_month %}
+  <div class="fiscal-info-card">
+    <strong>会計期間：</strong>
+    {% if client.fiscal_year_start_month %}{{ client.fiscal_year_start_month }}月{% endif %}
+    〜 {{ client.fiscal_year_end_month }}月（決算月）
+    ／ 申告期限：{{ client.fiscal_year_end_month + 2 if client.fiscal_year_end_month + 2 <= 12 else client.fiscal_year_end_month + 2 - 12 }}月末
+  </div>
+{% endif %}
+
+<!-- 年切り替え -->
+<div class="filter-bar">
+  <div class="year-nav">
+    <a href="?year={{ year - 1 }}">◀</a>
+    <span class="year-label">{{ year }}年</span>
+    <a href="?year={{ year + 1 }}">▶</a>
+  </div>
+</div>
+
+<!-- サマリーカード -->
+{% set total_count = namespace(v=0) %}
+{% set past_count = namespace(v=0) %}
+{% set soon_count = namespace(v=0) %}
+{% for (y, m), items in grouped.items() %}
+  {% for d in items %}
+    {% set total_count.v = total_count.v + 1 %}
+    {% if d.date < today %}
+      {% set past_count.v = past_count.v + 1 %}
+    {% elif (d.date - today).days <= 30 %}
+      {% set soon_count.v = soon_count.v + 1 %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+<div class="summary-cards">
+  <div class="summary-card">
+    <div class="num">{{ total_count.v }}</div>
+    <div class="label">{{ year }}年 総期限数</div>
+  </div>
+  <div class="summary-card">
+    <div class="num" style="color:#f57c00">{{ soon_count.v }}</div>
+    <div class="label">30日以内の期限</div>
+  </div>
+  <div class="summary-card">
+    <div class="num" style="color:#9e9e9e">{{ past_count.v }}</div>
+    <div class="label">期限済み</div>
+  </div>
+</div>
+
+<!-- 月別カレンダー -->
+{% set month_names = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'] %}
+{% for month in range(1, 13) %}
+  {% set key = (year, month) %}
+  {% set is_current = (year == today.year and month == today.month) %}
+  <div class="month-section">
+    <div class="month-title {% if is_current %}current-month{% endif %}">
+      {{ year }}年 {{ month_names[month-1] }}
+      {% if is_current %} ← 今月{% endif %}
+    </div>
+    {% if key in grouped and grouped[key] %}
+      <table class="deadline-table">
+        <thead>
+          <tr>
+            <th>期限日</th>
+            <th>申告・手続き種別</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in grouped[key] %}
+            {% set days_diff = (d.date - today).days %}
+            {% if days_diff < 0 %}
+              {% set date_class = 'past' %}
+            {% elif days_diff == 0 %}
+              {% set date_class = 'today' %}
+            {% elif days_diff <= 30 %}
+              {% set date_class = 'soon' %}
+            {% else %}
+              {% set date_class = 'future' %}
+            {% endif %}
+            <tr>
+              <td>
+                <span class="deadline-date {{ date_class }}">
+                  {{ d.date.strftime('%m/%d') }}
+                  {% if days_diff == 0 %}（今日）
+                  {% elif days_diff > 0 and days_diff <= 7 %}（残{{ days_diff }}日）
+                  {% elif days_diff > 0 and days_diff <= 30 %}（残{{ days_diff }}日）
+                  {% endif %}
+                </span>
+              </td>
+              <td>
+                <span class="type-badge" style="background-color:{{ d.color }}">
+                  {{ d.type }}
+                </span>
+              </td>
+              <td style="color:#666; font-size:0.82rem;">
+                {{ d.get('note', '') }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-month">この月の期限はありません</div>
+    {% endif %}
+  </div>
+{% endfor %}
+
+<div style="margin-top:24px;">
+  <a href="{{ url_for('clients.client_info', client_id=client.id) }}"
+     style="background:#e8eaf6;color:#1a237e;border-radius:8px;padding:10px 20px;text-decoration:none;font-weight:600;font-size:0.9rem;">
+    ← 顧問先詳細に戻る
+  </a>
+</div>
+
+{% endblock %}

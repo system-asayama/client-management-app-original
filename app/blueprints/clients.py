@@ -7,6 +7,7 @@ from app.models_clients import TClient
 from app.models_login import TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from sqlalchemy import and_
+from datetime import date
 
 bp = Blueprint('clients', __name__, url_prefix='/clients')
 
@@ -1054,5 +1055,91 @@ def edit_tax_info(client_id):
         return render_template('client_tax_info_edit.html', client=client,
                                profession=profession,
                                profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+# ─────────────────────────────────────────────
+# 税務年間カレンダー（全顧問先）
+# ─────────────────────────────────────────────
+@bp.route('/tax_calendar')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def tax_calendar():
+    """全顧問先の税務年間カレンダー"""
+    from app.tax_calendar import get_all_deadlines_for_client, group_by_month
+    db = SessionLocal()
+    try:
+        tenant_id = session['tenant_id']
+        profession = _get_profession(tenant_id)
+
+        show_corporate = request.args.get('corporate', '1') == '1'
+        show_individual = request.args.get('individual', '1') == '1'
+        year = int(request.args.get('year', date.today().year))
+
+        clients_q = db.query(TClient).filter(TClient.tenant_id == tenant_id).all()
+
+        all_deadlines = []
+        for client in clients_q:
+            if client.type == '法人' and not show_corporate:
+                continue
+            if client.type == '個人' and not show_individual:
+                continue
+            deadlines = get_all_deadlines_for_client(client, year)
+            all_deadlines.extend(deadlines)
+
+        all_deadlines = [d for d in all_deadlines if d['date'].year == year]
+        all_deadlines.sort(key=lambda x: x['date'])
+        grouped = group_by_month(all_deadlines)
+
+        today = date.today()
+        return render_template('tax_calendar.html',
+                               grouped=grouped,
+                               year=year,
+                               today=today,
+                               show_corporate=show_corporate,
+                               show_individual=show_individual,
+                               profession=profession,
+                               clients=clients_q)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 税務年間カレンダー（顧問先個別）
+# ─────────────────────────────────────────────
+@bp.route('/<int:client_id>/tax_calendar')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def client_tax_calendar(client_id):
+    """顧問先個別の税務年間カレンダー"""
+    from app.tax_calendar import get_all_deadlines_for_client, group_by_month
+    db = SessionLocal()
+    try:
+        tenant_id = session['tenant_id']
+        profession = _get_profession(tenant_id)
+        client = db.query(TClient).filter(
+            TClient.id == client_id,
+            TClient.tenant_id == tenant_id
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        year = int(request.args.get('year', date.today().year))
+        show_corporate = request.args.get('corporate', '1') == '1'
+        show_individual = request.args.get('individual', '1') == '1'
+
+        deadlines = get_all_deadlines_for_client(client, year)
+        deadlines = [d for d in deadlines if d['date'].year == year]
+        deadlines.sort(key=lambda x: x['date'])
+        grouped = group_by_month(deadlines)
+
+        today = date.today()
+        return render_template('client_tax_calendar.html',
+                               client=client,
+                               grouped=grouped,
+                               year=year,
+                               today=today,
+                               show_corporate=show_corporate,
+                               show_individual=show_individual,
+                               profession=profession)
     finally:
         db.close()

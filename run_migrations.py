@@ -802,6 +802,9 @@ def run_migrations():
             ('consumption_tax_calc',           'VARCHAR(50)'),
             ('qualified_invoice_registered',   'INTEGER DEFAULT 0'),
             ('qualified_invoice_number',       'VARCHAR(50)'),
+            ('salary_office_notification',     'INTEGER DEFAULT 0'),
+            ('withholding_tax_special',        'INTEGER DEFAULT 0'),
+            ('tax_filing_extension',           'INTEGER DEFAULT 0'),
         ]
         try:
             for col_name, col_def in tax_columns:

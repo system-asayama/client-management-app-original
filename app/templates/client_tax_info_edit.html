@@ -184,6 +184,39 @@ window.onload = function() {
       </div>
     </div>
 
+    <!-- 給与・源泉征収税 -->
+    <div class="form-card">
+      <div class="section-title">給与・源泉征収税</div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">給与支払事務所設置届</label>
+          <div class="radio-group">
+            <label><input type="radio" name="salary_office_notification" value="1" {% if client.salary_office_notification %}checked{% endif %}> 提出済み</label>
+            <label><input type="radio" name="salary_office_notification" value="0" {% if not client.salary_office_notification %}checked{% endif %}> 未提出</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">源泉所得税の納期の特例</label>
+          <div class="radio-group">
+            <label><input type="radio" name="withholding_tax_special" value="1" {% if client.withholding_tax_special %}checked{% endif %}> 適用あり</label>
+            <label><input type="radio" name="withholding_tax_special" value="0" {% if not client.withholding_tax_special %}checked{% endif %}> 適用なし</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 申告期限の延長 -->
+    <div class="form-card">
+      <div class="section-title">申告期限の延長</div>
+      <div class="form-group">
+        <label class="form-label">法人税・消費税の申告期限延長</label>
+        <div class="radio-group">
+          <label><input type="radio" name="tax_filing_extension" value="1" {% if client.tax_filing_extension %}checked{% endif %}> 延長あり</label>
+          <label><input type="radio" name="tax_filing_extension" value="0" {% if not client.tax_filing_extension %}checked{% endif %}> 延長なし</label>
+        </div>
+      </div>
+    </div>
+
     <!-- 適格請求書（インボイス） -->
     <div class="form-card">
       <div class="section-title">適格請求書発行事業者（インボイス）</div>

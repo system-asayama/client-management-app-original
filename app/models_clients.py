@@ -40,6 +40,9 @@ class TClient(Base):
     consumption_tax_calc = Column(String(50), nullable=True)      # 原則課税の計算方式（全額控除/個別対応/一括比例配分）
     qualified_invoice_registered = Column(Integer, nullable=True, default=0)  # 適格事業者登録（0=なし, 1=あり）
     qualified_invoice_number = Column(String(50), nullable=True)  # 適格請求書発行事業者登録番号
+    salary_office_notification = Column(Integer, nullable=True, default=0)  # 給与支払事務所設置届（0=なし, 1=あり）
+    withholding_tax_special = Column(Integer, nullable=True, default=0)     # 納期特例（0=なし, 1=あり）
+    tax_filing_extension = Column(Integer, nullable=True, default=0)        # 申告期限延長（0=なし, 1=あり）
 
     # 弁護士固有
     case_number = Column(String(100), nullable=True)      # 事件番号

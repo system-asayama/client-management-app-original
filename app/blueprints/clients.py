@@ -1049,6 +1049,9 @@ def edit_tax_info(client_id):
                 client.qualified_invoice_number = request.form.get('qualified_invoice_number') or None
             else:
                 client.qualified_invoice_number = None
+            client.salary_office_notification = int(request.form.get('salary_office_notification', 0))
+            client.withholding_tax_special = int(request.form.get('withholding_tax_special', 0))
+            client.tax_filing_extension = int(request.form.get('tax_filing_extension', 0))
             db.commit()
             flash('税務申告基本情報を更新しました', 'success')
             return redirect(url_for('clients.tax_info', client_id=client_id))

@@ -128,11 +128,19 @@
                     placeholder="例: branch@example.co.jp">
             </div>
         </div>
-        <div class="form-group" style="max-width: 270px;">
-            <label for="担当者名">担当者名</label>
-            <input type="text" name="担当者名" id="担当者名"
-                value="{{ branch.担当者名 if branch and branch.担当者名 else '' }}"
-                placeholder="例: 山田太郎">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="担当者名">担当者名</label>
+                <input type="text" name="担当者名" id="担当者名"
+                    value="{{ branch.担当者名 if branch and branch.担当者名 else '' }}"
+                    placeholder="例: 山田太郎">
+            </div>
+            <div class="form-group">
+                <label for="当拠点従業員数">従業員人数</label>
+                <input type="number" name="当拠点従業員数" id="当拠点従業員数" min="0"
+                    value="{{ branch.当拠点従業員数 if branch and branch.当拠点従業員数 is not none else '' }}"
+                    placeholder="例: 10">
+            </div>
         </div>
 
         <div>

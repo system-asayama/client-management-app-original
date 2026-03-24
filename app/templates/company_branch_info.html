@@ -60,6 +60,7 @@
         <tr><th>ファックス番号</th><td>{{ branch.ファックス番号 or '―' }}</td></tr>
         <tr><th>メールアドレス</th><td>{{ branch.メールアドレス or '―' }}</td></tr>
         <tr><th>担当者名</th><td>{{ branch.担当者名 or '―' }}</td></tr>
+        <tr><th>従業員人数</th><td>{{ branch.当拠点従業員数 if branch.当拠点従業員数 is not none else '―' }}</td></tr>
     </table>
 
     <br>

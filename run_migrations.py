@@ -1181,6 +1181,7 @@ def run_migrations():
                             "ファックス番号" VARCHAR(50),
                             "メールアドレス" VARCHAR(255),
                             "担当者名" VARCHAR(100),
+                            "当拠点従業員数" INTEGER,
                             sort_order INTEGER DEFAULT 0
                         )
                     """)
@@ -1206,6 +1207,7 @@ def run_migrations():
                             ファックス番号 TEXT,
                             メールアドレス TEXT,
                             担当者名 TEXT,
+                            当拠点従業員数 INTEGER,
                             sort_order INTEGER DEFAULT 0
                         )
                     """)
@@ -1213,6 +1215,33 @@ def run_migrations():
                     print("  ✅ T_会社拠点情報テーブルを作成しました")
                 else:
                     print("  ℹ️  T_会社拠点情報テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_会社拠点情報に当拠点従業員数カラムを追加
+        print("\n[マイグレーション] T_会社拠点情報に当拠点従業員数カラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_会社拠点情報' AND column_name = '当拠点従業員数'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_会社拠点情報" ADD COLUMN "当拠点従業員数" INTEGER')
+                    conn.commit()
+                    print("  ✅ 当拠点従業員数カラムを追加しました")
+                else:
+                    print("  ℹ️  当拠点従業員数カラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_会社拠点情報')")
+                cols = [row[1] for row in cur.fetchall()]
+                if '当拠点従業員数' not in cols:
+                    cur.execute('ALTER TABLE "T_会社拠点情報" ADD COLUMN 当拠点従業員数 INTEGER')
+                    conn.commit()
+                    print("  ✅ 当拠点従業員数カラムを追加しました")
+                else:
+                    print("  ℹ️  当拠点従業員数カラムは既に存在します（スキップ）")
         except Exception as e:
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()

@@ -40,4 +40,5 @@ class TCompanyBranch(Base):
     ファックス番号 = Column('ファックス番号', String(50))
     メールアドレス = Column('メールアドレス', String(255))
     担当者名 = Column('担当者名', String(100))
+    従業員数 = Column('当拠点従業員数', Integer)
     sort_order = Column(Integer, default=0)

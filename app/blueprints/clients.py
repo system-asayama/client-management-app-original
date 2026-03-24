@@ -530,6 +530,8 @@ def branch_add(company_id):
             return redirect(url_for('clients.clients'))
 
         if request.method == 'POST':
+            emp_str = request.form.get('当拠点従業員数', '').strip()
+            emp_count = int(emp_str) if emp_str.isdigit() else None
             branch = TCompanyBranch(
                 company_id=company_id,
                 branch_type=request.form.get('branch_type', '支店'),
@@ -543,6 +545,7 @@ def branch_add(company_id):
                 ファックス番号=request.form.get('ファックス番号', '').strip() or None,
                 メールアドレス=request.form.get('メールアドレス', '').strip() or None,
                 担当者名=request.form.get('担当者名', '').strip() or None,
+                当拠点従業員数=emp_count,
             )
             db.add(branch)
             db.commit()
@@ -604,6 +607,8 @@ def branch_edit(company_id, branch_id):
             branch.ファックス番号 = request.form.get('ファックス番号', '').strip() or None
             branch.メールアドレス = request.form.get('メールアドレス', '').strip() or None
             branch.担当者名 = request.form.get('担当者名', '').strip() or None
+            emp_str = request.form.get('当拠点従業員数', '').strip()
+            branch.当拠点従業員数 = int(emp_str) if emp_str.isdigit() else None
             db.commit()
             flash('拠点情報を更新しました', 'success')
             return redirect(url_for('clients.company_info', company_id=company_id))

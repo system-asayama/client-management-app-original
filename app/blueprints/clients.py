@@ -3,11 +3,11 @@
 """
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from app.db import SessionLocal
-from app.models_clients import TClient
+from app.models_clients import TClient, TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality
 from app.models_login import TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from sqlalchemy import and_
-from datetime import date
+from datetime import date, datetime
 
 bp = Blueprint('clients', __name__, url_prefix='/clients')
 
@@ -497,7 +497,7 @@ def client_accounts(client_id):
 def issue_client_account(client_id):
     """クライアント初期アカウント発行"""
     import secrets
-    from datetime import datetime, timedelta
+    from datetime import date, datetime, timedelta
     from app.models_client_users import TClientUser, TClientInvitation
     tenant_id = session.get('tenant_id')
     if not tenant_id:
@@ -668,7 +668,7 @@ def chat():
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
     
-    from datetime import datetime
+    from datetime import date, datetime
     from app.utils.db import get_db, _sql
     
     conn = get_db()
@@ -704,7 +704,7 @@ def files():
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
     
-    from datetime import datetime
+    from datetime import date, datetime
     from app.utils.db import get_db, _sql
     from app.utils.storage import storage_manager
     
@@ -857,7 +857,7 @@ def commissioned_works(client_id):
 def add_commissioned_work(client_id):
     """受託業務追加"""
     from app.models_clients import TCommissionedWork
-    from datetime import datetime
+    from datetime import date, datetime
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
@@ -909,7 +909,7 @@ def add_commissioned_work(client_id):
 def edit_commissioned_work(client_id, work_id):
     """受託業務編集"""
     from app.models_clients import TCommissionedWork
-    from datetime import datetime
+    from datetime import date, datetime
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
@@ -1135,7 +1135,7 @@ def client_tax_calendar(client_id):
         show_corporate = request.args.get('corporate', '1') == '1'
         show_individual = request.args.get('individual', '1') == '1'
 
-        deadlines = get_all_deadlines_for_client(client, year)
+        deadlines = get_all_deadlines_for_client(client, year, db_session=db)
         deadlines = [d for d in deadlines if d['date'].year == year]
         deadlines.sort(key=lambda x: x['date'])
         grouped = group_by_month(deadlines)
@@ -1149,5 +1149,240 @@ def client_tax_calendar(client_id):
                                show_corporate=show_corporate,
                                show_individual=show_individual,
                                profession=profession)
+    finally:
+        db.close()
+
+
+# ========================================
+# 納税実績
+# ========================================
+@bp.route('/<int:client_id>/tax_records')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def tax_records(client_id):
+    """納税実績一覧ページ"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.list'))
+
+        recs = db.query(TTaxRecord).filter(
+            TTaxRecord.client_id == client_id
+        ).order_by(TTaxRecord.fiscal_year.desc(), TTaxRecord.fiscal_end_month.desc()).all()
+
+        # 都道府県・市区町村を各レコードに付加
+        for rec in recs:
+            rec.prefectures = db.query(TTaxRecordPrefecture).filter(
+                TTaxRecordPrefecture.tax_record_id == rec.id
+            ).all()
+            rec.municipalities = db.query(TTaxRecordMunicipality).filter(
+                TTaxRecordMunicipality.tax_record_id == rec.id
+            ).all()
+
+        return render_template('client_tax_records.html', client=client, records=recs)
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/tax_records/add', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def add_tax_record(client_id):
+    """納税実績追加"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.list'))
+
+        if request.method == 'POST':
+            fiscal_year = request.form.get('fiscal_year', type=int)
+            fiscal_end_month = request.form.get('fiscal_end_month', type=int)
+            if not fiscal_year or not fiscal_end_month:
+                flash('決算年度と決算月は必須です', 'error')
+                return redirect(request.url)
+
+            rec = TTaxRecord(
+                client_id=client_id,
+                fiscal_year=fiscal_year,
+                fiscal_end_month=fiscal_end_month,
+                corporate_tax=request.form.get('corporate_tax', type=int),
+                local_corporate_tax=request.form.get('local_corporate_tax', type=int),
+                consumption_tax=request.form.get('consumption_tax', type=int),
+                local_consumption_tax=request.form.get('local_consumption_tax', type=int),
+            )
+            db.add(rec)
+            db.flush()  # IDを取得
+
+            # 都道府県
+            pref_count = request.form.get('pref_count', type=int) or 0
+            for i in range(pref_count):
+                pref_name = request.form.get(f'pref_name_{i}', '').strip()
+                if pref_name:
+                    pref = TTaxRecordPrefecture(
+                        tax_record_id=rec.id,
+                        prefecture_name=pref_name,
+                        equal_levy=request.form.get(f'pref_equal_{i}', type=int),
+                        income_levy=request.form.get(f'pref_income_{i}', type=int),
+                        business_tax=request.form.get(f'pref_business_{i}', type=int),
+                        special_business_tax=request.form.get(f'pref_special_{i}', type=int),
+                    )
+                    db.add(pref)
+
+            # 市区町村
+            muni_count = request.form.get('muni_count', type=int) or 0
+            for i in range(muni_count):
+                muni_name = request.form.get(f'muni_name_{i}', '').strip()
+                if muni_name:
+                    muni = TTaxRecordMunicipality(
+                        tax_record_id=rec.id,
+                        municipality_name=muni_name,
+                        equal_levy=request.form.get(f'muni_equal_{i}', type=int),
+                        corporate_tax_levy=request.form.get(f'muni_corp_{i}', type=int),
+                    )
+                    db.add(muni)
+
+            db.commit()
+            flash(f'{fiscal_year}年{fiscal_end_month}月期の納税実績を追加しました', 'success')
+            return redirect(url_for('clients.tax_records', client_id=client_id))
+
+        # GET
+        client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        return render_template('client_tax_record_edit.html', client=client,
+                               record=None, client_fiscal_month=client_fiscal_month,
+                               enumerate=enumerate)
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/tax_records/<int:record_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def edit_tax_record(client_id, record_id):
+    """納税実績編集"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.list'))
+
+        rec = db.query(TTaxRecord).filter(
+            and_(TTaxRecord.id == record_id, TTaxRecord.client_id == client_id)
+        ).first()
+        if not rec:
+            flash('納税実績が見つかりません', 'error')
+            return redirect(url_for('clients.tax_records', client_id=client_id))
+
+        if request.method == 'POST':
+            rec.fiscal_year = request.form.get('fiscal_year', type=int)
+            rec.fiscal_end_month = request.form.get('fiscal_end_month', type=int)
+            rec.corporate_tax = request.form.get('corporate_tax', type=int)
+            rec.local_corporate_tax = request.form.get('local_corporate_tax', type=int)
+            rec.consumption_tax = request.form.get('consumption_tax', type=int)
+            rec.local_consumption_tax = request.form.get('local_consumption_tax', type=int)
+            rec.updated_at = datetime.utcnow()
+
+            # 都道府県：既存を削除して再登録
+            db.query(TTaxRecordPrefecture).filter(
+                TTaxRecordPrefecture.tax_record_id == rec.id
+            ).delete()
+            pref_count = request.form.get('pref_count', type=int) or 0
+            for i in range(pref_count):
+                pref_name = request.form.get(f'pref_name_{i}', '').strip()
+                if pref_name:
+                    pref = TTaxRecordPrefecture(
+                        tax_record_id=rec.id,
+                        prefecture_name=pref_name,
+                        equal_levy=request.form.get(f'pref_equal_{i}', type=int),
+                        income_levy=request.form.get(f'pref_income_{i}', type=int),
+                        business_tax=request.form.get(f'pref_business_{i}', type=int),
+                        special_business_tax=request.form.get(f'pref_special_{i}', type=int),
+                    )
+                    db.add(pref)
+
+            # 市区町村：既存を削除して再登録
+            db.query(TTaxRecordMunicipality).filter(
+                TTaxRecordMunicipality.tax_record_id == rec.id
+            ).delete()
+            muni_count = request.form.get('muni_count', type=int) or 0
+            for i in range(muni_count):
+                muni_name = request.form.get(f'muni_name_{i}', '').strip()
+                if muni_name:
+                    muni = TTaxRecordMunicipality(
+                        tax_record_id=rec.id,
+                        municipality_name=muni_name,
+                        equal_levy=request.form.get(f'muni_equal_{i}', type=int),
+                        corporate_tax_levy=request.form.get(f'muni_corp_{i}', type=int),
+                    )
+                    db.add(muni)
+
+            db.commit()
+            flash('納税実績を更新しました', 'success')
+            return redirect(url_for('clients.tax_records', client_id=client_id))
+
+        # GET
+        rec.prefectures = db.query(TTaxRecordPrefecture).filter(
+            TTaxRecordPrefecture.tax_record_id == rec.id
+        ).all()
+        rec.municipalities = db.query(TTaxRecordMunicipality).filter(
+            TTaxRecordMunicipality.tax_record_id == rec.id
+        ).all()
+        client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        return render_template('client_tax_record_edit.html', client=client,
+                               record=rec, client_fiscal_month=client_fiscal_month,
+                               enumerate=enumerate)
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/tax_records/<int:record_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def delete_tax_record(client_id, record_id):
+    """納税実績削除"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        rec = db.query(TTaxRecord).filter(
+            and_(TTaxRecord.id == record_id, TTaxRecord.client_id == client_id)
+        ).first()
+        if rec:
+            db.query(TTaxRecordPrefecture).filter(
+                TTaxRecordPrefecture.tax_record_id == rec.id
+            ).delete()
+            db.query(TTaxRecordMunicipality).filter(
+                TTaxRecordMunicipality.tax_record_id == rec.id
+            ).delete()
+            db.delete(rec)
+            db.commit()
+            flash('納税実績を削除しました', 'success')
+        else:
+            flash('納税実績が見つかりません', 'error')
+        return redirect(url_for('clients.tax_records', client_id=client_id))
     finally:
         db.close()

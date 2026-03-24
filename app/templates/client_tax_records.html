@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 納税実績{% endblock %}
+{% block content %}
+<style>
+  .page-wrap { max-width: 860px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; display: flex; align-items: center; gap: 8px; }
+  .info-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 24px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin: 0 0 14px;
+  }
+  .btn-add {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #e8f5e9; color: #2e7d32;
+    border: 2px solid #a5d6a7; font-size: 13px; font-weight: 700;
+    text-decoration: none; white-space: nowrap; cursor: pointer;
+  }
+  .btn-add:hover { background: #c8e6c9; }
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 13px; font-weight: 700;
+    text-decoration: none; margin-top: 8px;
+  }
+  .btn-back:hover { background: #eeeeee; }
+  .btn-edit {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 12px; border-radius: 6px;
+    background: #fff3e0; color: #e65100;
+    border: 1.5px solid #ffcc80; font-size: 12px; font-weight: 700;
+    text-decoration: none;
+  }
+  .btn-edit:hover { background: #ffe0b2; }
+  .btn-delete {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 12px; border-radius: 6px;
+    background: #ffebee; color: #c62828;
+    border: 1.5px solid #ef9a9a; font-size: 12px; font-weight: 700;
+    text-decoration: none; cursor: pointer;
+  }
+  .btn-delete:hover { background: #ffcdd2; }
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+  .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+  .record-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 24px; margin-bottom: 16px;
+    border-top: 4px solid #1a237e;
+  }
+  .record-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  .record-title { font-size: 16px; font-weight: 700; color: #1a237e; }
+  .record-actions { display: flex; gap: 8px; }
+  .tax-section { margin-bottom: 16px; }
+  .tax-section-title {
+    font-size: 12px; font-weight: 700; color: #555;
+    background: #f5f5f5; padding: 4px 10px; border-radius: 4px;
+    margin-bottom: 8px; display: inline-block;
+  }
+  .tax-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px 16px;
+  }
+  .tax-item { }
+  .tax-label { font-size: 11px; color: #888; font-weight: 600; margin-bottom: 2px; }
+  .tax-value { font-size: 14px; color: #333; font-weight: 600; }
+  .tax-value.empty { color: #bbb; font-style: italic; font-size: 12px; }
+  .sub-entity {
+    background: #f9f9f9; border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 8px; border-left: 3px solid #7986cb;
+  }
+  .sub-entity-name { font-size: 13px; font-weight: 700; color: #3949ab; margin-bottom: 8px; }
+  .empty-state {
+    text-align: center; padding: 40px 20px; color: #aaa;
+    font-size: 14px;
+  }
+  .intermediate-box {
+    background: #e3f2fd; border-radius: 8px; padding: 12px 16px;
+    margin-top: 14px; border-left: 4px solid #1976d2;
+  }
+  .intermediate-title { font-size: 12px; font-weight: 700; color: #1565c0; margin-bottom: 8px; }
+  .intermediate-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px 16px;
+  }
+  .intermediate-item { font-size: 12px; color: #1565c0; }
+  .intermediate-label { font-weight: 600; }
+  .divider { border: none; border-top: 1px solid #eee; margin: 14px 0; }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.list') }}">顧問先一覧</a> ›
+    <a href="{{ url_for('clients.detail', client_id=client.id) }}">{{ client.name }}</a> ›
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> ›
+    納税実績
+  </div>
+
+  <div class="page-header">
+    <div class="page-title">💴 納税実績</div>
+    <a href="{{ url_for('clients.add_tax_record', client_id=client.id) }}" class="btn-add">＋ 決算期を追加</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if not records %}
+    <div class="info-card">
+      <div class="empty-state">
+        まだ納税実績が登録されていません。<br>「＋ 決算期を追加」から登録してください。
+      </div>
+    </div>
+  {% else %}
+    {% for rec in records %}
+    <div class="record-card">
+      <div class="record-header">
+        <div class="record-title">{{ rec.fiscal_year }}年{{ rec.fiscal_end_month }}月期</div>
+        <div class="record-actions">
+          <a href="{{ url_for('clients.edit_tax_record', client_id=client.id, record_id=rec.id) }}" class="btn-edit">✎ 編集</a>
+          <form method="post" action="{{ url_for('clients.delete_tax_record', client_id=client.id, record_id=rec.id) }}" style="display:inline" onsubmit="return confirm('この決算期の納税実績を削除しますか？')">
+            <button type="submit" class="btn-delete">🗑 削除</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- 国税（税務署） -->
+      <div class="tax-section">
+        <span class="tax-section-title">🏛 国税（税務署）</span>
+        <div class="tax-grid">
+          <div class="tax-item">
+            <div class="tax-label">法人税</div>
+            <div class="tax-value {% if not rec.corporate_tax %}empty{% endif %}">
+              {% if rec.corporate_tax is not none and rec.corporate_tax != '' %}{{ "{:,}".format(rec.corporate_tax) }}円{% else %}未入力{% endif %}
+            </div>
+          </div>
+          <div class="tax-item">
+            <div class="tax-label">地方法人税</div>
+            <div class="tax-value {% if not rec.local_corporate_tax %}empty{% endif %}">
+              {% if rec.local_corporate_tax is not none and rec.local_corporate_tax != '' %}{{ "{:,}".format(rec.local_corporate_tax) }}円{% else %}未入力{% endif %}
+            </div>
+          </div>
+          <div class="tax-item">
+            <div class="tax-label">消費税（国税分）</div>
+            <div class="tax-value {% if not rec.consumption_tax %}empty{% endif %}">
+              {% if rec.consumption_tax is not none and rec.consumption_tax != '' %}{{ "{:,}".format(rec.consumption_tax) }}円{% else %}未入力{% endif %}
+            </div>
+          </div>
+          <div class="tax-item">
+            <div class="tax-label">地方消費税</div>
+            <div class="tax-value {% if not rec.local_consumption_tax %}empty{% endif %}">
+              {% if rec.local_consumption_tax is not none and rec.local_consumption_tax != '' %}{{ "{:,}".format(rec.local_consumption_tax) }}円{% else %}未入力{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中間納税額（自動算定） -->
+      {% if rec.corporate_tax or rec.consumption_tax %}
+      <div class="intermediate-box">
+        <div class="intermediate-title">📊 当期中間納税額（前期実績から自動算定）</div>
+        <div class="intermediate-grid">
+          {% if rec.corporate_tax %}
+          <div class="intermediate-item">
+            <span class="intermediate-label">法人税中間：</span>{{ "{:,}".format((rec.corporate_tax // 2)) }}円
+          </div>
+          {% endif %}
+          {% if rec.local_corporate_tax %}
+          <div class="intermediate-item">
+            <span class="intermediate-label">地方法人税中間：</span>{{ "{:,}".format((rec.local_corporate_tax // 2)) }}円
+          </div>
+          {% endif %}
+          {% if rec.consumption_tax %}
+          <div class="intermediate-item">
+            {% if rec.consumption_tax <= 480000 %}
+              <span class="intermediate-label">消費税中間（年1回）：</span>{{ "{:,}".format((rec.consumption_tax // 2)) }}円
+            {% elif rec.consumption_tax <= 4000000 %}
+              <span class="intermediate-label">消費税中間（年3回）：</span>各{{ "{:,}".format((rec.consumption_tax // 4)) }}円
+            {% else %}
+              <span class="intermediate-label">消費税中間（年11回）：</span>各{{ "{:,}".format((rec.consumption_tax // 12)) }}円
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 都道府県税 -->
+      {% if rec.prefectures %}
+      <hr class="divider">
+      <div class="tax-section">
+        <span class="tax-section-title">🏯 都道府県税</span>
+        {% for pref in rec.prefectures %}
+        <div class="sub-entity">
+          <div class="sub-entity-name">{{ pref.prefecture_name }}</div>
+          <div class="tax-grid">
+            <div class="tax-item">
+              <div class="tax-label">均等割</div>
+              <div class="tax-value {% if not pref.equal_levy %}empty{% endif %}">
+                {% if pref.equal_levy is not none %}{{ "{:,}".format(pref.equal_levy) }}円{% else %}未入力{% endif %}
+              </div>
+            </div>
+            <div class="tax-item">
+              <div class="tax-label">所得割</div>
+              <div class="tax-value {% if not pref.income_levy %}empty{% endif %}">
+                {% if pref.income_levy is not none %}{{ "{:,}".format(pref.income_levy) }}円{% else %}未入力{% endif %}
+              </div>
+            </div>
+            <div class="tax-item">
+              <div class="tax-label">事業税</div>
+              <div class="tax-value {% if not pref.business_tax %}empty{% endif %}">
+                {% if pref.business_tax is not none %}{{ "{:,}".format(pref.business_tax) }}円{% else %}未入力{% endif %}
+              </div>
+            </div>
+            <div class="tax-item">
+              <div class="tax-label">特別法人事業税</div>
+              <div class="tax-value {% if not pref.special_business_tax %}empty{% endif %}">
+                {% if pref.special_business_tax is not none %}{{ "{:,}".format(pref.special_business_tax) }}円{% else %}未入力{% endif %}
+              </div>
+            </div>
+          </div>
+          <!-- 都道府県税中間算定 -->
+          {% set pref_total = (pref.income_levy or 0) + (pref.business_tax or 0) + (pref.special_business_tax or 0) %}
+          {% if pref_total > 0 %}
+          <div class="intermediate-box" style="margin-top:8px; background:#f3e5f5; border-left-color:#7b1fa2;">
+            <div class="intermediate-title" style="color:#6a1b9a;">📊 中間納税額（自動算定）</div>
+            <div class="intermediate-grid">
+              {% if pref.income_levy %}<div class="intermediate-item" style="color:#6a1b9a;"><span class="intermediate-label">所得割中間：</span>{{ "{:,}".format(pref.income_levy // 2) }}円</div>{% endif %}
+              {% if pref.business_tax %}<div class="intermediate-item" style="color:#6a1b9a;"><span class="intermediate-label">事業税中間：</span>{{ "{:,}".format(pref.business_tax // 2) }}円</div>{% endif %}
+              {% if pref.special_business_tax %}<div class="intermediate-item" style="color:#6a1b9a;"><span class="intermediate-label">特別法人事業税中間：</span>{{ "{:,}".format(pref.special_business_tax // 2) }}円</div>{% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- 市区町村税 -->
+      {% if rec.municipalities %}
+      <hr class="divider">
+      <div class="tax-section">
+        <span class="tax-section-title">🏙 市区町村税</span>
+        {% for muni in rec.municipalities %}
+        <div class="sub-entity" style="border-left-color: #26a69a;">
+          <div class="sub-entity-name" style="color:#00695c;">{{ muni.municipality_name }}</div>
+          <div class="tax-grid">
+            <div class="tax-item">
+              <div class="tax-label">均等割</div>
+              <div class="tax-value {% if not muni.equal_levy %}empty{% endif %}">
+                {% if muni.equal_levy is not none %}{{ "{:,}".format(muni.equal_levy) }}円{% else %}未入力{% endif %}
+              </div>
+            </div>
+            <div class="tax-item">
+              <div class="tax-label">法人税割</div>
+              <div class="tax-value {% if not muni.corporate_tax_levy %}empty{% endif %}">
+                {% if muni.corporate_tax_levy is not none %}{{ "{:,}".format(muni.corporate_tax_levy) }}円{% else %}未入力{% endif %}
+              </div>
+            </div>
+          </div>
+          {% if muni.corporate_tax_levy %}
+          <div class="intermediate-box" style="margin-top:8px; background:#e0f2f1; border-left-color:#00796b;">
+            <div class="intermediate-title" style="color:#004d40;">📊 中間納税額（自動算定）</div>
+            <div class="intermediate-grid">
+              <div class="intermediate-item" style="color:#004d40;"><span class="intermediate-label">法人税割中間：</span>{{ "{:,}".format(muni.corporate_tax_levy // 2) }}円</div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  {% endif %}
+
+  <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="btn-back">← 業務情報に戻る</a>
+</div>
+{% endblock %}

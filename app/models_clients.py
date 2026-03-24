@@ -122,3 +122,50 @@ class TFile(Base):
     file_url = Column(Text, nullable=False)
     uploader = Column(String(255), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class TTaxRecord(Base):
+    """T_納税実績テーブル（決算期ごとの国税実績）"""
+    __tablename__ = 'T_納税実績'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    fiscal_year = Column(Integer, nullable=False)        # 決算年度（例：2025 = 2025年3月期）
+    fiscal_end_month = Column(Integer, nullable=False)   # 決算月（例：3）
+
+    # 国税（税務署）
+    corporate_tax = Column(Integer, nullable=True)       # 法人税
+    local_corporate_tax = Column(Integer, nullable=True) # 地方法人税
+    consumption_tax = Column(Integer, nullable=True)     # 消費税（国税分）
+    local_consumption_tax = Column(Integer, nullable=True) # 地方消費税
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TTaxRecordPrefecture(Base):
+    """T_納税実績_都道府県テーブル（都道府県ごとの地方税実績）"""
+    __tablename__ = 'T_納税実績_都道府県'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tax_record_id = Column(Integer, ForeignKey('T_納税実績.id'), nullable=False)
+    prefecture_name = Column(String(100), nullable=False)  # 都道府県名
+
+    # 都道府県税の内訳
+    equal_levy = Column(Integer, nullable=True)            # 均等割
+    income_levy = Column(Integer, nullable=True)           # 所得割
+    business_tax = Column(Integer, nullable=True)          # 事業税
+    special_business_tax = Column(Integer, nullable=True)  # 特別法人事業税
+
+
+class TTaxRecordMunicipality(Base):
+    """T_納税実績_市区町村テーブル（市区町村ごとの地方税実績）"""
+    __tablename__ = 'T_納税実績_市区町村'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tax_record_id = Column(Integer, ForeignKey('T_納税実績.id'), nullable=False)
+    municipality_name = Column(String(100), nullable=False)  # 市区町村名
+
+    # 市区町村税の内訳
+    equal_levy = Column(Integer, nullable=True)              # 均等割
+    corporate_tax_levy = Column(Integer, nullable=True)      # 法人税割

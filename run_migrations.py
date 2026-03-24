@@ -891,6 +891,146 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_納税実績テーブルを作成
+        print("\n[マイグレーション] T_納税実績テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_納税実績'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_納税実績" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            fiscal_year INTEGER NOT NULL,
+                            fiscal_end_month INTEGER NOT NULL,
+                            corporate_tax INTEGER,
+                            local_corporate_tax INTEGER,
+                            consumption_tax INTEGER,
+                            local_consumption_tax INTEGER,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_納税実績テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_納税実績テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_納税実績'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_納税実績" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL,
+                            fiscal_year INTEGER NOT NULL,
+                            fiscal_end_month INTEGER NOT NULL,
+                            corporate_tax INTEGER,
+                            local_corporate_tax INTEGER,
+                            consumption_tax INTEGER,
+                            local_consumption_tax INTEGER,
+                            created_at TEXT,
+                            updated_at TEXT
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_納税実績テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_納税実績テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_納税実績_都道府県テーブルを作成
+        print("\n[マイグレーション] T_納税実績_都道府県テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_納税実績_都道府県'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_納税実績_都道府県" (
+                            id SERIAL PRIMARY KEY,
+                            tax_record_id INTEGER NOT NULL REFERENCES "T_納税実績"(id) ON DELETE CASCADE,
+                            prefecture_name VARCHAR(100) NOT NULL,
+                            equal_levy INTEGER,
+                            income_levy INTEGER,
+                            business_tax INTEGER,
+                            special_business_tax INTEGER
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_納税実績_都道府県テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_納税実績_都道府県テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_納税実績_都道府県'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_納税実績_都道府県" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tax_record_id INTEGER NOT NULL,
+                            prefecture_name TEXT NOT NULL,
+                            equal_levy INTEGER,
+                            income_levy INTEGER,
+                            business_tax INTEGER,
+                            special_business_tax INTEGER
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_納税実績_都道府県テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_納税実績_都道府県テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_納税実績_市区町村テーブルを作成
+        print("\n[マイグレーション] T_納税実績_市区町村テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_納税実績_市区町村'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_納税実績_市区町村" (
+                            id SERIAL PRIMARY KEY,
+                            tax_record_id INTEGER NOT NULL REFERENCES "T_納税実績"(id) ON DELETE CASCADE,
+                            municipality_name VARCHAR(100) NOT NULL,
+                            equal_levy INTEGER,
+                            corporate_tax_levy INTEGER
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_納税実績_市区町村テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_納税実績_市区町村テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_納税実績_市区町村'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_納税実績_市区町村" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tax_record_id INTEGER NOT NULL,
+                            municipality_name TEXT NOT NULL,
+                            equal_levy INTEGER,
+                            corporate_tax_levy INTEGER
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_納税実績_市区町村テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_納税実績_市区町村テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

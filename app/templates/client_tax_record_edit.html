@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 納税実績{% if record %}編集{% else %}追加{% endif %}{% endblock %}
+{% block content %}
+<style>
+  .page-wrap { max-width: 860px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; }
+  .form-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 20px 24px; margin-bottom: 16px; }
+  .section-title { font-size: 14px; font-weight: 700; color: #1a237e; border-left: 4px solid #1a237e; padding-left: 10px; margin: 0 0 14px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+  @media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 12px; color: #555; font-weight: 600; }
+  .form-input {
+    padding: 8px 12px; border: 1.5px solid #ddd; border-radius: 6px;
+    font-size: 14px; color: #333; outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: #1a237e; }
+  .form-hint { font-size: 11px; color: #999; }
+  .btn-save {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 24px; border-radius: 8px;
+    background: #1a237e; color: #fff;
+    border: none; font-size: 14px; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+  }
+  .btn-save:hover { background: #283593; }
+  .btn-cancel {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 13px; font-weight: 700;
+    text-decoration: none;
+  }
+  .btn-cancel:hover { background: #eeeeee; }
+  .btn-add-entity {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 14px; border-radius: 6px;
+    background: #e8f5e9; color: #2e7d32;
+    border: 1.5px solid #a5d6a7; font-size: 12px; font-weight: 700;
+    cursor: pointer; margin-top: 8px;
+  }
+  .btn-add-entity:hover { background: #c8e6c9; }
+  .btn-remove-entity {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 6px;
+    background: #ffebee; color: #c62828;
+    border: 1.5px solid #ef9a9a; font-size: 11px; font-weight: 700;
+    cursor: pointer; float: right;
+  }
+  .btn-remove-entity:hover { background: #ffcdd2; }
+  .sub-entity-block {
+    background: #f9f9f9; border-radius: 8px; padding: 14px 16px;
+    margin-bottom: 10px; border-left: 3px solid #7986cb; position: relative;
+  }
+  .sub-entity-block.municipality { border-left-color: #26a69a; }
+  .sub-entity-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sub-entity-label { font-size: 13px; font-weight: 700; color: #3949ab; }
+  .sub-entity-label.municipality { color: #00695c; }
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+  .actions { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.list') }}">顧問先一覧</a> ›
+    <a href="{{ url_for('clients.detail', client_id=client.id) }}">{{ client.name }}</a> ›
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> ›
+    <a href="{{ url_for('clients.tax_records', client_id=client.id) }}">納税実績</a> ›
+    {% if record %}編集{% else %}追加{% endif %}
+  </div>
+
+  <div class="page-header">
+    <div class="page-title">💴 納税実績{% if record %}編集{% else %}追加{% endif %}</div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" id="mainForm">
+    <!-- 決算期 -->
+    <div class="form-card">
+      <div class="section-title">決算期</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">決算年度 <span style="color:red">*</span></label>
+          <input type="number" name="fiscal_year" class="form-input" placeholder="例: 2025"
+            value="{{ record.fiscal_year if record else '' }}" required min="2000" max="2099">
+          <span class="form-hint">例：2025年3月期 → 2025</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">決算月 <span style="color:red">*</span></label>
+          <select name="fiscal_end_month" class="form-input" required>
+            {% for m in range(1, 13) %}
+            <option value="{{ m }}" {% if record and record.fiscal_end_month == m %}selected{% elif not record and client_fiscal_month == m %}selected{% endif %}>{{ m }}月</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 国税（税務署） -->
+    <div class="form-card">
+      <div class="section-title">🏛 国税（税務署）</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">法人税（円）</label>
+          <input type="number" name="corporate_tax" class="form-input" placeholder="例: 1500000"
+            value="{{ record.corporate_tax if record and record.corporate_tax is not none else '' }}" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">地方法人税（円）</label>
+          <input type="number" name="local_corporate_tax" class="form-input" placeholder="例: 150000"
+            value="{{ record.local_corporate_tax if record and record.local_corporate_tax is not none else '' }}" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">消費税（国税分）（円）</label>
+          <input type="number" name="consumption_tax" class="form-input" placeholder="例: 800000"
+            value="{{ record.consumption_tax if record and record.consumption_tax is not none else '' }}" min="0">
+          <span class="form-hint">48万円超で中間3回、400万円超で中間11回</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">地方消費税（円）</label>
+          <input type="number" name="local_consumption_tax" class="form-input" placeholder="例: 200000"
+            value="{{ record.local_consumption_tax if record and record.local_consumption_tax is not none else '' }}" min="0">
+        </div>
+      </div>
+    </div>
+
+    <!-- 都道府県税 -->
+    <div class="form-card">
+      <div class="section-title">🏯 都道府県税</div>
+      <div id="prefectureContainer">
+        {% if record and record.prefectures %}
+          {% for i, pref in enumerate(record.prefectures) %}
+          <div class="sub-entity-block" id="pref_{{ i }}">
+            <div class="sub-entity-header">
+              <span class="sub-entity-label">都道府県 {{ i + 1 }}</span>
+              <button type="button" class="btn-remove-entity" onclick="removeEntity('pref_{{ i }}')">✕ 削除</button>
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label">都道府県名 <span style="color:red">*</span></label>
+              <input type="text" name="pref_name_{{ i }}" class="form-input" placeholder="例: 東京都"
+                value="{{ pref.prefecture_name }}" required>
+              <input type="hidden" name="pref_id_{{ i }}" value="{{ pref.id }}">
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">均等割（円）</label>
+                <input type="number" name="pref_equal_{{ i }}" class="form-input"
+                  value="{{ pref.equal_levy if pref.equal_levy is not none else '' }}" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">所得割（円）</label>
+                <input type="number" name="pref_income_{{ i }}" class="form-input"
+                  value="{{ pref.income_levy if pref.income_levy is not none else '' }}" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">事業税（円）</label>
+                <input type="number" name="pref_business_{{ i }}" class="form-input"
+                  value="{{ pref.business_tax if pref.business_tax is not none else '' }}" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">特別法人事業税（円）</label>
+                <input type="number" name="pref_special_{{ i }}" class="form-input"
+                  value="{{ pref.special_business_tax if pref.special_business_tax is not none else '' }}" min="0">
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <input type="hidden" name="pref_count" id="prefCount" value="{{ record.prefectures|length if record and record.prefectures else 0 }}">
+      <button type="button" class="btn-add-entity" onclick="addPrefecture()">＋ 都道府県を追加</button>
+    </div>
+
+    <!-- 市区町村税 -->
+    <div class="form-card">
+      <div class="section-title">🏙 市区町村税</div>
+      <div id="municipalityContainer">
+        {% if record and record.municipalities %}
+          {% for i, muni in enumerate(record.municipalities) %}
+          <div class="sub-entity-block municipality" id="muni_{{ i }}">
+            <div class="sub-entity-header">
+              <span class="sub-entity-label municipality">市区町村 {{ i + 1 }}</span>
+              <button type="button" class="btn-remove-entity" onclick="removeEntity('muni_{{ i }}')">✕ 削除</button>
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label">市区町村名 <span style="color:red">*</span></label>
+              <input type="text" name="muni_name_{{ i }}" class="form-input" placeholder="例: 渋谷区"
+                value="{{ muni.municipality_name }}" required>
+              <input type="hidden" name="muni_id_{{ i }}" value="{{ muni.id }}">
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">均等割（円）</label>
+                <input type="number" name="muni_equal_{{ i }}" class="form-input"
+                  value="{{ muni.equal_levy if muni.equal_levy is not none else '' }}" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">法人税割（円）</label>
+                <input type="number" name="muni_corp_{{ i }}" class="form-input"
+                  value="{{ muni.corporate_tax_levy if muni.corporate_tax_levy is not none else '' }}" min="0">
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <input type="hidden" name="muni_count" id="muniCount" value="{{ record.municipalities|length if record and record.municipalities else 0 }}">
+      <button type="button" class="btn-add-entity" onclick="addMunicipality()" style="background:#e0f2f1; color:#00695c; border-color:#80cbc4;">＋ 市区町村を追加</button>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn-save">💾 保存</button>
+      <a href="{{ url_for('clients.tax_records', client_id=client.id) }}" class="btn-cancel">キャンセル</a>
+    </div>
+  </form>
+</div>
+
+<script>
+let prefCount = parseInt(document.getElementById('prefCount').value);
+let muniCount = parseInt(document.getElementById('muniCount').value);
+
+function addPrefecture() {
+  const i = prefCount;
+  const html = `
+    <div class="sub-entity-block" id="pref_${i}">
+      <div class="sub-entity-header">
+        <span class="sub-entity-label">都道府県 ${i + 1}</span>
+        <button type="button" class="btn-remove-entity" onclick="removeEntity('pref_${i}')">✕ 削除</button>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">都道府県名 <span style="color:red">*</span></label>
+        <input type="text" name="pref_name_${i}" class="form-input" placeholder="例: 東京都" required>
+        <input type="hidden" name="pref_id_${i}" value="">
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">均等割（円）</label>
+          <input type="number" name="pref_equal_${i}" class="form-input" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">所得割（円）</label>
+          <input type="number" name="pref_income_${i}" class="form-input" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">事業税（円）</label>
+          <input type="number" name="pref_business_${i}" class="form-input" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">特別法人事業税（円）</label>
+          <input type="number" name="pref_special_${i}" class="form-input" min="0">
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('prefectureContainer').insertAdjacentHTML('beforeend', html);
+  prefCount++;
+  document.getElementById('prefCount').value = prefCount;
+}
+
+function addMunicipality() {
+  const i = muniCount;
+  const html = `
+    <div class="sub-entity-block municipality" id="muni_${i}">
+      <div class="sub-entity-header">
+        <span class="sub-entity-label municipality">市区町村 ${i + 1}</span>
+        <button type="button" class="btn-remove-entity" onclick="removeEntity('muni_${i}')">✕ 削除</button>
+      </div>
+      <div class="form-group" style="margin-bottom:10px;">
+        <label class="form-label">市区町村名 <span style="color:red">*</span></label>
+        <input type="text" name="muni_name_${i}" class="form-input" placeholder="例: 渋谷区" required>
+        <input type="hidden" name="muni_id_${i}" value="">
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">均等割（円）</label>
+          <input type="number" name="muni_equal_${i}" class="form-input" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">法人税割（円）</label>
+          <input type="number" name="muni_corp_${i}" class="form-input" min="0">
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('municipalityContainer').insertAdjacentHTML('beforeend', html);
+  muniCount++;
+  document.getElementById('muniCount').value = muniCount;
+}
+
+function removeEntity(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+</script>
+{% endblock %}

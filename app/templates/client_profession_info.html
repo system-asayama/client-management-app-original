@@ -122,6 +122,10 @@
       <div class="nav-icon">🧾</div>
       <div class="nav-label">税務申告基本情報</div>
     </a>
+    <a href="{{ url_for('clients.tax_records', client_id=client.id) }}" class="nav-card blue">
+      <div class="nav-icon">💴</div>
+      <div class="nav-label">納税実績</div>
+    </a>
     {% endif %}
   </div>
 

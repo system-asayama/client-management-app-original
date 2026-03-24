@@ -610,9 +610,112 @@ def get_fixed_asset_tax_deadlines(year=None):
     return unique
 
 
+# ========== 中間納税額算定 ==========
+
+def calc_interim_amounts(client, year, db_session=None):
+    """
+    前期の納税実績から当期の中間納税額を算定して返す。
+    戻り値: dict（税目 -> 金額）
+    """
+    if db_session is None:
+        return {}
+
+    try:
+        from app.models_clients import TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality
+        # 決算月を取得
+        fiscal_end = None
+        if hasattr(client, 'fiscal_year_end_month') and client.fiscal_year_end_month:
+            fiscal_end = int(client.fiscal_year_end_month)
+        elif hasattr(client, 'fiscal_year_end') and client.fiscal_year_end:
+            try:
+                fiscal_end = int(client.fiscal_year_end)
+            except (ValueError, TypeError):
+                pass
+        if not fiscal_end:
+            return {}
+
+        # 当期の決算年度を特定（year内に決算月が来る期）
+        # 例: 3月決算・year=2026 → 前期は2025年3月期
+        if fiscal_end <= date.today().month:
+            prev_fiscal_year = year - 1
+        else:
+            prev_fiscal_year = year - 1
+
+        rec = db_session.query(TTaxRecord).filter(
+            TTaxRecord.client_id == client.id,
+            TTaxRecord.fiscal_year == prev_fiscal_year,
+            TTaxRecord.fiscal_end_month == fiscal_end
+        ).first()
+
+        if not rec:
+            # 最新の実績を使用
+            rec = db_session.query(TTaxRecord).filter(
+                TTaxRecord.client_id == client.id
+            ).order_by(TTaxRecord.fiscal_year.desc()).first()
+
+        if not rec:
+            return {}
+
+        amounts = {}
+
+        # 法人税・地方法人税中間（前期の1/2）
+        if rec.corporate_tax:
+            amounts['corp_tax_interim'] = rec.corporate_tax // 2
+        if rec.local_corporate_tax:
+            amounts['local_corp_tax_interim'] = rec.local_corporate_tax // 2
+
+        # 消費税中間（前期消費税額による回数・金額）
+        if rec.consumption_tax:
+            ct = rec.consumption_tax
+            if ct <= 480000:
+                amounts['consumption_tax_interim_times'] = 1
+                amounts['consumption_tax_interim_amount'] = ct // 2
+            elif ct <= 4000000:
+                amounts['consumption_tax_interim_times'] = 3
+                amounts['consumption_tax_interim_amount'] = ct // 4
+            else:
+                amounts['consumption_tax_interim_times'] = 11
+                amounts['consumption_tax_interim_amount'] = ct // 12
+
+        # 都道府県税中間
+        prefs = db_session.query(TTaxRecordPrefecture).filter(
+            TTaxRecordPrefecture.tax_record_id == rec.id
+        ).all()
+        pref_interims = []
+        for p in prefs:
+            pref_interim = {'name': p.prefecture_name}
+            if p.income_levy:
+                pref_interim['income_levy'] = p.income_levy // 2
+            if p.business_tax:
+                pref_interim['business_tax'] = p.business_tax // 2
+            if p.special_business_tax:
+                pref_interim['special_business_tax'] = p.special_business_tax // 2
+            if len(pref_interim) > 1:
+                pref_interims.append(pref_interim)
+        if pref_interims:
+            amounts['pref_interims'] = pref_interims
+
+        # 市区町村税中間
+        munis = db_session.query(TTaxRecordMunicipality).filter(
+            TTaxRecordMunicipality.tax_record_id == rec.id
+        ).all()
+        muni_interims = []
+        for m in munis:
+            if m.corporate_tax_levy:
+                muni_interims.append({'name': m.municipality_name, 'corp_levy': m.corporate_tax_levy // 2})
+        if muni_interims:
+            amounts['muni_interims'] = muni_interims
+
+        amounts['fiscal_year'] = rec.fiscal_year
+        amounts['fiscal_end_month'] = rec.fiscal_end_month
+        return amounts
+    except Exception:
+        return {}
+
+
 # ========== 顧問先別全期限 ==========
 
-def get_all_deadlines_for_client(client, year=None):
+def get_all_deadlines_for_client(client, year=None, db_session=None):
     """
     顧問先１件の全税務期限を返す
     給与支払事務所設置届・納期特例の設定に応じて源泉所得税期限も含む。
@@ -677,6 +780,45 @@ def get_all_deadlines_for_client(client, year=None):
     # 顧問先フラグがない場合は除去する
     if client.type == '法人' and not bool(getattr(client, 'has_depreciable_asset_tax', 0) or 0):
         deadlines = [d for d in deadlines if d.get('category') != 'depreciable_assets']
+
+    # 中間納税額算定（納税実績がある場合、中間申告期限の備考に金額を追加）
+    if db_session is not None and client.type == '法人':
+        interim_amounts = calc_interim_amounts(client, year, db_session)
+        if interim_amounts:
+            for d in deadlines:
+                cat = d.get('category', '')
+                if cat == 'interim_tax':
+                    # 法人税・地方法人税中間申告の備考に金額を追加
+                    notes = []
+                    if 'corp_tax_interim' in interim_amounts:
+                        notes.append(f'法人税: {interim_amounts["corp_tax_interim"]:,}円')
+                    if 'local_corp_tax_interim' in interim_amounts:
+                        notes.append(f'地方法人税: {interim_amounts["local_corp_tax_interim"]:,}円')
+                    if 'pref_interims' in interim_amounts:
+                        for p in interim_amounts['pref_interims']:
+                            parts = []
+                            if 'income_levy' in p:
+                                parts.append(f'所得割{p["income_levy"]:,}円')
+                            if 'business_tax' in p:
+                                parts.append(f'事業税{p["business_tax"]:,}円')
+                            if 'special_business_tax' in p:
+                                parts.append(f'特別事業税{p["special_business_tax"]:,}円')
+                            if parts:
+                                notes.append(f'{p["name"]}: {", ".join(parts)}')
+                    if 'muni_interims' in interim_amounts:
+                        for m in interim_amounts['muni_interims']:
+                            notes.append(f'{m["name"]}: 法人税割{m["corp_levy"]:,}円')
+                    if notes:
+                        base_note = d.get('note', '')
+                        d['note'] = ('（前期実績より）' + ' / '.join(notes))
+                        d['interim_amounts'] = interim_amounts
+                elif cat == 'consumption_tax_interim':
+                    # 消費税中間申告の備考に金額を追加
+                    if 'consumption_tax_interim_amount' in interim_amounts:
+                        times = interim_amounts.get('consumption_tax_interim_times', 1)
+                        amt = interim_amounts['consumption_tax_interim_amount']
+                        d['note'] = f'（前期実績より）年{times}回 各回{amt:,}円'
+                        d['interim_amounts'] = interim_amounts
 
     return deadlines
 

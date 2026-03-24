@@ -29,6 +29,26 @@
         .flash-msg { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; max-width: 520px; }
         .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
         .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+        .flash-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+        .flash-warning { background: #fff8e1; color: #e65100; border-left: 4px solid #f9a825; }
+        .auto-register-section {
+            margin-top: 20px; margin-bottom: 16px;
+            padding: 14px 18px;
+            background: #f0f7ff;
+            border: 1px solid #90caf9;
+            border-radius: 6px;
+            max-width: 520px;
+        }
+        .auto-register-section h4 { margin: 0 0 8px 0; font-size: 14px; color: #1565c0; }
+        .auto-register-section p { margin: 0 0 10px 0; font-size: 13px; color: #555; }
+        .btn-auto-register {
+            display: inline-block; padding: 7px 18px;
+            background: #1976d2; color: #fff;
+            border: none; border-radius: 4px;
+            cursor: pointer; font-size: 14px;
+            text-decoration: none;
+        }
+        .btn-auto-register:hover { background: #1565c0; }
     </style>
 </head>
 <body>
@@ -63,6 +83,15 @@
         <tr><th>従業員人数</th><td>{{ branch.当拠点従業員数 if branch.当拠点従業員数 is not none else '―' }}</td></tr>
     </table>
 
+    <!-- 申告先情報自動登録セクション -->
+    <div class="auto-register-section">
+        <h4>📍 申告先情報へ自動登録</h4>
+        <p>この拠点の郵便番号・都道府県・市区町村番地から、申告先情報（税務署・都道府県・市区町村）を自動で取得・登録します。</p>
+        <form action="{{ url_for('clients.branch_auto_register_filing', company_id=company.id, branch_id=branch.id) }}" method="post" onsubmit="return confirm('申告先情報を自動登録しますか？（税務署は郵便番号から国税庁サービスで自動取得します）');">
+            <button type="submit" class="btn-auto-register">🔄 申告先情報を自動登録</button>
+        </form>
+    </div>
+
     <br>
     <div style="margin-top: 8px; margin-bottom: 16px;">
         <a href="{{ url_for('clients.branch_edit', company_id=company.id, branch_id=branch.id) }}"
@@ -70,6 +99,7 @@
             編集
         </a>
         <form action="{{ url_for('clients.branch_delete', company_id=company.id, branch_id=branch.id) }}" method="post" style="display:inline-block;" onsubmit="return confirm('この拠点情報を削除しますか？');">
+
             <button type="submit"
                     style="padding:6px 18px; background:#d9534f; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:14px;">
                 削除

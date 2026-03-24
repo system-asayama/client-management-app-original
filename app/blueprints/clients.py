@@ -666,6 +666,149 @@ def branch_delete(company_id, branch_id):
 
 
 # ========================================
+# 拠点情報から申告先情報を自動登録
+# ========================================
+
+@bp.route('/company/<int:company_id>/branches/<int:branch_id>/auto_register_filing', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def branch_auto_register_filing(company_id, branch_id):
+    """拠点情報から申告先情報（税務署・都道府県・市区町村）を自動登録"""
+    import requests as http_requests
+    from bs4 import BeautifulSoup
+    import re
+    from app.models_company import TCompanyInfo, TCompanyBranch
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        company = db.query(TCompanyInfo).filter(TCompanyInfo.id == company_id).first()
+        if not company:
+            flash('会社基本情報が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        client = db.query(TClient).filter(TClient.id == company.顧問先ID).first()
+        if not client or client.tenant_id != tenant_id:
+            flash('アクセス権限がありません', 'error')
+            return redirect(url_for('clients.clients'))
+        branch = db.query(TCompanyBranch).filter(
+            TCompanyBranch.id == branch_id,
+            TCompanyBranch.company_id == company_id
+        ).first()
+        if not branch:
+            flash('拠点情報が見つかりません', 'error')
+            return redirect(url_for('clients.company_info', company_id=company_id))
+        client_id = company.顧問先ID
+        registered = []
+        skipped = []
+        errors = []
+        # 1. 税務署を郵便番号から自動取得
+        tax_office_name = None
+        zipcode = branch.郵便番号
+        if zipcode:
+            zipcode_clean = zipcode.replace('-', '').replace('ー', '').replace('－', '').replace(' ', '').replace('　', '')
+            if len(zipcode_clean) == 7 and zipcode_clean.isdigit():
+                try:
+                    data = {
+                        'KSTYPE': 'ksz',
+                        'TODOFUKEN_TO_ASCII': '',
+                        'ADDR_TO_ASCII': '',
+                        'kszc1': zipcode_clean[:3],
+                        'kszc2': zipcode_clean[3:],
+                        'ksaTodofuken': '',
+                        'ksaddr': '',
+                    }
+                    headers = {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Referer': 'https://www.nta.go.jp/about/organization/access/map.htm',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                    resp = http_requests.post(
+                        'https://www.nta.go.jp/cgi-bin/zeimusho/kensaku/kensakuprocess.php',
+                        data=data, headers=headers, timeout=10
+                    )
+                    text = resp.content.decode('utf-8', errors='replace')
+                    soup = BeautifulSoup(text, 'html.parser')
+                    full_text = soup.get_text()
+                    matches = re.findall(r'を管轄する税務署[\s\n]*([^\s電話\n]+)', full_text)
+                    if matches:
+                        tax_office_name = matches[0]
+                    else:
+                        errors.append('税務署が見つかりませんでした（国税庁サービスへの接続に失敗した可能性があります）')
+                except Exception as e:
+                    errors.append(f'税務署の自動取得に失敗しました: {str(e)}')
+            else:
+                errors.append('郵便番号の形式が正しくないため、税務署を自動取得できませんでした')
+        else:
+            errors.append('郵便番号が未登録のため、税務署を自動取得できませんでした')
+        # 2. 税務署を申告先に登録
+        if tax_office_name:
+            existing = db.query(TFilingOfficeTaxOffice).filter(
+                TFilingOfficeTaxOffice.client_id == client_id,
+                TFilingOfficeTaxOffice.tax_office_name == tax_office_name
+            ).first()
+            if existing:
+                skipped.append(f'税務署「{tax_office_name}」は既に登録済みのためスキップしました')
+            else:
+                obj = TFilingOfficeTaxOffice(client_id=client_id, tax_office_name=tax_office_name)
+                db.add(obj)
+                registered.append(f'税務署「{tax_office_name}」を登録しました')
+        # 3. 都道府県を申告先に登録
+        pref_name = branch.都道府県
+        if pref_name:
+            existing = db.query(TFilingOfficePrefecture).filter(
+                TFilingOfficePrefecture.client_id == client_id,
+                TFilingOfficePrefecture.prefecture_name == pref_name
+            ).first()
+            if existing:
+                skipped.append(f'都道府県「{pref_name}」は既に登録済みのためスキップしました')
+            else:
+                obj = TFilingOfficePrefecture(client_id=client_id, prefecture_name=pref_name)
+                db.add(obj)
+                registered.append(f'都道府県「{pref_name}」を登録しました')
+        else:
+            errors.append('都道府県が未登録のため、都道府県を自動登録できませんでした')
+        # 4. 市区町村を申告先に登録（市区町村番地から市区町村名を抽出）
+        addr = branch.市区町村番地
+        if addr:
+            # 市区町村名を抽出（「市」「区」「町」「村」で区切る）
+            muni_match = re.match(r'^([^\d０-９]+?[市区町村郡](?:[^\d０-９]+?[区町村])?)', addr)
+            if muni_match:
+                muni_name = muni_match.group(1)
+            else:
+                muni_name = addr
+            existing = db.query(TFilingOfficeMunicipality).filter(
+                TFilingOfficeMunicipality.client_id == client_id,
+                TFilingOfficeMunicipality.municipality_name == muni_name
+            ).first()
+            if existing:
+                skipped.append(f'市区町村「{muni_name}」は既に登録済みのためスキップしました')
+            else:
+                obj = TFilingOfficeMunicipality(client_id=client_id, municipality_name=muni_name)
+                db.add(obj)
+                registered.append(f'市区町村「{muni_name}」を登録しました')
+        else:
+            errors.append('市区町村番地が未登録のため、市区町村を自動登録できませんでした')
+        db.commit()
+        # フラッシュメッセージ
+        for msg in registered:
+            flash(msg, 'success')
+        for msg in skipped:
+            flash(msg, 'info')
+        for msg in errors:
+            flash(msg, 'warning')
+        if not registered and not skipped and not errors:
+            flash('登録できる情報がありませんでした', 'warning')
+        return redirect(url_for('clients.branch_info', company_id=company_id, branch_id=branch_id))
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('clients.branch_info', company_id=company_id, branch_id=branch_id))
+    finally:
+        db.close()
+
+
+# ========================================
 # クライアントアカウント管理（税理士事務所側）
 # ========================================
 

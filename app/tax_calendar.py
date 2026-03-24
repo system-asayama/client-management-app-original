@@ -663,13 +663,19 @@ def get_all_deadlines_for_client(client, year=None):
         d['client_type'] = client.type or ''
         deadlines.append(d)
 
-    # 固定資産税期限（法人の場合のみ追加）
-    if client.type == '法人':
+    # 固定資産税期限（has_fixed_asset_tax=1 の場合のみ追加）
+    if bool(getattr(client, 'has_fixed_asset_tax', 0) or 0):
         for d in get_fixed_asset_tax_deadlines(year):
             d['client_id'] = client.id
             d['client_name'] = client.name
-            d['client_type'] = '法人'
+            d['client_type'] = client.type or ''
             deadlines.append(d)
+
+    # 償却資産税申告期限（has_depreciable_asset_tax=1 の場合のみ追加）
+    # 法人の get_corporate_deadlines 内の償却資産申告は常に追加されるため、
+    # 顧問先フラグがない場合は除去する
+    if client.type == '法人' and not bool(getattr(client, 'has_depreciable_asset_tax', 0) or 0):
+        deadlines = [d for d in deadlines if d.get('category') != 'depreciable_assets']
 
     return deadlines
 

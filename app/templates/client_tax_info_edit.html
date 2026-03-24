@@ -238,6 +238,25 @@ window.onload = function() {
       </div>
     </div>
 
+    <!-- 固定資産税・償却資産税 -->
+    <div class="form-card">
+      <div class="section-title">固定資産税・償却資産税</div>
+      <div class="form-group">
+        <label class="form-label">固定資産税</label>
+        <div class="radio-group">
+          <label><input type="radio" name="has_fixed_asset_tax" value="1" {% if client.has_fixed_asset_tax %}checked{% endif %}> あり</label>
+          <label><input type="radio" name="has_fixed_asset_tax" value="0" {% if not client.has_fixed_asset_tax %}checked{% endif %}> なし</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">償却資産税</label>
+        <div class="radio-group">
+          <label><input type="radio" name="has_depreciable_asset_tax" value="1" {% if client.has_depreciable_asset_tax %}checked{% endif %}> あり</label>
+          <label><input type="radio" name="has_depreciable_asset_tax" value="0" {% if not client.has_depreciable_asset_tax %}checked{% endif %}> なし</label>
+        </div>
+      </div>
+    </div>
+
     <!-- 適格請求書（インボイス） -->
     <div class="form-card">
       <div class="section-title">適格請求書発行事業者（インボイス）</div>

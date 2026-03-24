@@ -1055,6 +1055,8 @@ def edit_tax_info(client_id):
             client.consumption_tax_extension = int(request.form.get('consumption_tax_extension', 0))
             client.prefectural_tax_extension = int(request.form.get('prefectural_tax_extension', 0))
             client.municipal_tax_extension = int(request.form.get('municipal_tax_extension', 0))
+            client.has_fixed_asset_tax = int(request.form.get('has_fixed_asset_tax', 0))
+            client.has_depreciable_asset_tax = int(request.form.get('has_depreciable_asset_tax', 0))
             db.commit()
             flash('税務申告基本情報を更新しました', 'success')
             return redirect(url_for('clients.tax_info', client_id=client_id))

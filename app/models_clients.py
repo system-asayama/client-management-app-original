@@ -48,6 +48,8 @@ class TClient(Base):
     local_tax_extension = Column(Integer, nullable=True, default=0)          # 法人住民税・事業税申告期限延長（後方互換用・非推奨）
     prefectural_tax_extension = Column(Integer, nullable=True, default=0)     # 法人道府県民税・事業税申告期限延長（0=なし, 1=あり）
     municipal_tax_extension = Column(Integer, nullable=True, default=0)       # 法人市町村民税申告期限延長（0=なし, 1=あり）
+    has_fixed_asset_tax = Column(Integer, nullable=True, default=0)           # 固定資産税の有無（0=なし, 1=あり）
+    has_depreciable_asset_tax = Column(Integer, nullable=True, default=0)     # 償却資産税の有無（0=なし, 1=あり）
 
     # 弁護士固有
     case_number = Column(String(100), nullable=True)      # 事件番号

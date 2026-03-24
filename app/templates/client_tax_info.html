@@ -248,6 +248,33 @@
     </div>
   </div>
 
+  <!-- 固定資産税・償却資産税 -->
+  <div class="info-card">
+    <div class="section-title">固定資産税・償却資産税</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">固定資産税</div>
+        <div class="info-value">
+          {% if client.has_fixed_asset_tax %}
+            <span class="badge-yes">あり</span>
+          {% else %}
+            <span class="badge-no">なし</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">償却資産税</div>
+        <div class="info-value">
+          {% if client.has_depreciable_asset_tax %}
+            <span class="badge-yes">あり</span>
+          {% else %}
+            <span class="badge-no">なし</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 適格請求書（インボイス） -->
   <div class="info-card">
     <div class="section-title">適格請求書発行事業者（インボイス）</div>

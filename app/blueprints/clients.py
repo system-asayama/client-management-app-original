@@ -470,6 +470,42 @@ def company_delete(company_id):
 # 会社拠点情報（本店・支店）管理
 # ========================================
 
+@bp.route('/company/<int:company_id>/branches/<int:branch_id>')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def branch_info(company_id, branch_id):
+    """拠点情報（本店・支店）詳細"""
+    from app.models_company import TCompanyInfo, TCompanyBranch
+
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        company = db.query(TCompanyInfo).filter(TCompanyInfo.id == company_id).first()
+        if not company:
+            flash('会社基本情報が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        client = db.query(TClient).filter(TClient.id == company.顧問先ID).first()
+        if not client or client.tenant_id != tenant_id:
+            flash('アクセス権限がありません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        branch = db.query(TCompanyBranch).filter(
+            TCompanyBranch.id == branch_id,
+            TCompanyBranch.company_id == company_id
+        ).first()
+        if not branch:
+            flash('拠点情報が見つかりません', 'error')
+            return redirect(url_for('clients.company_info', company_id=company_id))
+
+        return render_template('company_branch_info.html', company=company, branch=branch)
+    finally:
+        db.close()
+
+
 @bp.route('/company/<int:company_id>/branches/add', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def branch_add(company_id):

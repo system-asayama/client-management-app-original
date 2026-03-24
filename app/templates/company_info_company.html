@@ -18,60 +18,34 @@
         }
         .nav-btn:hover { background-color: #e0e0e0; }
 
-        /* ---- 支店タブ一覧 ---- */
+        /* ---- 支店タブ一覧（リンク形式） ---- */
         .branch-tabs {
             display: flex; flex-wrap: wrap; gap: 8px;
-            margin: 14px 0 0 0;
+            margin: 10px 0 4px 0;
         }
-        .branch-tab {
+        .branch-tab-link {
+            display: inline-flex; align-items: center; gap: 5px;
             padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: bold;
-            cursor: pointer; border: 2px solid #ddd; background: #f5f5f5; color: #555;
+            border: 2px solid #ddd; background: #f5f5f5; color: #555;
             text-decoration: none; transition: all 0.15s;
         }
-        .branch-tab:hover { background: #ffe0b2; border-color: #f08c2d; color: #e65100; }
-        .branch-tab.active-honten { background: #fff3e0; border-color: #f08c2d; color: #e65100; }
-        .branch-tab.active-shiten { background: #e3f2fd; border-color: #1976d2; color: #1565c0; }
+        .branch-tab-link:hover {
+            background: #ffe0b2; border-color: #f08c2d; color: #e65100;
+            text-decoration: none;
+        }
         .badge-honten {
             display: inline-block; padding: 1px 8px; border-radius: 10px;
-            font-size: 11px; font-weight: bold; margin-right: 4px;
+            font-size: 11px; font-weight: bold;
             background: #fff3e0; color: #e65100; border: 1px solid #ffcc80;
         }
         .badge-shiten {
             display: inline-block; padding: 1px 8px; border-radius: 10px;
-            font-size: 11px; font-weight: bold; margin-right: 4px;
+            font-size: 11px; font-weight: bold;
             background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;
         }
 
-        /* ---- 拠点詳細パネル ---- */
-        .branch-panel { display: none; }
-        .branch-panel.active { display: block; }
-        .branch-detail-card {
-            background: #fafafa; border: 1px solid #ddd; border-radius: 8px;
-            padding: 16px 20px; margin-top: 12px; max-width: 520px;
-        }
-        .branch-detail-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 12px;
-        }
-        .branch-detail-title { font-size: 15px; font-weight: bold; color: #333; }
-        .branch-actions { display: flex; gap: 8px; }
-        .btn-edit {
-            padding: 5px 14px; background: #f08c2d; color: #fff;
-            border: none; border-radius: 4px; text-decoration: none;
-            font-size: 12px; cursor: pointer;
-        }
-        .btn-edit:hover { background: #d47a20; }
-        .btn-delete {
-            padding: 5px 14px; background: #d9534f; color: #fff;
-            border: none; border-radius: 4px; font-size: 12px; cursor: pointer;
-        }
-        .btn-delete:hover { background: #c9302c; }
-        .branch-info-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .branch-info-table td { padding: 4px 8px; border: none; vertical-align: top; }
-        .branch-info-table td:first-child { color: #777; width: 110px; white-space: nowrap; }
         .no-branches { color: #888; font-size: 13px; margin: 10px 0; }
 
-        /* ---- ボタン群 ---- */
         .btn-add {
             display: inline-block; margin-top: 14px; padding: 7px 18px;
             background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7;
@@ -135,57 +109,15 @@
     <h3>🏢 本店・支店情報</h3>
 
     {% if branches %}
-      <!-- タブ一覧（支店一覧ボタン） -->
       <div class="branch-tabs">
         {% for branch in branches %}
-          <button
-            class="branch-tab {% if loop.first %}{% if branch.branch_type == '本店' %}active-honten{% else %}active-shiten{% endif %}{% endif %}"
-            onclick="showBranch({{ branch.id }}, '{{ branch.branch_type }}')"
-            id="tab-{{ branch.id }}"
-          >
+          <a href="{{ url_for('clients.branch_info', company_id=company.id, branch_id=branch.id) }}"
+             class="branch-tab-link">
             <span class="badge-{{ 'honten' if branch.branch_type == '本店' else 'shiten' }}">{{ branch.branch_type }}</span>
             {{ branch.branch_name if branch.branch_name else branch.branch_type }}
-          </button>
+          </a>
         {% endfor %}
       </div>
-
-      <!-- 各拠点の詳細パネル -->
-      {% for branch in branches %}
-      <div class="branch-panel {% if loop.first %}active{% endif %}" id="panel-{{ branch.id }}">
-        <div class="branch-detail-card">
-          <div class="branch-detail-header">
-            <div class="branch-detail-title">
-              <span class="badge-{{ 'honten' if branch.branch_type == '本店' else 'shiten' }}">{{ branch.branch_type }}</span>
-              {{ branch.branch_name if branch.branch_name else branch.branch_type }}
-            </div>
-            <div class="branch-actions">
-              <a href="{{ url_for('clients.branch_edit', company_id=company.id, branch_id=branch.id) }}" class="btn-edit">編集</a>
-              <form action="{{ url_for('clients.branch_delete', company_id=company.id, branch_id=branch.id) }}" method="post" style="display:inline;" onsubmit="return confirm('この拠点情報を削除しますか？');">
-                <button type="submit" class="btn-delete">削除</button>
-              </form>
-            </div>
-          </div>
-          <table class="branch-info-table">
-            {% if branch.郵便番号 or branch.都道府県 or branch.市区町村番地 %}
-            <tr>
-              <td>住所</td>
-              <td>
-                {% if branch.郵便番号 %}〒{{ branch.郵便番号 }}&nbsp;{% endif %}
-                {{ branch.都道府県 or '' }}{{ branch.市区町村番地 or '' }}
-                {% if branch.建物名部屋番号 %}&nbsp;{{ branch.建物名部屋番号 }}{% endif %}
-              </td>
-            </tr>
-            {% endif %}
-            {% if branch.電話番号1 %}<tr><td>電話番号1</td><td>{{ branch.電話番号1 }}</td></tr>{% endif %}
-            {% if branch.電話番号2 %}<tr><td>電話番号2</td><td>{{ branch.電話番号2 }}</td></tr>{% endif %}
-            {% if branch.ファックス番号 %}<tr><td>ファックス番号</td><td>{{ branch.ファックス番号 }}</td></tr>{% endif %}
-            {% if branch.メールアドレス %}<tr><td>メールアドレス</td><td>{{ branch.メールアドレス }}</td></tr>{% endif %}
-            {% if branch.担当者名 %}<tr><td>担当者名</td><td>{{ branch.担当者名 }}</td></tr>{% endif %}
-          </table>
-        </div>
-      </div>
-      {% endfor %}
-
     {% else %}
       <p class="no-branches">本店・支店情報は登録されていません。</p>
     {% endif %}
@@ -194,26 +126,5 @@
 
     <br><br>
     <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>
-
-<script>
-function showBranch(branchId, branchType) {
-    // 全パネルを非表示
-    document.querySelectorAll('.branch-panel').forEach(function(p) {
-        p.classList.remove('active');
-    });
-    // 全タブの active クラスを除去
-    document.querySelectorAll('.branch-tab').forEach(function(t) {
-        t.classList.remove('active-honten', 'active-shiten');
-    });
-    // 対象パネルを表示
-    var panel = document.getElementById('panel-' + branchId);
-    if (panel) panel.classList.add('active');
-    // 対象タブをアクティブ化
-    var tab = document.getElementById('tab-' + branchId);
-    if (tab) {
-        tab.classList.add(branchType === '本店' ? 'active-honten' : 'active-shiten');
-    }
-}
-</script>
 </body>
 </html>

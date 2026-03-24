@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>拠点情報 - {{ branch.branch_name or branch.branch_type }} - {{ company['会社名'] }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        h2 { margin-bottom: 4px; }
+        .subtitle { color: #666; font-size: 13px; margin-bottom: 18px; }
+        table { border-collapse: collapse; min-width: 480px; margin-bottom: 6px; }
+        th, td { border: 1px solid #aaa; padding: 7px 14px; font-size: 14px; text-align: left; }
+        th { background: #f7f7f7; width: 140px; }
+        .nav-btn {
+            display: inline-block; margin-right: 8px; padding: 6px 16px;
+            background-color: #f0f0f0; color: #333; border: 1px solid #aaa;
+            border-radius: 4px; text-decoration: none; font-size: 14px;
+        }
+        .nav-btn:hover { background-color: #e0e0e0; }
+        .badge-honten {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 12px; font-weight: bold;
+            background: #fff3e0; color: #e65100; border: 1px solid #ffcc80;
+        }
+        .badge-shiten {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 12px; font-weight: bold;
+            background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;
+        }
+        .flash-msg { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; max-width: 520px; }
+        .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+        .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+    </style>
+</head>
+<body>
+    <h2>
+        <span class="badge-{{ 'honten' if branch.branch_type == '本店' else 'shiten' }}">{{ branch.branch_type }}</span>
+        {{ branch.branch_name if branch.branch_name else branch.branch_type }}
+    </h2>
+    <div class="subtitle">{{ company['会社名'] }}</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div style="margin-bottom: 14px;">
+        <a href="{{ url_for('clients.company_info', company_id=company.id) }}" class="nav-btn">← 会社基本情報へ戻る</a>
+    </div>
+
+    <table>
+        <tr><th>区分</th><td>{{ branch.branch_type }}</td></tr>
+        <tr><th>支店名・拠点名</th><td>{{ branch.branch_name or '―' }}</td></tr>
+        <tr><th>郵便番号</th><td>{{ branch.郵便番号 or '―' }}</td></tr>
+        <tr><th>都道府県</th><td>{{ branch.都道府県 or '―' }}</td></tr>
+        <tr><th>市区町村・番地</th><td>{{ branch.市区町村番地 or '―' }}</td></tr>
+        <tr><th>建物名・部屋番号</th><td>{{ branch.建物名部屋番号 or '―' }}</td></tr>
+        <tr><th>電話番号1</th><td>{{ branch.電話番号1 or '―' }}</td></tr>
+        <tr><th>電話番号2</th><td>{{ branch.電話番号2 or '―' }}</td></tr>
+        <tr><th>ファックス番号</th><td>{{ branch.ファックス番号 or '―' }}</td></tr>
+        <tr><th>メールアドレス</th><td>{{ branch.メールアドレス or '―' }}</td></tr>
+        <tr><th>担当者名</th><td>{{ branch.担当者名 or '―' }}</td></tr>
+    </table>
+
+    <br>
+    <div style="margin-top: 8px; margin-bottom: 16px;">
+        <a href="{{ url_for('clients.branch_edit', company_id=company.id, branch_id=branch.id) }}"
+           style="display:inline-block; margin-right:10px; padding:6px 18px; background:#f08c2d; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
+            編集
+        </a>
+        <form action="{{ url_for('clients.branch_delete', company_id=company.id, branch_id=branch.id) }}" method="post" style="display:inline-block;" onsubmit="return confirm('この拠点情報を削除しますか？');">
+            <button type="submit"
+                    style="padding:6px 18px; background:#d9534f; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:14px;">
+                削除
+            </button>
+        </form>
+    </div>
+
+    <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>
+</body>
+</html>

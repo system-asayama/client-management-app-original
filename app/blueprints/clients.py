@@ -1172,7 +1172,7 @@ def tax_records(client_id):
         ).first()
         if not client:
             flash('顧問先が見つかりません', 'error')
-            return redirect(url_for('clients.list'))
+            return redirect(url_for('clients.clients'))
 
         recs = db.query(TTaxRecord).filter(
             TTaxRecord.client_id == client_id
@@ -1208,7 +1208,7 @@ def add_tax_record(client_id):
         ).first()
         if not client:
             flash('顧問先が見つかりません', 'error')
-            return redirect(url_for('clients.list'))
+            return redirect(url_for('clients.clients'))
 
         if request.method == 'POST':
             fiscal_year = request.form.get('fiscal_year', type=int)
@@ -1286,7 +1286,7 @@ def edit_tax_record(client_id, record_id):
         ).first()
         if not client:
             flash('顧問先が見つかりません', 'error')
-            return redirect(url_for('clients.list'))
+            return redirect(url_for('clients.clients'))
 
         rec = db.query(TTaxRecord).filter(
             and_(TTaxRecord.id == record_id, TTaxRecord.client_id == client_id)

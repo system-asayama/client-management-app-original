@@ -1495,6 +1495,92 @@ def delete_filing_office(client_id, office_type, office_id):
     return redirect(url_for('clients.edit_tax_info', client_id=client_id))
 
 # ─────────────────────────────────────────────
+# 申告先情報用拠点一覧・税務署自動取得 API
+# ─────────────────────────────────────────────
+@bp.route('/<int:client_id>/branches_for_filing')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def branches_for_filing(client_id):
+    """申告先情報登録用の拠点一覧をJSONで返す"""
+    from app.models_company import TCompanyInfo, TCompanyBranch
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': '未認証'}), 401
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            return jsonify({'error': '顧問先が見つかりません'}), 404
+        company = db.query(TCompanyInfo).filter(TCompanyInfo.顧問先ID == client_id).first()
+        if not company:
+            return jsonify({'branches': []})
+        branches = db.query(TCompanyBranch).filter(
+            TCompanyBranch.company_id == company.id
+        ).order_by(TCompanyBranch.branch_type).all()
+        result = []
+        for b in branches:
+            result.append({
+                'id': b.id,
+                'branch_type': b.branch_type,
+                'branch_name': b.branch_name or '',
+                '郵便番号': b.郵便番号 or '',
+                '都道府県': b.都道府県 or '',
+                '市区町村番地': b.市区町村番地 or '',
+            })
+        return jsonify({'branches': result})
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/get_tax_office_by_zipcode')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def get_tax_office_by_zipcode(client_id):
+    """郵便番号から国税庁サービスで税務署名を取得"""
+    import requests as http_requests
+    from bs4 import BeautifulSoup
+    import re
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': '未認証'}), 401
+    zipcode = request.args.get('zipcode', '').strip()
+    if not zipcode:
+        return jsonify({'error': '郵便番号が指定されていません'})
+    zipcode_clean = zipcode.replace('-', '').replace('ー', '').replace('－', '').replace(' ', '').replace('　', '')
+    if len(zipcode_clean) != 7 or not zipcode_clean.isdigit():
+        return jsonify({'error': '郵便番号の形式が正しくありません（7桁の数字）'})
+    try:
+        data = {
+            'KSTYPE': 'ksz',
+            'TODOFUKEN_TO_ASCII': '',
+            'ADDR_TO_ASCII': '',
+            'kszc1': zipcode_clean[:3],
+            'kszc2': zipcode_clean[3:],
+            'ksaTodofuken': '',
+            'ksaddr': '',
+        }
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://www.nta.go.jp/about/organization/access/map.htm',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        resp = http_requests.post(
+            'https://www.nta.go.jp/cgi-bin/zeimusho/kensaku/kensakuprocess.php',
+            data=data, headers=headers, timeout=10
+        )
+        text = resp.content.decode('utf-8', errors='replace')
+        soup = BeautifulSoup(text, 'html.parser')
+        full_text = soup.get_text()
+        matches = re.findall(r'を管轄する税務署[\s\n]*([^\s電話\n]+)', full_text)
+        if matches:
+            return jsonify({'tax_office_name': matches[0]})
+        else:
+            return jsonify({'error': '税務署が見つかりませんでした。郵便番号を確認してください。'})
+    except Exception as e:
+        return jsonify({'error': f'国税庁サービスへの接続に失敗しました: {str(e)}'})
+
+
+# ─────────────────────────────────────────────
 # 税務年間カレンダー（全顧問先）
 # ─────────────────────────────────────────────
 @bp.route('/tax_calendar')

@@ -78,6 +78,112 @@ window.onload = function() {
   toggleInvoice();
 };
 
+// ========== 拠点から申告先情報を取得 ==========
+function openBranchModal(officeType) {
+  // 拠点一覧を取得してモーダルを表示
+  fetch('/clients/{{ client.id }}/branches_for_filing')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.branches || data.branches.length === 0) {
+        alert('本店・支店情報が登録されていません。先に会社基本情報から本店・支店を登録してください。');
+        return;
+      }
+      var modal = document.getElementById('branch-modal');
+      var title = document.getElementById('branch-modal-title');
+      var list = document.getElementById('branch-modal-list');
+      var officeTypeInput = document.getElementById('branch-modal-office-type');
+      officeTypeInput.value = officeType;
+      var labels = {tax_office: '税務署（郵便番号から自動取得）', prefecture: '都道府県', municipality: '市区町村'};
+      title.textContent = labels[officeType] + 'を登録する拠点を選択';
+      list.innerHTML = '';
+      data.branches.forEach(function(b) {
+        var li = document.createElement('li');
+        li.style.cssText = 'padding:10px 14px;border-bottom:1px solid #eee;cursor:pointer;display:flex;align-items:center;gap:10px;';
+        li.onmouseover = function(){ this.style.background='#f0f7ff'; };
+        li.onmouseout = function(){ this.style.background=''; };
+        var badge = b.branch_type === '本店' ?
+          '<span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;">本店</span>' :
+          '<span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;">支店</span>';
+        var name = b.branch_name || b.branch_type;
+        var info = [];
+        if (b.郵便番号) info.push('〒' + b.郵便番号);
+        if (b.都道府県) info.push(b.都道府県);
+        if (b.市区町村番地) info.push(b.市区町村番地);
+        li.innerHTML = badge + '<div><div style="font-size:14px;font-weight:600;">' + name + '</div>' +
+          (info.length ? '<div style="font-size:12px;color:#888;">' + info.join(' ') + '</div>' : '') + '</div>';
+        li.onclick = function() { selectBranch(b, officeType); };
+        list.appendChild(li);
+      });
+      modal.style.display = 'flex';
+    })
+    .catch(() => alert('拠点情報の取得に失敗しました。'));
+}
+
+function closeBranchModal() {
+  document.getElementById('branch-modal').style.display = 'none';
+  document.getElementById('branch-modal-loading').style.display = 'none';
+}
+
+function selectBranch(branch, officeType) {
+  var loadingEl = document.getElementById('branch-modal-loading');
+  var listEl = document.getElementById('branch-modal-list');
+  if (officeType === 'tax_office') {
+    // 税務署：郵便番号から国税庁APIで自動取得
+    if (!branch.郵便番号) {
+      alert('この拠点には郵便番号が登録されていません。郵便番号を登録してから再度お試しください。');
+      return;
+    }
+    loadingEl.style.display = 'block';
+    listEl.style.opacity = '0.4';
+    fetch('/clients/{{ client.id }}/get_tax_office_by_zipcode?zipcode=' + encodeURIComponent(branch.郵便番号))
+      .then(r => r.json())
+      .then(data => {
+        loadingEl.style.display = 'none';
+        listEl.style.opacity = '1';
+        if (data.tax_office_name) {
+          document.getElementById('new_tax_office').value = data.tax_office_name;
+          closeBranchModal();
+          if (confirm('「' + data.tax_office_name + '」を税務署として追加しますか？')) {
+            addFilingOffice('tax_office');
+          }
+        } else {
+          alert('税務署を取得できませんでした: ' + (data.error || '不明なエラー'));
+        }
+      })
+      .catch(() => {
+        loadingEl.style.display = 'none';
+        listEl.style.opacity = '1';
+        alert('税務署の取得に失敗しました。');
+      });
+  } else if (officeType === 'prefecture') {
+    // 都道府県
+    if (!branch.都道府県) {
+      alert('この拠点には都道府県が登録されていません。');
+      return;
+    }
+    document.getElementById('new_prefecture').value = branch.都道府県;
+    closeBranchModal();
+    if (confirm('「' + branch.都道府県 + '」を都道府県として追加しますか？')) {
+      addFilingOffice('prefecture');
+    }
+  } else if (officeType === 'municipality') {
+    // 市区町村（番地を除いた部分を自動抽出）
+    var addr = branch.市区町村番地;
+    if (!addr) {
+      alert('この拠点には市区町村番地が登録されていません。');
+      return;
+    }
+    // 市区町村名を抽出（市・区・町・村・郡で区切る）
+    var match = addr.match(/^([^\d０-９]+?[市区町村郡](?:[^\d０-９]+?[区町村])?)/);
+    var muni = match ? match[1] : addr;
+    document.getElementById('new_municipality').value = muni;
+    closeBranchModal();
+    if (confirm('「' + muni + '」を市区町村として追加しますか？')) {
+      addFilingOffice('municipality');
+    }
+  }
+}
+
 function addFilingOffice(officeType) {
   var inputMap = {
     'tax_office': 'new_tax_office',
@@ -306,6 +412,7 @@ function addFilingOffice(officeType) {
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" id="new_tax_office" placeholder="税務署名（例：新宿税務署）" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
           <button type="button" onclick="addFilingOffice('tax_office')" style="padding:8px 14px;background:#1a237e;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">追加</button>
+          <button type="button" onclick="openBranchModal('tax_office')" style="padding:8px 14px;background:#f57c00;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">🏢 拠点から取得</button>
         </div>
       </div>
 
@@ -327,6 +434,7 @@ function addFilingOffice(officeType) {
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" id="new_prefecture" placeholder="都道府県名（例：東京都）" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
           <button type="button" onclick="addFilingOffice('prefecture')" style="padding:8px 14px;background:#6a1b9a;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">追加</button>
+          <button type="button" onclick="openBranchModal('prefecture')" style="padding:8px 14px;background:#f57c00;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">🏢 拠点から取得</button>
         </div>
       </div>
 
@@ -348,6 +456,25 @@ function addFilingOffice(officeType) {
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" id="new_municipality" placeholder="市区町村名（例：渋谷区）" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
           <button type="button" onclick="addFilingOffice('municipality')" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">追加</button>
+          <button type="button" onclick="openBranchModal('municipality')" style="padding:8px 14px;background:#f57c00;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">🏢 拠点から取得</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 拠点選択モーダル -->
+    <div id="branch-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:#fff;border-radius:12px;width:90%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;">
+          <div id="branch-modal-title" style="font-size:15px;font-weight:700;color:#1a237e;"></div>
+          <button type="button" onclick="closeBranchModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;line-height:1;">&times;</button>
+        </div>
+        <div id="branch-modal-loading" style="display:none;padding:16px 20px;text-align:center;color:#1976d2;font-size:13px;">
+          ⚙️ 国税庁サービスで税務署を取得中...
+        </div>
+        <ul id="branch-modal-list" style="list-style:none;margin:0;padding:0;overflow-y:auto;flex:1;"></ul>
+        <input type="hidden" id="branch-modal-office-type" value="">
+        <div style="padding:12px 20px;border-top:1px solid #eee;text-align:right;">
+          <button type="button" onclick="closeBranchModal()" style="padding:8px 18px;background:#f5f5f5;color:#555;border:1px solid #ddd;border-radius:6px;font-size:13px;cursor:pointer;">キャンセル</button>
         </div>
       </div>
     </div>

@@ -83,15 +83,6 @@
         <tr><th>従業員人数</th><td>{{ branch.当拠点従業員数 if branch.当拠点従業員数 is not none else '―' }}</td></tr>
     </table>
 
-    <!-- 申告先情報自動登録セクション -->
-    <div class="auto-register-section">
-        <h4>📍 申告先情報へ自動登録</h4>
-        <p>この拠点の郵便番号・都道府県・市区町村番地から、申告先情報（税務署・都道府県・市区町村）を自動で取得・登録します。</p>
-        <form action="{{ url_for('clients.branch_auto_register_filing', company_id=company.id, branch_id=branch.id) }}" method="post" onsubmit="return confirm('申告先情報を自動登録しますか？（税務署は郵便番号から国税庁サービスで自動取得します）');">
-            <button type="submit" class="btn-auto-register">🔄 申告先情報を自動登録</button>
-        </form>
-    </div>
-
     <br>
     <div style="margin-top: 8px; margin-bottom: 16px;">
         <a href="{{ url_for('clients.branch_edit', company_id=company.id, branch_id=branch.id) }}"

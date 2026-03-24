@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if branch %}拠点情報 編集{% else %}拠点情報 追加{% endif %} - {{ company['会社名'] }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 22px; }
+        h2 { margin-bottom: 6px; font-size: 20px; }
+        .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+        form { max-width: 560px; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; margin-bottom: 4px; font-size: 13px; color: #555; font-weight: 600; }
+        input, select {
+            font-size: 14px; padding: 7px 10px; width: 100%;
+            box-sizing: border-box; border: 1.5px solid #ddd; border-radius: 5px;
+        }
+        input:focus, select:focus { border-color: #f08c2d; outline: none; }
+        .form-hint { font-size: 11px; color: #999; margin-top: 3px; }
+        .section-title {
+            font-size: 13px; font-weight: 700; color: #555;
+            border-left: 3px solid #f08c2d; padding-left: 8px;
+            margin: 20px 0 10px;
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+        .submit-btn {
+            margin-top: 24px; padding: 9px 30px; font-size: 14px;
+            background: #f08c2d; color: #fff; border: none; border-radius: 5px; cursor: pointer;
+            font-weight: bold;
+        }
+        .submit-btn:hover { background: #d47a20; }
+        .cancel-link {
+            display: inline-block; margin-left: 14px;
+            color: #555; font-size: 13px; text-decoration: none;
+        }
+        .cancel-link:hover { text-decoration: underline; }
+        .flash-msg { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+        .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+        .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+    </style>
+</head>
+<body>
+    <h2>{% if branch %}拠点情報 編集{% else %}拠点情報 追加{% endif %}</h2>
+    <div class="subtitle">{{ company['会社名'] }}</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post" autocomplete="off">
+        <!-- 拠点区分 -->
+        <div class="section-title">拠点区分</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="branch_type">区分 <span style="color:red">*</span></label>
+                <select name="branch_type" id="branch_type" required>
+                    <option value="本店" {% if branch and branch.branch_type == '本店' %}selected{% endif %}>本店</option>
+                    <option value="支店" {% if not branch or branch.branch_type == '支店' %}selected{% endif %}>支店</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="branch_name">支店名・拠点名</label>
+                <input type="text" name="branch_name" id="branch_name"
+                    value="{{ branch.branch_name if branch and branch.branch_name else '' }}"
+                    placeholder="例: 大阪支店、横浜営業所">
+                <div class="form-hint">本店の場合は空欄でも構いません</div>
+            </div>
+        </div>
+
+        <!-- 住所 -->
+        <div class="section-title">住所</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="郵便番号">郵便番号</label>
+                <input type="text" name="郵便番号" id="郵便番号"
+                    value="{{ branch.郵便番号 if branch and branch.郵便番号 else '' }}"
+                    placeholder="例: 100-0001">
+            </div>
+            <div class="form-group">
+                <label for="都道府県">都道府県</label>
+                <input type="text" name="都道府県" id="都道府県"
+                    value="{{ branch.都道府県 if branch and branch.都道府県 else '' }}"
+                    placeholder="例: 東京都">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="市区町村番地">市区町村・番地</label>
+            <input type="text" name="市区町村番地" id="市区町村番地"
+                value="{{ branch.市区町村番地 if branch and branch.市区町村番地 else '' }}"
+                placeholder="例: 千代田区千代田1-1-1">
+        </div>
+        <div class="form-group">
+            <label for="建物名部屋番号">建物名・部屋番号</label>
+            <input type="text" name="建物名部屋番号" id="建物名部屋番号"
+                value="{{ branch.建物名部屋番号 if branch and branch.建物名部屋番号 else '' }}"
+                placeholder="例: ○○ビル 5F">
+        </div>
+
+        <!-- 連絡先 -->
+        <div class="section-title">連絡先</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="電話番号1">電話番号1</label>
+                <input type="text" name="電話番号1" id="電話番号1"
+                    value="{{ branch.電話番号1 if branch and branch.電話番号1 else '' }}"
+                    placeholder="例: 03-1234-5678">
+            </div>
+            <div class="form-group">
+                <label for="電話番号2">電話番号2</label>
+                <input type="text" name="電話番号2" id="電話番号2"
+                    value="{{ branch.電話番号2 if branch and branch.電話番号2 else '' }}"
+                    placeholder="例: 03-1234-5679">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ファックス番号">ファックス番号</label>
+                <input type="text" name="ファックス番号" id="ファックス番号"
+                    value="{{ branch.ファックス番号 if branch and branch.ファックス番号 else '' }}"
+                    placeholder="例: 03-1234-5680">
+            </div>
+            <div class="form-group">
+                <label for="メールアドレス">メールアドレス</label>
+                <input type="email" name="メールアドレス" id="メールアドレス"
+                    value="{{ branch.メールアドレス if branch and branch.メールアドレス else '' }}"
+                    placeholder="例: branch@example.co.jp">
+            </div>
+        </div>
+        <div class="form-group" style="max-width: 270px;">
+            <label for="担当者名">担当者名</label>
+            <input type="text" name="担当者名" id="担当者名"
+                value="{{ branch.担当者名 if branch and branch.担当者名 else '' }}"
+                placeholder="例: 山田太郎">
+        </div>
+
+        <div>
+            <button type="submit" class="submit-btn">💾 保存</button>
+            <a href="{{ url_for('clients.company_info', company_id=company.id) }}" class="cancel-link">キャンセル</a>
+        </div>
+    </form>
+</body>
+</html>

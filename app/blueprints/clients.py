@@ -282,28 +282,32 @@ def client_chat(client_id):
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def company_info(company_id):
     """会社基本情報詳細"""
-    from app.models_company import TCompanyInfo
-    
+    from app.models_company import TCompanyInfo, TCompanyBranch
+
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_admin.dashboard'))
-    
+
     db = SessionLocal()
     try:
         company = db.query(TCompanyInfo).filter(TCompanyInfo.id == company_id).first()
-        
+
         if not company:
             flash('会社基本情報が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
-        
+
         # テナントIDの検証（顧問先経由）
         client = db.query(TClient).filter(TClient.id == company.顧問先ID).first()
         if not client or client.tenant_id != tenant_id:
             flash('アクセス権限がありません', 'error')
             return redirect(url_for('clients.clients'))
-        
-        return render_template('company_info_company.html', company=company)
+
+        branches = db.query(TCompanyBranch).filter(
+            TCompanyBranch.company_id == company_id
+        ).order_by(TCompanyBranch.sort_order, TCompanyBranch.id).all()
+
+        return render_template('company_info_company.html', company=company, branches=branches)
     finally:
         db.close()
 
@@ -458,6 +462,164 @@ def company_delete(company_id):
         db.rollback()
         flash(f'エラーが発生しました: {str(e)}', 'error')
         return redirect(url_for('clients.clients'))
+    finally:
+        db.close()
+
+
+# ========================================
+# 会社拠点情報（本店・支店）管理
+# ========================================
+
+@bp.route('/company/<int:company_id>/branches/add', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def branch_add(company_id):
+    """拠点情報（本店・支店）追加"""
+    from app.models_company import TCompanyInfo, TCompanyBranch
+
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        company = db.query(TCompanyInfo).filter(TCompanyInfo.id == company_id).first()
+        if not company:
+            flash('会社基本情報が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        client = db.query(TClient).filter(TClient.id == company.顧問先ID).first()
+        if not client or client.tenant_id != tenant_id:
+            flash('アクセス権限がありません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        if request.method == 'POST':
+            branch = TCompanyBranch(
+                company_id=company_id,
+                branch_type=request.form.get('branch_type', '支店'),
+                branch_name=request.form.get('branch_name', '').strip() or None,
+                郵便番号=request.form.get('郵便番号', '').strip() or None,
+                都道府県=request.form.get('都道府県', '').strip() or None,
+                市区町村番地=request.form.get('市区町村番地', '').strip() or None,
+                建物名部屋番号=request.form.get('建物名部屋番号', '').strip() or None,
+                電話番号1=request.form.get('電話番号1', '').strip() or None,
+                電話番号2=request.form.get('電話番号2', '').strip() or None,
+                ファックス番号=request.form.get('ファックス番号', '').strip() or None,
+                メールアドレス=request.form.get('メールアドレス', '').strip() or None,
+                担当者名=request.form.get('担当者名', '').strip() or None,
+            )
+            db.add(branch)
+            db.commit()
+            flash('拠点情報を追加しました', 'success')
+            return redirect(url_for('clients.company_info', company_id=company_id))
+
+        branches = db.query(TCompanyBranch).filter(
+            TCompanyBranch.company_id == company_id).all()
+        return render_template('company_branch_edit.html',
+                               company=company, branch=None, branches=branches)
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('clients.company_info', company_id=company_id))
+    finally:
+        db.close()
+
+
+@bp.route('/company/<int:company_id>/branches/<int:branch_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def branch_edit(company_id, branch_id):
+    """拠点情報（本店・支店）編集"""
+    from app.models_company import TCompanyInfo, TCompanyBranch
+
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        company = db.query(TCompanyInfo).filter(TCompanyInfo.id == company_id).first()
+        if not company:
+            flash('会社基本情報が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        client = db.query(TClient).filter(TClient.id == company.顧問先ID).first()
+        if not client or client.tenant_id != tenant_id:
+            flash('アクセス権限がありません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        branch = db.query(TCompanyBranch).filter(
+            TCompanyBranch.id == branch_id,
+            TCompanyBranch.company_id == company_id
+        ).first()
+        if not branch:
+            flash('拠点情報が見つかりません', 'error')
+            return redirect(url_for('clients.company_info', company_id=company_id))
+
+        if request.method == 'POST':
+            branch.branch_type = request.form.get('branch_type', '支店')
+            branch.branch_name = request.form.get('branch_name', '').strip() or None
+            branch.郵便番号 = request.form.get('郵便番号', '').strip() or None
+            branch.都道府県 = request.form.get('都道府県', '').strip() or None
+            branch.市区町村番地 = request.form.get('市区町村番地', '').strip() or None
+            branch.建物名部屋番号 = request.form.get('建物名部屋番号', '').strip() or None
+            branch.電話番号1 = request.form.get('電話番号1', '').strip() or None
+            branch.電話番号2 = request.form.get('電話番号2', '').strip() or None
+            branch.ファックス番号 = request.form.get('ファックス番号', '').strip() or None
+            branch.メールアドレス = request.form.get('メールアドレス', '').strip() or None
+            branch.担当者名 = request.form.get('担当者名', '').strip() or None
+            db.commit()
+            flash('拠点情報を更新しました', 'success')
+            return redirect(url_for('clients.company_info', company_id=company_id))
+
+        return render_template('company_branch_edit.html',
+                               company=company, branch=branch, branches=[])
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('clients.company_info', company_id=company_id))
+    finally:
+        db.close()
+
+
+@bp.route('/company/<int:company_id>/branches/<int:branch_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def branch_delete(company_id, branch_id):
+    """拠点情報（本店・支店）削除"""
+    from app.models_company import TCompanyInfo, TCompanyBranch
+
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        company = db.query(TCompanyInfo).filter(TCompanyInfo.id == company_id).first()
+        if not company:
+            flash('会社基本情報が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        client = db.query(TClient).filter(TClient.id == company.顧問先ID).first()
+        if not client or client.tenant_id != tenant_id:
+            flash('アクセス権限がありません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        branch = db.query(TCompanyBranch).filter(
+            TCompanyBranch.id == branch_id,
+            TCompanyBranch.company_id == company_id
+        ).first()
+        if branch:
+            db.delete(branch)
+            db.commit()
+            flash('拠点情報を削除しました', 'success')
+        else:
+            flash('拠点情報が見つかりません', 'error')
+        return redirect(url_for('clients.company_info', company_id=company_id))
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('clients.company_info', company_id=company_id))
     finally:
         db.close()
 

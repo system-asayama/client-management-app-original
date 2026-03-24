@@ -6,14 +6,13 @@
     <style>
         body { font-family: sans-serif; margin: 20px; }
         h2 { margin-bottom: 12px; }
-        table { border-collapse: collapse; min-width: 480px; }
+        h3 { font-size: 16px; color: #333; margin: 24px 0 8px; border-left: 4px solid #f08c2d; padding-left: 10px; }
+        table { border-collapse: collapse; min-width: 480px; margin-bottom: 6px; }
         th, td {
             border: 1px solid #aaa; padding: 7px 14px;
             font-size: 14px; text-align: left;
         }
         th { background: #f7f7f7; width: 130px; }
-
-        /* 🔹 ボタン風リンクスタイル */
         .nav-btn {
             display: inline-block;
             margin-right: 8px;
@@ -25,27 +24,80 @@
             text-decoration: none;
             font-size: 14px;
         }
-
-        .nav-btn:hover {
-            background-color: #e0e0e0;
+        .nav-btn:hover { background-color: #e0e0e0; }
+        .back-link { margin-top: 20px; display: inline-block; font-size: 14px; }
+        .branch-card {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            max-width: 520px;
         }
-
-        .back-link {
-            margin-top: 20px;
+        .branch-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .branch-badge {
             display: inline-block;
-            font-size: 14px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
         }
+        .badge-honten { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+        .badge-shiten { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+        .branch-actions { display: flex; gap: 8px; }
+        .btn-edit {
+            padding: 4px 12px; background: #f08c2d; color: #fff;
+            border: none; border-radius: 4px; text-decoration: none;
+            font-size: 12px; cursor: pointer;
+        }
+        .btn-edit:hover { background: #d47a20; }
+        .btn-delete {
+            padding: 4px 12px; background: #d9534f; color: #fff;
+            border: none; border-radius: 4px; font-size: 12px; cursor: pointer;
+        }
+        .btn-delete:hover { background: #c9302c; }
+        .btn-add {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 18px;
+            background: #e8f5e9; color: #2e7d32;
+            border: 1.5px solid #a5d6a7;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .btn-add:hover { background: #c8e6c9; }
+        .branch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .branch-table td { padding: 3px 8px; border: none; }
+        .branch-table td:first-child { color: #666; width: 110px; }
+        .flash-msg { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; max-width: 520px; }
+        .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+        .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+        .flash-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
     </style>
 </head>
 <body>
     <h2>会社基本情報</h2>
 
-    <!-- 🔹 ナビゲーションボタン -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- ナビゲーションボタン -->
     <div style="margin-bottom: 10px;">
         <a href="{{ url_for('tenant_admin.dashboard') }}" class="nav-btn">🏠 ホーム</a>
         <a href="javascript:history.back()" class="nav-btn">← 戻る</a>
     </div>
 
+    <!-- 会社基本情報テーブル -->
     <table>
         <tr><th>顧問先ID</th><td>{{ company['顧問先ID'] }}</td></tr>
         <tr><th>会社名</th><td>{{ company['会社名'] }}</td></tr>
@@ -64,7 +116,7 @@
     </table>
 
     <br>
-    <div style="margin-top: 20px;">
+    <div style="margin-top: 8px; margin-bottom: 16px;">
         <a href="{{ url_for('clients.company_edit', company_id=company.id) }}"
            style="display:inline-block; margin-right:10px; padding:6px 18px; background:#f08c2d; color:#fff; border-radius:4px; text-decoration:none; font-size:14px;">
             編集
@@ -76,7 +128,55 @@
             </button>
         </form>
     </div>
-    <br>
+
+    <!-- 本店・支店情報セクション -->
+    <h3>🏢 本店・支店情報</h3>
+
+    {% if branches %}
+      {% for branch in branches %}
+      <div class="branch-card">
+        <div class="branch-card-header">
+          <span>
+            <span class="branch-badge {% if branch.branch_type == '本店' %}badge-honten{% else %}badge-shiten{% endif %}">
+              {{ branch.branch_type }}
+            </span>
+            {% if branch.branch_name %}
+              <strong style="margin-left: 8px; font-size: 14px;">{{ branch.branch_name }}</strong>
+            {% endif %}
+          </span>
+          <div class="branch-actions">
+            <a href="{{ url_for('clients.branch_edit', company_id=company.id, branch_id=branch.id) }}" class="btn-edit">編集</a>
+            <form action="{{ url_for('clients.branch_delete', company_id=company.id, branch_id=branch.id) }}" method="post" style="display:inline;" onsubmit="return confirm('この拠点情報を削除しますか？');">
+              <button type="submit" class="btn-delete">削除</button>
+            </form>
+          </div>
+        </div>
+        <table class="branch-table">
+          {% if branch.郵便番号 or branch.都道府県 or branch.市区町村番地 %}
+          <tr>
+            <td>住所</td>
+            <td>
+              {% if branch.郵便番号 %}〒{{ branch.郵便番号 }} {% endif %}
+              {{ branch.都道府県 or '' }}{{ branch.市区町村番地 or '' }}
+              {% if branch.建物名部屋番号 %} {{ branch.建物名部屋番号 }}{% endif %}
+            </td>
+          </tr>
+          {% endif %}
+          {% if branch.電話番号1 %}<tr><td>電話番号1</td><td>{{ branch.電話番号1 }}</td></tr>{% endif %}
+          {% if branch.電話番号2 %}<tr><td>電話番号2</td><td>{{ branch.電話番号2 }}</td></tr>{% endif %}
+          {% if branch.ファックス番号 %}<tr><td>ファックス番号</td><td>{{ branch.ファックス番号 }}</td></tr>{% endif %}
+          {% if branch.メールアドレス %}<tr><td>メールアドレス</td><td>{{ branch.メールアドレス }}</td></tr>{% endif %}
+          {% if branch.担当者名 %}<tr><td>担当者名</td><td>{{ branch.担当者名 }}</td></tr>{% endif %}
+        </table>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p style="color: #888; font-size: 13px;">本店・支店情報は登録されていません。</p>
+    {% endif %}
+
+    <a href="{{ url_for('clients.branch_add', company_id=company.id) }}" class="btn-add">＋ 本店・支店を追加</a>
+
+    <br><br>
     <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>
 </body>
 </html>

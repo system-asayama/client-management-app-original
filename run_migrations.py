@@ -1157,6 +1157,66 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_会社拠点情報テーブルを作成
+        print("\n[マイグレーション] T_会社拠点情報テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_会社拠点情報'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_会社拠点情報" (
+                            id SERIAL PRIMARY KEY,
+                            company_id INTEGER NOT NULL REFERENCES "T_会社基本情報"(id) ON DELETE CASCADE,
+                            branch_type VARCHAR(10) NOT NULL DEFAULT '支店',
+                            branch_name VARCHAR(255),
+                            "郵便番号" VARCHAR(20),
+                            "都道府県" VARCHAR(50),
+                            "市区町村番地" VARCHAR(255),
+                            "建物名部屋番号" VARCHAR(255),
+                            "電話番号1" VARCHAR(50),
+                            "電話番号2" VARCHAR(50),
+                            "ファックス番号" VARCHAR(50),
+                            "メールアドレス" VARCHAR(255),
+                            "担当者名" VARCHAR(100),
+                            sort_order INTEGER DEFAULT 0
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_会社拠点情報テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_会社拠点情報テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_会社拠点情報'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_会社拠点情報" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            company_id INTEGER NOT NULL,
+                            branch_type TEXT NOT NULL DEFAULT '支店',
+                            branch_name TEXT,
+                            郵便番号 TEXT,
+                            都道府県 TEXT,
+                            市区町村番地 TEXT,
+                            建物名部屋番号 TEXT,
+                            電話番号1 TEXT,
+                            電話番号2 TEXT,
+                            ファックス番号 TEXT,
+                            メールアドレス TEXT,
+                            担当者名 TEXT,
+                            sort_order INTEGER DEFAULT 0
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_会社拠点情報テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_会社拠点情報テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

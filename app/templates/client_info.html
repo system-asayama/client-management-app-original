@@ -132,46 +132,6 @@
     </a>
   </div>
 
-  <!-- 基本情報 -->
-  <div class="info-card">
-    <div class="section-title">基本情報</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">メールアドレス</div>
-        <div class="info-value {% if not client.email %}empty{% endif %}">{{ client.email or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">電話番号</div>
-        <div class="info-value {% if not client.phone %}empty{% endif %}">{{ client.phone or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">住所</div>
-        {% if client.address %}
-          <div class="info-value">{{ client.address }}</div>
-        {% elif company and (company.都道府県 or company.市区町村番地) %}
-          <div class="info-value">{{ (company.都道府県 or '') }}{{ (company.市区町村番地 or '') }}{{ (' ' + company.建物名部屋番号) if company.建物名部屋番号 else '' }}</div>
-        {% else %}
-          <div class="info-value empty">未登録</div>
-        {% endif %}
-      </div>
-      <div class="info-item">
-        <div class="info-label">業種</div>
-        {% set display_industry = client.industry or (company.業種 if company else '') %}
-        <div class="info-value {% if not display_industry %}empty{% endif %}">{{ display_industry or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">契約開始日</div>
-        <div class="info-value {% if not client.contract_start_date %}empty{% endif %}">{{ client.contract_start_date or '未登録' }}</div>
-      </div>
-      {% if profession != 'legal' %}
-      <div class="info-item">
-        <div class="info-label">決算月</div>
-        <div class="info-value {% if not client.fiscal_year_end %}empty{% endif %}">{{ client.fiscal_year_end or '未登録' }}</div>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
   <!-- 士業固有情報 -->
   {% if profession == 'tax' %}
   <div class="info-card">

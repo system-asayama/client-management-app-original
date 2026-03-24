@@ -146,11 +146,18 @@
       </div>
       <div class="info-item">
         <div class="info-label">住所</div>
-        <div class="info-value {% if not client.address %}empty{% endif %}">{{ client.address or '未登録' }}</div>
+        {% if client.address %}
+          <div class="info-value">{{ client.address }}</div>
+        {% elif company and (company.都道府県 or company.市区町村番地) %}
+          <div class="info-value">{{ (company.都道府県 or '') }}{{ (company.市区町村番地 or '') }}{{ (' ' + company.建物名部屋番号) if company.建物名部屋番号 else '' }}</div>
+        {% else %}
+          <div class="info-value empty">未登録</div>
+        {% endif %}
       </div>
       <div class="info-item">
         <div class="info-label">業種</div>
-        <div class="info-value {% if not client.industry %}empty{% endif %}">{{ client.industry or '未登録' }}</div>
+        {% set display_industry = client.industry or (company.業種 if company else '') %}
+        <div class="info-value {% if not display_industry %}empty{% endif %}">{{ display_industry or '未登録' }}</div>
       </div>
       <div class="info-item">
         <div class="info-label">契約開始日</div>

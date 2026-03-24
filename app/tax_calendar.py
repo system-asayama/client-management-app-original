@@ -343,11 +343,75 @@ def get_common_deadlines(year=None):
     return unique
 
 
+# ========== 顧問先別 源泉所得税期限 ==========
+
+def get_withholding_deadlines_for_client(client, year=None):
+    """
+    顧問先の給与支払事務所設置届・納期特例設定に応じた源泉所得税期限を返す。
+
+    - salary_office_notification=1 かつ withholding_tax_special=0  → 毎月10日納付
+    - salary_office_notification=1 かつ withholding_tax_special=1  → 納期特例（1月20日・7月10日）
+    - salary_office_notification=0 → 源泉所得税なし（表示しない）
+    """
+    if year is None:
+        year = date.today().year
+
+    has_salary_office = getattr(client, 'salary_office_notification', 0) or 0
+    has_special = getattr(client, 'withholding_tax_special', 0) or 0
+
+    if not has_salary_office:
+        return []
+
+    deadlines = []
+
+    def _add(raw, dtype, category, color, note=''):
+        d, r = _deadline(raw)
+        deadlines.append({
+            'date': d,
+            'original_date': r,
+            'adjusted': d != r,
+            'type': dtype,
+            'category': category,
+            'color': color,
+            'note': note,
+        })
+
+    for y in [year - 1, year, year + 1]:
+        if has_special:
+            # 納期特例：1月20日（前年7～12月分）・7月10日（1～6月分）
+            _add(date(y, 1, 20),
+                 f'源泉所得税納付 納期特例（{y-1}年7～12月分）',
+                 'withholding_special', '#37474f',
+                 f'{y-1}年7～12月分')
+            _add(date(y, 7, 10),
+                 f'源泉所得税納付 納期特例（{y}年1～6月分）',
+                 'withholding_special', '#37474f',
+                 f'{y}年1～6月分')
+        else:
+            # 毎月10日納付
+            for month in range(1, 13):
+                _add(date(y, month, 10),
+                     f'源泉所得税納付（{y}年{month}月分）',
+                     'withholding_tax', '#006064',
+                     f'{y}年{month}月分')
+
+    # 重複除去・ソート
+    seen = set()
+    unique = []
+    for d in sorted(deadlines, key=lambda x: x['date']):
+        key = (d['date'], d['type'])
+        if key not in seen:
+            seen.add(key)
+            unique.append(d)
+    return unique
+
+
 # ========== 顧問先別全期限 ==========
 
 def get_all_deadlines_for_client(client, year=None):
     """
-    顧問先1件の全税務期限を返す
+    顧問先１件の全税務期限を返す
+    給与支払事務所設置届・納期特例の設定に応じて源泉所得税期限も含む。
     """
     if year is None:
         year = date.today().year
@@ -370,6 +434,13 @@ def get_all_deadlines_for_client(client, year=None):
             d['client_name'] = client.name
             d['client_type'] = '個人'
             deadlines.append(d)
+
+    # 源泉所得税期限（給与支払事務所設置届の有無に応じて追加）
+    for d in get_withholding_deadlines_for_client(client, year):
+        d['client_id'] = client.id
+        d['client_name'] = client.name
+        d['client_type'] = client.type or ''
+        deadlines.append(d)
 
     return deadlines
 

@@ -71,6 +71,46 @@
   .btn-edit:hover { background: #ffe0b2; }
   .btn-profession { background: #e8eaf6; color: #283593; border: 2px solid #9fa8da; }
   .btn-profession:hover { background: #c5cae9; }
+  .btn-video    { background: #e8f5e9; color: #1b5e20; border: 2px solid #81c784; cursor: pointer; }
+  .btn-video:hover { background: #c8e6c9; }
+
+  /* ビデオ通話モーダル */
+  .video-modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 9999;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .video-modal-overlay.active { display: flex; }
+  .video-modal-header {
+    width: 100%; max-width: 900px; display: flex; justify-content: space-between;
+    align-items: center; padding: 10px 16px; background: #1a237e; color: #fff;
+    border-radius: 10px 10px 0 0;
+  }
+  .video-modal-header h3 { margin: 0; font-size: 15px; }
+  .video-modal-body {
+    width: 100%; max-width: 900px; background: #000;
+  }
+  #daily-frame { width: 100%; height: 520px; border: none; display: block; }
+  .video-modal-footer {
+    width: 100%; max-width: 900px; background: #fff;
+    padding: 12px 16px; border-radius: 0 0 10px 10px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .invite-url-box {
+    flex: 1; min-width: 200px; background: #f5f5f5; border: 1px solid #ddd;
+    border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #555;
+    word-break: break-all;
+  }
+  .btn-copy-url {
+    background: #1a237e; color: #fff; border: none; border-radius: 6px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-copy-url:hover { background: #283593; }
+  .btn-end-call {
+    background: #c62828; color: #fff; border: none; border-radius: 6px;
+    padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn-end-call:hover { background: #b71c1c; }
 
   .notes-box {
     background: #fafafa; border-radius: 8px; padding: 12px 14px;
@@ -142,6 +182,9 @@
       <span class="icon">&#128197;</span> 税務カレンダー
     </a>
     {% endif %}
+    <button onclick="startVideoCall({{ client.id }})" class="action-btn btn-video">
+      <span class="icon">&#128249;</span> ビデオ通話
+    </button>
   </div>
 
   <!-- メモ -->
@@ -163,4 +206,111 @@
   </div>
 
 </div>
+
+<!-- ビデオ通話モーダル -->
+<div id="videoModal" class="video-modal-overlay">
+  <div class="video-modal-header">
+    <h3>&#128249; ビデオ通話中 &mdash; <span id="callClientName"></span></h3>
+    <span id="callTimer" style="font-size:13px; background:rgba(255,255,255,0.15); padding:4px 10px; border-radius:20px;">00:00</span>
+  </div>
+  <div class="video-modal-body">
+    <iframe id="daily-frame" allow="camera; microphone; fullscreen; display-capture"></iframe>
+  </div>
+  <div class="video-modal-footer">
+    <div style="flex:1; min-width:200px;">
+      <div style="font-size:11px; color:#888; margin-bottom:4px;">顧問先への招待URL（コピーして送付してください）</div>
+      <div class="invite-url-box" id="guestUrlBox">取得中...</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn-copy-url" onclick="copyGuestUrl()">URLをコピー</button>
+      <button class="btn-end-call" onclick="endVideoCall()">&#9632; 通話終了</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentSessionId = null;
+let callTimerInterval = null;
+let callStartTime = null;
+
+async function startVideoCall(clientId) {
+  try {
+    const resp = await fetch(`/video_call/start/${clientId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+      alert('ビデオ通話の開始に失敗しました: ' + (data.error || '不明なエラー'));
+      return;
+    }
+
+    currentSessionId = data.session_id;
+
+    // モーダルを表示
+    document.getElementById('callClientName').textContent = data.client_name;
+    document.getElementById('guestUrlBox').textContent = data.guest_url;
+
+    // Daily.co iframeにURLとトークンをセット
+    const frameUrl = `${data.room_url}?t=${data.host_token}`;
+    document.getElementById('daily-frame').src = frameUrl;
+
+    document.getElementById('videoModal').classList.add('active');
+
+    // タイマー開始
+    callStartTime = Date.now();
+    callTimerInterval = setInterval(updateTimer, 1000);
+
+  } catch (e) {
+    alert('エラーが発生しました: ' + e.message);
+  }
+}
+
+function updateTimer() {
+  if (!callStartTime) return;
+  const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+  const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const sec = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('callTimer').textContent = `${min}:${sec}`;
+}
+
+async function endVideoCall() {
+  if (!currentSessionId) {
+    closeVideoModal();
+    return;
+  }
+  try {
+    const resp = await fetch(`/video_call/end/${currentSessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await resp.json();
+    if (data.success) {
+      const msg = `通話時間: ${data.duration_minutes}分\n今月の合計: ${data.used_minutes_this_month}分\n超過課金: ${data.extra_charge}円`;
+      alert('通話を終了しました。\n' + msg);
+    }
+  } catch (e) {
+    console.error('通話終了エラー:', e);
+  }
+  closeVideoModal();
+}
+
+function closeVideoModal() {
+  document.getElementById('videoModal').classList.remove('active');
+  document.getElementById('daily-frame').src = '';
+  if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
+  callStartTime = null;
+  currentSessionId = null;
+  document.getElementById('callTimer').textContent = '00:00';
+}
+
+function copyGuestUrl() {
+  const url = document.getElementById('guestUrlBox').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    alert('招待URLをコピーしました。顧問先に送付してください。');
+  }).catch(() => {
+    prompt('以下のURLをコピーしてください:', url);
+  });
+}
+</script>
 {% endblock %}

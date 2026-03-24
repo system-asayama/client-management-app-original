@@ -202,3 +202,33 @@ class TFilingOfficeMunicipality(Base):
     municipality_name = Column(String(100), nullable=False)  # 市区町村名
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TVideoCallSession(Base):
+    """T_ビデオ通話セッションテーブル"""
+    __tablename__ = 'T_ビデオ通話セッション'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=True)
+    room_name = Column(String(255), nullable=False, comment='Daily.coのルーム名')
+    room_url = Column(String(500), nullable=True, comment='Daily.coのルームURL')
+    started_at = Column(DateTime, nullable=True, comment='通話開始時刻')
+    ended_at = Column(DateTime, nullable=True, comment='通話終了時刻')
+    duration_minutes = Column(Integer, nullable=True, comment='通話時間（分）')
+    status = Column(String(20), default='created', comment='created/active/ended')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TVideoCallUsage(Base):
+    """T_ビデオ通話利用量テーブル（月次集計）"""
+    __tablename__ = 'T_ビデオ通話利用量'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    year_month = Column(String(7), nullable=False, comment='対象年月 例: 2026-03')
+    used_minutes = Column(Integer, default=0, comment='当月使用分数')
+    extra_charge = Column(Integer, default=0, comment='超過課金額（円）')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

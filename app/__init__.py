@@ -271,6 +271,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ debug blueprint 登録エラー: {e}")
 
+    # video_call blueprint登録
+    try:
+        from .blueprints.video_call import bp as video_call_bp
+        app.register_blueprint(video_call_bp)
+        print("✅ video_call blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ video_call blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

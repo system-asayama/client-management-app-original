@@ -222,16 +222,29 @@ def get_corporate_deadlines(fiscal_end_month, year=None, tax_filing_extension=Fa
                 'fiscal_year_end': fy_end,
             })
 
-        # 法人住民税・事業税申告（決算月末から2ヶ月後末日）
-        deadlines.append({
-            'date': pay_deadline,
-            'original_date': pay_raw,
-            'adjusted': pay_deadline != pay_raw,
-            'type': '法人住民税・事業税申告',
-            'category': 'local_tax',
-            'color': '#1b5e20',
-            'fiscal_year_end': fy_end,
-        })
+        # 法人住民税・事業税申告
+        # 法人税の申告期限延長の承認を受けてかつ都道府県・市区町村に届出した場合、地方税も同様に延長される
+        if tax_filing_extension:
+            deadlines.append({
+                'date': filing_deadline,
+                'original_date': filing_raw,
+                'adjusted': filing_deadline != filing_raw,
+                'type': '法人住民税・事業税申告（期限延長）',
+                'category': 'local_tax',
+                'color': '#1b5e20',
+                'fiscal_year_end': fy_end,
+                'note': '申告期限延長適用',
+            })
+        else:
+            deadlines.append({
+                'date': pay_deadline,
+                'original_date': pay_raw,
+                'adjusted': pay_deadline != pay_raw,
+                'type': '法人住民税・事業税申告',
+                'category': 'local_tax',
+                'color': '#1b5e20',
+                'fiscal_year_end': fy_end,
+            })
 
         # 中間申告（決算月から6ヶ月後の2ヶ月後末日）
         interim_end_month = (fiscal_end_month + 6 - 1) % 12 + 1

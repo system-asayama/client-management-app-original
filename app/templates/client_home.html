@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}{{ tenant.名称 }} - ホーム{% endblock %}
+
+{% block content %}
+<style>
+  .home-wrap { max-width: 860px; margin: 0 auto; }
+
+  /* ヘッダーカード */
+  .office-header {
+    background: linear-gradient(135deg, #1a237e 0%, #283593 60%, #3949ab 100%);
+    border-radius: 16px; padding: 28px 28px 24px;
+    color: #fff; margin-bottom: 20px;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .office-name { font-size: 24px; font-weight: 800; letter-spacing: 0.02em; }
+  .office-meta { font-size: 13px; opacity: 0.85; margin-top: 6px; line-height: 1.8; }
+  .profession-badge-header {
+    display: inline-block; padding: 5px 16px; border-radius: 20px;
+    font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.2);
+    color: #fff; margin-top: 10px;
+  }
+  .edit-btn-header {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.15); color: #fff;
+    text-decoration: none; border: 1.5px solid rgba(255,255,255,0.4);
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .edit-btn-header:hover { background: rgba(255,255,255,0.25); }
+
+  /* 統計カード */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    padding: 18px 16px; text-align: center;
+  }
+  .stat-number { font-size: 32px; font-weight: 800; color: #1a237e; line-height: 1; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 5px; font-weight: 600; }
+  .stat-sub { font-size: 11px; color: #bbb; margin-top: 2px; }
+
+  /* セクションタイトル */
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin: 0 0 14px;
+  }
+
+  /* アクションカード */
+  .actions-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    padding: 20px 20px; margin-bottom: 16px;
+  }
+  .action-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .action-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 16px 10px; border-radius: 10px;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    text-align: center; transition: all 0.18s; border: 2px solid transparent;
+  }
+  .action-btn .icon { font-size: 26px; margin-bottom: 6px; }
+  .btn-clients  { background: #e8eaf6; color: #1a237e; border-color: #9fa8da; }
+  .btn-clients:hover  { background: #c5cae9; }
+  .btn-chat     { background: #fff8e1; color: #e65100; border-color: #ffcc80; }
+  .btn-chat:hover     { background: #ffe0b2; }
+  .btn-files    { background: #f3e5f5; color: #7b1fa2; border-color: #ce93d8; }
+  .btn-files:hover    { background: #e1bee7; }
+  .btn-settings { background: #e0f7fa; color: #006064; border-color: #80deea; }
+  .btn-settings:hover { background: #b2ebf2; }
+  .btn-storage  { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
+  .btn-storage:hover  { background: #c8e6c9; }
+  .btn-staff    { background: #fce4ec; color: #880e4f; border-color: #f48fb1; }
+  .btn-staff:hover    { background: #f8bbd0; }
+
+  /* 事務所情報カード */
+  .info-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    padding: 20px 20px; margin-bottom: 16px;
+  }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  @media (max-width: 540px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-item {}
+  .info-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 2px; }
+  .info-value { font-size: 14px; color: #333; font-weight: 500; }
+  .info-value.empty { color: #ccc; font-style: italic; }
+
+  /* フラッシュメッセージ */
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+  .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+</style>
+
+<div class="home-wrap">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <!-- 事務所ヘッダー -->
+  <div class="office-header">
+    <div>
+      <div class="office-name">{{ tenant.名称 }}</div>
+      <div class="office-meta">
+        {% if tenant.電話番号 %}&#128222; {{ tenant.電話番号 }}&nbsp;&nbsp;{% endif %}
+        {% if tenant.email %}&#9993; {{ tenant.email }}{% endif %}
+        {% if tenant.住所 %}<br>&#128205; {{ tenant.住所 }}{% endif %}
+      </div>
+      {% if profession == 'tax' %}<div class="profession-badge-header">税理士事務所</div>
+      {% elif profession == 'legal' %}<div class="profession-badge-header">法律事務所</div>
+      {% elif profession == 'accounting' %}<div class="profession-badge-header">会計事務所</div>
+      {% elif profession == 'sr' %}<div class="profession-badge-header">社会保険労務士事務所</div>
+      {% else %}<div class="profession-badge-header">士業事務所</div>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('tenant_admin.me_edit') }}" class="edit-btn-header">&#9998; 事務所情報を編集</a>
+  </div>
+
+  <!-- 統計 -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-number">{{ client_count }}</div>
+      <div class="stat-label">顧問先</div>
+      <div class="stat-sub">登録件数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ corp_count }}</div>
+      <div class="stat-label">法人</div>
+      <div class="stat-sub">顧問先内訳</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ ind_count }}</div>
+      <div class="stat-label">個人</div>
+      <div class="stat-sub">顧問先内訳</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ staff_count }}</div>
+      <div class="stat-label">スタッフ</div>
+      <div class="stat-sub">登録人数</div>
+    </div>
+  </div>
+
+  <!-- クイックアクション -->
+  <div class="actions-card">
+    <div class="section-title">クイックアクション</div>
+    <div class="action-grid">
+      <a href="{{ url_for('clients.clients') }}" class="action-btn btn-clients">
+        <span class="icon">&#128101;</span>顧問先一覧
+      </a>
+      <a href="{{ url_for('clients.add_client') }}" class="action-btn btn-clients" style="background:#e8eaf6;border-color:#7986cb;">
+        <span class="icon">&#43;</span>顧問先を追加
+      </a>
+      <a href="{{ url_for('tenant_admin.tenant_admins') }}" class="action-btn btn-staff">
+        <span class="icon">&#128100;</span>スタッフ管理
+      </a>
+      <a href="{{ url_for('tenant_storage.storage_settings') }}" class="action-btn btn-storage">
+        <span class="icon">&#128194;</span>ストレージ設定
+      </a>
+      <a href="{{ url_for('tenant_admin.me_edit') }}" class="action-btn btn-settings">
+        <span class="icon">&#9881;</span>事務所設定
+      </a>
+    </div>
+  </div>
+
+  <!-- 事務所詳細情報 -->
+  <div class="info-card">
+    <div class="section-title">事務所情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">事務所名</div>
+        <div class="info-value">{{ tenant.名称 }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">士業種別</div>
+        <div class="info-value">
+          {% if profession == 'tax' %}税理士
+          {% elif profession == 'legal' %}弁護士
+          {% elif profession == 'accounting' %}公認会計士
+          {% elif profession == 'sr' %}社会保険労務士
+          {% else %}<span class="empty">未設定</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">メールアドレス</div>
+        <div class="info-value {% if not tenant.email %}empty{% endif %}">{{ tenant.email or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">電話番号</div>
+        <div class="info-value {% if not tenant.電話番号 %}empty{% endif %}">{{ tenant.電話番号 or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">郵便番号</div>
+        <div class="info-value {% if not tenant.郵便番号 %}empty{% endif %}">{{ tenant.郵便番号 or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">住所</div>
+        <div class="info-value {% if not tenant.住所 %}empty{% endif %}">{{ tenant.住所 or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

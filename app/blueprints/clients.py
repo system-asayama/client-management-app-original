@@ -4,7 +4,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from app.db import SessionLocal
 from app.models_clients import TClient
-from app.models_login import TTenant
+from app.models_login import TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from sqlalchemy import and_
 
@@ -30,6 +30,51 @@ PROFESSION_LABELS = {
 
 
 @bp.route('/')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def clients_root():
+    """顧問先ルート → ホームにリダイレクト"""
+    return redirect(url_for('clients.home'))
+
+
+@bp.route('/home')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def home():
+    """テナントマイページ（顧問先管理ホーム）"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        profession = getattr(tenant, 'profession', None) or '' if tenant else ''
+
+        # 顧問先統計
+        all_clients = db.query(TClient).filter(TClient.tenant_id == tenant_id).all()
+        client_count = len(all_clients)
+        corp_count = sum(1 for c in all_clients if c.type == '法人')
+        ind_count = sum(1 for c in all_clients if c.type == '個人')
+
+        # スタッフ数（テナントに紐づく管理者）
+        staff_count = db.query(TKanrisha).filter(
+            TKanrisha.tenant_id == tenant_id,
+            TKanrisha.active == 1
+        ).count()
+
+        return render_template('client_home.html',
+                               tenant=tenant,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''),
+                               client_count=client_count,
+                               corp_count=corp_count,
+                               ind_count=ind_count,
+                               staff_count=staff_count)
+    finally:
+        db.close()
+
+
+@bp.route('/list')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def clients():
     """顧問先一覧"""

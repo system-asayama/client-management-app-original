@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>{% if branch %}拠点情報 編集{% else %}拠点情報 追加{% endif %} - {{ company['会社名'] }}</title>
+    <title>{% if branch %}支店情報 編集{% else %}支店情報 追加{% endif %} - {{ company['会社名'] }}</title>
     <style>
         body { font-family: sans-serif; margin: 22px; }
         h2 { margin-bottom: 6px; font-size: 20px; }
@@ -40,7 +40,7 @@
     </style>
 </head>
 <body>
-    <h2>{% if branch %}拠点情報 編集{% else %}拠点情報 追加{% endif %}</h2>
+    <h2>{% if branch %}支店情報 編集{% else %}支店情報 追加{% endif %}</h2>
     <div class="subtitle">{{ company['会社名'] }}</div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -50,22 +50,15 @@
     {% endwith %}
 
     <form method="post" autocomplete="off">
-        <!-- 拠点区分 -->
-        <div class="section-title">拠点区分</div>
+        <!-- 支店名 -->
+        <input type="hidden" name="branch_type" value="支店">
+        <div class="section-title">支店情報</div>
         <div class="form-row">
             <div class="form-group">
-                <label for="branch_type">区分 <span style="color:red">*</span></label>
-                <select name="branch_type" id="branch_type" required>
-                    <option value="本店" {% if branch and branch.branch_type == '本店' %}selected{% endif %}>本店</option>
-                    <option value="支店" {% if not branch or branch.branch_type == '支店' %}selected{% endif %}>支店</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="branch_name">支店名・拠点名</label>
-                <input type="text" name="branch_name" id="branch_name"
+                <label for="branch_name">支店名・拠点名 <span style="color:red">*</span></label>
+                <input type="text" name="branch_name" id="branch_name" required
                     value="{{ branch.branch_name if branch and branch.branch_name else '' }}"
                     placeholder="例: 大阪支店、横浜営業所">
-                <div class="form-hint">本店の場合は空欄でも構いません</div>
             </div>
         </div>
 

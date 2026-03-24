@@ -1536,10 +1536,19 @@ def branches_for_filing(client_id):
         company = db.query(TCompanyInfo).filter(TCompanyInfo.顧問先ID == client_id).first()
         if not company:
             return jsonify({'branches': []})
+        # 会社基本情報を本店として先頭に追加
+        result = [{
+            'id': 'company',
+            'branch_type': '本店',
+            'branch_name': company.会社名 or '',
+            '郵便番号': company.郵便番号 or '',
+            '都道府県': company.都道府県 or '',
+            '市区町村番地': company.市区町村番地 or '',
+        }]
+        # 登録済み支店を追加
         branches = db.query(TCompanyBranch).filter(
             TCompanyBranch.company_id == company.id
-        ).order_by(TCompanyBranch.branch_type).all()
-        result = []
+        ).order_by(TCompanyBranch.id).all()
         for b in branches:
             result.append({
                 'id': b.id,

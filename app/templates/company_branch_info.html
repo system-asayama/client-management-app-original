@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>拠点情報 - {{ branch.branch_name or branch.branch_type }} - {{ company['会社名'] }}</title>
+    <title>支店情報 - {{ branch.branch_name or '支店' }} - {{ company['会社名'] }}</title>
     <style>
         body { font-family: sans-serif; margin: 20px; }
         h2 { margin-bottom: 4px; }
@@ -53,8 +53,8 @@
 </head>
 <body>
     <h2>
-        <span class="badge-{{ 'honten' if branch.branch_type == '本店' else 'shiten' }}">{{ branch.branch_type }}</span>
-        {{ branch.branch_name if branch.branch_name else branch.branch_type }}
+        <span class="badge-shiten">支店</span>
+        {{ branch.branch_name if branch.branch_name else '支店' }}
     </h2>
     <div class="subtitle">{{ company['会社名'] }}</div>
 
@@ -69,7 +69,6 @@
     </div>
 
     <table>
-        <tr><th>区分</th><td>{{ branch.branch_type }}</td></tr>
         <tr><th>支店名・拠点名</th><td>{{ branch.branch_name or '―' }}</td></tr>
         <tr><th>郵便番号</th><td>{{ branch.郵便番号 or '―' }}</td></tr>
         <tr><th>都道府県</th><td>{{ branch.都道府県 or '―' }}</td></tr>

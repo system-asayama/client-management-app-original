@@ -105,24 +105,24 @@
         </form>
     </div>
 
-    <!-- 本店・支店情報セクション -->
-    <h3>🏢 本店・支店情報</h3>
+    <!-- 支店情報セクション -->
+    <h3>🏢 支店情報</h3>
 
     {% if branches %}
       <div class="branch-tabs">
         {% for branch in branches %}
           <a href="{{ url_for('clients.branch_info', company_id=company.id, branch_id=branch.id) }}"
              class="branch-tab-link">
-            <span class="badge-{{ 'honten' if branch.branch_type == '本店' else 'shiten' }}">{{ branch.branch_type }}</span>
-            {{ branch.branch_name if branch.branch_name else branch.branch_type }}
+            <span class="badge-shiten">支店</span>
+            {{ branch.branch_name if branch.branch_name else '支店' }}
           </a>
         {% endfor %}
       </div>
     {% else %}
-      <p class="no-branches">本店・支店情報は登録されていません。</p>
+      <p class="no-branches">支店情報は登録されていません。</p>
     {% endif %}
 
-    <a href="{{ url_for('clients.branch_add', company_id=company.id) }}" class="btn-add">＋ 本店・支店を追加</a>
+    <a href="{{ url_for('clients.branch_add', company_id=company.id) }}" class="btn-add">＋ 支店を追加</a>
 
     <br><br>
     <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ戻る</a>

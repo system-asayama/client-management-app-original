@@ -506,6 +506,110 @@ def get_withholding_deadlines_for_client(client, year=None):
     return unique
 
 
+# ========== 顧問先別 特別徴収住民税期限 ==========
+
+def get_inhabitant_tax_deadlines_for_client(client, year=None):
+    """
+    特別徴収の住民税納付期限を返す。
+    - salary_office_notification=1 かつ withholding_tax_special=0  → 毎朆10日（前月分）
+    - salary_office_notification=1 かつ withholding_tax_special=1  → 納期特例（6朆10日）
+    - salary_office_notification=0 → 表示しない
+    """
+    if year is None:
+        year = date.today().year
+
+    has_salary_office = getattr(client, 'salary_office_notification', 0) or 0
+    has_special = getattr(client, 'withholding_tax_special', 0) or 0
+
+    if not has_salary_office:
+        return []
+
+    deadlines = []
+
+    def _add(raw, dtype, category, color, note=''):
+        d, r = _deadline(raw)
+        deadlines.append({
+            'date': d,
+            'original_date': r,
+            'adjusted': d != r,
+            'type': dtype,
+            'category': category,
+            'color': color,
+            'note': note,
+        })
+
+    for y in [year - 1, year, year + 1]:
+        if has_special:
+            # 納期特例：6朆10日（前年7月～当年5月分）
+            _add(date(y, 6, 10),
+                 f'住民税特別徴収納付 納期特例（{y-1}年7月～{y}年5月分）',
+                 'inhabitant_tax_special', '#e65100',
+                 f'{y-1}年7月～{y}年5月分')
+        else:
+            # 毎朆10日納付（前月分を納付）
+            for month in range(1, 13):
+                prev_year = y - 1 if month == 1 else y
+                prev_month = 12 if month == 1 else month - 1
+                _add(date(y, month, 10),
+                     f'住民税特別徴収納付（{prev_year}年{prev_month}月分）',
+                     'inhabitant_tax', '#e65100',
+                     f'{prev_year}年{prev_month}月分')
+
+    # 重複除去・ソート
+    seen = set()
+    unique = []
+    for d in sorted(deadlines, key=lambda x: x['date']):
+        key = (d['date'], d['type'])
+        if key not in seen:
+            seen.add(key)
+            unique.append(d)
+    return unique
+
+
+# ========== 顧問先別 固定資産税期限 ==========
+
+def get_fixed_asset_tax_deadlines(year=None):
+    """
+    固定資産税の納付期限を返す。
+    標準的な期限：第1期 4月末日、第2期 7月末日、第3期 12月末日、第4期 翌年2月末日
+    （実際の期限は市区町村により異なる）
+    """
+    if year is None:
+        year = date.today().year
+
+    deadlines = []
+
+    for y in [year - 1, year, year + 1]:
+        periods = [
+            (y,     4,  '第1期'),
+            (y,     7,  '第2期'),
+            (y,    12,  '第3期'),
+            (y + 1, 2,  '第4期'),
+        ]
+        for p_year, p_month, label in periods:
+            raw = last_day_of_month(p_year, p_month)
+            d, r = _deadline(raw)
+            deadlines.append({
+                'date': d,
+                'original_date': r,
+                'adjusted': d != r,
+                'type': f'固定資産税納付（{y}年度{label}）',
+                'category': 'fixed_asset_tax',
+                'color': '#bf360c',
+                'note': f'{y}年度{label}（市区町村により期限は異なる場合あり）',
+            })
+
+    # 重複除去・ソート
+    seen = set()
+    unique = []
+    for d in sorted(deadlines, key=lambda x: x['date']):
+        key = (d['date'], d['type'])
+        if key not in seen:
+            seen.add(key)
+            unique.append(d)
+    return unique
+
+
 # ========== 顧問先別全期限 ==========
 
 def get_all_deadlines_for_client(client, year=None):
@@ -551,6 +655,21 @@ def get_all_deadlines_for_client(client, year=None):
         d['client_name'] = client.name
         d['client_type'] = client.type or ''
         deadlines.append(d)
+
+    # 特別徴収住民税期限（給与支払事務所設置届の有無に応じて追加）
+    for d in get_inhabitant_tax_deadlines_for_client(client, year):
+        d['client_id'] = client.id
+        d['client_name'] = client.name
+        d['client_type'] = client.type or ''
+        deadlines.append(d)
+
+    # 固定資産税期限（法人の場合のみ追加）
+    if client.type == '法人':
+        for d in get_fixed_asset_tax_deadlines(year):
+            d['client_id'] = client.id
+            d['client_name'] = client.name
+            d['client_type'] = '法人'
+            deadlines.append(d)
 
     return deadlines
 

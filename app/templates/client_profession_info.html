@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 業務情報{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrap { max-width: 800px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; }
+
+  .profession-badge {
+    display: inline-block; padding: 4px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 700; margin-left: 10px;
+  }
+  .badge-tax        { background: #e3f2fd; color: #1565c0; }
+  .badge-legal      { background: #fce4ec; color: #880e4f; }
+  .badge-accounting { background: #e8f5e9; color: #1b5e20; }
+  .badge-sr         { background: #fff8e1; color: #e65100; }
+  .badge-none       { background: #f5f5f5; color: #777; }
+
+  .info-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 24px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin: 0 0 14px;
+  }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  @media (max-width: 540px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 2px; }
+  .info-value { font-size: 14px; color: #333; font-weight: 500; }
+  .info-value.empty { color: #bbb; font-style: italic; }
+
+  .btn-edit {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #fff3e0; color: #e65100;
+    border: 2px solid #ffcc80; font-size: 13px; font-weight: 700;
+    text-decoration: none; white-space: nowrap;
+  }
+  .btn-edit:hover { background: #ffe0b2; }
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 13px; font-weight: 700;
+    text-decoration: none;
+  }
+  .btn-back:hover { background: #eeeeee; }
+
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+  .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    業務情報
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="page-header">
+    <div>
+      <span class="page-title">業務情報</span>
+      {% if profession == 'tax' %}<span class="profession-badge badge-tax">税理士</span>
+      {% elif profession == 'legal' %}<span class="profession-badge badge-legal">弁護士</span>
+      {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">公認会計士</span>
+      {% elif profession == 'sr' %}<span class="profession-badge badge-sr">社労士</span>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('clients.edit_profession_info', client_id=client.id) }}" class="btn-edit">&#9998; 編集</a>
+  </div>
+
+  <!-- 共通業務情報 -->
+  <div class="info-card">
+    <div class="section-title">契約情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">契約開始日</div>
+        <div class="info-value {% if not client.contract_start_date %}empty{% endif %}">{{ client.contract_start_date or '未登録' }}</div>
+      </div>
+      {% if profession != 'legal' %}
+      <div class="info-item">
+        <div class="info-label">決算月</div>
+        <div class="info-value {% if not client.fiscal_year_end %}empty{% endif %}">{{ client.fiscal_year_end or '未登録' }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 士業固有情報 -->
+  {% if profession == 'tax' %}
+  <div class="info-card">
+    <div class="section-title">税理士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">顧問先コード</div>
+        <div class="info-value {% if not client.tax_accountant_code %}empty{% endif %}">{{ client.tax_accountant_code or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">法人番号 / マイナンバー</div>
+        <div class="info-value {% if not client.tax_id_number %}empty{% endif %}">{{ client.tax_id_number or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% elif profession == 'legal' %}
+  <div class="info-card">
+    <div class="section-title">弁護士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">事件番号</div>
+        <div class="info-value {% if not client.case_number %}empty{% endif %}">{{ client.case_number or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">事件種別</div>
+        <div class="info-value {% if not client.case_type %}empty{% endif %}">{{ client.case_type or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">相手方</div>
+        <div class="info-value {% if not client.opposing_party %}empty{% endif %}">{{ client.opposing_party or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% elif profession == 'accounting' %}
+  <div class="info-card">
+    <div class="section-title">公認会計士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">監査種別</div>
+        <div class="info-value {% if not client.audit_type %}empty{% endif %}">{{ client.audit_type or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">上場区分</div>
+        <div class="info-value">{{ '上場' if client.listed else '非上場' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% elif profession == 'sr' %}
+  <div class="info-card">
+    <div class="section-title">社労士業務情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">従業員数</div>
+        <div class="info-value {% if not client.employee_count %}empty{% endif %}">{{ (client.employee_count | string + '名') if client.employee_count else '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">給与締め日</div>
+        <div class="info-value {% if not client.payroll_closing_day %}empty{% endif %}">{{ client.payroll_closing_day or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">労働保険番号</div>
+        <div class="info-value {% if not client.labor_insurance_number %}empty{% endif %}">{{ client.labor_insurance_number or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">社会保険番号（事業所整理記号）</div>
+        <div class="info-value {% if not client.social_insurance_number %}empty{% endif %}">{{ client.social_insurance_number or '未登録' }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="{{ url_for('clients.client_info', client_id=client.id) }}" class="btn-back">← 顧問先詳細に戻る</a>
+</div>
+{% endblock %}

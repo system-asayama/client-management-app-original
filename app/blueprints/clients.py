@@ -738,3 +738,82 @@ def files():
         return render_template('files.html', files=files_list)
     finally:
         conn.close()
+
+
+# ========================================
+# 士業固有情報管理
+# ========================================
+@bp.route('/<int:client_id>/profession_info')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def profession_info(client_id):
+    """士業固有情報詳細ページ"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        profession = _get_profession(tenant_id)
+        return render_template('client_profession_info.html', client=client,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/profession_info/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def edit_profession_info(client_id):
+    """士業固有情報編集ページ"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        profession = _get_profession(tenant_id)
+
+        if request.method == 'POST':
+            client.contract_start_date = request.form.get('contract_start_date') or None
+            client.fiscal_year_end = request.form.get('fiscal_year_end') or None
+            if profession == 'tax':
+                client.tax_accountant_code = request.form.get('tax_accountant_code') or None
+                client.tax_id_number = request.form.get('tax_id_number') or None
+            elif profession == 'legal':
+                client.case_number = request.form.get('case_number') or None
+                client.case_type = request.form.get('case_type') or None
+                client.opposing_party = request.form.get('opposing_party') or None
+            elif profession == 'accounting':
+                client.audit_type = request.form.get('audit_type') or None
+                client.listed = int(request.form.get('listed', 0))
+            elif profession == 'sr':
+                emp = request.form.get('employee_count')
+                client.employee_count = int(emp) if emp and emp.isdigit() else None
+                client.labor_insurance_number = request.form.get('labor_insurance_number') or None
+                client.social_insurance_number = request.form.get('social_insurance_number') or None
+                client.payroll_closing_day = request.form.get('payroll_closing_day') or None
+            db.commit()
+            flash('業務情報を更新しました', 'success')
+            return redirect(url_for('clients.profession_info', client_id=client_id))
+
+        return render_template('client_profession_info_edit.html', client=client,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()

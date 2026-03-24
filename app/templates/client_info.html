@@ -69,6 +69,8 @@
   .btn-storage:hover { background: #b2ebf2; }
   .btn-edit     { background: #fff3e0; color: #e65100; border: 2px solid #ffcc80; }
   .btn-edit:hover { background: #ffe0b2; }
+  .btn-profession { background: #e8eaf6; color: #283593; border: 2px solid #9fa8da; }
+  .btn-profession:hover { background: #c5cae9; }
 
   .notes-box {
     background: #fafafa; border-radius: 8px; padding: 12px 14px;
@@ -130,81 +132,12 @@
     <a href="{{ url_for('clients.client_storage_folder', client_id=client.id) }}" class="action-btn btn-storage">
       <span class="icon">&#128194;</span> ストレージ設定
     </a>
+    {% if profession and profession != 'none' %}
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="action-btn btn-profession">
+      <span class="icon">&#128203;</span> 業務情報
+    </a>
+    {% endif %}
   </div>
-
-  <!-- 士業固有情報 -->
-  {% if profession == 'tax' %}
-  <div class="info-card">
-    <div class="section-title">税理士業務情報</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">顧問先コード</div>
-        <div class="info-value {% if not client.tax_accountant_code %}empty{% endif %}">{{ client.tax_accountant_code or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">法人番号 / マイナンバー</div>
-        <div class="info-value {% if not client.tax_id_number %}empty{% endif %}">{{ client.tax_id_number or '未登録' }}</div>
-      </div>
-    </div>
-  </div>
-
-  {% elif profession == 'legal' %}
-  <div class="info-card">
-    <div class="section-title">弁護士業務情報</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">事件番号</div>
-        <div class="info-value {% if not client.case_number %}empty{% endif %}">{{ client.case_number or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">事件種別</div>
-        <div class="info-value {% if not client.case_type %}empty{% endif %}">{{ client.case_type or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">相手方</div>
-        <div class="info-value {% if not client.opposing_party %}empty{% endif %}">{{ client.opposing_party or '未登録' }}</div>
-      </div>
-    </div>
-  </div>
-
-  {% elif profession == 'accounting' %}
-  <div class="info-card">
-    <div class="section-title">公認会計士業務情報</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">監査種別</div>
-        <div class="info-value {% if not client.audit_type %}empty{% endif %}">{{ client.audit_type or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">上場区分</div>
-        <div class="info-value">{{ '上場' if client.listed else '非上場' }}</div>
-      </div>
-    </div>
-  </div>
-
-  {% elif profession == 'sr' %}
-  <div class="info-card">
-    <div class="section-title">社労士業務情報</div>
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">従業員数</div>
-        <div class="info-value {% if not client.employee_count %}empty{% endif %}">{{ (client.employee_count | string + '名') if client.employee_count else '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">給与締め日</div>
-        <div class="info-value {% if not client.payroll_closing_day %}empty{% endif %}">{{ client.payroll_closing_day or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">労働保険番号</div>
-        <div class="info-value {% if not client.labor_insurance_number %}empty{% endif %}">{{ client.labor_insurance_number or '未登録' }}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">社会保険番号（事業所整理記号）</div>
-        <div class="info-value {% if not client.social_insurance_number %}empty{% endif %}">{{ client.social_insurance_number or '未登録' }}</div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 
   <!-- メモ -->
   {% if client.notes %}

@@ -805,6 +805,9 @@ def run_migrations():
             ('salary_office_notification',     'INTEGER DEFAULT 0'),
             ('withholding_tax_special',        'INTEGER DEFAULT 0'),
             ('tax_filing_extension',           'INTEGER DEFAULT 0'),
+            ('corp_tax_extension',             'INTEGER DEFAULT 0'),
+            ('consumption_tax_extension',      'INTEGER DEFAULT 0'),
+            ('local_tax_extension',            'INTEGER DEFAULT 0'),
         ]
         try:
             for col_name, col_def in tax_columns:

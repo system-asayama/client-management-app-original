@@ -206,9 +206,29 @@
     <div class="section-title">申告期限の延長</div>
     <div class="info-grid">
       <div class="info-item">
-        <div class="info-label">法人税・消費税の申告期限延長</div>
+        <div class="info-label">法人税申告期限延長</div>
         <div class="info-value">
-          {% if client.tax_filing_extension %}
+          {% if client.corp_tax_extension %}
+            <span class="badge-yes">延長あり</span>
+          {% else %}
+            <span class="badge-no">延長なし</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">消費税申告期限延長</div>
+        <div class="info-value">
+          {% if client.consumption_tax_extension %}
+            <span class="badge-yes">延長あり</span>
+          {% else %}
+            <span class="badge-no">延長なし</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">法人住民税・事業税申告期限延長</div>
+        <div class="info-value">
+          {% if client.local_tax_extension %}
             <span class="badge-yes">延長あり</span>
           {% else %}
             <span class="badge-no">延長なし</span>

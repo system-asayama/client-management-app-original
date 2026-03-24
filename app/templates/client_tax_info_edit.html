@@ -209,10 +209,24 @@ window.onload = function() {
     <div class="form-card">
       <div class="section-title">申告期限の延長</div>
       <div class="form-group">
-        <label class="form-label">法人税・消費税の申告期限延長</label>
+        <label class="form-label">法人税申告期限延長</label>
         <div class="radio-group">
-          <label><input type="radio" name="tax_filing_extension" value="1" {% if client.tax_filing_extension %}checked{% endif %}> 延長あり</label>
-          <label><input type="radio" name="tax_filing_extension" value="0" {% if not client.tax_filing_extension %}checked{% endif %}> 延長なし</label>
+          <label><input type="radio" name="corp_tax_extension" value="1" {% if client.corp_tax_extension %}checked{% endif %}> 延長あり</label>
+          <label><input type="radio" name="corp_tax_extension" value="0" {% if not client.corp_tax_extension %}checked{% endif %}> 延長なし</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">消費税申告期限延長</label>
+        <div class="radio-group">
+          <label><input type="radio" name="consumption_tax_extension" value="1" {% if client.consumption_tax_extension %}checked{% endif %}> 延長あり</label>
+          <label><input type="radio" name="consumption_tax_extension" value="0" {% if not client.consumption_tax_extension %}checked{% endif %}> 延長なし</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">法人住民税・事業税申告期限延長</label>
+        <div class="radio-group">
+          <label><input type="radio" name="local_tax_extension" value="1" {% if client.local_tax_extension %}checked{% endif %}> 延長あり</label>
+          <label><input type="radio" name="local_tax_extension" value="0" {% if not client.local_tax_extension %}checked{% endif %}> 延長なし</label>
         </div>
       </div>
     </div>

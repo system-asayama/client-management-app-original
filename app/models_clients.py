@@ -42,7 +42,10 @@ class TClient(Base):
     qualified_invoice_number = Column(String(50), nullable=True)  # 適格請求書発行事業者登録番号
     salary_office_notification = Column(Integer, nullable=True, default=0)  # 給与支払事務所設置届（0=なし, 1=あり）
     withholding_tax_special = Column(Integer, nullable=True, default=0)     # 納期特例（0=なし, 1=あり）
-    tax_filing_extension = Column(Integer, nullable=True, default=0)        # 申告期限延長（0=なし, 1=あり）
+    tax_filing_extension = Column(Integer, nullable=True, default=0)        # 申告期限延長（後方互換用・非推奨）
+    corp_tax_extension = Column(Integer, nullable=True, default=0)           # 法人税申告期限延長（0=なし, 1=あり）
+    consumption_tax_extension = Column(Integer, nullable=True, default=0)    # 消費税申告期限延長（0=なし, 1=あり）
+    local_tax_extension = Column(Integer, nullable=True, default=0)          # 法人住民税・事業税申告期限延長（0=なし, 1=あり）
 
     # 弁護士固有
     case_number = Column(String(100), nullable=True)      # 事件番号

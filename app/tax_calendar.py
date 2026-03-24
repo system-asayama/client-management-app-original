@@ -663,8 +663,9 @@ def get_all_deadlines_for_client(client, year=None):
         d['client_type'] = client.type or ''
         deadlines.append(d)
 
-    # 固定資産税期限（has_fixed_asset_tax=1 の場合のみ追加）
-    if bool(getattr(client, 'has_fixed_asset_tax', 0) or 0):
+    # 固定資産税期限（has_fixed_asset_tax=1 または has_depreciable_asset_tax=1 の場合に追加）
+    # 固定資産税・償却資産税の納付期限は同じ時期なので、どちらかがあれば表示する
+    if bool(getattr(client, 'has_fixed_asset_tax', 0) or 0) or bool(getattr(client, 'has_depreciable_asset_tax', 0) or 0):
         for d in get_fixed_asset_tax_deadlines(year):
             d['client_id'] = client.id
             d['client_name'] = client.name

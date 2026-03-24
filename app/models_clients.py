@@ -1,7 +1,7 @@
 """
 顧問先管理用モデル
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Numeric
 from datetime import datetime
 from app.db import Base
 
@@ -22,12 +22,24 @@ class TClient(Base):
     # 士業共通追加情報
     address = Column(String(500), nullable=True)          # 住所・所在地
     industry = Column(String(100), nullable=True)         # 業種
-    fiscal_year_end = Column(String(10), nullable=True)   # 決算月（税理士・公認会計士用）
+    fiscal_year_end = Column(String(10), nullable=True)   # 決算月（後方互換用・非推奨）
     contract_start_date = Column(String(20), nullable=True)  # 契約開始日
 
     # 税理士固有
     tax_accountant_code = Column(String(50), nullable=True)   # 顧問先コード
     tax_id_number = Column(String(20), nullable=True)         # 法人番号 / マイナンバー
+
+    # 税務申告基本情報
+    fiscal_year_start_month = Column(Integer, nullable=True)      # 会計期間（開始月）
+    fiscal_year_end_month = Column(Integer, nullable=True)        # 会計期間（終了月）
+    established_date = Column(String(20), nullable=True)          # 設立年月日
+    establishment_notification = Column(Integer, nullable=True, default=0)  # 設立届の有無（0=なし, 1=あり）
+    blue_return = Column(Integer, nullable=True, default=0)       # 青色申告（0=白色, 1=青色）
+    consumption_tax_payer = Column(Integer, nullable=True, default=0)  # 消費税課税事業者（0=免税, 1=課税）
+    consumption_tax_method = Column(String(50), nullable=True)    # 課税方式（原則課税/簡易課税）
+    consumption_tax_calc = Column(String(50), nullable=True)      # 原則課税の計算方式（全額控除/個別対応/一括比例配分）
+    qualified_invoice_registered = Column(Integer, nullable=True, default=0)  # 適格事業者登録（0=なし, 1=あり）
+    qualified_invoice_number = Column(String(50), nullable=True)  # 適格請求書発行事業者登録番号
 
     # 弁護士固有
     case_number = Column(String(100), nullable=True)      # 事件番号
@@ -44,6 +56,22 @@ class TClient(Base):
     social_insurance_number = Column(String(50), nullable=True)      # 社会保険番号（事業所整理記号）
     payroll_closing_day = Column(String(10), nullable=True)          # 給与締め日
 
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TCommissionedWork(Base):
+    """T_受託業務テーブル（顧問先ごとの受託業務一覧）"""
+    __tablename__ = 'T_受託業務'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    work_name = Column(String(255), nullable=False)       # 業務名
+    start_date = Column(String(20), nullable=True)        # 受託開始日
+    fee = Column(Integer, nullable=True)                  # 顧問料（円）
+    fee_cycle = Column(String(20), nullable=True)         # 顧問料サイクル（月次/年次/スポット）
+    notes = Column(Text, nullable=True)                   # 備考
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

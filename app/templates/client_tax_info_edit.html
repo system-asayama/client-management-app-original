@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 税務申告基本情報 編集{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrap { max-width: 700px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; margin-bottom: 20px; }
+
+  .form-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 22px 24px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin: 0 0 16px;
+  }
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 6px; display: block; }
+  .form-control {
+    width: 100%; padding: 10px 14px; border: 1.5px solid #ddd;
+    border-radius: 8px; font-size: 14px; box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  .form-control:focus { outline: none; border-color: #1a237e; }
+  select.form-control { background: #fff; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
+
+  .radio-group { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+  .radio-group label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
+  .indent-section {
+    background: #f9f9f9; border-radius: 8px; padding: 14px 16px;
+    margin-top: 10px; border-left: 3px solid #1a237e;
+  }
+  .indent-section .form-group:last-child { margin-bottom: 0; }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-submit {
+    padding: 12px 28px; border-radius: 8px; background: #1a237e; color: #fff;
+    border: none; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .btn-submit:hover { background: #283593; }
+  .btn-cancel {
+    padding: 12px 20px; border-radius: 8px; background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 14px; font-weight: 700; text-decoration: none;
+  }
+  .btn-cancel:hover { background: #eeeeee; }
+
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+</style>
+
+<script>
+function toggleConsumptionTax() {
+  var isPayer = document.querySelector('input[name="consumption_tax_payer"]:checked').value == '1';
+  document.getElementById('tax-method-section').style.display = isPayer ? 'block' : 'none';
+  toggleCalcMethod();
+}
+function toggleCalcMethod() {
+  var method = document.querySelector('input[name="consumption_tax_method"]:checked');
+  var isStandard = method && method.value == 'standard';
+  var isPayer = document.querySelector('input[name="consumption_tax_payer"]:checked').value == '1';
+  document.getElementById('tax-calc-section').style.display = (isPayer && isStandard) ? 'block' : 'none';
+}
+function toggleInvoice() {
+  var isReg = document.querySelector('input[name="qualified_invoice_registered"]:checked').value == '1';
+  document.getElementById('invoice-number-section').style.display = isReg ? 'block' : 'none';
+}
+window.onload = function() {
+  toggleConsumptionTax();
+  toggleInvoice();
+};
+</script>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> &rsaquo;
+    <a href="{{ url_for('clients.tax_info', client_id=client.id) }}">税務申告基本情報</a> &rsaquo;
+    編集
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="page-title">🧾 税務申告基本情報を編集</div>
+
+  <form method="POST">
+
+    <!-- 会計期間 -->
+    <div class="form-card">
+      <div class="section-title">会計期間</div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">会計期間開始月</label>
+          <select name="fiscal_year_start_month" class="form-control">
+            <option value="">-- 選択 --</option>
+            {% for m in range(1, 13) %}
+            <option value="{{ m }}" {% if client.fiscal_year_start_month == m %}selected{% endif %}>{{ m }}月</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">会計期間終了月（決算月）</label>
+          <select name="fiscal_year_end_month" class="form-control">
+            <option value="">-- 選択 --</option>
+            {% for m in range(1, 13) %}
+            <option value="{{ m }}" {% if client.fiscal_year_end_month == m %}selected{% endif %}>{{ m }}月</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">設立年月日</label>
+          <input type="date" name="established_date" class="form-control"
+                 value="{{ client.established_date or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">設立届の提出</label>
+          <div class="radio-group">
+            <label><input type="radio" name="establishment_notification" value="1" {% if client.establishment_notification %}checked{% endif %}> 提出済み</label>
+            <label><input type="radio" name="establishment_notification" value="0" {% if not client.establishment_notification %}checked{% endif %}> 未提出</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 申告区分 -->
+    <div class="form-card">
+      <div class="section-title">申告区分</div>
+      <div class="form-group">
+        <label class="form-label">青色申告 / 白色申告</label>
+        <div class="radio-group">
+          <label><input type="radio" name="blue_return" value="1" {% if client.blue_return %}checked{% endif %}> 青色申告</label>
+          <label><input type="radio" name="blue_return" value="0" {% if not client.blue_return %}checked{% endif %}> 白色申告</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 消費税 -->
+    <div class="form-card">
+      <div class="section-title">消費税</div>
+      <div class="form-group">
+        <label class="form-label">消費税課税事業者</label>
+        <div class="radio-group">
+          <label><input type="radio" name="consumption_tax_payer" value="1" onclick="toggleConsumptionTax()" {% if client.consumption_tax_payer %}checked{% endif %}> 課税事業者</label>
+          <label><input type="radio" name="consumption_tax_payer" value="0" onclick="toggleConsumptionTax()" {% if not client.consumption_tax_payer %}checked{% endif %}> 免税事業者</label>
+        </div>
+      </div>
+
+      <div id="tax-method-section" style="display:none;">
+        <div class="indent-section">
+          <div class="form-group">
+            <label class="form-label">課税方式</label>
+            <div class="radio-group">
+              <label><input type="radio" name="consumption_tax_method" value="standard" onclick="toggleCalcMethod()" {% if client.consumption_tax_method == 'standard' %}checked{% endif %}> 原則課税</label>
+              <label><input type="radio" name="consumption_tax_method" value="simplified" onclick="toggleCalcMethod()" {% if client.consumption_tax_method == 'simplified' %}checked{% endif %}> 簡易課税</label>
+            </div>
+          </div>
+
+          <div id="tax-calc-section" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">仕入税額控除の計算方法（原則課税の場合）</label>
+              <div class="radio-group" style="flex-direction: column; gap: 8px;">
+                <label><input type="radio" name="consumption_tax_calc" value="full" {% if client.consumption_tax_calc == 'full' %}checked{% endif %}> 全額控除</label>
+                <label><input type="radio" name="consumption_tax_calc" value="individual" {% if client.consumption_tax_calc == 'individual' %}checked{% endif %}> 個別対応方式</label>
+                <label><input type="radio" name="consumption_tax_calc" value="lump" {% if client.consumption_tax_calc == 'lump' %}checked{% endif %}> 一括比例配分方式</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 適格請求書（インボイス） -->
+    <div class="form-card">
+      <div class="section-title">適格請求書発行事業者（インボイス）</div>
+      <div class="form-group">
+        <label class="form-label">適格事業者登録</label>
+        <div class="radio-group">
+          <label><input type="radio" name="qualified_invoice_registered" value="1" onclick="toggleInvoice()" {% if client.qualified_invoice_registered %}checked{% endif %}> 登録済み</label>
+          <label><input type="radio" name="qualified_invoice_registered" value="0" onclick="toggleInvoice()" {% if not client.qualified_invoice_registered %}checked{% endif %}> 未登録</label>
+        </div>
+      </div>
+      <div id="invoice-number-section" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">登録番号（T + 13桁）</label>
+          <input type="text" name="qualified_invoice_number" class="form-control"
+                 value="{{ client.qualified_invoice_number or '' }}"
+                 placeholder="例：T1234567890123">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" class="btn-submit">保存する</button>
+      <a href="{{ url_for('clients.tax_info', client_id=client.id) }}" class="btn-cancel">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

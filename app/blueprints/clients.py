@@ -817,3 +817,242 @@ def edit_profession_info(client_id):
                                profession_label=PROFESSION_LABELS.get(profession, ''))
     finally:
         db.close()
+
+
+# ===== 受託業務管理 =====
+
+@bp.route('/<int:client_id>/commissioned_works')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def commissioned_works(client_id):
+    """受託業務一覧ページ"""
+    from app.models_clients import TCommissionedWork
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        works = db.query(TCommissionedWork).filter(
+            and_(TCommissionedWork.client_id == client_id,
+                 TCommissionedWork.tenant_id == tenant_id)
+        ).order_by(TCommissionedWork.start_date).all()
+        profession = _get_profession(tenant_id)
+        return render_template('client_commissioned_works.html',
+                               client=client, works=works,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/commissioned_works/add', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def add_commissioned_work(client_id):
+    """受託業務追加"""
+    from app.models_clients import TCommissionedWork
+    from datetime import datetime
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        profession = _get_profession(tenant_id)
+        if request.method == 'POST':
+            work_name = request.form.get('work_name', '').strip()
+            if not work_name:
+                flash('業務名は必須です', 'error')
+                return render_template('client_commissioned_work_form.html',
+                                       client=client, work=None,
+                                       profession=profession,
+                                       profession_label=PROFESSION_LABELS.get(profession, ''))
+            fee_str = request.form.get('fee', '').strip()
+            fee = int(fee_str) if fee_str.isdigit() else None
+            work = TCommissionedWork(
+                client_id=client_id,
+                tenant_id=tenant_id,
+                work_name=work_name,
+                start_date=request.form.get('start_date') or None,
+                fee=fee,
+                fee_cycle=request.form.get('fee_cycle') or None,
+                notes=request.form.get('notes') or None,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db.add(work)
+            db.commit()
+            flash('受託業務を追加しました', 'success')
+            return redirect(url_for('clients.commissioned_works', client_id=client_id))
+        return render_template('client_commissioned_work_form.html',
+                               client=client, work=None,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/commissioned_works/<int:work_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def edit_commissioned_work(client_id, work_id):
+    """受託業務編集"""
+    from app.models_clients import TCommissionedWork
+    from datetime import datetime
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        work = db.query(TCommissionedWork).filter(
+            and_(TCommissionedWork.id == work_id,
+                 TCommissionedWork.client_id == client_id,
+                 TCommissionedWork.tenant_id == tenant_id)
+        ).first()
+        if not work:
+            flash('受託業務が見つかりません', 'error')
+            return redirect(url_for('clients.commissioned_works', client_id=client_id))
+        profession = _get_profession(tenant_id)
+        if request.method == 'POST':
+            work_name = request.form.get('work_name', '').strip()
+            if not work_name:
+                flash('業務名は必須です', 'error')
+                return render_template('client_commissioned_work_form.html',
+                                       client=client, work=work,
+                                       profession=profession,
+                                       profession_label=PROFESSION_LABELS.get(profession, ''))
+            fee_str = request.form.get('fee', '').strip()
+            work.work_name = work_name
+            work.start_date = request.form.get('start_date') or None
+            work.fee = int(fee_str) if fee_str.isdigit() else None
+            work.fee_cycle = request.form.get('fee_cycle') or None
+            work.notes = request.form.get('notes') or None
+            work.updated_at = datetime.utcnow()
+            db.commit()
+            flash('受託業務を更新しました', 'success')
+            return redirect(url_for('clients.commissioned_works', client_id=client_id))
+        return render_template('client_commissioned_work_form.html',
+                               client=client, work=work,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/commissioned_works/<int:work_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def delete_commissioned_work(client_id, work_id):
+    """受託業務削除"""
+    from app.models_clients import TCommissionedWork
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        work = db.query(TCommissionedWork).filter(
+            and_(TCommissionedWork.id == work_id,
+                 TCommissionedWork.client_id == client_id,
+                 TCommissionedWork.tenant_id == tenant_id)
+        ).first()
+        if work:
+            db.delete(work)
+            db.commit()
+            flash('受託業務を削除しました', 'success')
+        else:
+            flash('受託業務が見つかりません', 'error')
+        return redirect(url_for('clients.commissioned_works', client_id=client_id))
+    finally:
+        db.close()
+
+
+# ===== 税務申告基本情報 =====
+
+@bp.route('/<int:client_id>/tax_info')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def tax_info(client_id):
+    """税務申告基本情報詳細ページ"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        profession = _get_profession(tenant_id)
+        return render_template('client_tax_info.html', client=client,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/tax_info/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def edit_tax_info(client_id):
+    """税務申告基本情報編集ページ"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        profession = _get_profession(tenant_id)
+        if request.method == 'POST':
+            fy_start = request.form.get('fiscal_year_start_month', '').strip()
+            fy_end = request.form.get('fiscal_year_end_month', '').strip()
+            client.fiscal_year_start_month = int(fy_start) if fy_start.isdigit() else None
+            client.fiscal_year_end_month = int(fy_end) if fy_end.isdigit() else None
+            client.established_date = request.form.get('established_date') or None
+            client.establishment_notification = int(request.form.get('establishment_notification', 0))
+            client.blue_return = int(request.form.get('blue_return', 0))
+            client.consumption_tax_payer = int(request.form.get('consumption_tax_payer', 0))
+            if client.consumption_tax_payer:
+                client.consumption_tax_method = request.form.get('consumption_tax_method') or None
+                if client.consumption_tax_method == 'standard':
+                    client.consumption_tax_calc = request.form.get('consumption_tax_calc') or None
+                else:
+                    client.consumption_tax_calc = None
+            else:
+                client.consumption_tax_method = None
+                client.consumption_tax_calc = None
+            client.qualified_invoice_registered = int(request.form.get('qualified_invoice_registered', 0))
+            if client.qualified_invoice_registered:
+                client.qualified_invoice_number = request.form.get('qualified_invoice_number') or None
+            else:
+                client.qualified_invoice_number = None
+            db.commit()
+            flash('税務申告基本情報を更新しました', 'success')
+            return redirect(url_for('clients.tax_info', client_id=client_id))
+        return render_template('client_tax_info_edit.html', client=client,
+                               profession=profession,
+                               profession_label=PROFESSION_LABELS.get(profession, ''))
+    finally:
+        db.close()

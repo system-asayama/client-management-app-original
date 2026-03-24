@@ -22,7 +22,6 @@
   .badge-legal      { background: #fce4ec; color: #880e4f; }
   .badge-accounting { background: #e8f5e9; color: #1b5e20; }
   .badge-sr         { background: #fff8e1; color: #e65100; }
-  .badge-none       { background: #f5f5f5; color: #777; }
 
   .info-card {
     background: #fff; border-radius: 12px;
@@ -39,6 +38,31 @@
   .info-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 2px; }
   .info-value { font-size: 14px; color: #333; font-weight: 500; }
   .info-value.empty { color: #bbb; font-style: italic; }
+
+  /* ナビゲーションカードグリッド */
+  .nav-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .nav-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 16px;
+    text-align: center;
+    text-decoration: none;
+    color: #333;
+    transition: box-shadow 0.2s, transform 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .nav-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.13); transform: translateY(-2px); }
+  .nav-card .nav-icon { font-size: 28px; }
+  .nav-card .nav-label { font-size: 13px; font-weight: 700; color: #1a237e; }
+  .nav-card.green  { border-top: 4px solid #43a047; }
+  .nav-card.orange { border-top: 4px solid #fb8c00; }
+  .nav-card.blue   { border-top: 4px solid #1e88e5; }
 
   .btn-edit {
     display: inline-flex; align-items: center; gap: 6px;
@@ -87,7 +111,21 @@
     <a href="{{ url_for('clients.edit_profession_info', client_id=client.id) }}" class="btn-edit">&#9998; 編集</a>
   </div>
 
-  <!-- 共通業務情報 -->
+  <!-- サブページナビゲーション -->
+  <div class="nav-card-grid">
+    <a href="{{ url_for('clients.commissioned_works', client_id=client.id) }}" class="nav-card green">
+      <div class="nav-icon">📋</div>
+      <div class="nav-label">受託業務一覧</div>
+    </a>
+    {% if profession == 'tax' %}
+    <a href="{{ url_for('clients.tax_info', client_id=client.id) }}" class="nav-card orange">
+      <div class="nav-icon">🧾</div>
+      <div class="nav-label">税務申告基本情報</div>
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- 契約情報（契約開始日のみ） -->
   <div class="info-card">
     <div class="section-title">契約情報</div>
     <div class="info-grid">
@@ -95,12 +133,6 @@
         <div class="info-label">契約開始日</div>
         <div class="info-value {% if not client.contract_start_date %}empty{% endif %}">{{ client.contract_start_date or '未登録' }}</div>
       </div>
-      {% if profession != 'legal' %}
-      <div class="info-item">
-        <div class="info-label">決算月</div>
-        <div class="info-value {% if not client.fiscal_year_end %}empty{% endif %}">{{ client.fiscal_year_end or '未登録' }}</div>
-      </div>
-      {% endif %}
     </div>
   </div>
 

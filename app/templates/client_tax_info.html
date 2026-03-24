@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 税務申告基本情報{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrap { max-width: 800px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; }
+
+  .info-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 24px; margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin: 0 0 14px;
+  }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+  @media (max-width: 540px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-item {}
+  .info-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 2px; }
+  .info-value { font-size: 14px; color: #333; font-weight: 500; }
+  .info-value.empty { color: #bbb; font-style: italic; }
+
+  .badge-yes { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: #e8f5e9; color: #2e7d32; }
+  .badge-no  { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: #f5f5f5; color: #777; }
+
+  .btn-edit {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #fff3e0; color: #e65100;
+    border: 2px solid #ffcc80; font-size: 13px; font-weight: 700;
+    text-decoration: none; white-space: nowrap;
+  }
+  .btn-edit:hover { background: #ffe0b2; }
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 13px; font-weight: 700;
+    text-decoration: none; margin-top: 8px;
+  }
+  .btn-back:hover { background: #eeeeee; }
+
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+  .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+
+  .indent-card {
+    background: #f9f9f9; border-radius: 8px; padding: 14px 16px;
+    margin-top: 8px; border-left: 3px solid #1a237e;
+  }
+  .indent-card .info-grid { margin-top: 0; }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> &rsaquo;
+    税務申告基本情報
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="page-header">
+    <span class="page-title">🧾 税務申告基本情報</span>
+    <a href="{{ url_for('clients.edit_tax_info', client_id=client.id) }}" class="btn-edit">&#9998; 編集</a>
+  </div>
+
+  <!-- 会計期間 -->
+  <div class="info-card">
+    <div class="section-title">会計期間</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">会計期間開始月</div>
+        <div class="info-value {% if not client.fiscal_year_start_month %}empty{% endif %}">
+          {% if client.fiscal_year_start_month %}{{ client.fiscal_year_start_month }}月{% else %}未登録{% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">会計期間終了月（決算月）</div>
+        <div class="info-value {% if not client.fiscal_year_end_month %}empty{% endif %}">
+          {% if client.fiscal_year_end_month %}{{ client.fiscal_year_end_month }}月{% else %}未登録{% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">設立年月日</div>
+        <div class="info-value {% if not client.established_date %}empty{% endif %}">{{ client.established_date or '未登録' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">設立届の提出</div>
+        <div class="info-value">
+          {% if client.establishment_notification %}
+            <span class="badge-yes">提出済み</span>
+          {% else %}
+            <span class="badge-no">未提出</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 申告区分 -->
+  <div class="info-card">
+    <div class="section-title">申告区分</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">青色申告</div>
+        <div class="info-value">
+          {% if client.blue_return %}
+            <span class="badge-yes">青色申告</span>
+          {% else %}
+            <span class="badge-no">白色申告</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 消費税 -->
+  <div class="info-card">
+    <div class="section-title">消費税</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">消費税課税事業者</div>
+        <div class="info-value">
+          {% if client.consumption_tax_payer %}
+            <span class="badge-yes">課税事業者</span>
+          {% else %}
+            <span class="badge-no">免税事業者</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if client.consumption_tax_payer %}
+    <div class="indent-card">
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">課税方式</div>
+          <div class="info-value {% if not client.consumption_tax_method %}empty{% endif %}">
+            {% if client.consumption_tax_method == 'standard' %}原則課税
+            {% elif client.consumption_tax_method == 'simplified' %}簡易課税
+            {% else %}未登録{% endif %}
+          </div>
+        </div>
+        {% if client.consumption_tax_method == 'standard' %}
+        <div class="info-item">
+          <div class="info-label">仕入税額控除の計算方法</div>
+          <div class="info-value {% if not client.consumption_tax_calc %}empty{% endif %}">
+            {% if client.consumption_tax_calc == 'full' %}全額控除
+            {% elif client.consumption_tax_calc == 'individual' %}個別対応方式
+            {% elif client.consumption_tax_calc == 'lump' %}一括比例配分方式
+            {% else %}未登録{% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 適格請求書（インボイス） -->
+  <div class="info-card">
+    <div class="section-title">適格請求書発行事業者（インボイス）</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">適格事業者登録</div>
+        <div class="info-value">
+          {% if client.qualified_invoice_registered %}
+            <span class="badge-yes">登録済み</span>
+          {% else %}
+            <span class="badge-no">未登録</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if client.qualified_invoice_registered %}
+      <div class="info-item">
+        <div class="info-label">登録番号</div>
+        <div class="info-value {% if not client.qualified_invoice_number %}empty{% endif %}">{{ client.qualified_invoice_number or '未登録' }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="btn-back">← 業務情報に戻る</a>
+</div>
+{% endblock %}

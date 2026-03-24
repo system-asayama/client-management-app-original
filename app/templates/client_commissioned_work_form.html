@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - {% if work %}受託業務編集{% else %}受託業務追加{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrap { max-width: 600px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; margin-bottom: 20px; }
+
+  .form-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 24px; margin-bottom: 16px;
+  }
+  .form-group { margin-bottom: 18px; }
+  .form-label { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 6px; display: block; }
+  .form-label .required { color: #e53935; margin-left: 4px; }
+  .form-control {
+    width: 100%; padding: 10px 14px; border: 1.5px solid #ddd;
+    border-radius: 8px; font-size: 14px; box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  .form-control:focus { outline: none; border-color: #1a237e; }
+  select.form-control { background: #fff; }
+  textarea.form-control { resize: vertical; min-height: 80px; }
+
+  .fee-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 480px) { .fee-row { grid-template-columns: 1fr; } }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-submit {
+    padding: 12px 28px; border-radius: 8px; background: #1a237e; color: #fff;
+    border: none; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .btn-submit:hover { background: #283593; }
+  .btn-cancel {
+    padding: 12px 20px; border-radius: 8px; background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 14px; font-weight: 700; text-decoration: none;
+  }
+  .btn-cancel:hover { background: #eeeeee; }
+
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> &rsaquo;
+    <a href="{{ url_for('clients.commissioned_works', client_id=client.id) }}">受託業務一覧</a> &rsaquo;
+    {% if work %}編集{% else %}追加{% endif %}
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="page-title">{% if work %}受託業務を編集{% else %}受託業務を追加{% endif %}</div>
+
+  <div class="form-card">
+    <form method="POST">
+      <div class="form-group">
+        <label class="form-label">業務名<span class="required">*</span></label>
+        <input type="text" name="work_name" class="form-control"
+               value="{{ work.work_name if work else '' }}"
+               placeholder="例：記帳代行、給与計算、法人税申告" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">受託開始日</label>
+        <input type="date" name="start_date" class="form-control"
+               value="{{ work.start_date if work and work.start_date else '' }}">
+      </div>
+
+      <div class="fee-row">
+        <div class="form-group">
+          <label class="form-label">顧問料（円）</label>
+          <input type="number" name="fee" class="form-control" min="0"
+                 value="{{ work.fee if work and work.fee else '' }}"
+                 placeholder="例：30000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">請求サイクル</label>
+          <select name="fee_cycle" class="form-control">
+            <option value="">-- 選択 --</option>
+            <option value="monthly" {% if work and work.fee_cycle == 'monthly' %}selected{% endif %}>月次</option>
+            <option value="yearly"  {% if work and work.fee_cycle == 'yearly'  %}selected{% endif %}>年次</option>
+            <option value="once"    {% if work and work.fee_cycle == 'once'    %}selected{% endif %}>単発</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">備考</label>
+        <textarea name="notes" class="form-control" placeholder="補足事項があれば入力">{{ work.notes if work and work.notes else '' }}</textarea>
+      </div>
+
+      <div class="btn-row">
+        <button type="submit" class="btn-submit">{% if work %}更新する{% else %}追加する{% endif %}</button>
+        <a href="{{ url_for('clients.commissioned_works', client_id=client.id) }}" class="btn-cancel">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

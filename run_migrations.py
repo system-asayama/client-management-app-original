@@ -789,6 +789,98 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_顧問先に税務申告基本情報カラムを追加
+        print("\n[マイグレーション] T_顧問先に税務申告基本情報カラムを追加")
+        tax_columns = [
+            ('fiscal_year_start_month',       'INTEGER'),
+            ('fiscal_year_end_month',          'INTEGER'),
+            ('established_date',               'VARCHAR(20)'),
+            ('establishment_notification',     'INTEGER DEFAULT 0'),
+            ('blue_return',                    'INTEGER DEFAULT 0'),
+            ('consumption_tax_payer',          'INTEGER DEFAULT 0'),
+            ('consumption_tax_method',         'VARCHAR(50)'),
+            ('consumption_tax_calc',           'VARCHAR(50)'),
+            ('qualified_invoice_registered',   'INTEGER DEFAULT 0'),
+            ('qualified_invoice_number',       'VARCHAR(50)'),
+        ]
+        try:
+            for col_name, col_def in tax_columns:
+                if _is_pg(conn):
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'T_顧問先' AND column_name = %s
+                    """, (col_name,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "T_顧問先" ADD COLUMN {col_name} {col_def}')
+                        conn.commit()
+                        print(f"  ✅ {col_name}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {col_name}カラムは既に存在します（スキップ）")
+                else:
+                    cur.execute('PRAGMA table_info("T_顧問先")')
+                    columns = [row[1] for row in cur.fetchall()]
+                    if col_name not in columns:
+                        cur.execute(f'ALTER TABLE "T_顧問先" ADD COLUMN {col_name} TEXT')
+                        conn.commit()
+                        print(f"  ✅ {col_name}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {col_name}カラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_受託業務テーブルを作成
+        print("\n[マイグレーション] T_受託業務テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_受託業務'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_受託業務" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id),
+                            work_name VARCHAR(255) NOT NULL,
+                            start_date VARCHAR(20),
+                            fee INTEGER,
+                            fee_cycle VARCHAR(20),
+                            notes TEXT,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_受託業務テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_受託業務テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_受託業務'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_受託業務" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL,
+                            tenant_id INTEGER NOT NULL,
+                            work_name TEXT NOT NULL,
+                            start_date TEXT,
+                            fee INTEGER,
+                            fee_cycle TEXT,
+                            notes TEXT,
+                            created_at TEXT,
+                            updated_at TEXT
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_受託業務テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_受託業務テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

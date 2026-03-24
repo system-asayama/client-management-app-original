@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 受託業務一覧{% endblock %}
+
+{% block content %}
+<style>
+  .page-wrap { max-width: 800px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .page-title { font-size: 20px; font-weight: 700; color: #1a237e; }
+
+  .btn-add {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #1a237e; color: #fff;
+    border: none; font-size: 13px; font-weight: 700;
+    text-decoration: none; cursor: pointer;
+  }
+  .btn-add:hover { background: #283593; }
+
+  .work-card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 18px 22px; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .work-main { flex: 1; min-width: 0; }
+  .work-name { font-size: 16px; font-weight: 700; color: #1a237e; margin-bottom: 4px; }
+  .work-meta { font-size: 13px; color: #666; display: flex; flex-wrap: wrap; gap: 12px; }
+  .work-meta span { display: flex; align-items: center; gap: 4px; }
+  .work-meta .label { color: #999; font-size: 12px; }
+
+  .work-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn-sm {
+    padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    text-decoration: none; border: none; cursor: pointer;
+  }
+  .btn-edit-sm { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
+  .btn-edit-sm:hover { background: #ffe0b2; }
+  .btn-del-sm  { background: #ffebee; color: #c62828; border: 1.5px solid #ef9a9a; }
+  .btn-del-sm:hover { background: #ffcdd2; }
+
+  .empty-state {
+    text-align: center; padding: 50px 20px; color: #aaa;
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+  .empty-state p { font-size: 14px; }
+
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 8px;
+    background: #f5f5f5; color: #555;
+    border: 2px solid #ddd; font-size: 13px; font-weight: 700;
+    text-decoration: none; margin-top: 8px;
+  }
+  .btn-back:hover { background: #eeeeee; }
+
+  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+  .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+
+  .total-bar {
+    background: #e3f2fd; border-radius: 10px; padding: 12px 18px;
+    margin-bottom: 16px; font-size: 14px; color: #1565c0; font-weight: 600;
+    display: flex; align-items: center; gap: 10px;
+  }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> &rsaquo;
+    受託業務一覧
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+    {% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="page-header">
+    <span class="page-title">📋 受託業務一覧</span>
+    <a href="{{ url_for('clients.add_commissioned_work', client_id=client.id) }}" class="btn-add">＋ 業務を追加</a>
+  </div>
+
+  {% if works %}
+  <!-- 合計顧問料 -->
+  {% set total_monthly = namespace(val=0) %}
+  {% for w in works %}
+    {% if w.fee and w.fee_cycle == 'monthly' %}{% set total_monthly.val = total_monthly.val + w.fee %}{% endif %}
+  {% endfor %}
+  {% if total_monthly.val > 0 %}
+  <div class="total-bar">
+    💰 月次顧問料合計：<strong>{{ "{:,}".format(total_monthly.val) }} 円</strong>
+  </div>
+  {% endif %}
+
+  {% for work in works %}
+  <div class="work-card">
+    <div class="work-main">
+      <div class="work-name">{{ work.work_name }}</div>
+      <div class="work-meta">
+        {% if work.start_date %}
+        <span><span class="label">受託開始日</span>{{ work.start_date }}</span>
+        {% endif %}
+        {% if work.fee %}
+        <span><span class="label">顧問料</span>{{ "{:,}".format(work.fee) }}円
+          {% if work.fee_cycle == 'monthly' %}/ 月
+          {% elif work.fee_cycle == 'yearly' %}/ 年
+          {% elif work.fee_cycle == 'once' %}（単発）
+          {% endif %}
+        </span>
+        {% endif %}
+        {% if work.notes %}
+        <span><span class="label">備考</span>{{ work.notes }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="work-actions">
+      <a href="{{ url_for('clients.edit_commissioned_work', client_id=client.id, work_id=work.id) }}" class="btn-sm btn-edit-sm">編集</a>
+      <form method="POST" action="{{ url_for('clients.delete_commissioned_work', client_id=client.id, work_id=work.id) }}"
+            onsubmit="return confirm('「{{ work.work_name }}」を削除しますか？');" style="display:inline;">
+        <button type="submit" class="btn-sm btn-del-sm">削除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">📋</div>
+    <p>受託業務がまだ登録されていません。</p>
+    <p>「業務を追加」ボタンから登録してください。</p>
+  </div>
+  {% endif %}
+
+  <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="btn-back">← 業務情報に戻る</a>
+</div>
+{% endblock %}

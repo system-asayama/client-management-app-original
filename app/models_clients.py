@@ -45,7 +45,9 @@ class TClient(Base):
     tax_filing_extension = Column(Integer, nullable=True, default=0)        # 申告期限延長（後方互換用・非推奨）
     corp_tax_extension = Column(Integer, nullable=True, default=0)           # 法人税申告期限延長（0=なし, 1=あり）
     consumption_tax_extension = Column(Integer, nullable=True, default=0)    # 消費税申告期限延長（0=なし, 1=あり）
-    local_tax_extension = Column(Integer, nullable=True, default=0)          # 法人住民税・事業税申告期限延長（0=なし, 1=あり）
+    local_tax_extension = Column(Integer, nullable=True, default=0)          # 法人住民税・事業税申告期限延長（後方互換用・非推奨）
+    prefectural_tax_extension = Column(Integer, nullable=True, default=0)     # 法人道府県民税・事業税申告期限延長（0=なし, 1=あり）
+    municipal_tax_extension = Column(Integer, nullable=True, default=0)       # 法人市町村民税申告期限延長（0=なし, 1=あり）
 
     # 弁護士固有
     case_number = Column(String(100), nullable=True)      # 事件番号

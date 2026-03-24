@@ -226,9 +226,19 @@
         </div>
       </div>
       <div class="info-item">
-        <div class="info-label">法人住民税・事業税申告期限延長</div>
+        <div class="info-label">法人道府県民税・事業税申告期限延長</div>
         <div class="info-value">
-          {% if client.local_tax_extension %}
+          {% if client.prefectural_tax_extension %}
+            <span class="badge-yes">延長あり</span>
+          {% else %}
+            <span class="badge-no">延長なし</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">法人市町村民税申告期限延長</div>
+        <div class="info-value">
+          {% if client.municipal_tax_extension %}
             <span class="badge-yes">延長あり</span>
           {% else %}
             <span class="badge-no">延長なし</span>

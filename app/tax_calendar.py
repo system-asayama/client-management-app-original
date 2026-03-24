@@ -129,14 +129,16 @@ def _deadline(d):
 def get_corporate_deadlines(fiscal_end_month, year=None,
                             corp_tax_extension=False,
                             consumption_tax_extension=False,
-                            local_tax_extension=False):
+                            prefectural_tax_extension=False,
+                            municipal_tax_extension=False):
     """
     法人の税務申告期限一覧を返す
     fiscal_end_month: 決算月（1～12）
     year: 基準年（Noneの場合は今年）
     corp_tax_extension: 法人税申告期限延長の有無
     consumption_tax_extension: 消費税申告期限延長の有無
-    local_tax_extension: 法人住民税・事業税申告期限延長の有無
+    prefectural_tax_extension: 法人道府県民税・事業税申告期限延長の有無
+    municipal_tax_extension: 法人市町村民税申告期限延長の有無
     """
     if year is None:
         year = date.today().year
@@ -227,15 +229,14 @@ def get_corporate_deadlines(fiscal_end_month, year=None,
                 'fiscal_year_end': fy_end,
             })
 
-        # --- 法人住民税・事業税 ---
-        # 法人税の延長承認を受けて都道府県・市区町村に届出した場合、地方税も延長される
-        if local_tax_extension:
+        # --- 法人道府県民税・事業税 ---
+        if prefectural_tax_extension:
             deadlines.append({
                 'date': filing_deadline,
                 'original_date': filing_raw,
                 'adjusted': filing_deadline != filing_raw,
-                'type': '法人住民税・事業税申告（期限延長）',
-                'category': 'local_tax',
+                'type': '法人道府県民税・事業税申告（期限延長）',
+                'category': 'prefectural_tax',
                 'color': '#1b5e20',
                 'fiscal_year_end': fy_end,
                 'note': '申告期限延長適用',
@@ -245,9 +246,32 @@ def get_corporate_deadlines(fiscal_end_month, year=None,
                 'date': pay_deadline,
                 'original_date': pay_raw,
                 'adjusted': pay_deadline != pay_raw,
-                'type': '法人住民税・事業税申告',
-                'category': 'local_tax',
+                'type': '法人道府県民税・事業税申告',
+                'category': 'prefectural_tax',
                 'color': '#1b5e20',
+                'fiscal_year_end': fy_end,
+            })
+
+        # --- 法人市町村民税 ---
+        if municipal_tax_extension:
+            deadlines.append({
+                'date': filing_deadline,
+                'original_date': filing_raw,
+                'adjusted': filing_deadline != filing_raw,
+                'type': '法人市町村民税申告（期限延長）',
+                'category': 'municipal_tax',
+                'color': '#2e7d32',
+                'fiscal_year_end': fy_end,
+                'note': '申告期限延長適用',
+            })
+        else:
+            deadlines.append({
+                'date': pay_deadline,
+                'original_date': pay_raw,
+                'adjusted': pay_deadline != pay_raw,
+                'type': '法人市町村民税申告',
+                'category': 'municipal_tax',
+                'color': '#2e7d32',
                 'fiscal_year_end': fy_end,
             })
 
@@ -501,12 +525,14 @@ def get_all_deadlines_for_client(client, year=None):
         if fiscal_end:
             corp_ext = bool(getattr(client, 'corp_tax_extension', 0) or 0)
             cons_ext = bool(getattr(client, 'consumption_tax_extension', 0) or 0)
-            local_ext = bool(getattr(client, 'local_tax_extension', 0) or 0)
+            pref_ext = bool(getattr(client, 'prefectural_tax_extension', 0) or 0)
+            muni_ext = bool(getattr(client, 'municipal_tax_extension', 0) or 0)
             for d in get_corporate_deadlines(
                 fiscal_end, year,
                 corp_tax_extension=corp_ext,
                 consumption_tax_extension=cons_ext,
-                local_tax_extension=local_ext
+                prefectural_tax_extension=pref_ext,
+                municipal_tax_extension=muni_ext
             ):
                 d['client_id'] = client.id
                 d['client_name'] = client.name

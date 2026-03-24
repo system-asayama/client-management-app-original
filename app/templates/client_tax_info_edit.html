@@ -223,10 +223,17 @@ window.onload = function() {
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">法人住民税・事業税申告期限延長</label>
+        <label class="form-label">法人道府県民税・事業税申告期限延長</label>
         <div class="radio-group">
-          <label><input type="radio" name="local_tax_extension" value="1" {% if client.local_tax_extension %}checked{% endif %}> 延長あり</label>
-          <label><input type="radio" name="local_tax_extension" value="0" {% if not client.local_tax_extension %}checked{% endif %}> 延長なし</label>
+          <label><input type="radio" name="prefectural_tax_extension" value="1" {% if client.prefectural_tax_extension %}checked{% endif %}> 延長あり</label>
+          <label><input type="radio" name="prefectural_tax_extension" value="0" {% if not client.prefectural_tax_extension %}checked{% endif %}> 延長なし</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">法人市町村民税申告期限延長</label>
+        <div class="radio-group">
+          <label><input type="radio" name="municipal_tax_extension" value="1" {% if client.municipal_tax_extension %}checked{% endif %}> 延長あり</label>
+          <label><input type="radio" name="municipal_tax_extension" value="0" {% if not client.municipal_tax_extension %}checked{% endif %}> 延長なし</label>
         </div>
       </div>
     </div>

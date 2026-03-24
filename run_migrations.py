@@ -808,6 +808,8 @@ def run_migrations():
             ('corp_tax_extension',             'INTEGER DEFAULT 0'),
             ('consumption_tax_extension',      'INTEGER DEFAULT 0'),
             ('local_tax_extension',            'INTEGER DEFAULT 0'),
+            ('prefectural_tax_extension',      'INTEGER DEFAULT 0'),
+            ('municipal_tax_extension',        'INTEGER DEFAULT 0'),
         ]
         try:
             for col_name, col_def in tax_columns:

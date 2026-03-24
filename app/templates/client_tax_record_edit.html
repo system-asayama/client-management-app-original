@@ -63,6 +63,8 @@
   .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
   .flash-error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
   .actions { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .no-offices-hint { font-size: 12px; color: #e65100; background: #fff3e0; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; }
+  .no-offices-hint a { color: #e65100; font-weight: 700; }
 </style>
 
 <div class="page-wrap">
@@ -137,6 +139,12 @@
     <!-- 都道府県税 -->
     <div class="form-card">
       <div class="section-title">🏯 都道府県税</div>
+      {% if not filing_prefectures %}
+        <div class="no-offices-hint">
+          ⚠ 申告先の都道府県が未登録です。
+          <a href="{{ url_for('clients.edit_tax_info', client_id=client.id) }}">税務申告基本情報の編集</a>から先に登録してください。
+        </div>
+      {% endif %}
       <div id="prefectureContainer">
         {% if record and record.prefectures %}
           {% for i, pref in enumerate(record.prefectures) %}
@@ -146,9 +154,13 @@
               <button type="button" class="btn-remove-entity" onclick="removeEntity('pref_{{ i }}')">✕ 削除</button>
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label">都道府県名 <span style="color:red">*</span></label>
-              <input type="text" name="pref_name_{{ i }}" class="form-input" placeholder="例: 東京都"
-                value="{{ pref.prefecture_name }}" required>
+              <label class="form-label">都道府県 <span style="color:red">*</span></label>
+              <select name="pref_name_{{ i }}" class="form-input" required>
+                {% for fp in filing_prefectures %}
+                  <option value="{{ fp.prefecture_name }}" {% if pref.prefecture_name == fp.prefecture_name %}selected{% endif %}>{{ fp.prefecture_name }}</option>
+                {% endfor %}
+                <option value="{{ pref.prefecture_name }}" {% if pref.prefecture_name not in filing_prefectures|map(attribute='prefecture_name')|list %}selected{% endif %}>{{ pref.prefecture_name }}（登録外）</option>
+              </select>
               <input type="hidden" name="pref_id_{{ i }}" value="{{ pref.id }}">
             </div>
             <div class="form-grid">
@@ -178,12 +190,20 @@
         {% endif %}
       </div>
       <input type="hidden" name="pref_count" id="prefCount" value="{{ record.prefectures|length if record and record.prefectures else 0 }}">
-      <button type="button" class="btn-add-entity" onclick="addPrefecture()">＋ 都道府県を追加</button>
+      {% if filing_prefectures %}
+        <button type="button" class="btn-add-entity" onclick="addPrefecture()">＋ 都道府県を追加</button>
+      {% endif %}
     </div>
 
     <!-- 市区町村税 -->
     <div class="form-card">
       <div class="section-title">🏙 市区町村税</div>
+      {% if not filing_municipalities %}
+        <div class="no-offices-hint">
+          ⚠ 申告先の市区町村が未登録です。
+          <a href="{{ url_for('clients.edit_tax_info', client_id=client.id) }}">税務申告基本情報の編集</a>から先に登録してください。
+        </div>
+      {% endif %}
       <div id="municipalityContainer">
         {% if record and record.municipalities %}
           {% for i, muni in enumerate(record.municipalities) %}
@@ -193,9 +213,12 @@
               <button type="button" class="btn-remove-entity" onclick="removeEntity('muni_{{ i }}')">✕ 削除</button>
             </div>
             <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label">市区町村名 <span style="color:red">*</span></label>
-              <input type="text" name="muni_name_{{ i }}" class="form-input" placeholder="例: 渋谷区"
-                value="{{ muni.municipality_name }}" required>
+              <label class="form-label">市区町村 <span style="color:red">*</span></label>
+              <select name="muni_name_{{ i }}" class="form-input" required>
+                {% for fm in filing_municipalities %}
+                  <option value="{{ fm.municipality_name }}" {% if muni.municipality_name == fm.municipality_name %}selected{% endif %}>{{ fm.municipality_name }}</option>
+                {% endfor %}
+              </select>
               <input type="hidden" name="muni_id_{{ i }}" value="{{ muni.id }}">
             </div>
             <div class="form-grid">
@@ -215,7 +238,9 @@
         {% endif %}
       </div>
       <input type="hidden" name="muni_count" id="muniCount" value="{{ record.municipalities|length if record and record.municipalities else 0 }}">
-      <button type="button" class="btn-add-entity" onclick="addMunicipality()" style="background:#e0f2f1; color:#00695c; border-color:#80cbc4;">＋ 市区町村を追加</button>
+      {% if filing_municipalities %}
+        <button type="button" class="btn-add-entity" onclick="addMunicipality()" style="background:#e0f2f1; color:#00695c; border-color:#80cbc4;">＋ 市区町村を追加</button>
+      {% endif %}
     </div>
 
     <div class="actions">
@@ -229,8 +254,17 @@
 let prefCount = parseInt(document.getElementById('prefCount').value);
 let muniCount = parseInt(document.getElementById('muniCount').value);
 
+// 申告先プルダウン選択肢（サーバーから渡す）
+const filingPrefectures = {{ filing_prefectures | map(attribute='prefecture_name') | list | tojson }};
+const filingMunicipalities = {{ filing_municipalities | map(attribute='municipality_name') | list | tojson }};
+
 function addPrefecture() {
+  if (filingPrefectures.length === 0) {
+    alert('先に税務申告基本情報の編集から申告先の都道府県を登録してください。');
+    return;
+  }
   const i = prefCount;
+  const options = filingPrefectures.map(name => `<option value="${name}">${name}</option>`).join('');
   const html = `
     <div class="sub-entity-block" id="pref_${i}">
       <div class="sub-entity-header">
@@ -238,8 +272,8 @@ function addPrefecture() {
         <button type="button" class="btn-remove-entity" onclick="removeEntity('pref_${i}')">✕ 削除</button>
       </div>
       <div class="form-group" style="margin-bottom:10px;">
-        <label class="form-label">都道府県名 <span style="color:red">*</span></label>
-        <input type="text" name="pref_name_${i}" class="form-input" placeholder="例: 東京都" required>
+        <label class="form-label">都道府県 <span style="color:red">*</span></label>
+        <select name="pref_name_${i}" class="form-input" required>${options}</select>
         <input type="hidden" name="pref_id_${i}" value="">
       </div>
       <div class="form-grid">
@@ -267,7 +301,12 @@ function addPrefecture() {
 }
 
 function addMunicipality() {
+  if (filingMunicipalities.length === 0) {
+    alert('先に税務申告基本情報の編集から申告先の市区町村を登録してください。');
+    return;
+  }
   const i = muniCount;
+  const options = filingMunicipalities.map(name => `<option value="${name}">${name}</option>`).join('');
   const html = `
     <div class="sub-entity-block municipality" id="muni_${i}">
       <div class="sub-entity-header">
@@ -275,8 +314,8 @@ function addMunicipality() {
         <button type="button" class="btn-remove-entity" onclick="removeEntity('muni_${i}')">✕ 削除</button>
       </div>
       <div class="form-group" style="margin-bottom:10px;">
-        <label class="form-label">市区町村名 <span style="color:red">*</span></label>
-        <input type="text" name="muni_name_${i}" class="form-input" placeholder="例: 渋谷区" required>
+        <label class="form-label">市区町村 <span style="color:red">*</span></label>
+        <select name="muni_name_${i}" class="form-input" required>${options}</select>
         <input type="hidden" name="muni_id_${i}" value="">
       </div>
       <div class="form-grid">

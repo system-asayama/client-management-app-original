@@ -77,6 +77,33 @@ window.onload = function() {
   toggleConsumptionTax();
   toggleInvoice();
 };
+
+function addFilingOffice(officeType) {
+  var inputMap = {
+    'tax_office': 'new_tax_office',
+    'prefecture': 'new_prefecture',
+    'municipality': 'new_municipality'
+  };
+  var input = document.getElementById(inputMap[officeType]);
+  var name = input.value.trim();
+  if (!name) { alert('名前を入力してください。'); return; }
+
+  fetch('/clients/{{ client.id }}/filing_offices/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({office_type: officeType, name: name})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      input.value = '';
+      location.reload();
+    } else {
+      alert(data.error || '追加に失敗しました。');
+    }
+  })
+  .catch(() => alert('通信エラーが発生しました。'));
+}
 </script>
 
 <div class="page-wrap">
@@ -253,6 +280,74 @@ window.onload = function() {
         <div class="radio-group">
           <label><input type="radio" name="has_depreciable_asset_tax" value="1" {% if client.has_depreciable_asset_tax %}checked{% endif %}> あり</label>
           <label><input type="radio" name="has_depreciable_asset_tax" value="0" {% if not client.has_depreciable_asset_tax %}checked{% endif %}> なし</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 申告先情報 -->
+    <div class="form-card">
+      <div class="section-title">申告先情報</div>
+
+      <!-- 税務署 -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">税務署</div>
+        <div id="tax-offices-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          {% for office in filing_tax_offices %}
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#e3f2fd;color:#1565c0;border-radius:8px;font-size:13px;font-weight:600;">
+              {{ office.tax_office_name }}
+              <a href="{{ url_for('clients.delete_filing_office', client_id=client.id, office_type='tax_office', office_id=office.id) }}"
+                 onclick="return confirm('削除しますか？')"
+                 style="color:#c62828;font-size:14px;text-decoration:none;line-height:1;">&times;</a>
+            </span>
+          {% else %}
+            <span id="no-tax-office" style="color:#bbb;font-size:13px;">未登録</span>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="new_tax_office" placeholder="税務署名（例：新宿税務署）" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+          <button type="button" onclick="addFilingOffice('tax_office')" style="padding:8px 14px;background:#1a237e;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">追加</button>
+        </div>
+      </div>
+
+      <!-- 都道府県 -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">都道府県</div>
+        <div id="prefectures-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          {% for pref in filing_prefectures %}
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#f3e5f5;color:#6a1b9a;border-radius:8px;font-size:13px;font-weight:600;">
+              {{ pref.prefecture_name }}
+              <a href="{{ url_for('clients.delete_filing_office', client_id=client.id, office_type='prefecture', office_id=pref.id) }}"
+                 onclick="return confirm('削除しますか？')"
+                 style="color:#c62828;font-size:14px;text-decoration:none;line-height:1;">&times;</a>
+            </span>
+          {% else %}
+            <span id="no-prefecture" style="color:#bbb;font-size:13px;">未登録</span>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="new_prefecture" placeholder="都道府県名（例：東京都）" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+          <button type="button" onclick="addFilingOffice('prefecture')" style="padding:8px 14px;background:#6a1b9a;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">追加</button>
+        </div>
+      </div>
+
+      <!-- 市区町村 -->
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">市区町村</div>
+        <div id="municipalities-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          {% for muni in filing_municipalities %}
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#e8f5e9;color:#2e7d32;border-radius:8px;font-size:13px;font-weight:600;">
+              {{ muni.municipality_name }}
+              <a href="{{ url_for('clients.delete_filing_office', client_id=client.id, office_type='municipality', office_id=muni.id) }}"
+                 onclick="return confirm('削除しますか？')"
+                 style="color:#c62828;font-size:14px;text-decoration:none;line-height:1;">&times;</a>
+            </span>
+          {% else %}
+            <span id="no-municipality" style="color:#bbb;font-size:13px;">未登録</span>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="new_municipality" placeholder="市区町村名（例：渋谷区）" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+          <button type="button" onclick="addFilingOffice('municipality')" style="padding:8px 14px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;white-space:nowrap;">追加</button>
         </div>
       </div>
     </div>

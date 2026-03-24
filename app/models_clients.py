@@ -169,3 +169,36 @@ class TTaxRecordMunicipality(Base):
     # 市区町村税の内訳
     equal_levy = Column(Integer, nullable=True)              # 均等割
     corporate_tax_levy = Column(Integer, nullable=True)      # 法人税割
+
+
+class TFilingOfficeTaxOffice(Base):
+    """T_申告先_税務署テーブル"""
+    __tablename__ = 'T_申告先_税務署'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    tax_office_name = Column(String(100), nullable=False)   # 税務署名
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TFilingOfficePrefecture(Base):
+    """T_申告先_都道府県テーブル"""
+    __tablename__ = 'T_申告先_都道府県'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    prefecture_name = Column(String(100), nullable=False)   # 都道府県名
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TFilingOfficeMunicipality(Base):
+    """T_申告先_市区町村テーブル"""
+    __tablename__ = 'T_申告先_市区町村'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    municipality_name = Column(String(100), nullable=False)  # 市区町村名
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

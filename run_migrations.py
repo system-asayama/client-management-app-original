@@ -1031,6 +1031,132 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_申告先_税務署テーブルを作成
+        print("\n[マイグレーション] T_申告先_税務署テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_申告先_税務署'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_申告先_税務署" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            tax_office_name VARCHAR(100) NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_申告先_税務署テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_申告先_税務署テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_申告先_税務署'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_申告先_税務署" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL,
+                            tax_office_name TEXT NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_申告先_税務署テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_申告先_税務署テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_申告先_都道府県テーブルを作成
+        print("\n[マイグレーション] T_申告先_都道府県テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_申告先_都道府県'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_申告先_都道府県" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            prefecture_name VARCHAR(100) NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_申告先_都道府県テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_申告先_都道府県テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_申告先_都道府県'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_申告先_都道府県" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL,
+                            prefecture_name TEXT NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_申告先_都道府県テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_申告先_都道府県テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_申告先_市区町村テーブルを作成
+        print("\n[マイグレーション] T_申告先_市区町村テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_申告先_市区町村'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_申告先_市区町村" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            municipality_name VARCHAR(100) NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_申告先_市区町村テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_申告先_市区町村テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_申告先_市区町村'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_申告先_市区町村" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            client_id INTEGER NOT NULL,
+                            municipality_name TEXT NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_申告先_市区町村テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_申告先_市区町村テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

@@ -275,6 +275,53 @@
     </div>
   </div>
 
+  <!-- 申告先情報 -->
+  <div class="info-card">
+    <div class="section-title">申告先情報</div>
+
+    <!-- 税務署 -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">税務署</div>
+      {% if filing_tax_offices %}
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          {% for office in filing_tax_offices %}
+            <span style="display:inline-block;padding:4px 12px;background:#e3f2fd;color:#1565c0;border-radius:8px;font-size:13px;font-weight:600;">{{ office.tax_office_name }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="info-value empty">未登録</span>
+      {% endif %}
+    </div>
+
+    <!-- 都道府県 -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">都道府県</div>
+      {% if filing_prefectures %}
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          {% for pref in filing_prefectures %}
+            <span style="display:inline-block;padding:4px 12px;background:#f3e5f5;color:#6a1b9a;border-radius:8px;font-size:13px;font-weight:600;">{{ pref.prefecture_name }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="info-value empty">未登録</span>
+      {% endif %}
+    </div>
+
+    <!-- 市区町村 -->
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">市区町村</div>
+      {% if filing_municipalities %}
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          {% for muni in filing_municipalities %}
+            <span style="display:inline-block;padding:4px 12px;background:#e8f5e9;color:#2e7d32;border-radius:8px;font-size:13px;font-weight:600;">{{ muni.municipality_name }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="info-value empty">未登録</span>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- 適格請求書（インボイス） -->
   <div class="info-card">
     <div class="section-title">適格請求書発行事業者（インボイス）</div>

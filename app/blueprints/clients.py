@@ -3,7 +3,8 @@
 """
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from app.db import SessionLocal
-from app.models_clients import TClient, TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality
+from app.models_clients import TClient, TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality, TFilingOfficeTaxOffice, TFilingOfficePrefecture, TFilingOfficeMunicipality
+from flask import jsonify
 from app.models_login import TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from sqlalchemy import and_
@@ -1002,9 +1003,18 @@ def tax_info(client_id):
             flash('顧問先が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
         profession = _get_profession(tenant_id)
+        filing_tax_offices = db.query(TFilingOfficeTaxOffice).filter(
+            TFilingOfficeTaxOffice.client_id == client_id).all()
+        filing_prefectures = db.query(TFilingOfficePrefecture).filter(
+            TFilingOfficePrefecture.client_id == client_id).all()
+        filing_municipalities = db.query(TFilingOfficeMunicipality).filter(
+            TFilingOfficeMunicipality.client_id == client_id).all()
         return render_template('client_tax_info.html', client=client,
                                profession=profession,
-                               profession_label=PROFESSION_LABELS.get(profession, ''))
+                               profession_label=PROFESSION_LABELS.get(profession, ''),
+                               filing_tax_offices=filing_tax_offices,
+                               filing_prefectures=filing_prefectures,
+                               filing_municipalities=filing_municipalities)
     finally:
         db.close()
 
@@ -1060,11 +1070,83 @@ def edit_tax_info(client_id):
             db.commit()
             flash('税務申告基本情報を更新しました', 'success')
             return redirect(url_for('clients.tax_info', client_id=client_id))
+        filing_tax_offices = db.query(TFilingOfficeTaxOffice).filter(
+            TFilingOfficeTaxOffice.client_id == client_id).all()
+        filing_prefectures = db.query(TFilingOfficePrefecture).filter(
+            TFilingOfficePrefecture.client_id == client_id).all()
+        filing_municipalities = db.query(TFilingOfficeMunicipality).filter(
+            TFilingOfficeMunicipality.client_id == client_id).all()
         return render_template('client_tax_info_edit.html', client=client,
                                profession=profession,
-                               profession_label=PROFESSION_LABELS.get(profession, ''))
+                               profession_label=PROFESSION_LABELS.get(profession, ''),
+                               filing_tax_offices=filing_tax_offices,
+                               filing_prefectures=filing_prefectures,
+                               filing_municipalities=filing_municipalities)
     finally:
         db.close()
+
+
+@bp.route('/<int:client_id>/filing_offices/add', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def add_filing_office(client_id):
+    """申告先を追加（AJAX）"""
+    tenant_id = session.get('tenant_id')
+    data = request.get_json()
+    office_type = data.get('office_type')
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': '名前が空です'})
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            return jsonify({'success': False, 'error': '顧問先が見つかりません'})
+        if office_type == 'tax_office':
+            obj = TFilingOfficeTaxOffice(client_id=client_id, tax_office_name=name)
+        elif office_type == 'prefecture':
+            obj = TFilingOfficePrefecture(client_id=client_id, prefecture_name=name)
+        elif office_type == 'municipality':
+            obj = TFilingOfficeMunicipality(client_id=client_id, municipality_name=name)
+        else:
+            return jsonify({'success': False, 'error': '不正なタイプです'})
+        db.add(obj)
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        db.close()
+
+
+@bp.route('/<int:client_id>/filing_offices/delete/<office_type>/<int:office_id>')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def delete_filing_office(client_id, office_type, office_id):
+    """申告先を削除"""
+    db = SessionLocal()
+    try:
+        if office_type == 'tax_office':
+            obj = db.query(TFilingOfficeTaxOffice).filter(
+                TFilingOfficeTaxOffice.id == office_id,
+                TFilingOfficeTaxOffice.client_id == client_id).first()
+        elif office_type == 'prefecture':
+            obj = db.query(TFilingOfficePrefecture).filter(
+                TFilingOfficePrefecture.id == office_id,
+                TFilingOfficePrefecture.client_id == client_id).first()
+        elif office_type == 'municipality':
+            obj = db.query(TFilingOfficeMunicipality).filter(
+                TFilingOfficeMunicipality.id == office_id,
+                TFilingOfficeMunicipality.client_id == client_id).first()
+        else:
+            obj = None
+        if obj:
+            db.delete(obj)
+            db.commit()
+    finally:
+        db.close()
+    return redirect(url_for('clients.edit_tax_info', client_id=client_id))
 
 # ─────────────────────────────────────────────
 # 税務年間カレンダー（全顧問先）
@@ -1263,8 +1345,14 @@ def add_tax_record(client_id):
 
         # GET
         client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        filing_prefectures = db.query(TFilingOfficePrefecture).filter(
+            TFilingOfficePrefecture.client_id == client_id).all()
+        filing_municipalities = db.query(TFilingOfficeMunicipality).filter(
+            TFilingOfficeMunicipality.client_id == client_id).all()
         return render_template('client_tax_record_edit.html', client=client,
                                record=None, client_fiscal_month=client_fiscal_month,
+                               filing_prefectures=filing_prefectures,
+                               filing_municipalities=filing_municipalities,
                                enumerate=enumerate)
     finally:
         db.close()
@@ -1350,8 +1438,14 @@ def edit_tax_record(client_id, record_id):
             TTaxRecordMunicipality.tax_record_id == rec.id
         ).all()
         client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        filing_prefectures = db.query(TFilingOfficePrefecture).filter(
+            TFilingOfficePrefecture.client_id == client_id).all()
+        filing_municipalities = db.query(TFilingOfficeMunicipality).filter(
+            TFilingOfficeMunicipality.client_id == client_id).all()
         return render_template('client_tax_record_edit.html', client=client,
                                record=rec, client_fiscal_month=client_fiscal_month,
+                               filing_prefectures=filing_prefectures,
+                               filing_municipalities=filing_municipalities,
                                enumerate=enumerate)
     finally:
         db.close()

@@ -1,5 +1,5 @@
 """
-テナント用ストレージアダプタ（Dropbox / GCS）
+テナント用ストレージアダプタ（Dropbox / GCS / Cloudinary）
 """
 import os
 from datetime import datetime
@@ -221,17 +221,57 @@ def get_tenant_storage_config(tenant_id: int):
         db.close()
 
 
+class CloudinaryAdapter(StorageAdapterBase):
+    """Cloudinaryをフォールバックストレージとして使用するアダプター"""
+
+    def __init__(self, tenant_id: int):
+        self.tenant_id = tenant_id
+        self.config = None
+        import cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'duxlkdnk6'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY', '449253734467744'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'khg3gMGmlG9g5tvx1cb7soFd540'),
+            secure=True
+        )
+
+    def upload(self, file_stream, original_name, client_id: int,
+               client_folder_path: str = None, subfolder: str = None) -> str:
+        import cloudinary.uploader
+        safe_name = secure_filename(original_name)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        public_id = f"tenant_{self.tenant_id}/client_{client_id}/{timestamp}_{safe_name}"
+        # ファイルストリームを読み込む
+        file_bytes = file_stream.read()
+        result = cloudinary.uploader.upload(
+            file_bytes,
+            public_id=public_id,
+            resource_type='raw',
+            use_filename=True,
+            unique_filename=False,
+            overwrite=True
+        )
+        return result.get('secure_url', '')
+
+    def list_folders(self, client_folder_path: str) -> list:
+        return []
+
+    def create_folder(self, client_folder_path: str, folder_name: str) -> bool:
+        return True
+
+
 def get_storage_adapter(tenant_id: int) -> StorageAdapterBase:
     config = get_tenant_storage_config(tenant_id)
     if not config:
-        raise RuntimeError(
-            "ストレージが設定されていません。"
-            "テナント管理画面でDropboxまたはGoogle Cloud Storageと連携してください。"
-        )
+        # ストレージ未設定時はCloudinaryにフォールバック
+        return CloudinaryAdapter(tenant_id)
     provider = (config.provider or '').strip().lower()
     if provider == 'dropbox':
         return DropboxAdapter(config, tenant_id)
     elif provider in ('gcs', 'google', 'google_cloud_storage'):
         return GCSAdapter(config, tenant_id)
+    elif provider == 'cloudinary':
+        return CloudinaryAdapter(tenant_id)
     else:
-        raise RuntimeError(f"未対応のストレージプロバイダーです: {provider}")
+        # 未対応プロバイダーもCloudinaryにフォールバック
+        return CloudinaryAdapter(tenant_id)

@@ -8,3 +8,4 @@ boto3==1.34.34
 dropbox==12.0.2
 beautifulsoup4==4.12.3
 requests==2.31.0
+cloudinary

@@ -593,7 +593,7 @@ def get_fixed_asset_tax_deadlines(year=None):
                 'date': d,
                 'original_date': r,
                 'adjusted': d != r,
-                'type': f'固定資産税納付（{y}年度{label}）',
+                'type': f'固定資産税・償却資産税納付（{y}年度{label}）',
                 'category': 'fixed_asset_tax',
                 'color': '#bf360c',
                 'note': f'{y}年度{label}（市区町村により期限は異なる場合あり）',

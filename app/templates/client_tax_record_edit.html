@@ -68,7 +68,7 @@
 <div class="page-wrap">
   <div class="breadcrumb">
     <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> ›
-    <a href="{{ url_for('clients.detail', client_id=client.id) }}">{{ client.name }}</a> ›
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> ›
     <a href="{{ url_for('clients.profession_info', client_id=client.id) }}">業務情報</a> ›
     <a href="{{ url_for('clients.tax_records', client_id=client.id) }}">納税実績</a> ›
     {% if record %}編集{% else %}追加{% endif %}

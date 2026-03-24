@@ -127,6 +127,7 @@ function closeBranchModal() {
 function selectBranch(branch, officeType) {
   var loadingEl = document.getElementById('branch-modal-loading');
   var listEl = document.getElementById('branch-modal-list');
+
   if (officeType === 'tax_office') {
     // 税務署：郵便番号から国税庁APIで自動取得
     if (!branch.郵便番号) {
@@ -155,32 +156,129 @@ function selectBranch(branch, officeType) {
         listEl.style.opacity = '1';
         alert('税務署の取得に失敗しました。');
       });
+
   } else if (officeType === 'prefecture') {
-    // 都道府県
-    if (!branch.都道府県) {
-      alert('この拠点には都道府県が登録されていません。');
+    // 都道府県税事務所：郵便番号から自動取得
+    if (!branch.郵便番号) {
+      // 郵便番号なしの場合は都道府県名をそのまま使用
+      if (!branch.都道府県) {
+        alert('この拠点には都道府県が登録されていません。');
+        return;
+      }
+      document.getElementById('new_prefecture').value = branch.都道府県;
+      closeBranchModal();
+      if (confirm('「' + branch.都道府県 + '」を都道府県税事務所として追加しますか？')) {
+        addFilingOffice('prefecture');
+      }
       return;
     }
-    document.getElementById('new_prefecture').value = branch.都道府県;
-    closeBranchModal();
-    if (confirm('「' + branch.都道府県 + '」を都道府県として追加しますか？')) {
-      addFilingOffice('prefecture');
-    }
+    loadingEl.style.display = 'block';
+    listEl.style.opacity = '0.4';
+    fetch('/clients/{{ client.id }}/get_tax_office_by_zipcode?zipcode=' + encodeURIComponent(branch.郵便番号))
+      .then(r => r.json())
+      .then(data => {
+        loadingEl.style.display = 'none';
+        listEl.style.opacity = '1';
+        var prefOfficeName = data.pref_tax_office_name || data.prefecture || branch.都道府県;
+        if (!prefOfficeName) {
+          alert('都道府県税事務所名を取得できませんでした。');
+          return;
+        }
+        document.getElementById('new_prefecture').value = prefOfficeName;
+        closeBranchModal();
+        var msg = '「' + prefOfficeName + '」を都道府県税事務所として追加しますか？';
+        if (data.pref_tax_office_name && data.prefecture && data.city) {
+          msg = '「' + prefOfficeName + '」を都道府県税事務所として追加しますか？\n\n(所在地: ' + data.prefecture + data.city + ')';
+        }
+        if (confirm(msg)) {
+          addFilingOffice('prefecture');
+        }
+      })
+      .catch(() => {
+        loadingEl.style.display = 'none';
+        listEl.style.opacity = '1';
+        // フォールバック: 都道府県名をそのまま使用
+        var fallback = branch.都道府県 || '';
+        if (fallback) {
+          document.getElementById('new_prefecture').value = fallback;
+          if (confirm('「' + fallback + '」を都道府県税事務所として追加しますか？')) {
+            addFilingOffice('prefecture');
+          }
+        } else {
+          alert('都道府県税事務所の取得に失敗しました。');
+        }
+      });
+
   } else if (officeType === 'municipality') {
-    // 市区町村（番地を除いた部分を自動抽出）
-    var addr = branch.市区町村番地;
-    if (!addr) {
-      alert('この拠点には市区町村番地が登録されていません。');
+    // 市区町村役所：郵便番号から自動取得
+    if (!branch.郵便番号) {
+      // 郵便番号なしの場合は市区町村番地から抽出
+      var addr = branch.市区町村番地;
+      if (!addr) {
+        alert('この拠点には市区町村番地が登録されていません。');
+        return;
+      }
+      var match = addr.match(/^([^\d０-９]+?[市区町村郡](?:[^\d０-９]+?[区町村])?)/);
+      var muni = match ? match[1] : addr;
+      document.getElementById('new_municipality').value = muni;
+      closeBranchModal();
+      if (confirm('「' + muni + '」を市区町村役所として追加しますか？')) {
+        addFilingOffice('municipality');
+      }
       return;
     }
-    // 市区町村名を抽出（市・区・町・村・郡で区切る）
-    var match = addr.match(/^([^\d０-９]+?[市区町村郡](?:[^\d０-９]+?[区町村])?)/);
-    var muni = match ? match[1] : addr;
-    document.getElementById('new_municipality').value = muni;
-    closeBranchModal();
-    if (confirm('「' + muni + '」を市区町村として追加しますか？')) {
-      addFilingOffice('municipality');
-    }
+    loadingEl.style.display = 'block';
+    listEl.style.opacity = '0.4';
+    fetch('/clients/{{ client.id }}/get_tax_office_by_zipcode?zipcode=' + encodeURIComponent(branch.郵便番号))
+      .then(r => r.json())
+      .then(data => {
+        loadingEl.style.display = 'none';
+        listEl.style.opacity = '1';
+
+        // 東京23区の場合は市区町村への申告不要を通知
+        if (data.is_tokyo_23ku) {
+          closeBranchModal();
+          alert('⚠️ ' + (data.tokyo_23ku_note || '東京23区は市区町村への申告は不要です。'));
+          return;
+        }
+
+        var muniOfficeName = data.municipality_office_name;
+        if (!muniOfficeName) {
+          // フォールバック: 市区町村番地から抽出
+          var addr = branch.市区町村番地 || '';
+          var match = addr.match(/^([^\d０-９]+?[市区町村郡](?:[^\d０-９]+?[区町村])?)/);
+          muniOfficeName = match ? match[1] : (data.city || addr);
+        }
+        if (!muniOfficeName) {
+          alert('市区町村役所名を取得できませんでした。');
+          return;
+        }
+        document.getElementById('new_municipality').value = muniOfficeName;
+        closeBranchModal();
+        var msg = '「' + muniOfficeName + '」を市区町村役所として追加しますか？';
+        if (data.prefecture && data.city) {
+          msg = '「' + muniOfficeName + '」を市区町村役所として追加しますか？\n\n(所在地: ' + data.prefecture + data.city + ')';
+        }
+        if (confirm(msg)) {
+          addFilingOffice('municipality');
+        }
+      })
+      .catch(() => {
+        loadingEl.style.display = 'none';
+        listEl.style.opacity = '1';
+        // フォールバック: 市区町村番地から抽出
+        var addr = branch.市区町村番地 || '';
+        var match = addr.match(/^([^\d０-９]+?[市区町村郡](?:[^\d０-９]+?[区町村])?)/);
+        var muni = match ? match[1] : addr;
+        if (muni) {
+          document.getElementById('new_municipality').value = muni;
+          if (confirm('「' + muni + '」を市区町村役所として追加しますか？')) {
+            addFilingOffice('municipality');
+          }
+        } else {
+          alert('市区町村役所の取得に失敗しました。');
+        }
+      });
   }
 }
 

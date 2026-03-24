@@ -1566,10 +1566,11 @@ def branches_for_filing(client_id):
 @bp.route('/<int:client_id>/get_tax_office_by_zipcode')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def get_tax_office_by_zipcode(client_id):
-    """郵便番号から国税庁サービスで税務署名を取得"""
+    """郵便番号から国税庁サービスで税務署名・都道府県税事務所名・市区町村役所名を取得"""
     import requests as http_requests
     from bs4 import BeautifulSoup
     import re
+    from app.prefecture_tax_office_map import get_pref_tax_office_name
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         return jsonify({'error': '未認証'}), 401
@@ -1580,7 +1581,8 @@ def get_tax_office_by_zipcode(client_id):
     if len(zipcode_clean) != 7 or not zipcode_clean.isdigit():
         return jsonify({'error': '郵便番号の形式が正しくありません（7桁の数字）'})
     try:
-        data = {
+        # ── Step1: 国税庁サービスで税務署名を取得 ──
+        nta_data = {
             'KSTYPE': 'ksz',
             'TODOFUKEN_TO_ASCII': '',
             'ADDR_TO_ASCII': '',
@@ -1596,18 +1598,104 @@ def get_tax_office_by_zipcode(client_id):
         }
         resp = http_requests.post(
             'https://www.nta.go.jp/cgi-bin/zeimusho/kensaku/kensakuprocess.php',
-            data=data, headers=headers, timeout=10
+            data=nta_data, headers=headers, timeout=10
         )
         text = resp.content.decode('utf-8', errors='replace')
         soup = BeautifulSoup(text, 'html.parser')
         full_text = soup.get_text()
         matches = re.findall(r'を管轄する税務署[\s\n]*([^\s電話\n]+)', full_text)
-        if matches:
-            return jsonify({'tax_office_name': matches[0]})
+        tax_office_name = matches[0] if matches else None
+
+        # ── Step2: 郵便番号から都道府県・市区町村を取得（zipcloud API） ──
+        prefecture = None
+        city = None
+        pref_tax_office_name = None
+        municipality_office_name = None
+        is_tokyo_23ku = False
+        try:
+            zip_resp = http_requests.get(
+                f'https://zipcloud.ibsnet.co.jp/api/search?zipcode={zipcode_clean}',
+                timeout=5
+            )
+            zip_data = zip_resp.json()
+            if zip_data.get('results'):
+                r0 = zip_data['results'][0]
+                prefecture = r0.get('address1', '')
+                city = r0.get('address2', '')
+                town = r0.get('address3', '')
+
+                # 都道府県税事務所名を対応表から取得
+                pref_tax_office_name = get_pref_tax_office_name(prefecture, city)
+
+                # 東京23区の判定
+                tokyo_23ku = [
+                    '千代田区','中央区','港区','新宿区','文京区','台東区','墨田区','江東区',
+                    '品川区','目黒区','大田区','世田谷区','渋谷区','中野区','杉並区','豊島区',
+                    '北区','荒川区','板橋区','練馬区','足立区','葛飾区','江戸川区'
+                ]
+                if prefecture == '東京都' and city in tokyo_23ku:
+                    is_tokyo_23ku = True
+                    municipality_office_name = None  # 東京23区は市区町村への申告不要
+                else:
+                    # 市区町村役所名を生成（市区町村名 + 役所/役場）
+                    if city:
+                        if city.endswith('市'):
+                            municipality_office_name = city + '役所'
+                        elif city.endswith('区'):
+                            municipality_office_name = city + '役所'
+                        elif city.endswith('町'):
+                            municipality_office_name = city + '役場'
+                        elif city.endswith('村'):
+                            municipality_office_name = city + '役場'
+                        else:
+                            municipality_office_name = city + '役所'
+        except Exception:
+            pass  # 住所取得失敗時は None のまま
+
+        result = {}
+        if tax_office_name:
+            result['tax_office_name'] = tax_office_name
         else:
+            result['tax_office_error'] = '税務署が見つかりませんでした。郵便番号を確認してください。'
+        if prefecture:
+            result['prefecture'] = prefecture
+        if city:
+            result['city'] = city
+        if pref_tax_office_name:
+            result['pref_tax_office_name'] = pref_tax_office_name
+        if municipality_office_name:
+            result['municipality_office_name'] = municipality_office_name
+        if is_tokyo_23ku:
+            result['is_tokyo_23ku'] = True
+            result['tokyo_23ku_note'] = '東京23区は都税事務所への申告のみとなります（市区町村への申告は不要です）'
+
+        # 後方互換: tax_office_name がない場合はエラーを返す
+        if not tax_office_name and not prefecture:
             return jsonify({'error': '税務署が見つかりませんでした。郵便番号を確認してください。'})
+
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': f'国税庁サービスへの接続に失敗しました: {str(e)}'})
+
+
+@bp.route('/<int:client_id>/get_pref_tax_office_by_address')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def get_pref_tax_office_by_address(client_id):
+    """都道府県名・市区町村名から都道府県税事務所名を取得（補助API）"""
+    from app.prefecture_tax_office_map import get_pref_tax_office_name, get_pref_tax_office_candidates
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': '未認証'}), 401
+    prefecture = request.args.get('prefecture', '').strip()
+    city = request.args.get('city', '').strip()
+    if not prefecture or not city:
+        return jsonify({'error': '都道府県名と市区町村名を指定してください'})
+    name = get_pref_tax_office_name(prefecture, city)
+    candidates = get_pref_tax_office_candidates(prefecture, city)
+    return jsonify({
+        'pref_tax_office_name': name,
+        'candidates': [{'name': c['name'], 'municipalities': c['municipalities'][:5]} for c in candidates]
+    })
 
 
 # ─────────────────────────────────────────────

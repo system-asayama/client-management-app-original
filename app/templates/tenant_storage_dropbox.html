@@ -190,6 +190,36 @@
     .folder-save-msg { font-size: 13px; margin-top: 8px; }
     .folder-save-msg.success { color: #2e7d32; }
     .folder-save-msg.error { color: #c62828; }
+
+    /* フォルダ作成 */
+    .create-folder-row {
+        display: flex; align-items: center; gap: 8px;
+        margin-top: 14px; flex-wrap: wrap;
+    }
+    .create-folder-input {
+        flex: 1; min-width: 180px;
+        padding: 8px 12px;
+        border: 1.5px solid #ddd; border-radius: 6px;
+        font-size: 14px; color: #333;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+    .create-folder-input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
+    .btn-create-folder {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 18px; border-radius: 6px;
+        font-size: 13px; font-weight: 600;
+        background: #e8f5e9; color: #2e7d32;
+        border: 1.5px solid #a5d6a7; cursor: pointer;
+        transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-create-folder:hover { background: #c8e6c9; }
+    .btn-create-folder:disabled { background: #f5f5f5; color: #bbb; border-color: #e0e0e0; cursor: not-allowed; }
+    .create-folder-msg { font-size: 13px; margin-top: 6px; width: 100%; }
+    .create-folder-msg.success { color: #2e7d32; }
+    .create-folder-msg.error { color: #c62828; }
+    .create-folder-hint { font-size: 12px; color: #999; margin-top: 4px; }
+
     .breadcrumb-nav {
         display: flex; align-items: center; gap: 4px;
         font-size: 13px; color: #888; margin-bottom: 10px; flex-wrap: wrap;
@@ -264,6 +294,22 @@
                 💾 このフォルダを保存先に設定
             </button>
             <div class="folder-save-msg" id="folderSaveMsg"></div>
+        </div>
+
+        <!-- フォルダ作成 -->
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e0e0e0;">
+            <div style="font-size: 13px; font-weight: 600; color: #444; margin-bottom: 8px;">➕ 現在の層に新規フォルダを作成</div>
+            <div class="create-folder-row">
+                <input type="text" class="create-folder-input" id="newFolderName"
+                    placeholder="フォルダ名を入力"
+                    onkeydown="if(event.key==='Enter'){createFolder();event.preventDefault();}"
+                />
+                <button class="btn-create-folder" id="btnCreateFolder" onclick="createFolder()">
+                    📂 フォルダを作成
+                </button>
+                <div class="create-folder-msg" id="createFolderMsg"></div>
+            </div>
+            <div class="create-folder-hint">現在表示中の層（パンくずの場所）にフォルダを作成します</div>
         </div>
     </div>
     {% endif %}
@@ -457,6 +503,53 @@ function updateBreadcrumb(path) {
         });
     }
     nav.innerHTML = html;
+}
+
+function createFolder() {
+    const nameInput = document.getElementById('newFolderName');
+    const name = nameInput.value.trim();
+    if (!name) {
+        showCreateMsg('error', 'フォルダ名を入力してください');
+        return;
+    }
+    // 現在の層に新フォルダを作成
+    const parentPath = currentPath || '';
+    const newPath = parentPath ? parentPath + '/' + name : '/' + name;
+
+    const btn = document.getElementById('btnCreateFolder');
+    btn.disabled = true;
+    btn.textContent = '作成中...';
+    showCreateMsg('', '');
+
+    fetch('/tenant/storage/dropbox/create-folder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder_path: newPath})
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.textContent = '📂 フォルダを作成';
+        if (data.success) {
+            showCreateMsg('success', `✅ 「${data.name}」を作成しました`);
+            nameInput.value = '';
+            // フォルダ一覧を再読み込み
+            loadFolders(currentPath);
+        } else {
+            showCreateMsg('error', `⚠️ ${data.error}`);
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.textContent = '📂 フォルダを作成';
+        showCreateMsg('error', '⚠️ 通信エラーが発生しました');
+    });
+}
+
+function showCreateMsg(type, text) {
+    const msg = document.getElementById('createFolderMsg');
+    msg.className = 'create-folder-msg' + (type ? ' ' + type : '');
+    msg.textContent = text;
 }
 
 function escapeHtml(str) {

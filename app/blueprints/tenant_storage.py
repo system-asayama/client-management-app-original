@@ -176,6 +176,48 @@ def dropbox_folders():
 
 
 # ===========================
+# Dropbox フォルダ作成API
+# ===========================
+@bp.route('/dropbox/create-folder', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+def dropbox_create_folder():
+    """Dropboxに新規フォルダを作成する"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': 'テナントが選択されていません'}), 401
+
+    data = request.get_json()
+    folder_path = (data or {}).get('folder_path', '').strip()
+    if not folder_path:
+        return jsonify({'error': 'フォルダパスを指定してください'}), 400
+
+    db = SessionLocal()
+    try:
+        storage_config = _get_storage_config(db, tenant_id)
+        if not storage_config or storage_config.provider != 'dropbox':
+            return jsonify({'error': 'Dropboxが設定されていません'}), 400
+        token = storage_config.access_token
+    finally:
+        db.close()
+
+    try:
+        import dropbox
+        from dropbox.exceptions import ApiError
+        dbx = dropbox.Dropbox(token)
+        # パスが / で始まらない場合は追加
+        if not folder_path.startswith('/'):
+            folder_path = '/' + folder_path
+        result = dbx.files_create_folder_v2(folder_path, autorename=False)
+        created_path = result.metadata.path_display
+        return jsonify({'success': True, 'path': created_path, 'name': result.metadata.name})
+    except Exception as e:
+        err_str = str(e)
+        if 'path/conflict' in err_str or 'folder_conflict' in err_str or 'already exists' in err_str.lower():
+            return jsonify({'error': 'そのフォルダは既に存在します'}), 409
+        return jsonify({'error': err_str}), 500
+
+
+# ===========================
 # Dropbox ベースフォルダ保存API
 # ===========================
 @bp.route('/dropbox/set-folder', methods=['POST'])

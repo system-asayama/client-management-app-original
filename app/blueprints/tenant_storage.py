@@ -147,7 +147,20 @@ def dropbox_folders():
 
     try:
         import dropbox
-        dbx = dropbox.Dropbox(token)
+        dbx_base = dropbox.Dropbox(oauth2_access_token=token)
+
+        # チームスペース（root_namespace_id）が取得できる場合はチームスペースで表示
+        try:
+            acc = dbx_base.users_get_current_account()
+            root_ns = acc.root_info.root_namespace_id if (acc.root_info and acc.root_info.root_namespace_id) else None
+        except Exception:
+            root_ns = None
+
+        if root_ns:
+            dbx = dbx_base.with_path_root(dropbox.common.PathRoot.namespace_id(root_ns))
+        else:
+            dbx = dbx_base
+
         result = dbx.files_list_folder(path, include_non_downloadable_files=False)
         folders = []
         for entry in result.entries:

@@ -154,6 +154,100 @@ def storage_dropbox():
 
 
 # ===========================
+# Dropbox OAuth2 認可フロー
+# ===========================
+@bp.route('/dropbox/oauth/start', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+def dropbox_oauth_start():
+    """DropboxのOAuth2認可フローを開始する"""
+    from dropbox import DropboxOAuth2Flow
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_storage.storage_dropbox'))
+
+    redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
+    csrf_token = f"dropbox_csrf_{tenant_id}"
+    session['dropbox_csrf_token'] = csrf_token
+
+    auth_flow = DropboxOAuth2Flow(
+        consumer_key=DROPBOX_APP_KEY,
+        redirect_uri=redirect_uri,
+        session=session,
+        csrf_token_session_key='dropbox_csrf_token',
+        consumer_secret=DROPBOX_APP_SECRET,
+        token_access_type='offline'
+    )
+    authorize_url = auth_flow.start()
+    return redirect(authorize_url)
+
+
+@bp.route('/dropbox/oauth/callback', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+def dropbox_oauth_callback():
+    """DropboxのOAuth2コールバック処理"""
+    from dropbox import DropboxOAuth2Flow
+    from dropbox.exceptions import BadRequestException, BadStateException, CsrfException, NotApprovedException, ProviderException
+
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_storage.storage_dropbox'))
+
+    redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
+    auth_flow = DropboxOAuth2Flow(
+        consumer_key=DROPBOX_APP_KEY,
+        redirect_uri=redirect_uri,
+        session=session,
+        csrf_token_session_key='dropbox_csrf_token',
+        consumer_secret=DROPBOX_APP_SECRET,
+        token_access_type='offline'
+    )
+
+    try:
+        oauth_result = auth_flow.finish(request.args)
+        access_token = oauth_result.access_token
+        refresh_token = oauth_result.refresh_token
+
+        db = SessionLocal()
+        try:
+            # 既存設定を無効化
+            db.execute(text("""
+                UPDATE "T_外部ストレージ連携"
+                SET status = 'inactive'
+                WHERE tenant_id = :tenant_id
+            """), {"tenant_id": tenant_id})
+            # 新しいトークンを保存
+            db.execute(text("""
+                INSERT INTO "T_外部ストレージ連携"
+                (tenant_id, provider, access_token, refresh_token, status)
+                VALUES (:tenant_id, 'dropbox', :access_token, :refresh_token, 'active')
+            """), {
+                "tenant_id": tenant_id,
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            })
+            db.commit()
+            flash('Dropboxとの連携が完了しました！', 'success')
+        except Exception as e:
+            db.rollback()
+            flash(f'DB保存に失敗しました: {e}', 'error')
+        finally:
+            db.close()
+
+    except BadStateException:
+        flash('セッションが切れました。もう一度お試しください。', 'error')
+    except CsrfException:
+        flash('セキュリティエラーが発生しました。もう一度お試しください。', 'error')
+    except NotApprovedException:
+        flash('Dropboxの認証がキャンセルされました。', 'warning')
+    except Exception as e:
+        flash(f'Dropbox連携に失敗しました: {e}', 'error')
+
+    return redirect(url_for('tenant_storage.storage_dropbox'))
+
+
+# ===========================
 # Dropbox フォルダ一覧API
 # ===========================
 @bp.route('/dropbox/folders', methods=['GET'])

@@ -229,6 +229,30 @@
     }
     .breadcrumb-nav .crumb:hover { color: #283593; }
     .breadcrumb-nav .sep { color: #ccc; }
+
+    /* Dropbox OAuthボタン */
+    .btn-dropbox-oauth {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 28px;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 700;
+        background: #0061ff;
+        color: #fff;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(0,97,255,0.25);
+    }
+    .btn-dropbox-oauth:hover {
+        background: #0052d9;
+        box-shadow: 0 4px 14px rgba(0,97,255,0.35);
+        color: #fff;
+        text-decoration: none;
+    }
 </style>
 
 <div class="storage-page">
@@ -237,7 +261,7 @@
     </div>
 
     <div class="page-title">📂 Dropbox 連携設定</div>
-    <div class="page-desc">Dropboxのアクセストークンを入力して連携します。</div>
+    <div class="page-desc">Dropboxアカウントと連携して、ファイルを保存できるようにします。</div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -314,40 +338,48 @@
     </div>
     {% endif %}
 
+    <!-- OAuth連携カード -->
     <div class="form-card">
         <div class="form-card-title">
-            {% if view.is_connected and view.provider == 'dropbox' %}アクセストークンを更新{% else %}Dropboxと連携{% endif %}
+            {% if view.is_connected and view.provider == 'dropbox' %}🔄 Dropboxを再連携する{% else %}📦 Dropboxと連携する{% endif %}
         </div>
 
-        <div class="howto-box">
-            <strong>⚠️ アクセストークンの取得方法</strong>
-            <ol>
-                <li><a href="https://www.dropbox.com/developers/apps" target="_blank">Dropbox App Console</a> にアクセス</li>
-                <li>「Create app」をクリック</li>
-                <li>Scoped access / Full Dropbox を選択</li>
-                <li>アプリ名を入力して作成</li>
-                <li>Permissions タブで以下の権限を有効化:<br>
-                    &nbsp;&nbsp;・files.content.write<br>
-                    &nbsp;&nbsp;・files.content.read<br>
-                    &nbsp;&nbsp;・sharing.write
-                </li>
-                <li>Settings タブで「Generate access token」をクリック</li>
-            </ol>
-        </div>
+        <p style="font-size:14px; color:#555; margin-bottom:20px; line-height:1.7;">
+            下のボタンをクリックするとDropboxの認証画面に移動します。「許可する」をクリックするだけで自動的に連携が完了します。
+        </p>
 
-        <form method="POST">
-            <div class="form-group">
-                <label class="form-label" for="dropbox_access_token">
-                    アクセストークン <span class="required">*</span>
-                </label>
-                <input type="text" class="form-input" id="dropbox_access_token"
-                       name="dropbox_access_token"
-                       placeholder="sl.xxxxxxxxxxxxxxxxxxxxx" required>
-                <div class="form-hint">Dropboxで生成したアクセストークンを入力してください</div>
-            </div>
-            <button type="submit" class="btn-submit">📂 Dropboxと連携</button>
-        </form>
+        <a href="{{ url_for('tenant_storage.dropbox_oauth_start') }}" class="btn-dropbox-oauth">
+            <img src="https://cfl.dropboxstatic.com/static/images/logo_catalog/dropbox-logo_320x320.png"
+                 alt="Dropbox" style="width:22px; height:22px; object-fit:contain; border-radius:4px;">
+            Dropboxで連携する
+        </a>
     </div>
+
+    <!-- 手動入力（上級者向け） -->
+    <details style="margin-bottom:24px;">
+        <summary style="font-size:13px; color:#888; cursor:pointer; padding:8px 0;">⚙️ 手動でアクセストークンを入力する（上級者向け）</summary>
+        <div class="form-card" style="margin-top:12px;">
+            <div class="howto-box">
+                <strong>⚠️ アクセストークンの取得方法</strong>
+                <ol>
+                    <li><a href="https://www.dropbox.com/developers/apps" target="_blank">Dropbox App Console</a> にアクセス</li>
+                    <li>Settings タブで「Generate access token」をクリック</li>
+                </ol>
+            </div>
+            <form method="POST">
+                <div class="form-group">
+                    <label class="form-label" for="dropbox_access_token">
+                        アクセストークン <span class="required">*</span>
+                    </label>
+                    <input type="text" class="form-input" id="dropbox_access_token"
+                           name="dropbox_access_token"
+                           placeholder="sl.xxxxxxxxxxxxxxxxxxxxx" required>
+                    <div class="form-hint">Dropboxで生成したアクセストークンを入力してください</div>
+                </div>
+                <button type="submit" class="btn-submit">📂 トークンで連携</button>
+            </form>
+        </div>
+    </details>
 
     <a href="{{ url_for('tenant_storage.storage_settings') }}" class="btn-back">← ストレージ設定に戻る</a>
 </div>

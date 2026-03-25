@@ -7,98 +7,160 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; color: #333; }
-        .container { max-width: 600px; margin: 40px auto; padding: 0 16px; }
+        .container { max-width: 640px; margin: 40px auto; padding: 0 16px; }
         .card {
             background: #fff;
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 32px;
+            padding: 28px;
         }
         h2 { font-size: 20px; color: #1a237e; margin-bottom: 8px; }
-        .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+        .subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
         .client-name {
             background: #e8eaf6;
             border-radius: 6px;
             padding: 10px 16px;
             font-weight: bold;
             color: #1a237e;
-            margin-bottom: 24px;
-        }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
-        input[type="text"], select {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 15px;
-        }
-        input[type="text"] { font-family: monospace; }
-        input[type="text"]:focus, select:focus {
-            outline: none;
-            border-color: #1a237e;
-            box-shadow: 0 0 0 2px rgba(26,35,126,0.15);
-        }
-        .hint {
-            background: #f8f9fa;
-            border-left: 3px solid #1a237e;
-            padding: 12px 16px;
-            border-radius: 0 6px 6px 0;
-            font-size: 13px;
-            color: #555;
             margin-bottom: 20px;
         }
-        .hint code {
-            background: #e8eaf6;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
+        .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 14px; }
+        .flash.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .flash.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+        /* 現在の設定 */
         .current-path {
             background: #fff3e0;
             border: 1px solid #ffcc02;
             border-radius: 6px;
             padding: 10px 14px;
             font-size: 13px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .current-path strong { color: #e65100; }
-        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        /* フォルダツリーセクション */
+        .folder-section {
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .folder-section-title {
+            font-size: 14px; font-weight: 600; color: #444; margin-bottom: 12px;
+        }
+        .btn-load {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 6px;
+            font-size: 13px; font-weight: 600;
+            background: #e8eaf6; color: #1a237e;
+            border: 1.5px solid #9fa8da; cursor: pointer;
+            transition: all 0.2s; margin-bottom: 12px;
+        }
+        .btn-load:hover { background: #c5cae9; }
+        .btn-load:disabled { background: #f5f5f5; color: #bbb; border-color: #e0e0e0; cursor: not-allowed; }
+
+        /* パンくず */
+        .breadcrumb-nav {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 13px; color: #888; margin-bottom: 10px; flex-wrap: wrap;
+        }
+        .breadcrumb-nav .crumb {
+            color: #1a237e; cursor: pointer; text-decoration: underline;
+        }
+        .breadcrumb-nav .crumb:hover { color: #283593; }
+        .breadcrumb-nav .sep { color: #bbb; }
+        .breadcrumb-nav .current-crumb { color: #555; font-weight: 600; }
+
+        /* フォルダツリー */
+        .folder-tree-container {
+            border: 1px solid #e0e0e0; border-radius: 6px;
+            min-height: 80px; max-height: 260px; overflow-y: auto;
+            background: #fafafa; margin-bottom: 12px;
+        }
+        .folder-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 12px; cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.15s; font-size: 14px;
+        }
+        .folder-item:last-child { border-bottom: none; }
+        .folder-item:hover { background: #e8eaf6; }
+        .folder-item.selected { background: #c5cae9; font-weight: 600; }
+        .folder-item .folder-icon { font-size: 16px; flex-shrink: 0; }
+        .folder-item .folder-name { flex: 1; color: #1a237e; }
+        .folder-item .btn-enter {
+            font-size: 11px; color: #888; background: #f0f0f0;
+            border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer;
+        }
+        .folder-item .btn-enter:hover { background: #e0e0e0; }
+        .folder-empty { padding: 20px; text-align: center; color: #aaa; font-size: 13px; }
+        .folder-loading { padding: 20px; text-align: center; color: #888; font-size: 13px; }
+
+        /* 選択済み表示 */
+        .selected-path-display {
+            background: #e8f5e9; border: 1px solid #a5d6a7;
+            border-radius: 6px; padding: 10px 14px;
+            font-size: 13px; color: #2e7d32; margin-bottom: 12px;
+            display: none;
+        }
+        .selected-path-display.show { display: block; }
+
+        /* フォルダ作成 */
+        .create-folder-area {
+            border-top: 1px solid #e0e0e0; padding-top: 14px; margin-top: 4px;
+        }
+        .create-folder-title { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 8px; }
+        .create-folder-row {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .create-folder-input {
+            flex: 1; min-width: 160px;
+            padding: 8px 12px;
+            border: 1.5px solid #ddd; border-radius: 6px;
+            font-size: 14px; color: #333;
+        }
+        .create-folder-input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
+        .btn-create-folder {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 6px;
+            font-size: 13px; font-weight: 600;
+            background: #e8f5e9; color: #2e7d32;
+            border: 1.5px solid #a5d6a7; cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-create-folder:hover { background: #c8e6c9; }
+        .btn-create-folder:disabled { background: #f5f5f5; color: #bbb; border-color: #e0e0e0; cursor: not-allowed; }
+        .create-folder-msg { font-size: 12px; margin-top: 6px; width: 100%; }
+        .create-folder-msg.success { color: #2e7d32; }
+        .create-folder-msg.error { color: #c62828; }
+        .create-folder-hint { font-size: 12px; color: #999; margin-top: 4px; }
+
+        /* ボタン */
+        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
         .btn {
-            padding: 10px 24px;
-            border: none;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
+            padding: 10px 24px; border: none; border-radius: 6px;
+            font-size: 15px; font-weight: bold; cursor: pointer;
+            text-decoration: none; display: inline-block;
         }
         .btn-primary { background: #1a237e; color: #fff; }
         .btn-primary:hover { background: #283593; }
         .btn-secondary { background: #f0f0f0; color: #333; }
         .btn-secondary:hover { background: #e0e0e0; }
-        .btn-outline { background: #fff; color: #3949ab; border: 1px solid #9fa8da; font-size: 13px; padding: 8px 14px; }
-        .btn-outline:hover { background: #e8eaf6; }
-        .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
-        .flash.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        .flash.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-        .or-divider { text-align: center; color: #aaa; font-size: 13px; margin: 10px 0; }
-        #new-folder-section { display: none; margin-top: 12px; }
-        .new-folder-row { display: flex; gap: 8px; align-items: center; }
-        .new-folder-row input { flex: 1; }
-        .btn-create { padding: 10px 16px; background: #3949ab; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
-        .btn-create:hover { background: #283593; }
-        #new-folder-msg { font-size: 12px; margin-top: 6px; }
-        .selected-badge {
-            display: inline-block;
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-radius: 20px;
-            padding: 4px 12px;
-            font-size: 12px;
-            margin-top: 8px;
+
+        /* 手入力 */
+        .hint {
+            background: #f8f9fa; border-left: 3px solid #1a237e;
+            padding: 12px 16px; border-radius: 0 6px 6px 0;
+            font-size: 13px; color: #555; margin-bottom: 20px;
         }
+        .hint code { background: #e8eaf6; padding: 1px 5px; border-radius: 3px; font-family: monospace; }
+        input[type="text"] {
+            width: 100%; padding: 10px 14px;
+            border: 1px solid #ccc; border-radius: 6px; font-size: 15px;
+            font-family: monospace; margin-bottom: 16px;
+        }
+        input[type="text"]:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 2px rgba(26,35,126,0.15); }
     </style>
 </head>
 <body>
@@ -125,32 +187,41 @@
             <input type="hidden" name="storage_folder_path" id="storage_folder_path" value="{{ client.storage_folder_path or '' }}">
 
             {% if storage_configured %}
-            <!-- ストレージ設定済み：フォルダ選択UI -->
-            <div class="form-group">
-                <label>📁 フォルダを選択</label>
-                <select id="folder-select" onchange="onFolderSelect(this)">
-                    <option value="">── 自動（デフォルト）</option>
-                    {% for folder in storage_folders %}
-                    <option value="{{ folder }}" {% if client.storage_folder_path == folder %}selected{% endif %}>{{ folder }}</option>
-                    {% endfor %}
-                    {% if client.storage_folder_path and client.storage_folder_path not in storage_folders %}
-                    <option value="{{ client.storage_folder_path }}" selected>{{ client.storage_folder_path }}（現在の設定）</option>
-                    {% endif %}
-                </select>
-                <div id="selected-display"></div>
-            </div>
+            <!-- ストレージ設定済み：ツリー選択UI -->
+            <div class="folder-section">
+                <div class="folder-section-title">📁 フォルダを選択</div>
 
-            <div class="or-divider">── または ──</div>
+                <button type="button" class="btn-load" id="btnLoad" onclick="loadFolders('')">
+                    🔄 フォルダ一覧を読み込む
+                </button>
 
-            <!-- 新規フォルダ作成 -->
-            <div class="form-group">
-                <button type="button" class="btn btn-outline" onclick="toggleNewFolder()">＋ 新しいフォルダを作成</button>
-                <div id="new-folder-section">
-                    <div class="new-folder-row" style="margin-top:10px;">
-                        <input type="text" id="new-folder-name" placeholder="フォルダ名を入力（例: 株式会社A）">
-                        <button type="button" class="btn-create" onclick="createFolder()">作成</button>
+                <!-- パンくず -->
+                <div class="breadcrumb-nav" id="breadcrumbNav" style="display:none;"></div>
+
+                <!-- フォルダツリー -->
+                <div class="folder-tree-container" id="folderTree">
+                    <div class="folder-empty">「フォルダ一覧を読み込む」をクリックしてください</div>
+                </div>
+
+                <!-- 選択済み表示 -->
+                <div class="selected-path-display" id="selectedPathDisplay">
+                    ✅ 選択中: <strong id="selectedPathText"></strong>
+                </div>
+
+                <!-- フォルダ作成 -->
+                <div class="create-folder-area">
+                    <div class="create-folder-title">➕ 現在の層に新規フォルダを作成</div>
+                    <div class="create-folder-row">
+                        <input type="text" class="create-folder-input" id="newFolderName"
+                            placeholder="フォルダ名を入力"
+                            onkeydown="if(event.key==='Enter'){createFolder();event.preventDefault();}"
+                        />
+                        <button type="button" class="btn-create-folder" id="btnCreateFolder" onclick="createFolder()">
+                            📂 フォルダを作成
+                        </button>
                     </div>
-                    <div id="new-folder-msg"></div>
+                    <div class="create-folder-msg" id="createFolderMsg"></div>
+                    <div class="create-folder-hint">現在表示中の層（パンくずの場所）にフォルダを作成します</div>
                 </div>
             </div>
 
@@ -163,14 +234,11 @@
                 未設定の場合は <code>/tenant-{テナントID}/client-{顧問先ID}/{年月}/</code> に自動保存されます。<br><br>
                 ※ ストレージ連携設定を行うと、フォルダを一覧から選択できるようになります。
             </div>
-            <div class="form-group">
-                <label for="folder-manual">フォルダパス（手入力）</label>
-                <input type="text"
-                       id="folder-manual"
-                       placeholder="/clients/{{ client.name }}"
-                       value="{{ client.storage_folder_path or '' }}"
-                       oninput="document.getElementById('storage_folder_path').value = this.value">
-            </div>
+            <input type="text"
+                   id="folder-manual"
+                   placeholder="/clients/{{ client.name }}"
+                   value="{{ client.storage_folder_path or '' }}"
+                   oninput="document.getElementById('storage_folder_path').value = this.value">
             {% endif %}
 
             <div class="btn-row">
@@ -182,57 +250,137 @@
 </div>
 
 <script>
-function onFolderSelect(sel) {
-    document.getElementById('storage_folder_path').value = sel.value;
-    const disp = document.getElementById('selected-display');
-    if (sel.value) {
-        disp.innerHTML = `<span class="selected-badge">✅ 選択中: ${sel.value}</span>`;
-    } else {
-        disp.innerHTML = `<span class="selected-badge">自動（デフォルト）</span>`;
-    }
+let currentPath = '';
+let selectedPath = null;
+
+function loadFolders(path) {
+    currentPath = path || '';
+    const tree = document.getElementById('folderTree');
+    const breadcrumb = document.getElementById('breadcrumbNav');
+    tree.innerHTML = '<div class="folder-loading">読み込み中...</div>';
+    breadcrumb.style.display = 'flex';
+    updateBreadcrumb(currentPath);
+
+    fetch('/tenant/storage/dropbox/folders?path=' + encodeURIComponent(currentPath))
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                tree.innerHTML = `<div class="folder-empty">エラー: ${data.error}</div>`;
+                return;
+            }
+            const folders = data.folders || [];
+            if (folders.length === 0) {
+                tree.innerHTML = '<div class="folder-empty">フォルダがありません。下の「フォルダを作成」で新規作成できます。</div>';
+                return;
+            }
+            tree.innerHTML = folders.map(f => {
+                const name = f.split('/').filter(Boolean).pop() || f;
+                const isSelected = f === selectedPath;
+                return `<div class="folder-item${isSelected ? ' selected' : ''}" data-path="${escapeAttr(f)}" onclick="selectFolder('${escapeAttr(f)}', '${escapeAttr(name)}')">
+                    <span class="folder-icon">📁</span>
+                    <span class="folder-name">${escapeHtml(name)}</span>
+                    <button class="btn-enter" type="button" onclick="event.stopPropagation();loadFolders('${escapeAttr(f)}')">開く ▶</button>
+                </div>`;
+            }).join('');
+
+            const btn = document.getElementById('btnLoad');
+            btn.textContent = '🔄 再読み込み';
+        })
+        .catch(() => {
+            tree.innerHTML = '<div class="folder-empty">読み込みに失敗しました</div>';
+        });
 }
 
-function toggleNewFolder() {
-    const sec = document.getElementById('new-folder-section');
-    sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
-    if (sec.style.display === 'block') document.getElementById('new-folder-name').focus();
+function selectFolder(path, name) {
+    selectedPath = path;
+    document.getElementById('storage_folder_path').value = path;
+    document.getElementById('selectedPathText').textContent = path;
+    document.getElementById('selectedPathDisplay').classList.add('show');
+    // ハイライト更新
+    document.querySelectorAll('.folder-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.path === path);
+    });
+}
+
+function updateBreadcrumb(path) {
+    const nav = document.getElementById('breadcrumbNav');
+    let html = `<span class="crumb" onclick="loadFolders('')">🏠 ルート</span>`;
+    if (path) {
+        const parts = path.split('/').filter(Boolean);
+        let accumulated = '';
+        parts.forEach((part, i) => {
+            accumulated += '/' + part;
+            html += `<span class="sep">›</span>`;
+            if (i === parts.length - 1) {
+                html += `<span class="current-crumb">${escapeHtml(part)}</span>`;
+            } else {
+                const p = accumulated;
+                html += `<span class="crumb" onclick="loadFolders('${escapeAttr(p)}')">${escapeHtml(part)}</span>`;
+            }
+        });
+    }
+    nav.innerHTML = html;
 }
 
 function createFolder() {
-    const name = document.getElementById('new-folder-name').value.trim();
-    const msg = document.getElementById('new-folder-msg');
-    if (!name) { msg.style.color='#c62828'; msg.textContent='フォルダ名を入力してください'; return; }
-    msg.style.color='#555'; msg.textContent='作成中...';
+    const nameInput = document.getElementById('newFolderName');
+    const name = nameInput.value.trim();
+    if (!name) {
+        showCreateMsg('error', 'フォルダ名を入力してください');
+        return;
+    }
+    const newPath = currentPath ? currentPath + '/' + name : '/' + name;
 
-    fetch('/files/client/folders/create_root', {
+    const btn = document.getElementById('btnCreateFolder');
+    btn.disabled = true;
+    btn.textContent = '作成中...';
+    showCreateMsg('', '');
+
+    fetch('/tenant/storage/dropbox/create-folder', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({folder_name: name})
+        body: JSON.stringify({folder_path: newPath})
     })
     .then(r => r.json())
     .then(data => {
+        btn.disabled = false;
+        btn.textContent = '📂 フォルダを作成';
         if (data.success) {
-            const sel = document.getElementById('folder-select');
-            const opt = document.createElement('option');
-            const path = '/' + name;
-            opt.value = path; opt.textContent = path;
-            sel.appendChild(opt);
-            sel.value = path;
-            onFolderSelect(sel);
-            msg.style.color='#2e7d32'; msg.textContent=`「${path}」を作成しました`;
-            document.getElementById('new-folder-name').value = '';
-            setTimeout(() => { document.getElementById('new-folder-section').style.display='none'; msg.textContent=''; }, 1500);
+            showCreateMsg('success', `✅ 「${data.name}」を作成しました`);
+            nameInput.value = '';
+            loadFolders(currentPath);
         } else {
-            msg.style.color='#c62828'; msg.textContent = data.error || '作成に失敗しました';
+            showCreateMsg('error', `⚠️ ${data.error}`);
         }
     })
-    .catch(() => { msg.style.color='#c62828'; msg.textContent='通信エラーが発生しました'; });
+    .catch(() => {
+        btn.disabled = false;
+        btn.textContent = '📂 フォルダを作成';
+        showCreateMsg('error', '⚠️ 通信エラーが発生しました');
+    });
 }
 
-// 初期表示
+function showCreateMsg(type, text) {
+    const msg = document.getElementById('createFolderMsg');
+    msg.className = 'create-folder-msg' + (type ? ' ' + type : '');
+    msg.textContent = text;
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escapeAttr(str) {
+    return String(str).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+
+// 初期表示：既存パスがあれば表示
 window.addEventListener('DOMContentLoaded', () => {
-    const sel = document.getElementById('folder-select');
-    if (sel) onFolderSelect(sel);
+    const existing = document.getElementById('storage_folder_path').value;
+    if (existing) {
+        selectedPath = existing;
+        document.getElementById('selectedPathText').textContent = existing;
+        document.getElementById('selectedPathDisplay').classList.add('show');
+    }
 });
 </script>
 </body>

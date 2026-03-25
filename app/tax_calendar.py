@@ -725,6 +725,84 @@ def calc_interim_amounts(client, year, db_session=None):
         return {}
 
 
+# ========== 給与支払報告書・法定調書期限 ==========
+
+def get_salary_report_deadlines(client, year=None):
+    """
+    給与支払報告書の提出期限を返す。
+    - salary_office_notification=1 の場合のみ表示
+    - 提出期限：毎年1月31日（前年分）
+    """
+    if year is None:
+        year = date.today().year
+
+    has_salary_office = getattr(client, 'salary_office_notification', 0) or 0
+    if not has_salary_office:
+        return []
+
+    deadlines = []
+
+    for y in [year - 1, year, year + 1]:
+        raw = date(y, 1, 31)
+        d, r = _deadline(raw)
+        deadlines.append({
+            'date': d,
+            'original_date': r,
+            'adjusted': d != r,
+            'type': f'給与支払報告書提出（{y-1}年分）',
+            'category': 'salary_report',
+            'color': '#00695c',
+            'note': f'{y-1}年1月1日〜12月31日分／市区町村への提出',
+        })
+
+    seen = set()
+    unique = []
+    for d in sorted(deadlines, key=lambda x: x['date']):
+        key = (d['date'], d['type'])
+        if key not in seen:
+            seen.add(key)
+            unique.append(d)
+    return unique
+
+
+def get_legal_report_deadlines(client, year=None):
+    """
+    法定調書（合計表）の提出期限を返す。
+    - salary_office_notification=1 の場合のみ表示
+    - 提出期限：毎年1月31日（前年分）
+    """
+    if year is None:
+        year = date.today().year
+
+    has_salary_office = getattr(client, 'salary_office_notification', 0) or 0
+    if not has_salary_office:
+        return []
+
+    deadlines = []
+
+    for y in [year - 1, year, year + 1]:
+        raw = date(y, 1, 31)
+        d, r = _deadline(raw)
+        deadlines.append({
+            'date': d,
+            'original_date': r,
+            'adjusted': d != r,
+            'type': f'法定調書・合計表提出（{y-1}年分）',
+            'category': 'legal_report',
+            'color': '#4527a0',
+            'note': f'{y-1}年分／税務署への提出',
+        })
+
+    seen = set()
+    unique = []
+    for d in sorted(deadlines, key=lambda x: x['date']):
+        key = (d['date'], d['type'])
+        if key not in seen:
+            seen.add(key)
+            unique.append(d)
+    return unique
+
+
 # ========== 顧問先別全期限 ==========
 
 def get_all_deadlines_for_client(client, year=None, db_session=None):
@@ -787,11 +865,25 @@ def get_all_deadlines_for_client(client, year=None, db_session=None):
             d['client_type'] = client.type or ''
             deadlines.append(d)
 
-    # 償却資産税申告期限（has_depreciable_asset_tax=1 の場合のみ追加）
-    # 法人の get_corporate_deadlines 内の償却資産申告は常に追加されるため、
+    # 唇却資産税申告期限（has_depreciable_asset_tax=1 の場合のみ追加）
+    # 法人の get_corporate_deadlines 内の唇却資産申告は常に追加されるため、
     # 顧問先フラグがない場合は除去する
     if client.type == '法人' and not bool(getattr(client, 'has_depreciable_asset_tax', 0) or 0):
         deadlines = [d for d in deadlines if d.get('category') != 'depreciable_assets']
+
+    # 給与支払報告書提出期限（給与支払事務所設置届の有無に応じて追加）
+    for d in get_salary_report_deadlines(client, year):
+        d['client_id'] = client.id
+        d['client_name'] = client.name
+        d['client_type'] = client.type or ''
+        deadlines.append(d)
+
+    # 法定調書・合計表提出期限（給与支払事務所設置届の有無に応じて追加）
+    for d in get_legal_report_deadlines(client, year):
+        d['client_id'] = client.id
+        d['client_name'] = client.name
+        d['client_type'] = client.type or ''
+        deadlines.append(d)
 
     # 中間納税額算定（納税実績がある場合、中間申告期限の備考に金額を追加）
     if db_session is not None and client.type == '法人':

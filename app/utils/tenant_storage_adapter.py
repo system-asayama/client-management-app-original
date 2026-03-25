@@ -242,18 +242,20 @@ class CloudinaryAdapter(StorageAdapterBase):
         _, ext = os.path.splitext(original_name)
         ext = ext.lower() if ext else ''
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        # public_idはASCII安全な名前（タイムスタンプ+拡張子）
-        safe_public_id = f"tenant_{self.tenant_id}/client_{client_id}/{timestamp}{ext}"
+        # public_idはタイムスタンプ+拡張子のみ（フォルダはasset_folderで指定）
+        safe_public_id = f"{timestamp}{ext}"
+        # asset_folderでテナント/クライアントパスを指定（dynamic folder mode対応）
+        asset_folder = f"tenant_{self.tenant_id}/client_{client_id}"
         # ファイルストリームを読み込む
         file_bytes = file_stream.read()
         result = cloudinary.uploader.upload(
             file_bytes,
             public_id=safe_public_id,
+            asset_folder=asset_folder,
             resource_type='raw',
             use_filename=False,
             unique_filename=False,
-            overwrite=True,
-            access_mode='public'  # 公開アクセスを許可
+            overwrite=True
         )
         # secure_urlをそのまま返す（ダウンロードはFlaskプロキシ経由で行う）
         return result.get('secure_url', '')

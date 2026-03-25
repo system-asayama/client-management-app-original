@@ -983,22 +983,23 @@ def client_storage_folder(client_id):
             flash('ストレージフォルダパスを保存しました', 'success')
             return redirect(url_for('clients.client_info', client_id=client_id))
 
-        # ストレージが設定されている場合はルートフォルダ一覧を取得
-        storage_folders = []
+        # ストレージが設定されているかどうかを確認
         storage_configured = False
+        storage_provider = None
         try:
-            from app.utils.tenant_storage_adapter import get_storage_adapter
-            adapter = get_storage_adapter(tenant_id)
-            storage_folders = adapter.list_folders('/')  # ルートのフォルダ一覧
-            storage_configured = True
+            from app.utils.tenant_storage_adapter import get_tenant_storage_config
+            config = get_tenant_storage_config(tenant_id)
+            if config and config.provider in ('dropbox', 'gcs', 'google', 'google_cloud_storage'):
+                storage_configured = True
+                storage_provider = config.provider
         except Exception:
             pass
 
         return render_template(
             'client_storage_folder.html',
             client=client,
-            storage_folders=storage_folders,
-            storage_configured=storage_configured
+            storage_configured=storage_configured,
+            storage_provider=storage_provider
         )
     finally:
         db.close()

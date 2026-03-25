@@ -124,7 +124,7 @@ def storage_dropbox():
 # Dropbox フォルダ一覧API
 # ===========================
 @bp.route('/dropbox/folders', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_folders():
     """DropboxのフォルダツリーをJSON形式で返す"""
     tenant_id = session.get('tenant_id')
@@ -179,7 +179,7 @@ def dropbox_folders():
 # Dropbox フォルダ作成API
 # ===========================
 @bp.route('/dropbox/create-folder', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_create_folder():
     """Dropboxに新規フォルダを作成する"""
     tenant_id = session.get('tenant_id')
@@ -221,7 +221,7 @@ def dropbox_create_folder():
 # Dropbox ベースフォルダ保存API
 # ===========================
 @bp.route('/dropbox/set-folder', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_set_folder():
     """Dropboxのベースフォルダパスを保存する"""
     tenant_id = session.get('tenant_id')

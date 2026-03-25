@@ -274,12 +274,14 @@ function loadFolders(path) {
                 return;
             }
             tree.innerHTML = folders.map(f => {
-                const name = f.split('/').filter(Boolean).pop() || f;
-                const isSelected = f === selectedPath;
-                return `<div class="folder-item${isSelected ? ' selected' : ''}" data-path="${escapeAttr(f)}" onclick="selectFolder('${escapeAttr(f)}', '${escapeAttr(name)}')">
+                // APIはオブジェクト {id, name, path} を返す
+                const path = (typeof f === 'object') ? (f.path || f.id || '') : f;
+                const name = (typeof f === 'object') ? (f.name || path.split('/').filter(Boolean).pop() || path) : (f.split('/').filter(Boolean).pop() || f);
+                const isSelected = path === selectedPath;
+                return `<div class="folder-item${isSelected ? ' selected' : ''}" data-path="${escapeAttr(path)}" onclick="selectFolder('${escapeAttr(path)}', '${escapeAttr(name)}')">
                     <span class="folder-icon">📁</span>
                     <span class="folder-name">${escapeHtml(name)}</span>
-                    <button class="btn-enter" type="button" onclick="event.stopPropagation();loadFolders('${escapeAttr(f)}')">開く ▶</button>
+                    <button class="btn-enter" type="button" onclick="event.stopPropagation();loadFolders('${escapeAttr(path)}')">開く ▶</button>
                 </div>`;
             }).join('');
 

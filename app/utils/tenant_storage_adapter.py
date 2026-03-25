@@ -55,18 +55,44 @@ class StorageAdapterBase:
         raise NotImplementedError
 
 
+DROPBOX_APP_KEY = 'mwfin8b98ui38m8'
+DROPBOX_APP_SECRET = '1qwwluws6do5ht0'
+
+
 class DropboxAdapter(StorageAdapterBase):
-    """Dropboxストレージアダプタ"""
+    """ドロップボックスストレージアダプタ"""
     
     def _get_client(self):
         try:
             import dropbox
         except Exception as e:
             raise RuntimeError(f"Dropbox SDK がインポートできません: {e}")
+
+        refresh_token = getattr(self.config, 'refresh_token', None)
         token = self.config.access_token if self.config else None
-        if not token:
-            raise RuntimeError("Dropboxアクセストークンが未設定です")
-        return dropbox.Dropbox(token)
+
+        if refresh_token:
+            # リフレッシュトークンがある場合は自動更新クライアントを使用
+            dbx_base = dropbox.Dropbox(
+                oauth2_refresh_token=refresh_token,
+                app_key=DROPBOX_APP_KEY,
+                app_secret=DROPBOX_APP_SECRET
+            )
+        elif token:
+            dbx_base = dropbox.Dropbox(oauth2_access_token=token)
+        else:
+            raise RuntimeError("ドロップボックスアクセストークンが未設定です")
+
+        # チームスペース対応
+        try:
+            acc = dbx_base.users_get_current_account()
+            root_ns = acc.root_info.root_namespace_id if (acc.root_info and acc.root_info.root_namespace_id) else None
+        except Exception:
+            root_ns = None
+
+        if root_ns:
+            return dbx_base.with_path_root(dropbox.common.PathRoot.namespace_id(root_ns))
+        return dbx_base
     
     def upload(self, file_stream, original_name, client_id: int,
                client_folder_path: str = None, subfolder: str = None) -> str:

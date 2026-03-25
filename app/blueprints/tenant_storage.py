@@ -9,6 +9,39 @@ from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('tenant_storage', __name__, url_prefix='/tenant/storage')
 
+DROPBOX_APP_KEY = 'mwfin8b98ui38m8'
+DROPBOX_APP_SECRET = '1qwwluws6do5ht0'
+
+
+def _get_dropbox_client(storage_config, db=None, tenant_id=None):
+    """リフレッシュトークンを使ってDropboxクライアントを取得（自動更新対応）"""
+    import dropbox
+
+    token = storage_config.access_token
+    refresh_token = storage_config.refresh_token if hasattr(storage_config, 'refresh_token') else None
+
+    if refresh_token:
+        # リフレッシュトークンがある場合は自動更新クライアントを使用
+        dbx_base = dropbox.Dropbox(
+            oauth2_refresh_token=refresh_token,
+            app_key=DROPBOX_APP_KEY,
+            app_secret=DROPBOX_APP_SECRET
+        )
+    else:
+        # リフレッシュトークンがない場合は通常のアクセストークンを使用
+        dbx_base = dropbox.Dropbox(oauth2_access_token=token)
+
+    # チームスペース対応
+    try:
+        acc = dbx_base.users_get_current_account()
+        root_ns = acc.root_info.root_namespace_id if (acc.root_info and acc.root_info.root_namespace_id) else None
+    except Exception:
+        root_ns = None
+
+    if root_ns:
+        return dbx_base.with_path_root(dropbox.common.PathRoot.namespace_id(root_ns))
+    return dbx_base
+
 
 def _get_storage_config(db, tenant_id):
     """現在のアクティブなストレージ設定を取得"""
@@ -147,20 +180,7 @@ def dropbox_folders():
 
     try:
         import dropbox
-        dbx_base = dropbox.Dropbox(oauth2_access_token=token)
-
-        # チームスペース（root_namespace_id）が取得できる場合はチームスペースで表示
-        try:
-            acc = dbx_base.users_get_current_account()
-            root_ns = acc.root_info.root_namespace_id if (acc.root_info and acc.root_info.root_namespace_id) else None
-        except Exception:
-            root_ns = None
-
-        if root_ns:
-            dbx = dbx_base.with_path_root(dropbox.common.PathRoot.namespace_id(root_ns))
-        else:
-            dbx = dbx_base
-
+        dbx = _get_dropbox_client(storage_config)
         result = dbx.files_list_folder(path, include_non_downloadable_files=False)
         folders = []
         for entry in result.entries:
@@ -216,16 +236,7 @@ def dropbox_create_folder():
     try:
         import dropbox
         from dropbox.exceptions import ApiError
-        dbx_base = dropbox.Dropbox(oauth2_access_token=token)
-
-        # チームスペース対応
-        try:
-            acc = dbx_base.users_get_current_account()
-            root_ns = acc.root_info.root_namespace_id if (acc.root_info and acc.root_info.root_namespace_id) else None
-        except Exception:
-            root_ns = None
-
-        dbx = dbx_base.with_path_root(dropbox.common.PathRoot.namespace_id(root_ns)) if root_ns else dbx_base
+        dbx = _get_dropbox_client(storage_config)
 
         # パスが / で始まらない場合は追加
         if not folder_path.startswith('/'):

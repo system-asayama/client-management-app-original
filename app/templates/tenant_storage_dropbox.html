@@ -4,7 +4,7 @@
 
 {% block content %}
 <style>
-    .storage-page { max-width: 640px; margin: 0 auto; }
+    .storage-page { max-width: 700px; margin: 0 auto; }
     .breadcrumb { font-size: 13px; color: #888; margin-bottom: 16px; }
     .breadcrumb a { color: #1a237e; text-decoration: none; }
     .breadcrumb a:hover { text-decoration: underline; }
@@ -101,6 +101,104 @@
         text-decoration: none; transition: all 0.2s;
     }
     .btn-back:hover { background: #c5cae9; }
+
+    /* フォルダツリー */
+    .folder-section {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+        padding: 24px 28px;
+        margin-bottom: 24px;
+    }
+    .folder-section-title {
+        font-size: 16px; font-weight: 700; color: #333;
+        margin-bottom: 6px; padding-bottom: 12px;
+        border-bottom: 2px solid #e8eaf6;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .current-folder-box {
+        background: #e8eaf6;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 14px;
+        color: #1a237e;
+        font-weight: 600;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .current-folder-box span { font-weight: 400; color: #555; }
+    .folder-tree-container {
+        border: 1.5px solid #e0e0e0;
+        border-radius: 8px;
+        max-height: 320px;
+        overflow-y: auto;
+        background: #fafafa;
+    }
+    .folder-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        gap: 6px;
+        font-size: 14px;
+        color: #333;
+        user-select: none;
+        transition: background 0.15s;
+    }
+    .folder-item:last-child { border-bottom: none; }
+    .folder-item:hover { background: #e8eaf6; }
+    .folder-item.selected { background: #c5cae9; color: #1a237e; font-weight: 600; }
+    .folder-item .toggle-btn {
+        width: 20px; height: 20px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; color: #888;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+    .folder-item .toggle-btn:hover { background: #ddd; }
+    .folder-item .folder-icon { flex-shrink: 0; }
+    .folder-item .folder-name { flex: 1; }
+    .folder-children { display: none; }
+    .folder-children.open { display: block; }
+    .folder-children .folder-item { padding-left: 32px; }
+    .folder-children .folder-children .folder-item { padding-left: 52px; }
+    .folder-children .folder-children .folder-children .folder-item { padding-left: 72px; }
+    .folder-loading { padding: 12px 16px; font-size: 13px; color: #999; }
+    .folder-empty { padding: 12px 16px; font-size: 13px; color: #bbb; font-style: italic; }
+    .btn-load-folders {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 18px; border-radius: 6px;
+        font-size: 13px; font-weight: 600;
+        background: #e8eaf6; color: #1a237e;
+        border: 1.5px solid #c5cae9; cursor: pointer;
+        transition: all 0.2s; margin-bottom: 12px;
+    }
+    .btn-load-folders:hover { background: #c5cae9; }
+    .btn-save-folder {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 22px; border-radius: 8px;
+        font-size: 14px; font-weight: 700;
+        background: #1a237e; color: #fff;
+        border: none; cursor: pointer; transition: all 0.2s;
+        margin-top: 14px;
+    }
+    .btn-save-folder:hover { background: #283593; }
+    .btn-save-folder:disabled { background: #9e9e9e; cursor: not-allowed; }
+    .folder-save-msg { font-size: 13px; margin-top: 8px; }
+    .folder-save-msg.success { color: #2e7d32; }
+    .folder-save-msg.error { color: #c62828; }
+    .breadcrumb-nav {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 13px; color: #888; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .breadcrumb-nav .crumb {
+        color: #1a237e; cursor: pointer; text-decoration: underline;
+    }
+    .breadcrumb-nav .crumb:hover { color: #283593; }
+    .breadcrumb-nav .sep { color: #ccc; }
 </style>
 
 <div class="storage-page">
@@ -130,6 +228,43 @@
             <input type="hidden" name="provider" value="dropbox">
             <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
         </form>
+    </div>
+
+    <!-- フォルダ選択セクション（連携済みの場合のみ表示） -->
+    <div class="folder-section">
+        <div class="folder-section-title">
+            📁 保存先フォルダを選択
+        </div>
+
+        <div class="current-folder-box">
+            📁 現在の保存先：
+            <span id="currentFolderDisplay">
+                {% if view.dropbox_base_folder %}
+                    {{ view.dropbox_base_folder }}
+                {% else %}
+                    未設定（Dropboxルート）
+                {% endif %}
+            </span>
+        </div>
+
+        <button class="btn-load-folders" id="btnLoadFolders" onclick="loadFolders('')">
+            🔄 Dropboxのフォルダ一覧を読み込む
+        </button>
+
+        <div class="breadcrumb-nav" id="folderBreadcrumb">
+            <span class="crumb" onclick="loadFolders('')">Dropbox（ルート）</span>
+        </div>
+
+        <div class="folder-tree-container" id="folderTree">
+            <div class="folder-empty">「フォルダ一覧を読み込む」をクリックしてください</div>
+        </div>
+
+        <div>
+            <button class="btn-save-folder" id="btnSaveFolder" onclick="saveFolder()" disabled>
+                💾 このフォルダを保存先に設定
+            </button>
+            <div class="folder-save-msg" id="folderSaveMsg"></div>
+        </div>
     </div>
     {% endif %}
 
@@ -170,4 +305,162 @@
 
     <a href="{{ url_for('tenant_storage.storage_settings') }}" class="btn-back">← ストレージ設定に戻る</a>
 </div>
+
+<script>
+let selectedFolderPath = null;
+let currentPath = '';
+
+function loadFolders(path) {
+    currentPath = path;
+    const tree = document.getElementById('folderTree');
+    tree.innerHTML = '<div class="folder-loading">⏳ 読み込み中...</div>';
+    updateBreadcrumb(path);
+
+    fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                tree.innerHTML = `<div class="folder-empty">⚠️ エラー: ${data.error}</div>`;
+                return;
+            }
+            renderFolders(tree, data.folders, path);
+        })
+        .catch(e => {
+            tree.innerHTML = `<div class="folder-empty">⚠️ 通信エラーが発生しました</div>`;
+        });
+}
+
+function renderFolders(container, folders, parentPath) {
+    if (folders.length === 0) {
+        container.innerHTML = '<div class="folder-empty">フォルダがありません</div>';
+        return;
+    }
+    container.innerHTML = '';
+    folders.forEach(folder => {
+        const item = document.createElement('div');
+        item.className = 'folder-item';
+        if (selectedFolderPath === folder.path) {
+            item.classList.add('selected');
+        }
+        item.innerHTML = `
+            <span class="toggle-btn" data-path="${folder.path}" onclick="toggleFolder(event, '${folder.path}', this)">▶</span>
+            <span class="folder-icon">📁</span>
+            <span class="folder-name">${escapeHtml(folder.name)}</span>
+        `;
+        item.addEventListener('click', function(e) {
+            if (e.target.classList.contains('toggle-btn')) return;
+            selectFolder(folder.path, folder.name);
+            // 選択状態を更新
+            document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+        });
+
+        const children = document.createElement('div');
+        children.className = 'folder-children';
+        children.id = `children-${folder.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+        container.appendChild(item);
+        container.appendChild(children);
+    });
+}
+
+function toggleFolder(event, path, btn) {
+    event.stopPropagation();
+    const childrenId = `children-${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const children = document.getElementById(childrenId);
+    if (!children) return;
+
+    if (children.classList.contains('open')) {
+        children.classList.remove('open');
+        btn.textContent = '▶';
+        return;
+    }
+
+    // 未ロードの場合はAPIで取得
+    if (!children.dataset.loaded) {
+        children.innerHTML = '<div class="folder-loading">⏳ 読み込み中...</div>';
+        children.classList.add('open');
+        btn.textContent = '▼';
+
+        fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    children.innerHTML = `<div class="folder-empty">⚠️ ${data.error}</div>`;
+                    return;
+                }
+                renderFolders(children, data.folders, path);
+                children.dataset.loaded = '1';
+            })
+            .catch(() => {
+                children.innerHTML = '<div class="folder-empty">⚠️ 読み込みエラー</div>';
+            });
+    } else {
+        children.classList.add('open');
+        btn.textContent = '▼';
+    }
+}
+
+function selectFolder(path, name) {
+    selectedFolderPath = path;
+    document.getElementById('currentFolderDisplay').textContent = path;
+    document.getElementById('btnSaveFolder').disabled = false;
+}
+
+function saveFolder() {
+    if (!selectedFolderPath && selectedFolderPath !== '') return;
+    const btn = document.getElementById('btnSaveFolder');
+    const msg = document.getElementById('folderSaveMsg');
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+
+    fetch('/tenant/storage/dropbox/set-folder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder_path: selectedFolderPath})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            msg.className = 'folder-save-msg success';
+            msg.textContent = `✅ 保存先を「${selectedFolderPath || 'Dropboxルート'}」に設定しました`;
+            document.getElementById('currentFolderDisplay').textContent = selectedFolderPath || '未設定（Dropboxルート）';
+        } else {
+            msg.className = 'folder-save-msg error';
+            msg.textContent = `⚠️ エラー: ${data.error}`;
+        }
+        btn.disabled = false;
+        btn.textContent = '💾 このフォルダを保存先に設定';
+    })
+    .catch(() => {
+        msg.className = 'folder-save-msg error';
+        msg.textContent = '⚠️ 通信エラーが発生しました';
+        btn.disabled = false;
+        btn.textContent = '💾 このフォルダを保存先に設定';
+    });
+}
+
+function updateBreadcrumb(path) {
+    const nav = document.getElementById('folderBreadcrumb');
+    let html = '<span class="crumb" onclick="loadFolders(\'\')">Dropbox（ルート）</span>';
+    if (path) {
+        const parts = path.split('/').filter(p => p);
+        let cumPath = '';
+        parts.forEach((part, i) => {
+            cumPath += '/' + part;
+            html += '<span class="sep"> › </span>';
+            if (i < parts.length - 1) {
+                html += `<span class="crumb" onclick="loadFolders('${cumPath}')">${escapeHtml(part)}</span>`;
+            } else {
+                html += `<span>${escapeHtml(part)}</span>`;
+            }
+        });
+    }
+    nav.innerHTML = html;
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
 {% endblock %}

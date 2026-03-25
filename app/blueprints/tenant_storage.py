@@ -1,7 +1,7 @@
 """
 テナント用ストレージ設定ブループリント
 """
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
 from app.db import SessionLocal
 from app.models_login import TTenant
 from sqlalchemy import text
@@ -27,6 +27,7 @@ def _build_view(storage_config):
         'is_connected': False,
         'provider': None,
         'dropbox_access_token': '',
+        'dropbox_base_folder': '',
         'gcs_bucket': '',
         'gcs_service_account_json_masked': ''
     }
@@ -39,6 +40,11 @@ def _build_view(storage_config):
                 view['dropbox_access_token'] = token[:6] + '...' + token[-4:]
             else:
                 view['dropbox_access_token'] = '（設定済み）'
+            # base_folder_pathが存在する場合は取得
+            try:
+                view['dropbox_base_folder'] = storage_config.base_folder_path or ''
+            except Exception:
+                view['dropbox_base_folder'] = ''
         elif storage_config.provider == 'gcs':
             view['gcs_bucket'] = storage_config.bucket_name or ''
             view['gcs_service_account_json_masked'] = '（設定済み）' if storage_config.service_account_json else ''
@@ -85,6 +91,8 @@ def storage_dropbox():
 
         if request.method == 'POST':
             access_token = request.form.get('dropbox_access_token', '').strip()
+            base_folder_path = request.form.get('base_folder_path', '').strip()
+
             if access_token:
                 # 既存設定を無効化
                 db.execute(text("""
@@ -94,9 +102,13 @@ def storage_dropbox():
                 """), {"tenant_id": tenant_id})
                 db.execute(text("""
                     INSERT INTO "T_外部ストレージ連携"
-                    (tenant_id, provider, access_token, status)
-                    VALUES (:tenant_id, 'dropbox', :access_token, 'active')
-                """), {"tenant_id": tenant_id, "access_token": access_token})
+                    (tenant_id, provider, access_token, base_folder_path, status)
+                    VALUES (:tenant_id, 'dropbox', :access_token, :base_folder_path, 'active')
+                """), {
+                    "tenant_id": tenant_id,
+                    "access_token": access_token,
+                    "base_folder_path": base_folder_path or None
+                })
                 db.commit()
                 flash('Dropbox連携を設定しました', 'success')
                 return redirect(url_for('tenant_storage.storage_dropbox'))
@@ -104,6 +116,95 @@ def storage_dropbox():
                 flash('アクセストークンを入力してください', 'error')
 
         return render_template('tenant_storage_dropbox.html', view=view)
+    finally:
+        db.close()
+
+
+# ===========================
+# Dropbox フォルダ一覧API
+# ===========================
+@bp.route('/dropbox/folders', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+def dropbox_folders():
+    """DropboxのフォルダツリーをJSON形式で返す"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': 'テナントが選択されていません'}), 401
+
+    path = request.args.get('path', '')  # '' = ルート
+
+    db = SessionLocal()
+    try:
+        storage_config = _get_storage_config(db, tenant_id)
+        if not storage_config or storage_config.provider != 'dropbox':
+            return jsonify({'error': 'Dropboxが設定されていません'}), 400
+
+        token = storage_config.access_token
+        if not token:
+            return jsonify({'error': 'アクセストークンが未設定です'}), 400
+    finally:
+        db.close()
+
+    try:
+        import dropbox
+        dbx = dropbox.Dropbox(token)
+        result = dbx.files_list_folder(path, include_non_downloadable_files=False)
+        folders = []
+        for entry in result.entries:
+            if isinstance(entry, dropbox.files.FolderMetadata):
+                folders.append({
+                    'id': entry.path_lower,
+                    'name': entry.name,
+                    'path': entry.path_display,
+                    'has_children': True  # 展開時に確認
+                })
+        # ページネーション
+        while result.has_more:
+            result = dbx.files_list_folder_continue(result.cursor)
+            for entry in result.entries:
+                if isinstance(entry, dropbox.files.FolderMetadata):
+                    folders.append({
+                        'id': entry.path_lower,
+                        'name': entry.name,
+                        'path': entry.path_display,
+                        'has_children': True
+                    })
+        folders.sort(key=lambda x: x['name'].lower())
+        return jsonify({'folders': folders, 'path': path})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ===========================
+# Dropbox ベースフォルダ保存API
+# ===========================
+@bp.route('/dropbox/set-folder', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+def dropbox_set_folder():
+    """Dropboxのベースフォルダパスを保存する"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': 'テナントが選択されていません'}), 401
+
+    data = request.get_json()
+    folder_path = (data or {}).get('folder_path', '').strip()
+
+    db = SessionLocal()
+    try:
+        storage_config = _get_storage_config(db, tenant_id)
+        if not storage_config or storage_config.provider != 'dropbox':
+            return jsonify({'error': 'Dropboxが設定されていません'}), 400
+
+        db.execute(text("""
+            UPDATE "T_外部ストレージ連携"
+            SET base_folder_path = :folder_path
+            WHERE tenant_id = :tenant_id AND status = 'active' AND provider = 'dropbox'
+        """), {"folder_path": folder_path or None, "tenant_id": tenant_id})
+        db.commit()
+        return jsonify({'success': True, 'folder_path': folder_path})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
     finally:
         db.close()
 

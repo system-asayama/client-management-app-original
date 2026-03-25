@@ -229,9 +229,9 @@ class CloudinaryAdapter(StorageAdapterBase):
         self.config = None
         import cloudinary
         cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'duxlkdnk6'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY', '449253734467744'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'khg3gMGmlG9g5tvx1cb7soFd540'),
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dtciksots'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY', '722837855233791'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'hLORfh5W67SFtCsvRgvkgK0qZ3o'),
             secure=True
         )
 

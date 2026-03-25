@@ -1,8 +1,10 @@
 """
 チャット機能ブループリント
 """
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, Response
 from datetime import datetime
+import urllib.parse
+import requests as http_requests
 from app.db import get_conn, SessionLocal
 from app.utils.decorators import require_roles, ROLES
 from app.models_clients import TClient, TMessage, TMessageRead
@@ -123,6 +125,44 @@ def client_chat(client_id):
         return render_template('client_chat.html', client=client, messages=messages,
                                read_ids=read_ids, first_unread_id=first_unread_id,
                                client_read_ids=client_read_ids)
+    finally:
+        db.close()
+
+
+@bp.route('/download/message/<int:message_id>')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def download_message_file(message_id):
+    """チャットメッセージのファイルをプロキシ経由でダウンロードする"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        msg = db.query(TMessage).filter(TMessage.id == message_id).first()
+        if not msg or not msg.file_url:
+            flash('ファイルが見つかりません', 'error')
+            return redirect(url_for('chat.client_chat', client_id=msg.client_id if msg else 0))
+        file_url = msg.file_url
+        original_name = msg.file_name or 'download'
+        # Cloudinary URLからfl_attachmentを除去（既に含まれている場合）
+        if '/fl_attachment:' in file_url:
+            import re
+            file_url = re.sub(r'/fl_attachment:[^/]+/', '/', file_url)
+        resp = http_requests.get(file_url, stream=True, timeout=30)
+        resp.raise_for_status()
+        encoded_name = urllib.parse.quote(original_name, safe='')
+        content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+        def generate():
+            for chunk in resp.iter_content(chunk_size=8192):
+                yield chunk
+        return Response(
+            generate(),
+            headers={
+                'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_name}",
+                'Content-Type': content_type,
+            }
+        )
+    except Exception as e:
+        flash(f'ダウンロードエラー: {str(e)}', 'error')
+        return redirect(url_for('chat.client_chat', client_id=0))
     finally:
         db.close()
 

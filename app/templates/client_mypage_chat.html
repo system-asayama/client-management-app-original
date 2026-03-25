@@ -276,7 +276,7 @@
                             {% endif %}
                             {# ファイル添付 #}
                             {% if msg_type == 'file' and msg.file_url %}
-                                <a href="{{ msg.file_url }}" target="_blank"
+                                <a href="{{ url_for('client_mypage.download_message_file', message_id=msg.id) }}"
                                    class="file-message {{ 'file-message-mine' if is_mine else 'file-message-other' }}">
                                     <span class="file-icon">📎</span>
                                     <span>{{ msg.file_name or 'ファイルをダウンロード' }}</span>

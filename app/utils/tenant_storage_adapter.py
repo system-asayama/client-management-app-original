@@ -238,7 +238,6 @@ class CloudinaryAdapter(StorageAdapterBase):
     def upload(self, file_stream, original_name, client_id: int,
                client_folder_path: str = None, subfolder: str = None) -> str:
         import cloudinary.uploader
-        import urllib.parse
         # 拡張子を元のファイル名から取得
         _, ext = os.path.splitext(original_name)
         ext = ext.lower() if ext else ''
@@ -255,13 +254,8 @@ class CloudinaryAdapter(StorageAdapterBase):
             unique_filename=False,
             overwrite=True
         )
-        # fl_attachmentでダウンロード時のファイル名を元のファイル名に設定
-        base_url = result.get('secure_url', '')
-        if base_url and original_name:
-            encoded_name = urllib.parse.quote(original_name, safe='')
-            download_url = base_url.replace('/upload/', f'/upload/fl_attachment:{encoded_name}/', 1)
-            return download_url
-        return base_url
+        # secure_urlをそのまま返す（ダウンロードはFlaskプロキシ経由で行う）
+        return result.get('secure_url', '')
 
     def list_folders(self, client_folder_path: str) -> list:
         return []

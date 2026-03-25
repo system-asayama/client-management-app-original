@@ -216,7 +216,17 @@ def dropbox_create_folder():
     try:
         import dropbox
         from dropbox.exceptions import ApiError
-        dbx = dropbox.Dropbox(token)
+        dbx_base = dropbox.Dropbox(oauth2_access_token=token)
+
+        # チームスペース対応
+        try:
+            acc = dbx_base.users_get_current_account()
+            root_ns = acc.root_info.root_namespace_id if (acc.root_info and acc.root_info.root_namespace_id) else None
+        except Exception:
+            root_ns = None
+
+        dbx = dbx_base.with_path_root(dropbox.common.PathRoot.namespace_id(root_ns)) if root_ns else dbx_base
+
         # パスが / で始まらない場合は追加
         if not folder_path.startswith('/'):
             folder_path = '/' + folder_path

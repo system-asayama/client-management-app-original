@@ -252,7 +252,8 @@ class CloudinaryAdapter(StorageAdapterBase):
             resource_type='raw',
             use_filename=False,
             unique_filename=False,
-            overwrite=True
+            overwrite=True,
+            access_mode='public'  # 公開アクセスを許可
         )
         # secure_urlをそのまま返す（ダウンロードはFlaskプロキシ経由で行う）
         return result.get('secure_url', '')

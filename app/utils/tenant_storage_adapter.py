@@ -238,20 +238,30 @@ class CloudinaryAdapter(StorageAdapterBase):
     def upload(self, file_stream, original_name, client_id: int,
                client_folder_path: str = None, subfolder: str = None) -> str:
         import cloudinary.uploader
-        safe_name = secure_filename(original_name)
+        import urllib.parse
+        # 拡張子を元のファイル名から取得
+        _, ext = os.path.splitext(original_name)
+        ext = ext.lower() if ext else ''
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        public_id = f"tenant_{self.tenant_id}/client_{client_id}/{timestamp}_{safe_name}"
+        # public_idはASCII安全な名前（タイムスタンプ+拡張子）
+        safe_public_id = f"tenant_{self.tenant_id}/client_{client_id}/{timestamp}{ext}"
         # ファイルストリームを読み込む
         file_bytes = file_stream.read()
         result = cloudinary.uploader.upload(
             file_bytes,
-            public_id=public_id,
+            public_id=safe_public_id,
             resource_type='raw',
-            use_filename=True,
+            use_filename=False,
             unique_filename=False,
             overwrite=True
         )
-        return result.get('secure_url', '')
+        # fl_attachmentでダウンロード時のファイル名を元のファイル名に設定
+        base_url = result.get('secure_url', '')
+        if base_url and original_name:
+            encoded_name = urllib.parse.quote(original_name, safe='')
+            download_url = base_url.replace('/upload/', f'/upload/fl_attachment:{encoded_name}/', 1)
+            return download_url
+        return base_url
 
     def list_folders(self, client_folder_path: str) -> list:
         return []

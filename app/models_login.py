@@ -64,6 +64,7 @@ class TTenant(Base):
     gps_enabled = Column(Integer, default=0, comment='GPS位置記録機能の有効/無効（1=有効, 0=無効）')
     gps_interval_minutes = Column(Integer, default=10, comment='GPS位置記録間隔（分）デフォルト:10')
     gps_continuous = Column(Integer, default=0, comment='GPS常時記録モード（1=常時記録, 0=間隔記録）')
+    gps_realtime_enabled = Column(Integer, default=0, comment='リアルタイム追跡モード（1=有効, 0=無効）管理者が地図画面からON/OFF')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 

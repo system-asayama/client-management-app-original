@@ -120,12 +120,78 @@
     .legend-dot {
         width: 10px; height: 10px; border-radius: 50%;
     }
+    /* リアルタイムボタン */
+    .btn-realtime {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 2px solid #1a237e;
+        background: #fff;
+        color: #1a237e;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-realtime.active {
+        background: #e53935;
+        border-color: #e53935;
+        color: #fff;
+        animation: pulse-border 1.5s infinite;
+    }
+    .btn-realtime .rt-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #1a237e;
+        transition: background 0.2s;
+    }
+    .btn-realtime.active .rt-dot {
+        background: #fff;
+        animation: blink 1s infinite;
+    }
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.2; }
+    }
+    @keyframes pulse-border {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(229,57,53,0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(229,57,53,0); }
+    }
+    .realtime-status {
+        font-size: 12px;
+        color: #e53935;
+        font-weight: 700;
+        margin-left: 4px;
+        display: none;
+    }
+    .realtime-status.visible { display: inline; }
+    .auto-refresh-badge {
+        font-size: 11px;
+        background: #e8f5e9;
+        color: #2e7d32;
+        border-radius: 10px;
+        padding: 2px 8px;
+        font-weight: 600;
+        display: none;
+    }
+    .auto-refresh-badge.visible { display: inline; }
 </style>
 
 <!-- ページヘッダー -->
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-    <h5 style="margin:0; font-weight:700; color:#1a237e;">📍 スタッフ位置確認</h5>
-    <a href="{{ url_for('tenant_admin.gps_settings') }}" style="font-size:13px; color:#1a237e; text-decoration:none; background:#e8eaf6; padding:6px 14px; border-radius:7px; font-weight:600;">⚙️ GPS記録設定</a>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+        <h5 style="margin:0; font-weight:700; color:#1a237e;">📍 スタッフ位置確認</h5>
+        <span class="auto-refresh-badge {% if gps_realtime_enabled %}visible{% endif %}" id="autoRefreshBadge">🔄 自動更新中</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn-realtime {% if gps_realtime_enabled %}active{% endif %}" id="realtimeBtn" onclick="toggleRealtimeMode()">
+            <span class="rt-dot"></span>
+            <span id="realtimeBtnText">{% if gps_realtime_enabled %}リアルタイム ON{% else %}リアルタイム追跡{% endif %}</span>
+        </button>
+        <a href="{{ url_for('tenant_admin.gps_settings') }}" style="font-size:13px; color:#1a237e; text-decoration:none; background:#e8eaf6; padding:6px 14px; border-radius:7px; font-weight:600;">⚙️ GPS設定</a>
+    </div>
 </div>
 
 <!-- フィルターバー -->
@@ -301,5 +367,115 @@ function focusStaff(staffId, staffType) {
         map.fitBounds(layer.bounds, { padding: [40, 40] });
     }
 }
+
+// リアルタイム追跡機能
+// ──────────────────────────────────────────────
+let realtimeEnabled = {{ 'true' if gps_realtime_enabled else 'false' }};
+let realtimeTimer = null;
+const REALTIME_REFRESH_MS = 4000; // 4秒ごとに地図を更新
+
+function toggleRealtimeMode() {
+    const newState = !realtimeEnabled;
+    fetch('/staff/attendance/realtime_mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newState })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            realtimeEnabled = newState;
+            updateRealtimeUI();
+            if (realtimeEnabled) {
+                startRealtimeRefresh();
+            } else {
+                stopRealtimeRefresh();
+            }
+        }
+    })
+    .catch(function() {
+        alert('リアルタイムモードの切り替えに失敗しました');
+    });
+}
+
+function updateRealtimeUI() {
+    const btn = document.getElementById('realtimeBtn');
+    const btnText = document.getElementById('realtimeBtnText');
+    const badge = document.getElementById('autoRefreshBadge');
+    if (realtimeEnabled) {
+        btn.classList.add('active');
+        btnText.textContent = 'リアルタイム ON';
+        badge.classList.add('visible');
+    } else {
+        btn.classList.remove('active');
+        btnText.textContent = 'リアルタイム追跡';
+        badge.classList.remove('visible');
+    }
+}
+
+// リアルタイム時の地図自動更新
+function fetchLatestLocations() {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    // 今日のデータのみ取得
+    const today = new Date();
+    const dateStr = today.getFullYear() + '-'
+        + String(today.getMonth()+1).padStart(2,'0') + '-'
+        + String(today.getDate()).padStart(2,'0');
+    params.set('date', dateStr);
+    const staffId = params.get('staff_id') || '';
+
+    fetch('/staff/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : ''))
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) return;
+            // 既存レイヤーをクリア
+            Object.values(layerGroups).forEach(function(lg) {
+                if (lg.layer) map.removeLayer(lg.layer);
+                if (lg.marker) map.removeLayer(lg.marker);
+            });
+            // 新しいデータで再描画
+            data.tracks.forEach(function(t, idx) {
+                if (!t.points || t.points.length === 0) return;
+                const color = COLORS[idx % COLORS.length];
+                const key = t.staff_id + '-' + t.staff_type;
+                const pts = t.points.map(function(p) { return [p.lat, p.lng]; });
+                // ライン
+                const line = L.polyline(pts, { color: color, weight: 3, opacity: 0.7 });
+                // 最新位置のパルスアニメーション付きマーカー
+                const lastPt = pts[pts.length - 1];
+                const marker = L.circleMarker(lastPt, {
+                    radius: 10,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.95
+                }).bindTooltip(t.staff_name + ' (' + (t.points[t.points.length-1].time || '') + ')', { permanent: false });
+                const group = L.layerGroup([line, marker]).addTo(map);
+                layerGroups[key] = { layer: group, marker: marker, bounds: line.getBounds() };
+            });
+        })
+        .catch(function() {});
+}
+
+function startRealtimeRefresh() {
+    fetchLatestLocations();
+    realtimeTimer = setInterval(fetchLatestLocations, REALTIME_REFRESH_MS);
+}
+
+function stopRealtimeRefresh() {
+    if (realtimeTimer) { clearInterval(realtimeTimer); realtimeTimer = null; }
+}
+
+// ページ読み込み時にリアルタイムモードが有効なら自動開始
+if (realtimeEnabled) {
+    startRealtimeRefresh();
+}
+
+// ページを離れるときにタイマーをクリア
+window.addEventListener('beforeunload', function() {
+    stopRealtimeRefresh();
+});
 </script>
 {% endblock %}

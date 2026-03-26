@@ -979,12 +979,132 @@ def attendance_map():
         # 位置データがあるスタッフを先頭に
         tracks_data.sort(key=lambda x: -x['point_count'])
 
+        # テナントのリアルタイムモード設定を取得
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        gps_realtime_enabled = getattr(tenant_obj, 'gps_realtime_enabled', 0) or 0
+
         return render_template('staff_attendance_map.html',
                                tracks_data=tracks_data,
                                staff_list=staff_list,
                                target_date=target_date,
                                date_str=date_str,
                                selected_staff_id=staff_id_param,
-                               unread_count=unread_count)
+                               unread_count=unread_count,
+                               gps_realtime_enabled=gps_realtime_enabled)
+    finally:
+        db.close()
+
+
+# リアルタイム追跡モード ON/OFF API
+@bp.route('/attendance/realtime_mode', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def toggle_realtime_mode():
+    """管理者が地図画面からリアルタイム追跡モードをON/OFFするAPI"""
+    tenant_id = session.get('tenant_id')
+    data = request.get_json(silent=True) or {}
+    enabled = 1 if data.get('enabled') else 0
+    db = SessionLocal()
+    try:
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if not tenant_obj:
+            return jsonify({'ok': False, 'error': 'テナントが見つかりません'}), 404
+        tenant_obj.gps_realtime_enabled = enabled
+        db.commit()
+        return jsonify({'ok': True, 'enabled': enabled})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+# リアルタイムモード状態確認API（Expoアプリからポーリング用）
+@bp.route('/attendance/realtime_mode', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def get_realtime_mode():
+    """現在のリアルタイムモードの状態を返すAPI（Expoアプリがポーリングする）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        gps_realtime_enabled = getattr(tenant_obj, 'gps_realtime_enabled', 0) or 0
+        gps_interval_minutes = getattr(tenant_obj, 'gps_interval_minutes', 5) or 5
+        return jsonify({
+            'ok': True,
+            'realtime_enabled': bool(gps_realtime_enabled),
+            'interval_seconds': 3 if gps_realtime_enabled else gps_interval_minutes * 60
+        })
+    finally:
+        db.close()
+
+
+# リアルタイム地図データAPI（地図画面がポーリングする）
+@bp.route('/attendance/map/realtime_data')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def attendance_map_realtime_data():
+    """リアルタイム追跡時に地図画面がポーリングする位置データAPI"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        date_str = request.args.get('date', today_jst().strftime('%Y-%m-%d'))
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            target_date = today_jst()
+
+        staff_id_param = request.args.get('staff_id')
+
+        # GPS位置履歴を取得
+        loc_query = db.query(TAttendanceLocation).filter(
+            and_(TAttendanceLocation.tenant_id == tenant_id,
+                 TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
+                 TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
+        )
+        if staff_id_param:
+            try:
+                sid = int(staff_id_param)
+                loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
+            except ValueError:
+                pass
+
+        locations = loc_query.order_by(
+            TAttendanceLocation.staff_id.asc(),
+            TAttendanceLocation.recorded_at.asc()
+        ).all()
+
+        # スタッフごとにまとめる
+        staff_tracks = {}
+        for loc in locations:
+            key = (loc.staff_id, loc.staff_type)
+            if key not in staff_tracks:
+                staff_tracks[key] = []
+            staff_tracks[key].append({
+                'lat': loc.latitude,
+                'lng': loc.longitude,
+                'time': loc.recorded_at.strftime('%H:%M:%S')
+            })
+
+        # スタッフ名を取得
+        admins = db.query(TKanrisha).filter(
+            and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
+        ).all()
+        employees = db.query(TJugyoin).filter(
+            and_(TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1)
+        ).all()
+        name_map = {(a.id, 'admin'): a.name for a in admins}
+        name_map.update({(e.id, 'employee'): e.name for e in employees})
+
+        tracks = []
+        for (sid, stype), pts in staff_tracks.items():
+            tracks.append({
+                'staff_id': sid,
+                'staff_type': stype,
+                'staff_name': name_map.get((sid, stype), '不明'),
+                'points': pts
+            })
+
+        return jsonify({'ok': True, 'tracks': tracks})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()

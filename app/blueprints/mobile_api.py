@@ -118,7 +118,7 @@ def mobile_login():
             'tenant_id': tenant.id,
             'name': staff.name,
             'gps_enabled': bool(tenant.gps_enabled),
-            'gps_interval_minutes': tenant.gps_interval_minutes or 10,
+            'gps_interval_minutes': tenant.gps_interval_minutes or 5,
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
@@ -480,6 +480,30 @@ def today_locations():
             ],
             'count': len(locs),
         })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/location/realtime_mode', methods=['GET'])
+def get_realtime_mode():
+    """リアルタイムモードフラグを返す（Expoアプリが10秒ごとにポーリングする）
+    
+    管理者が地図画面でリアルタイム追跡をONにしている場合は realtime_enabled: true を返す。
+    Expoアプリはこのフラグに応じて送信間隔を切り替える（通常: 5分, リアルタイム: 4秒）。
+    """
+    staff_info, err_resp, err_code = _auth_required()
+    if err_resp:
+        return err_resp, err_code
+
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == staff_info['tenant_id']).first()
+        if not tenant:
+            return jsonify({'ok': False, 'error': 'テナントが見つかりません'}), 404
+        realtime_enabled = bool(getattr(tenant, 'gps_realtime_enabled', False))
+        return jsonify({'ok': True, 'realtime_enabled': realtime_enabled})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:

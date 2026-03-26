@@ -6,6 +6,17 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
 from sqlalchemy import and_, or_, func as sqlfunc
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+JST = ZoneInfo('Asia/Tokyo')
+
+def now_jst():
+    """日本時間（JST）の現在時刻をタイムゾーンなしdatetimeで返す"""
+    return datetime.now(JST).replace(tzinfo=None)
+
+def today_jst():
+    """日本時間（JST）の今日の日付を返す"""
+    return datetime.now(JST).date()
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.db import SessionLocal
@@ -102,7 +113,7 @@ def dashboard():
         ).order_by(TNotice.created_at.desc()).limit(5).all()
 
         # 今日の勤怠
-        today = date.today()
+        today = today_jst()
         staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
         today_attendance = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
@@ -355,7 +366,7 @@ def my_calendar():
     try:
         from app.tax_calendar import get_all_deadlines_for_client, group_by_month  # noqa
 
-        year = int(request.args.get('year', date.today().year))
+        year = int(request.args.get('year', today_jst().year))
         unread_count = _get_unread_count(tenant_id, user_name)
 
         assignments = db.query(TClientAssignment).filter(
@@ -379,7 +390,7 @@ def my_calendar():
         all_deadlines = [d for d in all_deadlines if d['date'].year == year]
         all_deadlines.sort(key=lambda x: x['date'])
         grouped = group_by_month(all_deadlines)
-        today = date.today()
+        today = today_jst()
 
         return render_template('staff_mypage_calendar.html',
                                grouped=grouped,
@@ -452,7 +463,7 @@ def attendance():
     db = SessionLocal()
     try:
         unread_count = _get_unread_count(tenant_id, user_name)
-        today = date.today()
+        today = today_jst()
 
         # 今月の勤怠一覧
         month_str = request.args.get('month', today.strftime('%Y-%m'))
@@ -489,7 +500,7 @@ def attendance():
                 if today_record and today_record.clock_in:
                     flash('本日はすでに出勤済みです', 'warning')
                 else:
-                    now = datetime.now()
+                    now = now_jst()
                     if today_record:
                         today_record.clock_in = now
                         today_record.updated_at = now
@@ -513,7 +524,7 @@ def attendance():
                 elif today_record.clock_out:
                     flash('本日はすでに退勤済です', 'warning')
                 else:
-                    now = datetime.now()
+                    now = now_jst()
                     today_record.clock_out = now
                     today_record.updated_at = now
                     # 休憩中のまま退勤した場合は休憩終了も記録
@@ -533,7 +544,7 @@ def attendance():
                 elif today_record.break_start and not today_record.break_end:
                     flash('すでに休憩中です', 'warning')
                 else:
-                    now = datetime.now()
+                    now = now_jst()
                     today_record.break_start = now
                     today_record.break_end = None
                     today_record.updated_at = now
@@ -547,7 +558,7 @@ def attendance():
                 elif today_record.break_end:
                     flash('すでに休憩終了済です', 'warning')
                 else:
-                    now = datetime.now()
+                    now = now_jst()
                     today_record.break_end = now
                     mins = int((now - today_record.break_start).total_seconds() / 60)
                     today_record.break_minutes = (today_record.break_minutes or 0) + mins
@@ -585,7 +596,7 @@ def attendance():
                         rec.break_minutes = break_min
                         rec.note = note
                         rec.status = status
-                        rec.updated_at = datetime.now()
+                        rec.updated_at = now_jst()
                         db.commit()
                         flash('勤怠記録を更新しました', 'success')
                 else:
@@ -741,7 +752,7 @@ def notice_new():
                     author_id=user_id,
                     author_name=user_name,
                     is_important=is_important,
-                    published_at=datetime.now()
+                    published_at=now_jst()
                 )
                 db.add(notice)
                 db.commit()
@@ -800,7 +811,7 @@ def record_location():
 
     db = SessionLocal()
     try:
-        today = date.today()
+        today = today_jst()
         # 今日の勤怠レコードを取得（attendance_idの紐付け用）
         today_record = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
@@ -818,7 +829,7 @@ def record_location():
             longitude=float(longitude),
             accuracy=float(accuracy) if accuracy is not None else None,
             is_background=is_background,
-            recorded_at=datetime.now()
+            recorded_at=now_jst()
         )
         db.add(loc)
         db.commit()
@@ -841,7 +852,7 @@ def today_locations():
 
     db = SessionLocal()
     try:
-        today = date.today()
+        today = today_jst()
         today_record = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
@@ -883,7 +894,7 @@ def attendance_map():
     db = SessionLocal()
     try:
         unread_count = _get_unread_count(tenant_id, user_name)
-        today = date.today()
+        today = today_jst()
 
         # 対象日（クエリパラメータで変更可能）
         date_str = request.args.get('date', today.strftime('%Y-%m-%d'))

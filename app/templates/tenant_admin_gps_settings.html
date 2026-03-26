@@ -73,14 +73,63 @@
     }
     .toggle-status.on { color: #1a237e; }
 
-    /* ─── 間隔設定（GPS有効時のみ表示） ─── */
+    /* ─── 記録モード選択 ─── */
+    .mode-section {
+        transition: opacity 0.25s;
+        overflow: hidden;
+    }
+    .mode-section.disabled {
+        opacity: 0.35;
+        pointer-events: none;
+    }
+    .mode-selector {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .mode-btn {
+        flex: 1;
+        padding: 14px 10px;
+        border: 2px solid #e0e4f0;
+        border-radius: 10px;
+        background: #f5f7ff;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .mode-btn.active {
+        border-color: #1a237e;
+        background: #e8eaf6;
+    }
+    .mode-btn-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a237e;
+        margin-bottom: 4px;
+    }
+    .mode-btn-desc {
+        font-size: 11px;
+        color: #888;
+        line-height: 1.4;
+    }
+    .mode-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 10px;
+        margin-bottom: 6px;
+    }
+    .mode-badge.recommended { background: #e8f5e9; color: #2e7d32; }
+    .mode-badge.advanced { background: #fff3e0; color: #e65100; }
+
+    /* ─── 間隔設定 ─── */
     .interval-section {
         transition: opacity 0.25s, max-height 0.3s;
         overflow: hidden;
     }
-    .interval-section.disabled {
-        opacity: 0.35;
-        pointer-events: none;
+    .interval-section.hidden {
+        display: none;
     }
     .form-group { margin-bottom: 20px; }
     .form-group label {
@@ -132,6 +181,19 @@
     .preset-btn:hover { background: #c5cae9; }
     .preset-btn.active { background: #1a237e; color: #fff; }
 
+    /* ─── 常時記録の注意書き ─── */
+    .continuous-notice {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 12px;
+        color: #795548;
+        line-height: 1.6;
+        margin-top: 4px;
+    }
+    .continuous-notice strong { color: #e65100; }
+
     .save-btn {
         background: #1a237e;
         color: #fff;
@@ -157,7 +219,7 @@
     .divider { border: none; border-top: 1px solid #e8eaf6; margin: 24px 0; }
 </style>
 
-<a href="{{ url_for('tenant_admin.dashboard') }}" class="back-link">← ダッシュボードに戻る</a>
+<a href="{{ url_for('staff_mypage.attendance_map') }}" class="back-link">← スタッフ位置確認に戻る</a>
 
 <div class="settings-card">
     <div class="settings-title">📍 GPS位置記録 設定</div>
@@ -192,28 +254,60 @@
 
         <hr class="divider">
 
-        <!-- 記録間隔（GPS有効時のみ操作可能） -->
-        <div class="interval-section {% if not gps_enabled %}disabled{% endif %}" id="intervalSection">
-            <div class="form-group">
-                <label>GPS記録間隔</label>
-                <input type="number" name="gps_interval_minutes" id="intervalInput"
-                       value="{{ gps_interval }}" min="1" max="120" required>
-                <span class="unit">分ごとに記録</span>
-                <div class="form-hint">1〜120分の範囲で入力してください（推奨: 10〜30分）</div>
+        <!-- 記録モード選択（GPS有効時のみ操作可能） -->
+        <div class="mode-section {% if not gps_enabled %}disabled{% endif %}" id="modeSection">
+
+            <div style="font-size:13px; font-weight:600; color:#333; margin-bottom:12px;">記録モード</div>
+
+            <!-- モード選択ボタン -->
+            <div class="mode-selector">
+                <div class="mode-btn {% if not gps_continuous %}active{% endif %}"
+                     id="modeInterval" onclick="selectMode('interval')">
+                    <div class="mode-badge recommended">推奨</div>
+                    <div class="mode-btn-title">⏱ 間隔記録</div>
+                    <div class="mode-btn-desc">指定した間隔ごとに<br>位置を記録する</div>
+                </div>
+                <div class="mode-btn {% if gps_continuous %}active{% endif %}"
+                     id="modeContinuous" onclick="selectMode('continuous')">
+                    <div class="mode-badge advanced">常時</div>
+                    <div class="mode-btn-title">📡 常時記録</div>
+                    <div class="mode-btn-desc">移動のたびに<br>リアルタイムで記録</div>
+                </div>
             </div>
 
-            <div class="preset-buttons">
-                <span style="font-size:12px; color:#888; align-self:center;">プリセット：</span>
-                <button type="button" class="preset-btn {% if gps_interval == 5 %}active{% endif %}"
-                        onclick="setPreset(5)">5分</button>
-                <button type="button" class="preset-btn {% if gps_interval == 10 %}active{% endif %}"
-                        onclick="setPreset(10)">10分（推奨）</button>
-                <button type="button" class="preset-btn {% if gps_interval == 15 %}active{% endif %}"
-                        onclick="setPreset(15)">15分</button>
-                <button type="button" class="preset-btn {% if gps_interval == 30 %}active{% endif %}"
-                        onclick="setPreset(30)">30分</button>
-                <button type="button" class="preset-btn {% if gps_interval == 60 %}active{% endif %}"
-                        onclick="setPreset(60)">60分</button>
+            <input type="hidden" name="gps_continuous" id="gpsContinuousInput"
+                   value="{{ '1' if gps_continuous else '0' }}">
+
+            <!-- 間隔設定（間隔モードのみ表示） -->
+            <div class="interval-section {% if gps_continuous %}hidden{% endif %}" id="intervalSection">
+                <div class="form-group">
+                    <label>GPS記録間隔</label>
+                    <input type="number" name="gps_interval_minutes" id="intervalInput"
+                           value="{{ gps_interval }}" min="1" max="120" required>
+                    <span class="unit">分ごとに記録</span>
+                    <div class="form-hint">1〜120分の範囲で入力してください（推奨: 10〜30分）</div>
+                </div>
+
+                <div class="preset-buttons">
+                    <span style="font-size:12px; color:#888; align-self:center;">プリセット：</span>
+                    <button type="button" class="preset-btn {% if gps_interval == 5 %}active{% endif %}"
+                            onclick="setPreset(5)">5分</button>
+                    <button type="button" class="preset-btn {% if gps_interval == 10 %}active{% endif %}"
+                            onclick="setPreset(10)">10分（推奨）</button>
+                    <button type="button" class="preset-btn {% if gps_interval == 15 %}active{% endif %}"
+                            onclick="setPreset(15)">15分</button>
+                    <button type="button" class="preset-btn {% if gps_interval == 30 %}active{% endif %}"
+                            onclick="setPreset(30)">30分</button>
+                    <button type="button" class="preset-btn {% if gps_interval == 60 %}active{% endif %}"
+                            onclick="setPreset(60)">60分</button>
+                </div>
+            </div>
+
+            <!-- 常時記録の注意書き（常時モードのみ表示） -->
+            <div class="continuous-notice {% if not gps_continuous %}hidden{% endif %}" id="continuousNotice">
+                <strong>⚠ 注意：</strong> 常時記録はブラウザ（Web）では動作しません。<br>
+                スタッフがスマートフォンアプリ（Expoアプリ）を使用している場合のみ有効です。<br>
+                ブラウザ利用のスタッフには<strong>間隔記録</strong>をお使いください。
             </div>
         </div>
 
@@ -230,8 +324,19 @@ function onToggleChange(checkbox) {
     const statusEl = document.getElementById('toggleStatus');
     statusEl.textContent = enabled ? 'ON' : 'OFF';
     statusEl.className = 'toggle-status' + (enabled ? ' on' : '');
-    const section = document.getElementById('intervalSection');
+    const section = document.getElementById('modeSection');
     section.classList.toggle('disabled', !enabled);
+}
+
+function selectMode(mode) {
+    const isContinuous = (mode === 'continuous');
+    document.getElementById('gpsContinuousInput').value = isContinuous ? '1' : '0';
+
+    document.getElementById('modeInterval').classList.toggle('active', !isContinuous);
+    document.getElementById('modeContinuous').classList.toggle('active', isContinuous);
+
+    document.getElementById('intervalSection').classList.toggle('hidden', isContinuous);
+    document.getElementById('continuousNotice').classList.toggle('hidden', !isContinuous);
 }
 
 function setPreset(val) {

@@ -195,7 +195,7 @@
             <div class="gps-label" id="gpsLabel">📍 GPS位置記録</div>
             <div class="gps-detail" id="gpsDetail">
                 {% if today_record and today_record.clock_in and not today_record.clock_out %}
-                    {{ gps_interval_minutes | default(10) }}分間隔で自動記録中
+                    {% if gps_continuous %}常時記録モードで自動記録中{% else %}{{ gps_interval_minutes | default(10) }}分間隔で自動記録中{% endif %}
                 {% else %}
                     出勤中のみ位置記録が有効です
                 {% endif %}
@@ -388,7 +388,9 @@ document.getElementById('editModal').addEventListener('click', function(e) {
 // ──────────────────────────────────────────────
 {% if gps_enabled %}
 const GPS_INTERVAL_MS = {{ gps_interval_minutes | default(10) }} * 60 * 1000; // {{ gps_interval_minutes | default(10) }}分ごとに記録
+const GPS_CONTINUOUS = {{ 'true' if gps_continuous else 'false' }}; // 常時記録モード
 let gpsTimerId = null;
+let gpsWatchId = null; // 常時記録用watchPosition ID
 let gpsActive = false;
 let gpsCount = 0;
 
@@ -425,14 +427,56 @@ function startGps() {
     if (btn) { btn.textContent = 'GPS 停止'; btn.classList.add('stopping'); }
     label.textContent = '📍 GPS記録中';
     dot.className = 'gps-dot active';
-    // 即時1回記録してからインターバル開始
-    recordCurrentPosition();
-    gpsTimerId = setInterval(recordCurrentPosition, GPS_INTERVAL_MS);
+
+    if (GPS_CONTINUOUS) {
+        // 常時記録モード: watchPositionで移動ごとに記録
+        recordCurrentPosition(); // 即時１回
+        gpsWatchId = navigator.geolocation.watchPosition(
+            function(pos) {
+                const payload = {
+                    latitude:      pos.coords.latitude,
+                    longitude:     pos.coords.longitude,
+                    accuracy:      pos.coords.accuracy,
+                    is_background: false
+                };
+                fetch('/staff/attendance/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        gpsCount++;
+                        badge.textContent = '本日 ' + gpsCount + ' 件';
+                        const now = new Date();
+                        const hm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+                        detail.textContent = '最終記録: ' + hm
+                            + '  緯度 ' + payload.latitude.toFixed(5)
+                            + '  経度 ' + payload.longitude.toFixed(5);
+                        dot.className = 'gps-dot active';
+                    }
+                })
+                .catch(() => {});
+            },
+            function(err) {
+                const msgs = {1: '位置情報の許可が必要です', 2: '位置情報を取得できません', 3: 'タイムアウトしました'};
+                detail.textContent = msgs[err.code] || '位置情報エラー';
+                dot.className = 'gps-dot error';
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    } else {
+        // 間隔記録モード: 即時１回記録してからインターバル開始
+        recordCurrentPosition();
+        gpsTimerId = setInterval(recordCurrentPosition, GPS_INTERVAL_MS);
+    }
 }
 
 function stopGps() {
     gpsActive = false;
     if (gpsTimerId) { clearInterval(gpsTimerId); gpsTimerId = null; }
+    if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
     if (btn) { btn.textContent = 'GPS 開始'; btn.classList.remove('stopping'); }
     label.textContent = '📍 GPS位置記録';
     dot.className = 'gps-dot';

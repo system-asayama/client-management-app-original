@@ -248,6 +248,25 @@ def run_auto_migrations():
         else:
             logger.info("- gps_interval_minutes カラムは既に存在します")
 
+        # 4c. T_テナントに gps_continuous カラムを追加
+        if not column_exists(session, 'T_テナント', 'gps_continuous'):
+            logger.info("T_テナントテーブルに gps_continuous カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_テナント"
+                    ADD COLUMN gps_continuous INTEGER DEFAULT 0
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_テナント`
+                    ADD COLUMN `gps_continuous` INT DEFAULT 0
+                    COMMENT 'GPS常時記録モード（1=常時記録, 0=間隔記録）'
+                """))
+            session.commit()
+            logger.info("✓ gps_continuous カラムを追加しました")
+        else:
+            logger.info("- gps_continuous カラムは既に存在します")
+
         # 5. T_勤怠位置履歴 テーブルを作成（GPS記録）
         if not table_exists(session, 'T_勤怠位置履歴'):
             logger.info("T_勤怠位置履歴 テーブルを作成中...")

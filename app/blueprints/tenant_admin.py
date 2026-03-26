@@ -3047,7 +3047,11 @@ def gps_settings():
                 gps_enabled = 1 if request.form.get('gps_enabled') == '1' else 0
                 tenant_obj.gps_enabled = gps_enabled
 
-                # GPS記録間隔
+                # GPS常時記録モード
+                gps_continuous = 1 if request.form.get('gps_continuous') == '1' else 0
+                tenant_obj.gps_continuous = gps_continuous
+
+                # GPS記録間隔（常時モードのときは間隔は無視）
                 interval = int(request.form.get('gps_interval_minutes', 10))
                 if interval < 1:
                     interval = 1
@@ -3057,16 +3061,19 @@ def gps_settings():
                 db.commit()
 
                 status_label = '有効' if gps_enabled else '無効'
-                flash(f'GPS設定を更新しました（GPS機能: {status_label}、記録間隔: {interval}分）', 'success')
+                mode_label = '常時記録' if gps_continuous else f'間隔記録（{interval}分）'
+                flash(f'GPS設定を更新しました（GPS機能: {status_label}、モード: {mode_label}）', 'success')
             except ValueError:
                 flash('正しい数値を入力してください', 'error')
             return redirect(url_for('tenant_admin.gps_settings'))
 
         gps_enabled = getattr(tenant_obj, 'gps_enabled', 0) or 0
         gps_interval = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
+        gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
         return render_template('tenant_admin_gps_settings.html',
                                tenant=tenant_obj,
                                gps_enabled=gps_enabled,
-                               gps_interval=gps_interval)
+                               gps_interval=gps_interval,
+                               gps_continuous=gps_continuous)
     finally:
         db.close()

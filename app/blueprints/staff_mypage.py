@@ -628,6 +628,7 @@ def attendance():
         tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
         gps_enabled = getattr(tenant_obj, 'gps_enabled', 0) or 0
         gps_interval_minutes = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
+        gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
 
         return render_template('staff_mypage_attendance.html',
                                records=records,
@@ -639,7 +640,8 @@ def attendance():
                                total_work_minutes=total_work_minutes,
                                unread_count=unread_count,
                                gps_enabled=gps_enabled,
-                               gps_interval_minutes=gps_interval_minutes)
+                               gps_interval_minutes=gps_interval_minutes,
+                               gps_continuous=gps_continuous)
     finally:
         db.close()
 

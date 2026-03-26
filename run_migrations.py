@@ -1616,6 +1616,36 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # T_勤怠にbreak_start・break_endカラムを追加
+        print("\n[マイグレーション] T_勤怠にbreak_start・break_endカラムを追加...")
+        try:
+            is_pg = _is_pg(conn)
+            if is_pg:
+                for col, col_type in [('break_start', 'TIMESTAMP'), ('break_end', 'TIMESTAMP')]:
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'T_勤怠' AND column_name = %s
+                    """, (col,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "T_勤怠" ADD COLUMN {col} TIMESTAMP')
+                        conn.commit()
+                        print(f'  ✅ T_勤怠.{col}カラムを追加しました')
+                    else:
+                        print(f'  ℹ️  T_勤怠.{col}カラムは既に存在します（スキップ）')
+            else:
+                cur.execute('PRAGMA table_info("T_勤怠")')
+                existing = [row[1] for row in cur.fetchall()]
+                for col in ['break_start', 'break_end']:
+                    if col not in existing:
+                        cur.execute(f'ALTER TABLE "T_勤怠" ADD COLUMN {col} DATETIME')
+                        conn.commit()
+                        print(f'  ✅ T_勤怠.{col}カラムを追加しました')
+                    else:
+                        print(f'  ℹ️  T_勤怠.{col}カラムは既に存在します（スキップ）')
+        except Exception as e:
+            print(f'  ⚠️  マイグレーションエラー: {e}')
+            conn.rollback()
+
         # 社内チャット・お知らせ既読テーブルのマイグレーション
         print("\n[マイグレーション] 社内チャット・お知らせ既読テーブルを作成...")
         try:

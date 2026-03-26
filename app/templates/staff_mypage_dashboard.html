@@ -78,10 +78,15 @@
         text-decoration: none;
         display: inline-block;
     }
-    .btn-clock-in  { background: #1a237e; color: #fff; }
-    .btn-clock-out { background: #e53935; color: #fff; }
-    .btn-clock-in:hover  { background: #283593; }
-    .btn-clock-out:hover { background: #b71c1c; }
+    .btn-clock-in    { background: #1a237e; color: #fff; }
+    .btn-clock-out   { background: #e53935; color: #fff; }
+    .btn-break-start { background: #f57c00; color: #fff; }
+    .btn-break-end   { background: #388e3c; color: #fff; }
+    .btn-clock-in:hover    { background: #283593; }
+    .btn-clock-out:hover   { background: #b71c1c; }
+    .btn-break-start:hover { background: #e65100; }
+    .btn-break-end:hover   { background: #2e7d32; }
+    .attendance-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
     .deadline-row {
         display: flex;
@@ -183,6 +188,8 @@
                         出勤: {{ today_attendance.clock_in.strftime('%H:%M') }}
                         {% if today_attendance.clock_out %}
                         　退勤: {{ today_attendance.clock_out.strftime('%H:%M') }}
+                        {% elif today_attendance.break_start and not today_attendance.break_end %}
+                        　🍚 休憩中（{{ today_attendance.break_start.strftime('%H:%M') }}～）
                         {% endif %}
                     </div>
                 {% else %}
@@ -190,17 +197,28 @@
                     <div class="attendance-time">{{ today.strftime('%Y年%m月%d日') }}</div>
                 {% endif %}
             </div>
-            <div>
+            <div class="attendance-btns">
                 {% if not today_attendance or not today_attendance.clock_in %}
                 <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
                     <input type="hidden" name="action" value="clock_in">
                     <button type="submit" class="btn-clock btn-clock-in">出勤</button>
                 </form>
                 {% elif not today_attendance.clock_out %}
-                <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
-                    <input type="hidden" name="action" value="clock_out">
-                    <button type="submit" class="btn-clock btn-clock-out">退勤</button>
-                </form>
+                    {% if today_attendance.break_start and not today_attendance.break_end %}
+                    <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
+                        <input type="hidden" name="action" value="break_end">
+                        <button type="submit" class="btn-clock btn-break-end">休憩終了</button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
+                        <input type="hidden" name="action" value="break_start">
+                        <button type="submit" class="btn-clock btn-break-start">休憩開始</button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
+                        <input type="hidden" name="action" value="clock_out">
+                        <button type="submit" class="btn-clock btn-clock-out">退勤</button>
+                    </form>
                 {% endif %}
             </div>
         </div>

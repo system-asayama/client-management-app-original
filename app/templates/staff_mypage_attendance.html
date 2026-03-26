@@ -33,6 +33,20 @@
         border: none; cursor: pointer; transition: all 0.2s;
     }
     .btn-clock-out:hover { background: #c62828; }
+    .btn-break-start {
+        background: #f57c00; color: #fff;
+        padding: 12px 24px; border-radius: 8px;
+        font-size: 14px; font-weight: 700;
+        border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-break-start:hover { background: #e65100; }
+    .btn-break-end {
+        background: #388e3c; color: #fff;
+        padding: 12px 24px; border-radius: 8px;
+        font-size: 14px; font-weight: 700;
+        border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-break-end:hover { background: #2e7d32; }
 
     .month-nav {
         display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
@@ -96,6 +110,8 @@
                 出勤: {{ today_record.clock_in.strftime('%H:%M') }}
                 {% if today_record.clock_out %}
                 　退勤: {{ today_record.clock_out.strftime('%H:%M') }}
+                {% elif today_record.break_start and not today_record.break_end %}
+                　🍚 休憩中（{{ today_record.break_start.strftime('%H:%M') }}～）
                 {% endif %}
             {% else %}
                 {{ today.strftime('%Y年%m月%d日') }}
@@ -109,10 +125,21 @@
             <button type="submit" class="btn-clock-in">🕐 出勤</button>
         </form>
         {% elif not today_record.clock_out %}
-        <form method="post">
-            <input type="hidden" name="action" value="clock_out">
-            <button type="submit" class="btn-clock-out">🕐 退勤</button>
-        </form>
+            {% if today_record.break_start and not today_record.break_end %}
+            <form method="post">
+                <input type="hidden" name="action" value="break_end">
+                <button type="submit" class="btn-break-end">✅ 休憩終了</button>
+            </form>
+            {% else %}
+            <form method="post">
+                <input type="hidden" name="action" value="break_start">
+                <button type="submit" class="btn-break-start">🍚 休憩開始</button>
+            </form>
+            {% endif %}
+            <form method="post">
+                <input type="hidden" name="action" value="clock_out">
+                <button type="submit" class="btn-clock-out">🕐 退勤</button>
+            </form>
         {% endif %}
     </div>
 </div>

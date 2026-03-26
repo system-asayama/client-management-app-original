@@ -511,13 +511,49 @@ def attendance():
                 if not today_record or not today_record.clock_in:
                     flash('出勤記録がありません', 'error')
                 elif today_record.clock_out:
-                    flash('本日はすでに退勤済みです', 'warning')
+                    flash('本日はすでに退勤済です', 'warning')
                 else:
                     now = datetime.now()
                     today_record.clock_out = now
                     today_record.updated_at = now
+                    # 休憩中のまま退勤した場合は休憩終了も記録
+                    if today_record.break_start and not today_record.break_end:
+                        today_record.break_end = now
+                        mins = int((now - today_record.break_start).total_seconds() / 60)
+                        today_record.break_minutes = (today_record.break_minutes or 0) + mins
                     db.commit()
                     flash(f'退勤を記録しました（{now.strftime("%H:%M")}）', 'success')
+                return redirect(url_for('staff_mypage.attendance'))
+
+            elif action == 'break_start':
+                if not today_record or not today_record.clock_in:
+                    flash('出勤記録がありません', 'error')
+                elif today_record.clock_out:
+                    flash('すでに退勤済です', 'warning')
+                elif today_record.break_start and not today_record.break_end:
+                    flash('すでに休憩中です', 'warning')
+                else:
+                    now = datetime.now()
+                    today_record.break_start = now
+                    today_record.break_end = None
+                    today_record.updated_at = now
+                    db.commit()
+                    flash(f'休憩を開始しました（{now.strftime("%H:%M")}）', 'success')
+                return redirect(url_for('staff_mypage.attendance'))
+
+            elif action == 'break_end':
+                if not today_record or not today_record.break_start:
+                    flash('休憩開始記録がありません', 'error')
+                elif today_record.break_end:
+                    flash('すでに休憩終了済です', 'warning')
+                else:
+                    now = datetime.now()
+                    today_record.break_end = now
+                    mins = int((now - today_record.break_start).total_seconds() / 60)
+                    today_record.break_minutes = (today_record.break_minutes or 0) + mins
+                    today_record.updated_at = now
+                    db.commit()
+                    flash(f'休憩を終了しました（{mins}分）', 'success')
                 return redirect(url_for('staff_mypage.attendance'))
 
             elif action == 'save_record':

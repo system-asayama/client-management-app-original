@@ -1,4 +1,4 @@
-{% extends "staff_mypage_base.html" %}
+{% extends "base.html" %}
 {% block page_title %}{{ room.display_name }} - 社内チャット{% endblock %}
 {% block topbar_title %}{{ room.display_name }}{% endblock %}
 
@@ -73,9 +73,40 @@
   .msg-time { font-size: 10px; color: #bbb; margin-top: 3px; }
   .msg-row.mine .msg-time { text-align: right; }
 
+  /* ファイルメッセージ */
+  .msg-bubble.file-bubble {
+    padding: 8px 12px; background: #f0f4ff;
+    border: 1px solid #c5cae9;
+  }
+  .msg-row.mine .msg-bubble.file-bubble {
+    background: #283593; border-color: #3949ab;
+  }
+  .file-link {
+    display: flex; align-items: center; gap: 8px;
+    text-decoration: none; color: inherit;
+  }
+  .file-icon { font-size: 20px; flex-shrink: 0; }
+  .file-name { font-size: 12px; font-weight: 600; word-break: break-all; }
+  .file-download-hint { font-size: 10px; opacity: 0.7; margin-top: 2px; }
+
+  /* 画像メッセージ */
+  .msg-bubble.image-bubble {
+    padding: 6px; background: transparent; border: none;
+  }
+  .msg-row.mine .msg-bubble.image-bubble { background: transparent; }
+  .chat-image {
+    max-width: 260px; max-height: 200px;
+    border-radius: 10px; cursor: pointer;
+    border: 1px solid #e0e0e0;
+    display: block;
+  }
+
   /* 入力エリア */
   .chat-input-area {
     padding: 12px 16px; border-top: 1px solid #f0f0f0;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .chat-input-row {
     display: flex; gap: 10px; align-items: flex-end;
   }
   .chat-input-area textarea {
@@ -92,6 +123,26 @@
     white-space: nowrap;
   }
   .btn-send:hover { background: #283593; }
+  .btn-attach {
+    background: #f5f5f5; color: #555; border: 1px solid #ddd;
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 16px; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-attach:hover { background: #e8eaf6; }
+
+  /* ファイルプレビュー（送信前） */
+  .file-preview-bar {
+    display: none; align-items: center; gap: 10px;
+    background: #e8eaf6; border-radius: 8px;
+    padding: 8px 12px; font-size: 12px;
+  }
+  .file-preview-bar.active { display: flex; }
+  .file-preview-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-remove-file {
+    background: none; border: none; color: #e53935;
+    font-size: 16px; cursor: pointer; padding: 0 4px;
+  }
 
   /* メンバーパネル */
   .member-panel {
@@ -103,11 +154,43 @@
   .member-panel-title { font-size: 12px; font-weight: 700; color: #1a237e; margin-bottom: 10px; }
   .member-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; }
 
+  /* 画像ライトボックス */
+  .lightbox {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); z-index: 9999;
+    align-items: center; justify-content: center;
+  }
+  .lightbox.active { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+  .lightbox-close {
+    position: absolute; top: 20px; right: 24px;
+    color: #fff; font-size: 32px; cursor: pointer; line-height: 1;
+  }
+
+  /* アップロード中スピナー */
+  .upload-progress {
+    display: none; align-items: center; gap: 8px;
+    font-size: 12px; color: #1a237e; padding: 4px 0;
+  }
+  .upload-progress.active { display: flex; }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid #e8eaf6;
+    border-top-color: #1a237e; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   @media (max-width: 768px) {
     .room-sidebar, .member-panel { display: none; }
     .chat-layout { height: calc(100vh - 120px); }
   }
 </style>
+
+<!-- 画像ライトボックス -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+  <img id="lightboxImg" src="" alt="">
+</div>
 
 <div class="chat-layout">
   <!-- ルームサイドバー -->
@@ -118,7 +201,6 @@
          style="font-size:11px; color:#1a237e; text-decoration:none;">一覧</a>
     </div>
     <div class="room-list" id="sideRoomList">
-      <!-- JSで動的に更新 -->
       <a href="{{ url_for('internal_chat.room_view', room_id=room.id) }}"
          class="room-item active">
         {% if room.room_type == 'group' %}👥{% else %}💬{% endif %}
@@ -148,18 +230,54 @@
         </div>
         <div class="msg-bubble-wrap">
           <div class="msg-sender">{{ msg.sender_name }}</div>
-          <div class="msg-bubble">{{ msg.message }}</div>
+          {% if msg.message_type == 'image' and msg.file_url %}
+            <div class="msg-bubble image-bubble">
+              <img class="chat-image" src="{{ msg.file_url }}" alt="{{ msg.file_name }}"
+                   onclick="openLightbox('{{ msg.file_url }}')">
+            </div>
+          {% elif msg.message_type == 'file' and msg.file_url %}
+            <div class="msg-bubble file-bubble">
+              <a class="file-link" href="{{ msg.file_url }}" target="_blank" rel="noopener">
+                <span class="file-icon">📎</span>
+                <div>
+                  <div class="file-name">{{ msg.file_name or msg.message }}</div>
+                  <div class="file-download-hint">クリックしてダウンロード</div>
+                </div>
+              </a>
+            </div>
+          {% else %}
+            <div class="msg-bubble">{{ msg.message | replace('\n', '<br>') | safe }}</div>
+          {% endif %}
           <div class="msg-time">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</div>
         </div>
       </div>
       {% endfor %}
     </div>
 
-    <form method="post" class="chat-input-area" id="chatForm">
-      <textarea name="message" id="msgInput" placeholder="メッセージを入力... (Shift+Enterで改行)"
-                rows="1" required></textarea>
-      <button type="submit" class="btn-send">送信</button>
-    </form>
+    <!-- 入力エリア -->
+    <div class="chat-input-area">
+      <!-- ファイルプレビューバー -->
+      <div class="file-preview-bar" id="filePreviewBar">
+        <span style="font-size:16px;">📎</span>
+        <span class="file-preview-name" id="filePreviewName"></span>
+        <button class="btn-remove-file" onclick="removeFile()" title="キャンセル">&times;</button>
+      </div>
+      <!-- アップロード中表示 -->
+      <div class="upload-progress" id="uploadProgress">
+        <div class="spinner"></div>
+        <span>アップロード中...</span>
+      </div>
+      <form method="post" class="chat-input-row" id="chatForm">
+        <!-- 隠しファイル入力 -->
+        <input type="file" id="fileInput" style="display:none"
+               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.ppt,.pptx">
+        <button type="button" class="btn-attach" onclick="document.getElementById('fileInput').click()"
+                title="ファイルを添付">📎</button>
+        <textarea name="message" id="msgInput" placeholder="メッセージを入力... (Shift+Enterで改行)"
+                  rows="1"></textarea>
+        <button type="submit" class="btn-send" id="btnSend">送信</button>
+      </form>
+    </div>
   </div>
 
   <!-- メンバーパネル -->
@@ -182,6 +300,7 @@ const ROOM_ID   = {{ room.id }};
 const MY_ID     = {{ staff.id }};
 const MY_TYPE   = '{{ staff_type }}';
 let lastMsgId   = {% if messages %}{{ messages[-1].id }}{% else %}0{% endif %};
+let pendingFile = null;
 
 // スクロールを最下部へ
 function scrollToBottom() {
@@ -201,9 +320,120 @@ textarea.addEventListener('input', () => {
 textarea.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    document.getElementById('chatForm').submit();
+    handleSend();
   }
 });
+
+// ファイル選択
+document.getElementById('fileInput').addEventListener('change', function() {
+  if (this.files && this.files[0]) {
+    pendingFile = this.files[0];
+    document.getElementById('filePreviewName').textContent = pendingFile.name;
+    document.getElementById('filePreviewBar').classList.add('active');
+  }
+});
+
+function removeFile() {
+  pendingFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePreviewBar').classList.remove('active');
+}
+
+// 送信処理（テキスト or ファイル）
+function handleSend() {
+  if (pendingFile) {
+    uploadFile();
+  } else {
+    const msg = textarea.value.trim();
+    if (msg) {
+      document.getElementById('chatForm').submit();
+    }
+  }
+}
+
+document.getElementById('chatForm').addEventListener('submit', function(e) {
+  if (pendingFile) {
+    e.preventDefault();
+    uploadFile();
+  } else {
+    // テキスト送信はそのままフォームsubmit
+    if (!textarea.value.trim()) {
+      e.preventDefault();
+    }
+  }
+});
+
+// ファイルアップロード（Ajax）
+function uploadFile() {
+  if (!pendingFile) return;
+  const formData = new FormData();
+  formData.append('file', pendingFile);
+
+  document.getElementById('filePreviewBar').classList.remove('active');
+  document.getElementById('uploadProgress').classList.add('active');
+  document.getElementById('btnSend').disabled = true;
+
+  fetch(`/internal_chat/room/${ROOM_ID}/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('uploadProgress').classList.remove('active');
+    document.getElementById('btnSend').disabled = false;
+    if (data.error) {
+      alert('アップロードエラー: ' + data.error);
+      return;
+    }
+    removeFile();
+    // 新着メッセージとして表示
+    appendMessage(data, true);
+    lastMsgId = Math.max(lastMsgId, data.id);
+    scrollToBottom();
+  })
+  .catch(err => {
+    document.getElementById('uploadProgress').classList.remove('active');
+    document.getElementById('btnSend').disabled = false;
+    alert('アップロードに失敗しました');
+  });
+}
+
+// メッセージDOMを生成して追加
+function appendMessage(msg, isMine) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg-row' + (isMine ? ' mine' : '');
+  div.dataset.msgId = msg.id;
+
+  let bubbleHtml = '';
+  if (msg.message_type === 'image' && msg.file_url) {
+    bubbleHtml = `<div class="msg-bubble image-bubble">
+      <img class="chat-image" src="${escapeHtml(msg.file_url)}" alt="${escapeHtml(msg.file_name)}"
+           onclick="openLightbox('${escapeHtml(msg.file_url)}')">
+    </div>`;
+  } else if (msg.message_type === 'file' && msg.file_url) {
+    bubbleHtml = `<div class="msg-bubble file-bubble">
+      <a class="file-link" href="${escapeHtml(msg.file_url)}" target="_blank" rel="noopener">
+        <span class="file-icon">📎</span>
+        <div>
+          <div class="file-name">${escapeHtml(msg.file_name || msg.message)}</div>
+          <div class="file-download-hint">クリックしてダウンロード</div>
+        </div>
+      </a>
+    </div>`;
+  } else {
+    bubbleHtml = `<div class="msg-bubble">${escapeHtml(msg.message).replace(/\n/g,'<br>')}</div>`;
+  }
+
+  div.innerHTML = `
+    <div class="msg-avatar">${msg.sender_type === 'employee' ? '👷' : '👔'}</div>
+    <div class="msg-bubble-wrap">
+      <div class="msg-sender">${escapeHtml(msg.sender_name)}</div>
+      ${bubbleHtml}
+      <div class="msg-time">${msg.created_at}</div>
+    </div>`;
+  container.appendChild(div);
+}
 
 // ポーリングで新着メッセージを取得
 function fetchNewMessages() {
@@ -215,17 +445,7 @@ function fetchNewMessages() {
       const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
       msgs.forEach(msg => {
         const isMine = (msg.sender_id === MY_ID && msg.sender_type === MY_TYPE);
-        const div = document.createElement('div');
-        div.className = 'msg-row' + (isMine ? ' mine' : '');
-        div.dataset.msgId = msg.id;
-        div.innerHTML = `
-          <div class="msg-avatar">${msg.sender_type === 'employee' ? '👷' : '👔'}</div>
-          <div class="msg-bubble-wrap">
-            <div class="msg-sender">${msg.sender_name}</div>
-            <div class="msg-bubble">${escapeHtml(msg.message)}</div>
-            <div class="msg-time">${msg.created_at}</div>
-          </div>`;
-        container.appendChild(div);
+        appendMessage(msg, isMine);
         lastMsgId = Math.max(lastMsgId, msg.id);
       });
       if (wasAtBottom) scrollToBottom();
@@ -234,9 +454,23 @@ function fetchNewMessages() {
 }
 
 function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+// ライトボックス
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('active');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('active');
+  document.getElementById('lightboxImg').src = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox();
+});
 
 setInterval(fetchNewMessages, 3000);
 </script>

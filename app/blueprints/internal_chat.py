@@ -8,8 +8,10 @@ from app.models_login import (
     TInternalChatMember, TInternalMessage, TInternalMessageRead
 )
 from app.utils.decorators import require_roles, ROLES
+from app.utils.tenant_storage_adapter import get_storage_adapter
 from sqlalchemy import and_, or_, func as sqlfunc
 from datetime import datetime
+import os
 
 bp = Blueprint('internal_chat', __name__, url_prefix='/internal_chat')
 
@@ -285,7 +287,7 @@ def room_view(room_id):
                 # ルームのupdated_atを更新
                 room.updated_at = datetime.utcnow()
                 db.commit()
-            return redirect(url_for('internal_chat.room_view', room_id=room_id))
+            return redirect(url_for('internal_chat.room_view', room_id=room_id) + '#bottom')
 
         # メッセージ取得
         messages = db.query(TInternalMessage).filter(
@@ -373,12 +375,98 @@ def room_messages_api(room_id):
             db.commit()
 
         return jsonify([{
-            'id'         : m.id,
-            'sender_name': m.sender_name,
-            'sender_id'  : m.sender_id,
-            'sender_type': m.sender_type,
-            'message'    : m.message,
-            'created_at' : m.created_at.strftime('%H:%M') if m.created_at else '',
+            'id'          : m.id,
+            'sender_name' : m.sender_name,
+            'sender_id'   : m.sender_id,
+            'sender_type' : m.sender_type,
+            'message'     : m.message,
+            'message_type': m.message_type or 'text',
+            'file_url'    : m.file_url or '',
+            'file_name'   : m.file_name or '',
+            'created_at'  : m.created_at.strftime('%H:%M') if m.created_at else '',
         } for m in messages])
+    finally:
+        db.close()
+
+
+@bp.route('/room/<int:room_id>/upload', methods=['POST'])
+@require_roles(*STAFF_ROLES)
+def room_upload(room_id):
+    """社内チャットへのファイルアップロード"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        staff, staff_type = _get_current_staff(db)
+        if not staff:
+            return jsonify({'error': 'unauthorized'}), 401
+
+        room = db.query(TInternalChatRoom).filter(
+            and_(TInternalChatRoom.id == room_id, TInternalChatRoom.tenant_id == tenant_id)
+        ).first()
+        if not room:
+            return jsonify({'error': 'ルームが見つかりません'}), 404
+
+        # メンバーかどうか確認
+        membership = db.query(TInternalChatMember).filter(
+            and_(
+                TInternalChatMember.room_id    == room_id,
+                TInternalChatMember.staff_id   == staff.id,
+                TInternalChatMember.staff_type == staff_type,
+            )
+        ).first()
+        if not membership:
+            return jsonify({'error': 'アクセス権がありません'}), 403
+
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return jsonify({'error': 'ファイルが選択されていません'}), 400
+
+        original_name = file.filename
+        ext = os.path.splitext(original_name)[1].lower()
+
+        # ストレージにアップロード（社内チャット用フォルダ）
+        try:
+            adapter = get_storage_adapter(tenant_id)
+            file_url = adapter.upload(
+                file_stream         = file.stream,
+                original_name       = original_name,
+                client_id           = 0,
+                client_folder_path  = f'tenant-{tenant_id}/internal_chat',
+                subfolder           = f'room-{room_id}',
+            )
+        except Exception as e:
+            return jsonify({'error': f'アップロードエラー: {str(e)}'}), 500
+
+        # 画像かどうか判定
+        image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'}
+        msg_type = 'image' if ext in image_exts else 'file'
+
+        # メッセージとして保存
+        msg = TInternalMessage(
+            room_id     = room_id,
+            sender_id   = staff.id,
+            sender_type = staff_type,
+            sender_name = staff.name,
+            message     = original_name,
+            message_type= msg_type,
+            file_url    = file_url,
+            file_name   = original_name,
+        )
+        db.add(msg)
+        room.updated_at = datetime.utcnow()
+        db.commit()
+
+        return jsonify({
+            'success'     : True,
+            'id'          : msg.id,
+            'sender_name' : staff.name,
+            'sender_id'   : staff.id,
+            'sender_type' : staff_type,
+            'message'     : original_name,
+            'message_type': msg_type,
+            'file_url'    : file_url,
+            'file_name'   : original_name,
+            'created_at'  : msg.created_at.strftime('%H:%M') if msg.created_at else '',
+        })
     finally:
         db.close()

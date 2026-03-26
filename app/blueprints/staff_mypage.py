@@ -3,13 +3,13 @@
 スタッフマイページ ブループリント
 税理士事務所側スタッフ（tenant_admin / admin / employee）向けのマイページ機能
 """
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
 from sqlalchemy import and_, or_, func as sqlfunc
 from datetime import date, datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TNotice, TAttendance, TClientAssignment, TNoticeRead
+from app.models_login import TKanrisha, TJugyoin, TTenant, TNotice, TAttendance, TAttendanceLocation, TClientAssignment, TNoticeRead
 from app.models_clients import TClient, TMessage, TMessageRead
 from app.utils.decorators import require_roles, ROLES
 
@@ -763,5 +763,102 @@ def notice_delete(notice_id):
             db.commit()
             flash('お知らせを削除しました', 'success')
         return redirect(url_for('staff_mypage.notices'))
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# GPS位置記録 API（勤怠画面からのAjaxリクエスト用）
+# ─────────────────────────────────────────────
+@bp.route('/attendance/location', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def record_location():
+    """勤怠中のGPS位置を記録するAPIエンドポイント
+
+    JSONボディ: { latitude, longitude, accuracy, is_background }
+    """
+    tenant_id = session.get('tenant_id')
+    user_id = session.get('user_id')
+    role = session.get('role', '')
+    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
+
+    data = request.get_json(silent=True) or {}
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    accuracy = data.get('accuracy')
+    is_background = 1 if data.get('is_background') else 0
+
+    if latitude is None or longitude is None:
+        return jsonify({'ok': False, 'error': '緯度・経度が必要です'}), 400
+
+    db = SessionLocal()
+    try:
+        today = date.today()
+        # 今日の勤怠レコードを取得（attendance_idの紐付け用）
+        today_record = db.query(TAttendance).filter(
+            and_(TAttendance.tenant_id == tenant_id,
+                 TAttendance.staff_id == user_id,
+                 TAttendance.staff_type == staff_type,
+                 TAttendance.work_date == today)
+        ).first()
+
+        loc = TAttendanceLocation(
+            tenant_id=tenant_id,
+            attendance_id=today_record.id if today_record else None,
+            staff_id=user_id,
+            staff_type=staff_type,
+            latitude=float(latitude),
+            longitude=float(longitude),
+            accuracy=float(accuracy) if accuracy is not None else None,
+            is_background=is_background,
+            recorded_at=datetime.now()
+        )
+        db.add(loc)
+        db.commit()
+        return jsonify({'ok': True, 'id': loc.id})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/attendance/location/today')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def today_locations():
+    """今日のGPS位置履歴を返すAPIエンドポイント"""
+    tenant_id = session.get('tenant_id')
+    user_id = session.get('user_id')
+    role = session.get('role', '')
+    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
+
+    db = SessionLocal()
+    try:
+        today = date.today()
+        today_record = db.query(TAttendance).filter(
+            and_(TAttendance.tenant_id == tenant_id,
+                 TAttendance.staff_id == user_id,
+                 TAttendance.staff_type == staff_type,
+                 TAttendance.work_date == today)
+        ).first()
+
+        if not today_record:
+            return jsonify({'locations': [], 'count': 0})
+
+        locs = db.query(TAttendanceLocation).filter(
+            and_(TAttendanceLocation.attendance_id == today_record.id,
+                 TAttendanceLocation.tenant_id == tenant_id)
+        ).order_by(TAttendanceLocation.recorded_at.asc()).all()
+
+        result = [{
+            'id': l.id,
+            'latitude': l.latitude,
+            'longitude': l.longitude,
+            'accuracy': l.accuracy,
+            'is_background': l.is_background,
+            'recorded_at': l.recorded_at.strftime('%H:%M:%S')
+        } for l in locs]
+
+        return jsonify({'locations': result, 'count': len(result)})
     finally:
         db.close()

@@ -1,7 +1,7 @@
 """
 login-system-app用のSQLAlchemyモデル
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Date
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Date, Float
 from sqlalchemy.sql import func
 from app.db import Base
 
@@ -194,6 +194,23 @@ class TAttendance(Base):
     status = Column(String(20), default='normal', comment='normal=通常, late=遅刻, early=早退, absent=欠勤, holiday=休日')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class TAttendanceLocation(Base):
+    """T_勤怠位置履歴テーブル（出勤中のGPS記録）"""
+    __tablename__ = 'T_勤怠位置履歴'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    attendance_id = Column(Integer, ForeignKey('T_勤怠.id'), nullable=True, comment='紐付く勤怠レコードID')
+    staff_id = Column(Integer, nullable=False, comment='スタッフID')
+    staff_type = Column(String(20), nullable=False, default='admin', comment='admin=管理者, employee=従業員')
+    latitude = Column(Float, nullable=False, comment='緯度')
+    longitude = Column(Float, nullable=False, comment='経度')
+    accuracy = Column(Float, nullable=True, comment='精度（メートル）')
+    is_background = Column(Integer, default=0, comment='バックグラウンド取得フラグ（0=フォアグラウンド, 1=バックグラウンド）')
+    recorded_at = Column(DateTime, nullable=False, comment='位置情報取得日時')
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class TClientAssignment(Base):

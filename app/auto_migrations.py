@@ -204,6 +204,51 @@ def run_auto_migrations():
         else:
             logger.info("- T_システム管理者_テナント テーブルは既に存在します")
         
+        # 4. T_勤怠位置履歴 テーブルを作成（GPS記録）
+        if not table_exists(session, 'T_勤怠位置履歴'):
+            logger.info("T_勤怠位置履歴 テーブルを作成中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    CREATE TABLE "T_勤怠位置履歴" (
+                        id SERIAL PRIMARY KEY,
+                        tenant_id INTEGER NOT NULL,
+                        attendance_id INTEGER NULL,
+                        staff_id INTEGER NOT NULL,
+                        staff_type VARCHAR(20) NOT NULL DEFAULT 'admin',
+                        latitude DOUBLE PRECISION NOT NULL,
+                        longitude DOUBLE PRECISION NOT NULL,
+                        accuracy DOUBLE PRECISION NULL,
+                        is_background INTEGER DEFAULT 0,
+                        recorded_at TIMESTAMP NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT fk_loc_tenant FOREIGN KEY (tenant_id) REFERENCES "T_テナント"(id) ON DELETE CASCADE,
+                        CONSTRAINT fk_loc_attendance FOREIGN KEY (attendance_id) REFERENCES "T_勤怠"(id) ON DELETE SET NULL
+                    )
+                """))
+            else:
+                session.execute(text("""
+                    CREATE TABLE `T_勤怠位置履歴` (
+                        `id` INT NOT NULL AUTO_INCREMENT,
+                        `tenant_id` INT NOT NULL,
+                        `attendance_id` INT NULL,
+                        `staff_id` INT NOT NULL,
+                        `staff_type` VARCHAR(20) NOT NULL DEFAULT 'admin',
+                        `latitude` DOUBLE NOT NULL COMMENT '緯度',
+                        `longitude` DOUBLE NOT NULL COMMENT '経度',
+                        `accuracy` DOUBLE NULL COMMENT '精度（メートル）',
+                        `is_background` INT DEFAULT 0 COMMENT 'バックグラウンド取得フラグ',
+                        `recorded_at` DATETIME NOT NULL COMMENT '位置情報取得日時',
+                        `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (`id`),
+                        CONSTRAINT `fk_loc_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `T_テナント`(`id`) ON DELETE CASCADE,
+                        CONSTRAINT `fk_loc_attendance` FOREIGN KEY (`attendance_id`) REFERENCES `T_勤怠`(`id`) ON DELETE SET NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            session.commit()
+            logger.info("✓ T_勤怠位置履歴 テーブルを作成しました")
+        else:
+            logger.info("- T_勤怠位置履歴 テーブルは既に存在します")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

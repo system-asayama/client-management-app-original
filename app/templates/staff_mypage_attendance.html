@@ -48,6 +48,48 @@
     }
     .btn-break-end:hover { background: #2e7d32; }
 
+    /* GPS パネル */
+    .gps-panel {
+        background: #f0f7ff;
+        border: 1px solid #b3d4f5;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .gps-panel-left { display: flex; align-items: center; gap: 10px; }
+    .gps-dot {
+        width: 12px; height: 12px; border-radius: 50%;
+        background: #9e9e9e; flex-shrink: 0;
+        transition: background 0.3s;
+    }
+    .gps-dot.active { background: #43a047; animation: pulse 1.5s infinite; }
+    .gps-dot.error  { background: #e53935; }
+    @keyframes pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(67,160,71,0.5); }
+        70%  { box-shadow: 0 0 0 8px rgba(67,160,71,0); }
+        100% { box-shadow: 0 0 0 0 rgba(67,160,71,0); }
+    }
+    .gps-label { font-size: 13px; font-weight: 600; color: #1a237e; }
+    .gps-detail { font-size: 11px; color: #666; margin-top: 2px; }
+    .gps-count-badge {
+        background: #1a237e; color: #fff;
+        border-radius: 20px; padding: 4px 12px;
+        font-size: 12px; font-weight: 700;
+    }
+    .btn-gps-toggle {
+        background: #1a237e; color: #fff;
+        padding: 8px 18px; border-radius: 7px;
+        font-size: 13px; font-weight: 600;
+        border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-gps-toggle:hover { background: #283593; }
+    .btn-gps-toggle.stopping { background: #757575; }
+
     .month-nav {
         display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
     }
@@ -140,6 +182,29 @@
                 <input type="hidden" name="action" value="clock_out">
                 <button type="submit" class="btn-clock-out">🕐 退勤</button>
             </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- GPS 位置記録パネル -->
+<div class="gps-panel" id="gpsPanel">
+    <div class="gps-panel-left">
+        <div class="gps-dot" id="gpsDot"></div>
+        <div>
+            <div class="gps-label" id="gpsLabel">📍 GPS位置記録</div>
+            <div class="gps-detail" id="gpsDetail">
+                {% if today_record and today_record.clock_in and not today_record.clock_out %}
+                    出勤中は自動で位置を記録します
+                {% else %}
+                    出勤中のみ位置記録が有効です
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <span class="gps-count-badge" id="gpsCountBadge">本日 0 件</span>
+        {% if today_record and today_record.clock_in and not today_record.clock_out %}
+        <button class="btn-gps-toggle" id="gpsToggleBtn" onclick="toggleGps()">GPS 開始</button>
         {% endif %}
     </div>
 </div>
@@ -284,6 +349,9 @@
 </div>
 
 <script>
+// ──────────────────────────────────────────────
+// 勤怠編集モーダル
+// ──────────────────────────────────────────────
 function openEditModal(id, workDate, clockIn, clockOut, breakMin, note, status) {
     document.getElementById('modalTitle').textContent = '勤怠記録を編集';
     document.getElementById('recordId').value = id;
@@ -312,5 +380,112 @@ function closeModal() {
 document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
 });
+
+// ──────────────────────────────────────────────
+// GPS 位置記録
+// ──────────────────────────────────────────────
+const GPS_INTERVAL_MS = 10 * 60 * 1000; // 10分ごとに記録
+let gpsTimerId = null;
+let gpsActive = false;
+let gpsCount = 0;
+
+const dot    = document.getElementById('gpsDot');
+const label  = document.getElementById('gpsLabel');
+const detail = document.getElementById('gpsDetail');
+const badge  = document.getElementById('gpsCountBadge');
+const btn    = document.getElementById('gpsToggleBtn');
+
+// ページ読み込み時に今日の記録件数を取得
+fetch('/staff/attendance/location/today')
+    .then(r => r.json())
+    .then(data => {
+        gpsCount = data.count || 0;
+        badge.textContent = '本日 ' + gpsCount + ' 件';
+    })
+    .catch(() => {});
+
+function toggleGps() {
+    if (gpsActive) {
+        stopGps();
+    } else {
+        startGps();
+    }
+}
+
+function startGps() {
+    if (!navigator.geolocation) {
+        detail.textContent = 'このブラウザはGeolocationに対応していません';
+        dot.className = 'gps-dot error';
+        return;
+    }
+    gpsActive = true;
+    if (btn) { btn.textContent = 'GPS 停止'; btn.classList.add('stopping'); }
+    label.textContent = '📍 GPS記録中';
+    dot.className = 'gps-dot active';
+    // 即時1回記録してからインターバル開始
+    recordCurrentPosition();
+    gpsTimerId = setInterval(recordCurrentPosition, GPS_INTERVAL_MS);
+}
+
+function stopGps() {
+    gpsActive = false;
+    if (gpsTimerId) { clearInterval(gpsTimerId); gpsTimerId = null; }
+    if (btn) { btn.textContent = 'GPS 開始'; btn.classList.remove('stopping'); }
+    label.textContent = '📍 GPS位置記録';
+    dot.className = 'gps-dot';
+    detail.textContent = 'GPS記録を停止しました';
+}
+
+function recordCurrentPosition() {
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            const payload = {
+                latitude:      pos.coords.latitude,
+                longitude:     pos.coords.longitude,
+                accuracy:      pos.coords.accuracy,
+                is_background: false
+            };
+            fetch('/staff/attendance/location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    gpsCount++;
+                    badge.textContent = '本日 ' + gpsCount + ' 件';
+                    const now = new Date();
+                    const hm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+                    detail.textContent = '最終記録: ' + hm
+                        + '  緯度 ' + payload.latitude.toFixed(5)
+                        + '  経度 ' + payload.longitude.toFixed(5);
+                    dot.className = 'gps-dot active';
+                } else {
+                    detail.textContent = '記録失敗: ' + (data.error || '不明なエラー');
+                    dot.className = 'gps-dot error';
+                }
+            })
+            .catch(() => {
+                detail.textContent = 'サーバーへの送信に失敗しました';
+                dot.className = 'gps-dot error';
+            });
+        },
+        function(err) {
+            const msgs = {1: '位置情報の許可が必要です', 2: '位置情報を取得できません', 3: 'タイムアウトしました'};
+            detail.textContent = msgs[err.code] || '位置情報エラー';
+            dot.className = 'gps-dot error';
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+}
+
+// 出勤中ならページ読み込み時に自動でGPS開始
+{% if today_record and today_record.clock_in and not today_record.clock_out %}
+// 出勤中 → 自動スタート
+window.addEventListener('load', function() {
+    startGps();
+});
+{% endif %}
 </script>
 {% endblock %}

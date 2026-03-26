@@ -613,8 +613,9 @@ def attendance():
                 diff = (r.clock_out - r.clock_in).total_seconds() / 60
                 total_work_minutes += max(0, diff - r.break_minutes)
 
-        # GPS記録間隔をテナント設定から取得
+        # GPS設定をテナント設定から取得
         tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        gps_enabled = getattr(tenant_obj, 'gps_enabled', 0) or 0
         gps_interval_minutes = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
 
         return render_template('staff_mypage_attendance.html',
@@ -626,6 +627,7 @@ def attendance():
                                mon_m=mon_m,
                                total_work_minutes=total_work_minutes,
                                unread_count=unread_count,
+                               gps_enabled=gps_enabled,
                                gps_interval_minutes=gps_interval_minutes)
     finally:
         db.close()

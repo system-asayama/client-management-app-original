@@ -61,6 +61,7 @@ class TTenant(Base):
     profession = Column(String(50), nullable=True, comment='士業種別: tax=税理士, legal=弁護士, accounting=公認会計士, sr=社労士')
     有効 = Column(Integer, default=1)
     created_by_admin_id = Column(Integer, ForeignKey('T_管理者.id'), nullable=True, comment='このテナントを作成したシステム管理者のID')
+    gps_enabled = Column(Integer, default=0, comment='GPS位置記録機能の有効/無効（1=有効, 0=無効）')
     gps_interval_minutes = Column(Integer, default=10, comment='GPS位置記録間隔（分）デフォルト:10')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

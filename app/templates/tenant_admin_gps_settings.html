@@ -120,17 +120,15 @@
         border-radius: 10px;
         margin-bottom: 6px;
     }
-    .mode-badge.recommended { background: #e8f5e9; color: #2e7d32; }
-    .mode-badge.advanced { background: #fff3e0; color: #e65100; }
+    .mode-badge.web { background: #e3f2fd; color: #1565c0; }
+    .mode-badge.app { background: #fff3e0; color: #e65100; }
 
     /* ─── 間隔設定 ─── */
     .interval-section {
-        transition: opacity 0.25s, max-height 0.3s;
+        transition: opacity 0.25s;
         overflow: hidden;
     }
-    .interval-section.hidden {
-        display: none;
-    }
+    .interval-section.hidden { display: none; }
     .form-group { margin-bottom: 20px; }
     .form-group label {
         display: block;
@@ -181,18 +179,17 @@
     .preset-btn:hover { background: #c5cae9; }
     .preset-btn.active { background: #1a237e; color: #fff; }
 
-    /* ─── 常時記録の注意書き ─── */
-    .continuous-notice {
-        background: #fff8e1;
-        border: 1px solid #ffe082;
+    /* ─── 注意書き ─── */
+    .notice-box {
         border-radius: 8px;
         padding: 12px 16px;
         font-size: 12px;
-        color: #795548;
         line-height: 1.6;
         margin-top: 4px;
     }
-    .continuous-notice strong { color: #e65100; }
+    .notice-box.info { background: #e3f2fd; border: 1px solid #90caf9; color: #1565c0; }
+    .notice-box.warning { background: #fff8e1; border: 1px solid #ffe082; color: #795548; }
+    .notice-box strong { font-weight: 700; }
 
     .save-btn {
         background: #1a237e;
@@ -225,8 +222,7 @@
     <div class="settings-title">📍 GPS位置記録 設定</div>
     <div class="settings-desc">
         スタッフの出勤中にGPS位置情報を自動記録する機能の設定です。<br>
-        GPS機能を<strong>有効</strong>にすると、スタッフの勤怠画面にGPSパネルが表示され、
-        出勤ボタン押下時に位置記録が自動開始されます。
+        GPS機能を<strong>有効</strong>にすると、スタッフの勤怠画面にGPSパネルが表示されます。
     </div>
 
     <form method="post" id="gpsForm">
@@ -247,7 +243,6 @@
                     {% if gps_enabled %}ON{% else %}OFF{% endif %}
                 </span>
             </div>
-            <!-- hidden input でサーバーに値を送信 -->
             <input type="hidden" name="gps_enabled" id="gpsEnabledInput"
                    value="{{ '1' if gps_enabled else '0' }}">
         </div>
@@ -259,17 +254,18 @@
 
             <div style="font-size:13px; font-weight:600; color:#333; margin-bottom:12px;">記録モード</div>
 
-            <!-- モード選択ボタン -->
             <div class="mode-selector">
+                <!-- Webブラウザモード -->
                 <div class="mode-btn {% if not gps_continuous %}active{% endif %}"
                      id="modeInterval" onclick="selectMode('interval')">
-                    <div class="mode-badge recommended">推奨</div>
-                    <div class="mode-btn-title">⏱ 間隔記録</div>
-                    <div class="mode-btn-desc">指定した間隔ごとに<br>位置を記録する</div>
+                    <div class="mode-badge web">ブラウザ</div>
+                    <div class="mode-btn-title">📌 出退勤時のみ</div>
+                    <div class="mode-btn-desc">出勤・休憩開始・<br>休憩終了・退勤時に記録</div>
                 </div>
+                <!-- Expoアプリモード -->
                 <div class="mode-btn {% if gps_continuous %}active{% endif %}"
                      id="modeContinuous" onclick="selectMode('continuous')">
-                    <div class="mode-badge advanced">常時</div>
+                    <div class="mode-badge app">アプリ専用</div>
                     <div class="mode-btn-title">📡 常時記録</div>
                     <div class="mode-btn-desc">移動のたびに<br>リアルタイムで記録</div>
                 </div>
@@ -278,12 +274,25 @@
             <input type="hidden" name="gps_continuous" id="gpsContinuousInput"
                    value="{{ '1' if gps_continuous else '0' }}">
 
-            <!-- 間隔設定（間隔モードのみ表示） -->
-            <div class="interval-section {% if gps_continuous %}hidden{% endif %}" id="intervalSection">
+            <!-- ブラウザモードの説明 -->
+            <div class="notice-box info {% if gps_continuous %}hidden{% endif %}" id="intervalNotice">
+                <strong>📌 出退勤時のみ記録</strong>（ブラウザ対応）<br>
+                出勤・休憩開始・休憩終了・退勤の4タイミングで位置を記録します。<br>
+                ブラウザ利用のスタッフに適しています。常時追跡が必要な場合はExpoアプリの導入をご検討ください。
+            </div>
+
+            <!-- 常時記録モードの説明＋間隔設定 -->
+            <div class="{% if not gps_continuous %}hidden{% endif %}" id="continuousSection">
+                <div class="notice-box warning" style="margin-bottom:16px;">
+                    <strong>⚠ Expoアプリ専用</strong><br>
+                    常時記録はスマートフォンアプリ（Expoアプリ）を使用している場合のみ有効です。<br>
+                    ブラウザ利用のスタッフには機能しません。
+                </div>
+
                 <div class="form-group">
-                    <label>GPS記録間隔</label>
+                    <label>GPS記録間隔（アプリの間隔記録にも使用）</label>
                     <input type="number" name="gps_interval_minutes" id="intervalInput"
-                           value="{{ gps_interval }}" min="1" max="120" required>
+                           value="{{ gps_interval }}" min="1" max="120">
                     <span class="unit">分ごとに記録</span>
                     <div class="form-hint">1〜120分の範囲で入力してください（推奨: 10〜30分）</div>
                 </div>
@@ -303,12 +312,9 @@
                 </div>
             </div>
 
-            <!-- 常時記録の注意書き（常時モードのみ表示） -->
-            <div class="continuous-notice {% if not gps_continuous %}hidden{% endif %}" id="continuousNotice">
-                <strong>⚠ 注意：</strong> 常時記録はブラウザ（Web）では動作しません。<br>
-                スタッフがスマートフォンアプリ（Expoアプリ）を使用している場合のみ有効です。<br>
-                ブラウザ利用のスタッフには<strong>間隔記録</strong>をお使いください。
-            </div>
+            <!-- ブラウザモード時も間隔値は送信（hidden） -->
+            <input type="hidden" id="intervalInputHidden" name="gps_interval_minutes_web"
+                   value="{{ gps_interval }}">
         </div>
 
         <div style="margin-top:28px;">
@@ -324,19 +330,16 @@ function onToggleChange(checkbox) {
     const statusEl = document.getElementById('toggleStatus');
     statusEl.textContent = enabled ? 'ON' : 'OFF';
     statusEl.className = 'toggle-status' + (enabled ? ' on' : '');
-    const section = document.getElementById('modeSection');
-    section.classList.toggle('disabled', !enabled);
+    document.getElementById('modeSection').classList.toggle('disabled', !enabled);
 }
 
 function selectMode(mode) {
     const isContinuous = (mode === 'continuous');
     document.getElementById('gpsContinuousInput').value = isContinuous ? '1' : '0';
-
     document.getElementById('modeInterval').classList.toggle('active', !isContinuous);
     document.getElementById('modeContinuous').classList.toggle('active', isContinuous);
-
-    document.getElementById('intervalSection').classList.toggle('hidden', isContinuous);
-    document.getElementById('continuousNotice').classList.toggle('hidden', !isContinuous);
+    document.getElementById('intervalNotice').classList.toggle('hidden', isContinuous);
+    document.getElementById('continuousSection').classList.toggle('hidden', !isContinuous);
 }
 
 function setPreset(val) {

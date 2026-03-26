@@ -195,7 +195,7 @@
             <div class="gps-label" id="gpsLabel">📍 GPS位置記録</div>
             <div class="gps-detail" id="gpsDetail">
                 {% if today_record and today_record.clock_in and not today_record.clock_out %}
-                    {% if gps_continuous %}常時記録モードで自動記録中{% else %}{{ gps_interval_minutes | default(10) }}分間隔で自動記録中{% endif %}
+                    出勤・休憩・退勤時に自動記録中
                 {% else %}
                     出勤中のみ位置記録が有効です
                 {% endif %}
@@ -384,21 +384,15 @@ document.getElementById('editModal').addEventListener('click', function(e) {
 });
 
 // ──────────────────────────────────────────────
-// GPS 位置記録（GPS機能有効時のみ実行）
+// GPS 位置記録（出勤・休憩開始・休憩終了・退勤の4タイミングのみ）
 // ──────────────────────────────────────────────
 {% if gps_enabled %}
-const GPS_INTERVAL_MS = {{ gps_interval_minutes | default(10) }} * 60 * 1000; // {{ gps_interval_minutes | default(10) }}分ごとに記録
-const GPS_CONTINUOUS = {{ 'true' if gps_continuous else 'false' }}; // 常時記録モード
-let gpsTimerId = null;
-let gpsWatchId = null; // 常時記録用watchPosition ID
-let gpsActive = false;
 let gpsCount = 0;
 
 const dot    = document.getElementById('gpsDot');
 const label  = document.getElementById('gpsLabel');
 const detail = document.getElementById('gpsDetail');
 const badge  = document.getElementById('gpsCountBadge');
-const btn    = document.getElementById('gpsToggleBtn');
 
 // ページ読み込み時に今日の記録件数を取得
 fetch('/staff/attendance/location/today')
@@ -409,81 +403,12 @@ fetch('/staff/attendance/location/today')
     })
     .catch(() => {});
 
-function toggleGps() {
-    if (gpsActive) {
-        stopGps();
-    } else {
-        startGps();
-    }
-}
-
-function startGps() {
-    if (!navigator.geolocation) {
-        detail.textContent = 'このブラウザはGeolocationに対応していません';
-        dot.className = 'gps-dot error';
-        return;
-    }
-    gpsActive = true;
-    if (btn) { btn.textContent = 'GPS 停止'; btn.classList.add('stopping'); }
-    label.textContent = '📍 GPS記録中';
-    dot.className = 'gps-dot active';
-
-    if (GPS_CONTINUOUS) {
-        // 常時記録モード: watchPositionで移動ごとに記録
-        recordCurrentPosition(); // 即時１回
-        gpsWatchId = navigator.geolocation.watchPosition(
-            function(pos) {
-                const payload = {
-                    latitude:      pos.coords.latitude,
-                    longitude:     pos.coords.longitude,
-                    accuracy:      pos.coords.accuracy,
-                    is_background: false
-                };
-                fetch('/staff/attendance/location', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.ok) {
-                        gpsCount++;
-                        badge.textContent = '本日 ' + gpsCount + ' 件';
-                        const now = new Date();
-                        const hm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-                        detail.textContent = '最終記録: ' + hm
-                            + '  緯度 ' + payload.latitude.toFixed(5)
-                            + '  経度 ' + payload.longitude.toFixed(5);
-                        dot.className = 'gps-dot active';
-                    }
-                })
-                .catch(() => {});
-            },
-            function(err) {
-                const msgs = {1: '位置情報の許可が必要です', 2: '位置情報を取得できません', 3: 'タイムアウトしました'};
-                detail.textContent = msgs[err.code] || '位置情報エラー';
-                dot.className = 'gps-dot error';
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-        );
-    } else {
-        // 間隔記録モード: 即時１回記録してからインターバル開始
-        recordCurrentPosition();
-        gpsTimerId = setInterval(recordCurrentPosition, GPS_INTERVAL_MS);
-    }
-}
-
-function stopGps() {
-    gpsActive = false;
-    if (gpsTimerId) { clearInterval(gpsTimerId); gpsTimerId = null; }
-    if (gpsWatchId !== null) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
-    if (btn) { btn.textContent = 'GPS 開始'; btn.classList.remove('stopping'); }
-    label.textContent = '📍 GPS位置記録';
-    dot.className = 'gps-dot';
-    detail.textContent = 'GPS記録を停止しました';
-}
-
-function recordCurrentPosition() {
+/**
+ * 位置を記録する共通関数
+ * 出勤・休憩開始・休憩終了・退勤の4タイミングで呼び出す
+ */
+function recordGpsPoint(labelText) {
+    if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
         function(pos) {
             const payload = {
@@ -501,149 +426,30 @@ function recordCurrentPosition() {
             .then(data => {
                 if (data.ok) {
                     gpsCount++;
-                    badge.textContent = '本日 ' + gpsCount + ' 件';
+                    if (badge) badge.textContent = '本日 ' + gpsCount + ' 件';
                     const now = new Date();
                     const hm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-                    detail.textContent = '最終記録: ' + hm
-                        + '  緯度 ' + payload.latitude.toFixed(5)
-                        + '  経度 ' + payload.longitude.toFixed(5);
-                    dot.className = 'gps-dot active';
-                } else {
-                    detail.textContent = '記録失敗: ' + (data.error || '不明なエラー');
-                    dot.className = 'gps-dot error';
+                    if (detail) {
+                        detail.textContent = labelText + ': ' + hm
+                            + '  緯度 ' + payload.latitude.toFixed(5)
+                            + '  経度 ' + payload.longitude.toFixed(5);
+                    }
+                    if (dot) dot.className = 'gps-dot active';
                 }
             })
-            .catch(() => {
-                detail.textContent = 'サーバーへの送信に失敗しました';
-                dot.className = 'gps-dot error';
-            });
+            .catch(() => {});
         },
-        function(err) {
-            const msgs = {1: '位置情報の許可が必要です', 2: '位置情報を取得できません', 3: 'タイムアウトしました'};
-            detail.textContent = msgs[err.code] || '位置情報エラー';
-            dot.className = 'gps-dot error';
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+        function() {}, // エラーは無視（ボタン操作を妨げない）
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
 }
 
-// 出勤中ならページ読み込み時に自動でGPS開始
-{% if today_record and today_record.clock_in and not today_record.clock_out %}
-// 出勤中 → 自動スタート
-window.addEventListener('load', function() {
-    startGps();
-});
-{% endif %}
-
-// ──────────────────────────────────────────────
-// フォーム連動：出退勤・休憩ボタンとGPSの自動連動
-// ──────────────────────────────────────────────
-
-/**
- * 出勤ボタン押下時：即時GPSを記録してからフォームを送信する
- * ページ遷移後は自動スタートされるのでここでは位置記録のみ実行
- */
-function onClockIn() {
-    // 出勤時の位置を即時記録（非同期）
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                fetch('/staff/attendance/location', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        latitude:      pos.coords.latitude,
-                        longitude:     pos.coords.longitude,
-                        accuracy:      pos.coords.accuracy,
-                        is_background: false
-                    })
-                }).catch(() => {});
-            },
-            function() {}, // エラーは無視（フォーム送信を妄げない）
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-    }
-    // フォーム送信はそのまま続行（return trueは不要）
-}
-
-/**
- * 退勤ボタン押下時：最終位置を記録してからGPSを停止
- */
-function onClockOut() {
-    // GPSを先に停止
-    stopGps();
-    // 退勤時の最終位置を記録（非同期）
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                fetch('/staff/attendance/location', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        latitude:      pos.coords.latitude,
-                        longitude:     pos.coords.longitude,
-                        accuracy:      pos.coords.accuracy,
-                        is_background: false
-                    })
-                }).catch(() => {});
-            },
-            function() {},
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-    }
-}
-
-/**
- * 休憩開始ボタン押下時：位置を記録してGPSを一時停止
- */
-function onBreakStart() {
-    // 休憩前の最終位置を記録
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                fetch('/staff/attendance/location', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        latitude:      pos.coords.latitude,
-                        longitude:     pos.coords.longitude,
-                        accuracy:      pos.coords.accuracy,
-                        is_background: false
-                    })
-                }).catch(() => {});
-            },
-            function() {},
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-    }
-    // GPS自動記録を一時停止（ページ遷移後は休憩中なので自動スタートされない）
-    stopGps();
-}
-
-/**
- * 休憩終了ボタン押下時：位置を記録してGPSを再開（ページ遷移後に自動スタート）
- */
-function onBreakEnd() {
-    // 休憩明けの位置を記録（ページ遷移後に自動スタートされる）
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                fetch('/staff/attendance/location', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        latitude:      pos.coords.latitude,
-                        longitude:     pos.coords.longitude,
-                        accuracy:      pos.coords.accuracy,
-                        is_background: false
-                    })
-                }).catch(() => {});
-            },
-            function() {},
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-    }
-}
+// 4タイミングの記録関数
+function onClockIn()    { recordGpsPoint('出勤'); }
+function onClockOut()   { recordGpsPoint('退勤'); }
+function onBreakStart() { recordGpsPoint('休憩開始'); }
+function onBreakEnd()   { recordGpsPoint('休憩終了'); }
 {% endif %}
 </script>
+
 {% endblock %}

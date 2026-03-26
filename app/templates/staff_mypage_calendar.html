@@ -1,0 +1,112 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}税務カレンダー{% endblock %}
+{% block topbar_title %}税務カレンダー（担当顧問先）{% endblock %}
+
+{% block content %}
+<style>
+    .year-nav {
+        display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+    }
+    .year-nav a {
+        background: #e8eaf6; color: #1a237e; border-radius: 6px;
+        padding: 7px 16px; font-size: 13px; font-weight: 600;
+        text-decoration: none; transition: background 0.2s;
+    }
+    .year-nav a:hover { background: #c5cae9; }
+    .year-nav .current-year {
+        font-size: 22px; font-weight: 800; color: #1a237e;
+    }
+    .month-section { margin-bottom: 28px; }
+    .month-header {
+        font-size: 16px; font-weight: 700; color: #1a237e;
+        background: #e8eaf6; padding: 10px 16px; border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    .deadline-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px; background: #fff;
+        border-radius: 8px; margin-bottom: 6px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        font-size: 13px;
+    }
+    .deadline-item.is-past { opacity: 0.55; }
+    .deadline-item.is-today { border-left: 4px solid #e65100; }
+    .deadline-date-col {
+        min-width: 70px; font-weight: 700; color: #1a237e;
+    }
+    .deadline-dot {
+        width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .deadline-label { font-weight: 600; flex: 1; }
+    .deadline-client { color: #888; font-size: 12px; min-width: 120px; }
+    .empty-month { color: #bbb; font-size: 13px; padding: 8px 14px; }
+    .filter-bar {
+        display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+        align-items: center;
+    }
+    .filter-bar select {
+        padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
+        font-size: 13px; color: #333;
+    }
+    .filter-bar select:focus { outline: none; border-color: #1a237e; }
+</style>
+
+<div class="year-nav">
+    <a href="{{ url_for('staff_mypage.my_calendar', year=year-1) }}">← {{ year-1 }}年</a>
+    <span class="current-year">{{ year }}年</span>
+    <a href="{{ url_for('staff_mypage.my_calendar', year=year+1) }}">{{ year+1 }}年 →</a>
+</div>
+
+<div class="filter-bar">
+    <select id="clientFilter" onchange="filterDeadlines()">
+        <option value="">すべての顧問先</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+    </select>
+    <span style="font-size:12px; color:#888;">
+        合計 {{ grouped.values()|map('list')|sum(start=[])|length }} 件の期限
+    </span>
+</div>
+
+{% set month_names = {1:'1月',2:'2月',3:'3月',4:'4月',5:'5月',6:'6月',7:'7月',8:'8月',9:'9月',10:'10月',11:'11月',12:'12月'} %}
+{% for month in range(1, 13) %}
+{% set items = grouped.get(month, []) %}
+<div class="month-section">
+    <div class="month-header">{{ month_names[month] }}</div>
+    {% if items %}
+    {% for d in items %}
+    {% set is_past = d.date < today %}
+    {% set is_today = d.date == today %}
+    <div class="deadline-item {% if is_past %}is-past{% endif %} {% if is_today %}is-today{% endif %}"
+         data-client-id="{{ d.client_id }}">
+        <div class="deadline-date-col">{{ d.date.strftime('%m/%d') }}</div>
+        <div class="deadline-dot" style="background: {{ d.get('color', '#1a237e') }};"></div>
+        <div class="deadline-label">{{ d.label }}</div>
+        <div class="deadline-client">{{ d.client_name }}</div>
+        {% if is_today %}
+        <span class="badge badge-orange">今日</span>
+        {% elif is_past %}
+        <span class="badge badge-gray">期限切れ</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-month">この月の期限はありません</div>
+    {% endif %}
+</div>
+{% endfor %}
+
+<script>
+function filterDeadlines() {
+    const clientId = document.getElementById('clientFilter').value;
+    document.querySelectorAll('.deadline-item').forEach(item => {
+        if (!clientId || item.dataset.clientId === clientId) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -83,14 +83,8 @@ def create_app() -> Flask:
         # ロールに応じたマイページURLを設定
         role = session.get('role')
         try:
-            if role == 'system_admin':
-                context['mypage_url'] = url_for('system_admin.mypage')
-            elif role == 'tenant_admin':
-                context['mypage_url'] = url_for('tenant_admin.mypage')
-            elif role == 'admin':
-                context['mypage_url'] = url_for('admin.mypage')
-            elif role == 'employee':
-                context['mypage_url'] = url_for('employee.mypage')
+            if role in ('system_admin', 'tenant_admin', 'admin', 'employee'):
+                context['mypage_url'] = url_for('staff_mypage.dashboard')
             else:
                 context['mypage_url'] = url_for('auth.index')
         except Exception:
@@ -263,6 +257,14 @@ def create_app() -> Flask:
         app.register_blueprint(client_mypage_bp)
     except Exception as e:
         print(f"⚠️ client_mypage blueprint 登録エラー: {e}")
+
+    # スタッフマイページ blueprint登録
+    try:
+        from .blueprints.staff_mypage import bp as staff_mypage_bp
+        app.register_blueprint(staff_mypage_bp)
+        print("✅ staff_mypage blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ staff_mypage blueprint 登録エラー: {e}")
 
     # debug blueprint登録
     try:

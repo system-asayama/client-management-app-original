@@ -1,7 +1,7 @@
 """
 login-system-app用のSQLAlchemyモデル
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Date
 from sqlalchemy.sql import func
 from app.db import Base
 
@@ -22,6 +22,8 @@ class TKanrisha(Base):
     can_manage_admins = Column(Integer, default=0)
     can_manage_all_tenants = Column(Integer, default=0, comment='全テナント管理権限（1=全テナントにアクセス可能、0=作成/招待されたテナントのみ）')
     openai_api_key = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True, comment='電話番号')
+    position = Column(String(100), nullable=True, comment='役職')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -38,6 +40,8 @@ class TJugyoin(Base):
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=True)
     role = Column(String(50), default='employee')
     active = Column(Integer, default=1)
+    phone = Column(String(50), nullable=True, comment='電話番号')
+    position = Column(String(100), nullable=True, comment='役職')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -153,3 +157,51 @@ class TSystemAdminTenant(Base):
     __table_args__ = (
         {'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci', 'extend_existing': True}
     )
+
+
+class TNotice(Base):
+    """T_お知らせテーブル（事務所内お知らせ）"""
+    __tablename__ = 'T_お知らせ'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    title = Column(String(255), nullable=False, comment='タイトル')
+    body = Column(Text, nullable=True, comment='本文')
+    author_id = Column(Integer, nullable=True, comment='投稿者ID（T_管理者.id）')
+    author_name = Column(String(255), nullable=True, comment='投稿者名')
+    is_important = Column(Integer, default=0, comment='重要フラグ（0=通常, 1=重要）')
+    published_at = Column(DateTime, nullable=True, comment='公開日時')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class TAttendance(Base):
+    """T_勤怠テーブル（出退勤記録）"""
+    __tablename__ = 'T_勤怠'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False, comment='スタッフID（T_管理者.id または T_従業員.id）')
+    staff_type = Column(String(20), nullable=False, default='admin', comment='admin=管理者, employee=従業員')
+    staff_name = Column(String(255), nullable=True, comment='スタッフ名（非正規化）')
+    work_date = Column(Date, nullable=False, comment='勤務日')
+    clock_in = Column(DateTime, nullable=True, comment='出勤時刻')
+    clock_out = Column(DateTime, nullable=True, comment='退勤時刻')
+    break_minutes = Column(Integer, default=60, comment='休憩時間（分）')
+    note = Column(Text, nullable=True, comment='備考')
+    status = Column(String(20), default='normal', comment='normal=通常, late=遅刻, early=早退, absent=欠勤, holiday=休日')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class TClientAssignment(Base):
+    """T_顧問先担当テーブル（スタッフと顧問先の担当関係）"""
+    __tablename__ = 'T_顧問先担当'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False, comment='担当スタッフID（T_管理者.id または T_従業員.id）')
+    staff_type = Column(String(20), nullable=False, default='admin', comment='admin=管理者, employee=従業員')
+    is_primary = Column(Integer, default=0, comment='主担当フラグ（0=サブ, 1=主担当）')
+    created_at = Column(DateTime, server_default=func.now())

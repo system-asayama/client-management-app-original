@@ -1273,6 +1273,220 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_管理者にphone・positionカラムを追加
+        print("\n[マイグレーション] T_管理者にphone・positionカラムを追加")
+        try:
+            if _is_pg(conn):
+                for col, coltype in [('phone', 'VARCHAR(50)'), ('position', 'VARCHAR(100)')]:
+                    cur.execute(f"""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'T_管理者' AND column_name = '{col}'
+                    """)
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "T_管理者" ADD COLUMN {col} {coltype}')
+                        conn.commit()
+                        print(f"  ✅ T_管理者.{col}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  T_管理者.{col}カラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_管理者')")
+                cols = [row[1] for row in cur.fetchall()]
+                for col, coltype in [('phone', 'TEXT'), ('position', 'TEXT')]:
+                    if col not in cols:
+                        cur.execute(f'ALTER TABLE "T_管理者" ADD COLUMN {col} {coltype}')
+                        conn.commit()
+                        print(f"  ✅ T_管理者.{col}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  T_管理者.{col}カラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_従業員にphone・positionカラムを追加
+        print("\n[マイグレーション] T_従業員にphone・positionカラムを追加")
+        try:
+            if _is_pg(conn):
+                for col, coltype in [('phone', 'VARCHAR(50)'), ('position', 'VARCHAR(100)')]:
+                    cur.execute(f"""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'T_従業員' AND column_name = '{col}'
+                    """)
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "T_従業員" ADD COLUMN {col} {coltype}')
+                        conn.commit()
+                        print(f"  ✅ T_従業員.{col}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  T_従業員.{col}カラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_従業員')")
+                cols = [row[1] for row in cur.fetchall()]
+                for col, coltype in [('phone', 'TEXT'), ('position', 'TEXT')]:
+                    if col not in cols:
+                        cur.execute(f'ALTER TABLE "T_従業員" ADD COLUMN {col} {coltype}')
+                        conn.commit()
+                        print(f"  ✅ T_従業員.{col}カラムを追加しました")
+                    else:
+                        print(f"  ℹ️  T_従業員.{col}カラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_お知らせテーブルを作成
+        print("\n[マイグレーション] T_お知らせテーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_お知らせ'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_お知らせ" (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id) ON DELETE CASCADE,
+                            title VARCHAR(255) NOT NULL,
+                            body TEXT,
+                            author_id INTEGER,
+                            author_name VARCHAR(255),
+                            is_important INTEGER DEFAULT 0,
+                            published_at TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_お知らせテーブルを作成しました")
+                else:
+                    print("  ℹ️  T_お知らせテーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_お知らせ'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_お知らせ" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tenant_id INTEGER NOT NULL,
+                            title TEXT NOT NULL,
+                            body TEXT,
+                            author_id INTEGER,
+                            author_name TEXT,
+                            is_important INTEGER DEFAULT 0,
+                            published_at DATETIME,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_お知らせテーブルを作成しました")
+                else:
+                    print("  ℹ️  T_お知らせテーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_勤怠テーブルを作成
+        print("\n[マイグレーション] T_勤怠テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_勤怠'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_勤怠" (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id) ON DELETE CASCADE,
+                            staff_id INTEGER NOT NULL,
+                            staff_type VARCHAR(20) NOT NULL DEFAULT 'admin',
+                            staff_name VARCHAR(255),
+                            work_date DATE NOT NULL,
+                            clock_in TIMESTAMP,
+                            clock_out TIMESTAMP,
+                            break_minutes INTEGER DEFAULT 60,
+                            note TEXT,
+                            status VARCHAR(20) DEFAULT 'normal',
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_勤怠テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_勤怠テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_勤怠'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_勤怠" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tenant_id INTEGER NOT NULL,
+                            staff_id INTEGER NOT NULL,
+                            staff_type TEXT NOT NULL DEFAULT 'admin',
+                            staff_name TEXT,
+                            work_date DATE NOT NULL,
+                            clock_in DATETIME,
+                            clock_out DATETIME,
+                            break_minutes INTEGER DEFAULT 60,
+                            note TEXT,
+                            status TEXT DEFAULT 'normal',
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_勤怠テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_勤怠テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
+        # マイグレーション: T_顧問先担当テーブルを作成
+        print("\n[マイグレーション] T_顧問先担当テーブルを作成")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name = 'T_顧問先担当'
+                """)
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_顧問先担当" (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id) ON DELETE CASCADE,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id) ON DELETE CASCADE,
+                            staff_id INTEGER NOT NULL,
+                            staff_type VARCHAR(20) NOT NULL DEFAULT 'admin',
+                            is_primary INTEGER DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_顧問先担当テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_顧問先担当テーブルは既に存在します（スキップ）")
+            else:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='T_顧問先担当'")
+                if not cur.fetchone():
+                    cur.execute("""
+                        CREATE TABLE "T_顧問先担当" (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            tenant_id INTEGER NOT NULL,
+                            client_id INTEGER NOT NULL,
+                            staff_id INTEGER NOT NULL,
+                            staff_type TEXT NOT NULL DEFAULT 'admin',
+                            is_primary INTEGER DEFAULT 0,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("  ✅ T_顧問先担当テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_顧問先担当テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

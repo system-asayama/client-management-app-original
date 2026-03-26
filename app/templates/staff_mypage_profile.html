@@ -1,0 +1,107 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}プロフィール設定{% endblock %}
+{% block topbar_title %}プロフィール設定{% endblock %}
+
+{% block content %}
+<style>
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    @media (max-width: 900px) { .profile-grid { grid-template-columns: 1fr; } }
+    .section-title {
+        font-size: 14px; font-weight: 700; color: #1a237e;
+        margin-bottom: 16px; padding-bottom: 8px;
+        border-bottom: 2px solid #e8eaf6;
+    }
+    .info-row {
+        display: flex; gap: 8px; align-items: center;
+        font-size: 13px; color: #555; margin-bottom: 6px;
+    }
+    .info-row .label { font-weight: 600; min-width: 80px; color: #333; }
+</style>
+
+<!-- 現在の情報 -->
+<div class="card" style="margin-bottom:20px;">
+    <div class="section-title">👤 現在のプロフィール</div>
+    <div class="info-row"><span class="label">氏名</span> {{ user.name }}</div>
+    <div class="info-row"><span class="label">メール</span> {{ user.email }}</div>
+    <div class="info-row"><span class="label">電話番号</span> {{ user.phone or '未設定' }}</div>
+    <div class="info-row"><span class="label">役職</span> {{ user.position or '未設定' }}</div>
+    <div class="info-row"><span class="label">ログインID</span> {{ user.login_id }}</div>
+</div>
+
+<div class="profile-grid">
+    <!-- プロフィール編集 -->
+    <div class="card">
+        <div class="section-title">✏️ プロフィール編集</div>
+        <form method="post">
+            <input type="hidden" name="action" value="profile">
+            <div class="form-group">
+                <label>氏名 <span style="color:#e53935;">*</span></label>
+                <input type="text" name="name" value="{{ user.name }}" required>
+            </div>
+            <div class="form-group">
+                <label>メールアドレス <span style="color:#e53935;">*</span></label>
+                <input type="email" name="email" value="{{ user.email }}" required>
+            </div>
+            <div class="form-group">
+                <label>電話番号</label>
+                <input type="tel" name="phone" value="{{ user.phone or '' }}" placeholder="例: 090-1234-5678">
+            </div>
+            <div class="form-group">
+                <label>役職</label>
+                <input type="text" name="position" value="{{ user.position or '' }}" placeholder="例: 税理士補助、担当者">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">保存する</button>
+            </div>
+        </form>
+    </div>
+
+    <div>
+        <!-- ログインID変更 -->
+        <div class="card" style="margin-bottom:20px;">
+            <div class="section-title">🔑 ログインID変更</div>
+            <form method="post">
+                <input type="hidden" name="action" value="change_login_id">
+                <div class="form-group">
+                    <label>新しいログインID</label>
+                    <input type="text" name="new_login_id" required placeholder="新しいログインID">
+                </div>
+                <div class="form-group">
+                    <label>現在のパスワード（確認）</label>
+                    <input type="password" name="current_password_id" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-secondary">ログインIDを変更</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- パスワード変更 -->
+        <div class="card">
+            <div class="section-title">🔒 パスワード変更</div>
+            <form method="post">
+                <input type="hidden" name="action" value="change_password">
+                <div class="form-group">
+                    <label>現在のパスワード</label>
+                    <input type="password" name="current_password" required>
+                </div>
+                <div class="form-group">
+                    <label>新しいパスワード（8文字以上）</label>
+                    <input type="password" name="new_password" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>新しいパスワード（確認）</label>
+                    <input type="password" name="confirm_password" required minlength="8">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger">パスワードを変更</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

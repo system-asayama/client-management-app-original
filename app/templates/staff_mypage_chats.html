@@ -1,0 +1,100 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}チャット{% endblock %}
+{% block topbar_title %}チャット一覧{% endblock %}
+
+{% block content %}
+<style>
+    .chat-list { display: flex; flex-direction: column; gap: 10px; }
+    .chat-item {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        text-decoration: none;
+        color: #333;
+        transition: box-shadow 0.2s;
+    }
+    .chat-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .chat-item.has-unread { border-left: 4px solid #ef5350; }
+    .chat-avatar {
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1a237e, #283593);
+        color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 700;
+        flex-shrink: 0;
+    }
+    .chat-info { flex: 1; min-width: 0; }
+    .chat-name {
+        font-size: 14px; font-weight: 700; color: #1a237e;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .chat-last-msg {
+        font-size: 12px; color: #888; margin-top: 3px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .chat-meta {
+        display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+        flex-shrink: 0;
+    }
+    .chat-unread {
+        background: #ef5350; color: #fff;
+        border-radius: 10px; padding: 2px 8px;
+        font-size: 11px; font-weight: 700;
+    }
+    .chat-time { font-size: 11px; color: #bbb; }
+    .empty-state {
+        text-align: center; padding: 60px 20px; color: #aaa;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+</style>
+
+{% if unread_count > 0 %}
+<div style="background:#ffebee; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:#c62828; font-weight:600;">
+    💬 未読メッセージが合計 {{ unread_count }} 件あります
+</div>
+{% endif %}
+
+{% if chat_list %}
+<div class="chat-list">
+    {% for item in chat_list %}
+    {% set client = item.client %}
+    {% set last_msg = item.last_msg %}
+    {% set unread = item.unread %}
+    <a href="{{ url_for('chat.chat_room', client_id=client.id) }}"
+       class="chat-item {% if unread > 0 %}has-unread{% endif %}">
+        <div class="chat-avatar">{{ client.name[0] if client.name else '?' }}</div>
+        <div class="chat-info">
+            <div class="chat-name">{{ client.name }}</div>
+            <div class="chat-last-msg">
+                {% if last_msg %}
+                    {% if last_msg.sender_type == 'client' %}📨{% else %}📤{% endif %}
+                    {{ last_msg.body[:50] if last_msg.body else '（ファイル）' }}
+                {% else %}
+                    メッセージなし
+                {% endif %}
+            </div>
+        </div>
+        <div class="chat-meta">
+            {% if unread > 0 %}
+            <span class="chat-unread">{{ unread }}</span>
+            {% endif %}
+            {% if last_msg and last_msg.timestamp %}
+            <span class="chat-time">{{ last_msg.timestamp.strftime('%m/%d %H:%M') }}</span>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">💬</div>
+    <div style="font-size:15px; font-weight:600;">チャット可能な顧問先がありません</div>
+    <div style="font-size:13px; margin-top:8px;">担当顧問先が割り当てられるとチャットが表示されます</div>
+</div>
+{% endif %}
+{% endblock %}

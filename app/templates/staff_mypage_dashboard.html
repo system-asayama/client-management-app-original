@@ -1,0 +1,276 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}ダッシュボード{% endblock %}
+{% block topbar_title %}ダッシュボード{% endblock %}
+
+{% block content %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+    .stat-card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 20px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .stat-icon {
+        font-size: 32px;
+        width: 48px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .stat-value {
+        font-size: 28px;
+        font-weight: 800;
+        color: #1a237e;
+        line-height: 1;
+    }
+    .stat-label {
+        font-size: 12px;
+        color: #888;
+        margin-top: 4px;
+    }
+    .stat-unread .stat-value { color: #ef5350; }
+
+    .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    @media (max-width: 900px) {
+        .two-col { grid-template-columns: 1fr; }
+    }
+
+    .attendance-box {
+        background: #e8eaf6;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .attendance-status {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a237e;
+    }
+    .attendance-time {
+        font-size: 13px;
+        color: #555;
+        margin-top: 4px;
+    }
+    .btn-clock {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-clock-in  { background: #1a237e; color: #fff; }
+    .btn-clock-out { background: #e53935; color: #fff; }
+    .btn-clock-in:hover  { background: #283593; }
+    .btn-clock-out:hover { background: #b71c1c; }
+
+    .deadline-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+    }
+    .deadline-row:last-child { border-bottom: none; }
+    .deadline-date {
+        min-width: 80px;
+        font-weight: 700;
+        color: #1a237e;
+    }
+    .deadline-date.past { color: #e53935; }
+    .deadline-date.today { color: #e65100; }
+    .deadline-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .notice-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+    }
+    .notice-row:last-child { border-bottom: none; }
+    .notice-important {
+        background: #ffebee;
+        color: #c62828;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .notice-title a {
+        color: #333;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .notice-title a:hover { color: #1a237e; }
+    .notice-date { font-size: 11px; color: #aaa; margin-top: 2px; }
+</style>
+
+<!-- 統計カード -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div>
+            <div class="stat-value">{{ assigned_count }}</div>
+            <div class="stat-label">担当顧問先数</div>
+        </div>
+    </div>
+    <div class="stat-card {% if unread_count > 0 %}stat-unread{% endif %}">
+        <div class="stat-icon">💬</div>
+        <div>
+            <div class="stat-value">{{ unread_count }}</div>
+            <div class="stat-label">未読チャット</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📅</div>
+        <div>
+            <div class="stat-value">{{ upcoming_deadlines|length }}</div>
+            <div class="stat-label">直近の税務期限</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📢</div>
+        <div>
+            <div class="stat-value">{{ notices|length }}</div>
+            <div class="stat-label">お知らせ</div>
+        </div>
+    </div>
+</div>
+
+<!-- 勤怠 & 直近期限 -->
+<div class="two-col">
+    <!-- 勤怠 -->
+    <div class="card">
+        <div class="card-title">⏱️ 本日の勤怠</div>
+        <div class="attendance-box">
+            <div>
+                {% if today_attendance and today_attendance.clock_in %}
+                    <div class="attendance-status">
+                        {% if today_attendance.clock_out %}
+                            ✅ 退勤済み
+                        {% else %}
+                            🟢 出勤中
+                        {% endif %}
+                    </div>
+                    <div class="attendance-time">
+                        出勤: {{ today_attendance.clock_in.strftime('%H:%M') }}
+                        {% if today_attendance.clock_out %}
+                        　退勤: {{ today_attendance.clock_out.strftime('%H:%M') }}
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="attendance-status">⚪ 未出勤</div>
+                    <div class="attendance-time">{{ today.strftime('%Y年%m月%d日') }}</div>
+                {% endif %}
+            </div>
+            <div>
+                {% if not today_attendance or not today_attendance.clock_in %}
+                <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
+                    <input type="hidden" name="action" value="clock_in">
+                    <button type="submit" class="btn-clock btn-clock-in">出勤</button>
+                </form>
+                {% elif not today_attendance.clock_out %}
+                <form method="post" action="{{ url_for('staff_mypage.attendance') }}">
+                    <input type="hidden" name="action" value="clock_out">
+                    <button type="submit" class="btn-clock btn-clock-out">退勤</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        <a href="{{ url_for('staff_mypage.attendance') }}" class="btn btn-secondary" style="font-size:12px;">勤怠管理を開く</a>
+    </div>
+
+    <!-- 直近の税務期限 -->
+    <div class="card">
+        <div class="card-title">📅 直近の税務期限（担当顧問先）</div>
+        {% if upcoming_deadlines %}
+        {% for d in upcoming_deadlines %}
+        <div class="deadline-row">
+            <div class="deadline-date {% if d.date < today %}past{% elif d.date == today %}today{% endif %}">
+                {{ d.date.strftime('%m/%d') }}
+            </div>
+            <div class="deadline-dot" style="background: {{ d.get('color', '#1a237e') }};"></div>
+            <div>
+                <div style="font-weight:600;">{{ d.label }}</div>
+                <div style="color:#888; font-size:11px;">{{ d.client_name }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color:#aaa; font-size:13px;">直近の期限はありません</p>
+        {% endif %}
+        <div style="margin-top:12px;">
+            <a href="{{ url_for('staff_mypage.my_calendar') }}" class="btn btn-secondary" style="font-size:12px;">カレンダーを開く</a>
+        </div>
+    </div>
+</div>
+
+<!-- お知らせ & チャット -->
+<div class="two-col">
+    <!-- お知らせ -->
+    <div class="card">
+        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>📢 お知らせ</span>
+            <a href="{{ url_for('staff_mypage.notices') }}" style="font-size:12px; color:#1a237e;">すべて見る</a>
+        </div>
+        {% if notices %}
+        {% for n in notices %}
+        <div class="notice-row">
+            {% if n.is_important %}
+            <span class="notice-important">重要</span>
+            {% endif %}
+            <div>
+                <div class="notice-title">
+                    <a href="{{ url_for('staff_mypage.notice_detail', notice_id=n.id) }}">{{ n.title }}</a>
+                </div>
+                <div class="notice-date">{{ n.created_at.strftime('%Y/%m/%d') if n.created_at else '' }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color:#aaa; font-size:13px;">お知らせはありません</p>
+        {% endif %}
+    </div>
+
+    <!-- チャット -->
+    <div class="card">
+        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>💬 チャット</span>
+            <a href="{{ url_for('staff_mypage.my_chats') }}" style="font-size:12px; color:#1a237e;">すべて見る</a>
+        </div>
+        {% if unread_count > 0 %}
+        <div style="background:#ffebee; border-radius:6px; padding:12px 14px; margin-bottom:12px; font-size:13px; color:#c62828; font-weight:600;">
+            💬 未読メッセージが {{ unread_count }} 件あります
+        </div>
+        {% endif %}
+        <a href="{{ url_for('staff_mypage.my_chats') }}" class="btn btn-secondary" style="font-size:12px;">チャット一覧を開く</a>
+    </div>
+</div>
+{% endblock %}

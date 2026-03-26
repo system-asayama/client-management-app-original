@@ -1,0 +1,83 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}お知らせ{% endblock %}
+{% block topbar_title %}お知らせ{% endblock %}
+
+{% block content %}
+<style>
+    .notice-list { display: flex; flex-direction: column; gap: 10px; }
+    .notice-card {
+        background: #fff; border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 18px 22px;
+        display: flex; align-items: flex-start; gap: 14px;
+        text-decoration: none; color: #333;
+        transition: box-shadow 0.2s;
+    }
+    .notice-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .notice-card.important { border-left: 4px solid #ef5350; }
+    .notice-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+    .notice-title-text {
+        font-size: 14px; font-weight: 700; color: #1a237e; margin-bottom: 4px;
+    }
+    .notice-body-preview { font-size: 12px; color: #888; }
+    .notice-meta { font-size: 11px; color: #bbb; margin-top: 6px; }
+    .important-tag {
+        display: inline-block;
+        background: #ffebee; color: #c62828;
+        font-size: 10px; font-weight: 700;
+        padding: 2px 7px; border-radius: 4px;
+        margin-right: 6px; vertical-align: middle;
+    }
+    .empty-state {
+        text-align: center; padding: 60px 20px; color: #aaa;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+</style>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <span style="font-size:14px; color:#888;">{{ notices|length }} 件のお知らせ</span>
+    {% set role = session.get('role', '') %}
+    {% if role in ('tenant_admin', 'admin', 'system_admin') %}
+    <a href="{{ url_for('staff_mypage.notice_new') }}" class="btn btn-primary">
+        + 新規投稿
+    </a>
+    {% endif %}
+</div>
+
+{% if notices %}
+<div class="notice-list">
+    {% for n in notices %}
+    <a href="{{ url_for('staff_mypage.notice_detail', notice_id=n.id) }}"
+       class="notice-card {% if n.is_important %}important{% endif %}">
+        <div class="notice-icon">{% if n.is_important %}🔴{% else %}📢{% endif %}</div>
+        <div style="flex:1; min-width:0;">
+            <div class="notice-title-text">
+                {% if n.is_important %}<span class="important-tag">重要</span>{% endif %}
+                {{ n.title }}
+            </div>
+            {% if n.body %}
+            <div class="notice-body-preview">{{ n.body[:80] }}{% if n.body|length > 80 %}...{% endif %}</div>
+            {% endif %}
+            <div class="notice-meta">
+                {{ n.author_name or '' }}
+                {% if n.created_at %}・{{ n.created_at.strftime('%Y/%m/%d %H:%M') }}{% endif %}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">📢</div>
+    <div style="font-size:15px; font-weight:600;">お知らせはありません</div>
+    {% set role = session.get('role', '') %}
+    {% if role in ('tenant_admin', 'admin', 'system_admin') %}
+    <div style="font-size:13px; margin-top:8px;">
+        <a href="{{ url_for('staff_mypage.notice_new') }}" class="btn btn-primary" style="margin-top:12px;">
+            最初のお知らせを投稿する
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

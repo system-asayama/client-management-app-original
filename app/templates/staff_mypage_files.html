@@ -1,0 +1,111 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}ファイル共有{% endblock %}
+{% block topbar_title %}ファイル共有（担当顧問先）{% endblock %}
+
+{% block content %}
+<style>
+    .file-filter {
+        display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .file-filter select, .file-filter input {
+        padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
+        font-size: 13px; color: #333;
+    }
+    .file-filter select:focus, .file-filter input:focus {
+        outline: none; border-color: #1a237e;
+    }
+    .file-table-wrap { overflow-x: auto; }
+    .file-icon { font-size: 18px; }
+    .file-name a {
+        color: #1a237e; font-weight: 600; text-decoration: none;
+    }
+    .file-name a:hover { text-decoration: underline; }
+    .empty-state {
+        text-align: center; padding: 60px 20px; color: #aaa;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+</style>
+
+<div class="file-filter">
+    <select id="clientFilter" onchange="filterFiles()">
+        <option value="">すべての顧問先</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+    </select>
+    <input type="text" id="searchInput" placeholder="ファイル名で検索..." oninput="filterFiles()">
+    <span style="font-size:12px; color:#888; align-self:center;">最新 {{ recent_files|length }} 件</span>
+</div>
+
+{% if recent_files %}
+<div class="card" style="padding:0; overflow:hidden;">
+    <div class="file-table-wrap">
+        <table class="data-table" id="fileTable">
+            <thead>
+                <tr>
+                    <th>ファイル名</th>
+                    <th>顧問先</th>
+                    <th>アップロード者</th>
+                    <th>日時</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in recent_files %}
+                {% set client = client_map.get(f.client_id) %}
+                <tr data-client-id="{{ f.client_id }}" data-filename="{{ f.filename.lower() }}">
+                    <td>
+                        <span class="file-icon">
+                            {% if f.filename.endswith('.pdf') %}📄
+                            {% elif f.filename.endswith(('.xlsx', '.xls', '.csv')) %}📊
+                            {% elif f.filename.endswith(('.docx', '.doc')) %}📝
+                            {% elif f.filename.endswith(('.jpg', '.jpeg', '.png', '.gif')) %}🖼️
+                            {% elif f.filename.endswith('.zip') %}🗜️
+                            {% else %}📎{% endif %}
+                        </span>
+                        <span class="file-name">
+                            <a href="{{ f.file_url }}" target="_blank">{{ f.filename }}</a>
+                        </span>
+                    </td>
+                    <td>
+                        {% if client %}
+                        <a href="{{ url_for('clients.client_detail', client_id=client.id) }}"
+                           style="color:#1a237e; font-size:12px;">{{ client.name }}</a>
+                        {% else %}
+                        <span style="color:#aaa; font-size:12px;">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:12px; color:#666;">{{ f.uploader }}</td>
+                    <td style="font-size:12px; color:#888; white-space:nowrap;">
+                        {{ f.timestamp.strftime('%Y/%m/%d %H:%M') if f.timestamp else '-' }}
+                    </td>
+                    <td>
+                        <a href="{{ f.file_url }}" target="_blank" class="btn btn-secondary"
+                           style="font-size:11px; padding:5px 10px;">開く</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">📁</div>
+    <div style="font-size:15px; font-weight:600;">ファイルがありません</div>
+    <div style="font-size:13px; margin-top:8px;">担当顧問先のファイルがここに表示されます</div>
+</div>
+{% endif %}
+
+<script>
+function filterFiles() {
+    const clientId = document.getElementById('clientFilter').value;
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('#fileTable tbody tr').forEach(row => {
+        const matchClient = !clientId || row.dataset.clientId === clientId;
+        const matchName = !q || (row.dataset.filename || '').includes(q);
+        row.style.display = (matchClient && matchName) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,289 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}勤怠管理{% endblock %}
+{% block topbar_title %}勤怠管理{% endblock %}
+
+{% block content %}
+<style>
+    .clock-panel {
+        background: linear-gradient(135deg, #1a237e, #283593);
+        color: #fff;
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .clock-status { font-size: 20px; font-weight: 700; }
+    .clock-time { font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 4px; }
+    .clock-buttons { display: flex; gap: 10px; }
+    .btn-clock-in {
+        background: #fff; color: #1a237e;
+        padding: 12px 24px; border-radius: 8px;
+        font-size: 14px; font-weight: 700;
+        border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-clock-in:hover { background: #e8eaf6; }
+    .btn-clock-out {
+        background: #ef5350; color: #fff;
+        padding: 12px 24px; border-radius: 8px;
+        font-size: 14px; font-weight: 700;
+        border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-clock-out:hover { background: #c62828; }
+
+    .month-nav {
+        display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    }
+    .month-nav a {
+        background: #e8eaf6; color: #1a237e;
+        padding: 6px 14px; border-radius: 6px;
+        font-size: 13px; font-weight: 600;
+        text-decoration: none; transition: background 0.2s;
+    }
+    .month-nav a:hover { background: #c5cae9; }
+    .month-nav .current { font-size: 17px; font-weight: 700; color: #1a237e; }
+
+    .summary-row {
+        display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;
+    }
+    .summary-item {
+        background: #fff; border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        padding: 14px 20px; text-align: center;
+    }
+    .summary-value { font-size: 22px; font-weight: 800; color: #1a237e; }
+    .summary-label { font-size: 11px; color: #888; margin-top: 2px; }
+
+    .status-normal  { color: #2e7d32; }
+    .status-late    { color: #e65100; }
+    .status-absent  { color: #c62828; }
+    .status-holiday { color: #1565c0; }
+
+    .edit-modal {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.5); z-index: 1000;
+        align-items: center; justify-content: center;
+    }
+    .edit-modal.open { display: flex; }
+    .modal-box {
+        background: #fff; border-radius: 12px;
+        padding: 28px; width: 100%; max-width: 480px;
+        max-height: 90vh; overflow-y: auto;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; color: #1a237e; margin-bottom: 20px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+</style>
+
+<!-- 出退勤パネル -->
+<div class="clock-panel">
+    <div>
+        <div class="clock-status">
+            {% if today_record and today_record.clock_in %}
+                {% if today_record.clock_out %}
+                    ✅ 本日退勤済み
+                {% else %}
+                    🟢 出勤中
+                {% endif %}
+            {% else %}
+                ⚪ 本日未出勤
+            {% endif %}
+        </div>
+        <div class="clock-time">
+            {% if today_record and today_record.clock_in %}
+                出勤: {{ today_record.clock_in.strftime('%H:%M') }}
+                {% if today_record.clock_out %}
+                　退勤: {{ today_record.clock_out.strftime('%H:%M') }}
+                {% endif %}
+            {% else %}
+                {{ today.strftime('%Y年%m月%d日') }}
+            {% endif %}
+        </div>
+    </div>
+    <div class="clock-buttons">
+        {% if not today_record or not today_record.clock_in %}
+        <form method="post">
+            <input type="hidden" name="action" value="clock_in">
+            <button type="submit" class="btn-clock-in">🕐 出勤</button>
+        </form>
+        {% elif not today_record.clock_out %}
+        <form method="post">
+            <input type="hidden" name="action" value="clock_out">
+            <button type="submit" class="btn-clock-out">🕐 退勤</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 月ナビ -->
+{% set prev_month = '%04d-%02d' % (year_m - 1 if mon_m == 1 else year_m, 12 if mon_m == 1 else mon_m - 1) %}
+{% set next_month = '%04d-%02d' % (year_m + 1 if mon_m == 12 else year_m, 1 if mon_m == 12 else mon_m + 1) %}
+<div class="month-nav">
+    <a href="{{ url_for('staff_mypage.attendance', month=prev_month) }}">← 前月</a>
+    <span class="current">{{ year_m }}年{{ mon_m }}月</span>
+    <a href="{{ url_for('staff_mypage.attendance', month=next_month) }}">翌月 →</a>
+</div>
+
+<!-- 月間集計 -->
+<div class="summary-row">
+    <div class="summary-item">
+        <div class="summary-value">{{ records|length }}</div>
+        <div class="summary-label">出勤日数</div>
+    </div>
+    <div class="summary-item">
+        <div class="summary-value">
+            {% set h = (total_work_minutes // 60)|int %}
+            {% set m = (total_work_minutes % 60)|int %}
+            {{ h }}h{{ m }}m
+        </div>
+        <div class="summary-label">実働時間合計</div>
+    </div>
+</div>
+
+<!-- 勤怠一覧 -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <div style="padding:16px 20px; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:14px; font-weight:700; color:#1a237e;">{{ year_m }}年{{ mon_m }}月の勤怠記録</span>
+        <button class="btn btn-secondary" style="font-size:12px;" onclick="openAddModal()">+ 追加</button>
+    </div>
+    {% if records %}
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>日付</th>
+                    <th>出勤</th>
+                    <th>退勤</th>
+                    <th>休憩</th>
+                    <th>実働</th>
+                    <th>状態</th>
+                    <th>備考</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                {% set work_min = 0 %}
+                {% if r.clock_in and r.clock_out %}
+                    {% set work_min = ((r.clock_out - r.clock_in).total_seconds() / 60 - r.break_minutes)|int %}
+                    {% if work_min < 0 %}{% set work_min = 0 %}{% endif %}
+                {% endif %}
+                <tr>
+                    <td style="font-weight:600; white-space:nowrap;">{{ r.work_date.strftime('%m/%d (%a)') if r.work_date else '-' }}</td>
+                    <td>{{ r.clock_in.strftime('%H:%M') if r.clock_in else '-' }}</td>
+                    <td>{{ r.clock_out.strftime('%H:%M') if r.clock_out else '-' }}</td>
+                    <td>{{ r.break_minutes }}分</td>
+                    <td>
+                        {% if work_min > 0 %}
+                        {{ (work_min // 60)|int }}h{{ (work_min % 60)|int }}m
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>
+                        <span class="status-{{ r.status or 'normal' }}">
+                            {% if r.status == 'late' %}遅刻
+                            {% elif r.status == 'absent' %}欠勤
+                            {% elif r.status == 'holiday' %}休日出勤
+                            {% else %}通常{% endif %}
+                        </span>
+                    </td>
+                    <td style="font-size:12px; color:#888; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        {{ r.note or '' }}
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary" style="font-size:11px; padding:5px 10px;"
+                            onclick="openEditModal({{ r.id }}, '{{ r.work_date }}',
+                                '{{ r.clock_in.strftime('%Y-%m-%dT%H:%M') if r.clock_in else '' }}',
+                                '{{ r.clock_out.strftime('%Y-%m-%dT%H:%M') if r.clock_out else '' }}',
+                                {{ r.break_minutes }}, '{{ r.note or '' }}', '{{ r.status or 'normal' }}')">
+                            編集
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:40px; color:#aaa; font-size:13px;">
+        この月の勤怠記録はありません
+    </div>
+    {% endif %}
+</div>
+
+<!-- 編集モーダル -->
+<div class="edit-modal" id="editModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">勤怠記録を編集</div>
+        <form method="post" id="editForm">
+            <input type="hidden" name="action" value="save_record">
+            <input type="hidden" name="record_id" id="recordId">
+            <div class="form-group">
+                <label>日付</label>
+                <input type="date" name="work_date" id="workDate" required>
+            </div>
+            <div class="form-group">
+                <label>出勤時刻</label>
+                <input type="datetime-local" name="clock_in" id="clockIn">
+            </div>
+            <div class="form-group">
+                <label>退勤時刻</label>
+                <input type="datetime-local" name="clock_out" id="clockOut">
+            </div>
+            <div class="form-group">
+                <label>休憩時間（分）</label>
+                <input type="number" name="break_minutes" id="breakMinutes" value="60" min="0">
+            </div>
+            <div class="form-group">
+                <label>状態</label>
+                <select name="status" id="statusSelect">
+                    <option value="normal">通常</option>
+                    <option value="late">遅刻</option>
+                    <option value="absent">欠勤</option>
+                    <option value="holiday">休日出勤</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>備考</label>
+                <textarea name="note" id="noteField" rows="2" style="resize:vertical;"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, workDate, clockIn, clockOut, breakMin, note, status) {
+    document.getElementById('modalTitle').textContent = '勤怠記録を編集';
+    document.getElementById('recordId').value = id;
+    document.getElementById('workDate').value = workDate;
+    document.getElementById('clockIn').value = clockIn;
+    document.getElementById('clockOut').value = clockOut;
+    document.getElementById('breakMinutes').value = breakMin;
+    document.getElementById('noteField').value = note;
+    document.getElementById('statusSelect').value = status;
+    document.getElementById('editModal').classList.add('open');
+}
+function openAddModal() {
+    document.getElementById('modalTitle').textContent = '勤怠記録を追加';
+    document.getElementById('recordId').value = '';
+    document.getElementById('workDate').value = '{{ today.strftime('%Y-%m-%d') }}';
+    document.getElementById('clockIn').value = '';
+    document.getElementById('clockOut').value = '';
+    document.getElementById('breakMinutes').value = '60';
+    document.getElementById('noteField').value = '';
+    document.getElementById('statusSelect').value = 'normal';
+    document.getElementById('editModal').classList.add('open');
+}
+function closeModal() {
+    document.getElementById('editModal').classList.remove('open');
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}担当顧問先{% endblock %}
+{% block topbar_title %}担当顧問先一覧{% endblock %}
+
+{% block content %}
+<style>
+    .client-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+    }
+    .client-card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 18px 20px;
+        transition: box-shadow 0.2s;
+        position: relative;
+    }
+    .client-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .client-name {
+        font-size: 15px; font-weight: 700; color: #1a237e;
+        margin-bottom: 6px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .client-meta {
+        font-size: 12px; color: #888; margin-bottom: 4px;
+    }
+    .client-actions {
+        display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+    }
+    .unread-badge {
+        position: absolute; top: 12px; right: 12px;
+        background: #ef5350; color: #fff;
+        border-radius: 10px; padding: 2px 8px;
+        font-size: 11px; font-weight: 700;
+    }
+    .primary-badge {
+        display: inline-block;
+        background: #e8eaf6; color: #1a237e;
+        font-size: 10px; font-weight: 700;
+        padding: 2px 7px; border-radius: 4px;
+        margin-left: 6px; vertical-align: middle;
+    }
+    .search-bar {
+        display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .search-bar input {
+        flex: 1; min-width: 200px;
+        padding: 9px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;
+    }
+    .search-bar input:focus { outline: none; border-color: #1a237e; }
+</style>
+
+<div class="search-bar">
+    <input type="text" id="searchInput" placeholder="顧問先名・メール・電話番号で検索..." oninput="filterClients()">
+    <span style="font-size:13px; color:#888; align-self:center;">{{ clients|length }} 件</span>
+</div>
+
+{% if clients %}
+<div class="client-grid" id="clientGrid">
+    {% for client in clients %}
+    <div class="client-card" data-name="{{ client.name }}" data-email="{{ client.email or '' }}" data-phone="{{ client.phone or '' }}">
+        {% set unread = unread_by_client.get(client.id, 0) %}
+        {% if unread > 0 %}
+        <span class="unread-badge">{{ unread }}</span>
+        {% endif %}
+
+        <div class="client-name">
+            {{ client.name }}
+            {% if assignment_map.get(client.id) and assignment_map[client.id].is_primary %}
+            <span class="primary-badge">主担当</span>
+            {% endif %}
+        </div>
+        <div class="client-meta">
+            {% if client.type %}<span class="badge badge-blue">{{ client.type }}</span>{% endif %}
+            {% if client.industry %} {{ client.industry }}{% endif %}
+        </div>
+        {% if client.email %}
+        <div class="client-meta">📧 {{ client.email }}</div>
+        {% endif %}
+        {% if client.phone %}
+        <div class="client-meta">📞 {{ client.phone }}</div>
+        {% endif %}
+        {% if client.fiscal_year_end_month %}
+        <div class="client-meta">決算: {{ client.fiscal_year_end_month }}月</div>
+        {% endif %}
+
+        <div class="client-actions">
+            <a href="{{ url_for('clients.client_detail', client_id=client.id) }}"
+               class="btn btn-primary" style="font-size:12px; padding:7px 14px;">詳細</a>
+            <a href="{{ url_for('chat.chat_room', client_id=client.id) }}"
+               class="btn btn-secondary" style="font-size:12px; padding:7px 14px;">
+                💬 チャット{% if unread > 0 %} ({{ unread }}){% endif %}
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center; padding:40px; color:#aaa;">
+    <div style="font-size:40px; margin-bottom:12px;">👥</div>
+    <div style="font-size:15px;">担当顧問先がありません</div>
+    <div style="font-size:13px; margin-top:8px;">管理者に担当顧問先の割り当てを依頼してください</div>
+</div>
+{% endif %}
+
+<script>
+function filterClients() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.client-card').forEach(card => {
+        const name = (card.dataset.name || '').toLowerCase();
+        const email = (card.dataset.email || '').toLowerCase();
+        const phone = (card.dataset.phone || '').toLowerCase();
+        card.style.display = (name.includes(q) || email.includes(q) || phone.includes(q)) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

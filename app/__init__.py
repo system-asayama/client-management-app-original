@@ -266,6 +266,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ staff_mypage blueprint 登録エラー: {e}")
 
+    # 社内チャット blueprint登録
+    try:
+        from .blueprints.internal_chat import bp as internal_chat_bp
+        app.register_blueprint(internal_chat_bp)
+        print("✅ internal_chat blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ internal_chat blueprint 登録エラー: {e}")
+
     # debug blueprint登録
     try:
         from .blueprints.debug_routes import debug_bp

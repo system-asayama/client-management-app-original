@@ -205,3 +205,62 @@ class TClientAssignment(Base):
     staff_type = Column(String(20), nullable=False, default='admin', comment='admin=管理者, employee=従業員')
     is_primary = Column(Integer, default=0, comment='主担当フラグ（0=サブ, 1=主担当）')
     created_at = Column(DateTime, server_default=func.now())
+
+
+class TInternalChatRoom(Base):
+    """T_社内チャットルームテーブル（スタッフ間チャット）"""
+    __tablename__ = 'T_社内チャットルーム'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    name = Column(String(255), nullable=True, comment='ルーム名（グループチャット用）')
+    room_type = Column(String(20), default='direct', comment='direct=1対1, group=グループ')
+    created_by_id = Column(Integer, nullable=True, comment='作成者ID')
+    created_by_type = Column(String(20), nullable=True, comment='admin/employee')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class TInternalChatMember(Base):
+    """T_社内チャットメンバーテーブル"""
+    __tablename__ = 'T_社内チャットメンバー'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_id = Column(Integer, ForeignKey('T_社内チャットルーム.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False)
+    staff_type = Column(String(20), default='admin', comment='admin/employee')
+    staff_name = Column(String(255), nullable=True)
+    joined_at = Column(DateTime, server_default=func.now())
+
+
+class TInternalMessage(Base):
+    """T_社内メッセージテーブル（スタッフ間チャットメッセージ）"""
+    __tablename__ = 'T_社内メッセージ'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_id = Column(Integer, ForeignKey('T_社内チャットルーム.id'), nullable=False)
+    sender_id = Column(Integer, nullable=False)
+    sender_type = Column(String(20), default='admin', comment='admin/employee')
+    sender_name = Column(String(255), nullable=True)
+    message = Column(Text, nullable=True)
+    message_type = Column(String(20), default='text', comment='text/file')
+    file_url = Column(Text, nullable=True)
+    file_name = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class TInternalMessageRead(Base):
+    """T_社内メッセージ既読テーブル"""
+    __tablename__ = 'T_社内メッセージ既読'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(Integer, ForeignKey('T_社内メッセージ.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False)
+    staff_type = Column(String(20), default='admin')
+    read_at = Column(DateTime, server_default=func.now())
+
+
+class TNoticeRead(Base):
+    """T_お知らせ既読テーブル"""
+    __tablename__ = 'T_お知らせ既読'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    notice_id = Column(Integer, ForeignKey('T_お知らせ.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False)
+    staff_type = Column(String(20), default='admin')
+    read_at = Column(DateTime, server_default=func.now())

@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TNotice, TAttendance, TClientAssignment
+from app.models_login import TKanrisha, TJugyoin, TTenant, TNotice, TAttendance, TClientAssignment, TNoticeRead
 from app.models_clients import TClient, TMessage, TMessageRead
 from app.utils.decorators import require_roles, ROLES
 
@@ -596,18 +596,34 @@ def attendance():
 @bp.route('/notices')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def notices():
-    tenant_id = session.get('tenant_id')
-    user_name = session.get('user_name', '')
+    tenant_id  = session.get('tenant_id')
+    user_name  = session.get('user_name', '')
+    user_id    = session.get('user_id')
+    role       = session.get('role', '')
+    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
     db = SessionLocal()
     try:
         unread_count = _get_unread_count(tenant_id, user_name)
         notices_list = db.query(TNotice).filter(
             TNotice.tenant_id == tenant_id
         ).order_by(TNotice.is_important.desc(), TNotice.created_at.desc()).all()
-
+        # 各お知らせの既読フラグを付加
+        if user_id:
+            read_ids = {r.notice_id for r in db.query(TNoticeRead).filter(
+                and_(
+                    TNoticeRead.staff_id   == user_id,
+                    TNoticeRead.staff_type == staff_type,
+                )
+            ).all()}
+        else:
+            read_ids = set()
+        for n in notices_list:
+            n.is_read = (n.id in read_ids)
+        notice_unread_count = sum(1 for n in notices_list if not n.is_read)
         return render_template('staff_mypage_notices.html',
                                notices=notices_list,
-                               unread_count=unread_count)
+                               unread_count=unread_count,
+                               notice_unread_count=notice_unread_count)
     finally:
         db.close()
 
@@ -620,6 +636,9 @@ def notices():
 def notice_detail(notice_id):
     tenant_id = session.get('tenant_id')
     user_name = session.get('user_name', '')
+    user_id   = session.get('user_id')
+    role      = session.get('role', '')
+    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
     db = SessionLocal()
     try:
         unread_count = _get_unread_count(tenant_id, user_name)
@@ -629,6 +648,22 @@ def notice_detail(notice_id):
         if not notice:
             flash('お知らせが見つかりません', 'error')
             return redirect(url_for('staff_mypage.notices'))
+        # 既読マーク
+        if user_id:
+            already = db.query(TNoticeRead).filter(
+                and_(
+                    TNoticeRead.notice_id  == notice_id,
+                    TNoticeRead.staff_id   == user_id,
+                    TNoticeRead.staff_type == staff_type,
+                )
+            ).first()
+            if not already:
+                db.add(TNoticeRead(
+                    notice_id  = notice_id,
+                    staff_id   = user_id,
+                    staff_type = staff_type,
+                ))
+                db.commit()
         return render_template('staff_mypage_notice_detail.html',
                                notice=notice,
                                unread_count=unread_count)

@@ -1,0 +1,217 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}社内チャット{% endblock %}
+{% block topbar_title %}社内チャット{% endblock %}
+
+{% block content %}
+<style>
+  .chat-layout { display: flex; gap: 20px; height: calc(100vh - 140px); }
+  .room-sidebar {
+    width: 300px; flex-shrink: 0;
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .room-sidebar-header {
+    padding: 16px; border-bottom: 1px solid #f0f0f0;
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .room-list { flex: 1; overflow-y: auto; }
+  .room-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    text-decoration: none; color: #333;
+    transition: background 0.15s;
+  }
+  .room-item:hover { background: #f5f5f5; }
+  .room-item.active { background: #e8eaf6; }
+  .room-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: #e8eaf6; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex-shrink: 0;
+    position: relative;
+  }
+  .room-info { flex: 1; min-width: 0; }
+  .room-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .room-preview { font-size: 11px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .unread-badge {
+    background: #e53935; color: #fff;
+    font-size: 10px; font-weight: 700;
+    min-width: 18px; height: 18px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; flex-shrink: 0;
+  }
+  .main-area {
+    flex: 1; background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; color: #aaa;
+  }
+  .main-area .icon { font-size: 56px; margin-bottom: 16px; }
+  .main-area .hint { font-size: 14px; }
+
+  /* 新規作成モーダル */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 12px;
+    padding: 24px; width: 100%; max-width: 460px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 16px; font-weight: 700; color: #1a237e; margin-bottom: 16px; }
+  .member-checkboxes { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 8px; }
+  .member-check-item { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13px; }
+  .member-check-item input { width: auto; }
+  @media (max-width: 640px) {
+    .chat-layout { flex-direction: column; height: auto; }
+    .room-sidebar { width: 100%; height: 300px; }
+  }
+</style>
+
+<div class="chat-layout">
+  <!-- ルームサイドバー -->
+  <div class="room-sidebar">
+    <div class="room-sidebar-header">
+      💬 チャット
+      <div style="display:flex; gap:6px;">
+        <button onclick="document.getElementById('dmModal').classList.add('open')"
+                style="background:#e8eaf6; border:none; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; color:#1a237e; font-weight:600;">
+          DM
+        </button>
+        <button onclick="document.getElementById('groupModal').classList.add('open')"
+                style="background:#e8eaf6; border:none; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; color:#1a237e; font-weight:600;">
+          グループ
+        </button>
+      </div>
+    </div>
+    <div class="room-list">
+      {% if rooms %}
+      {% for room in rooms %}
+      <a href="{{ url_for('internal_chat.room_view', room_id=room.id) }}" class="room-item">
+        <div class="room-avatar">
+          {% if room.room_type == 'group' %}👥{% else %}💬{% endif %}
+        </div>
+        <div class="room-info">
+          <div class="room-name">{{ room.display_name }}</div>
+          <div class="room-preview">
+            {% if room.last_message %}
+              {{ room.last_message.message[:30] if room.last_message.message else 'ファイル' }}
+            {% else %}
+              メッセージなし
+            {% endif %}
+          </div>
+        </div>
+        {% if room.unread_count > 0 %}
+        <div class="unread-badge">{{ room.unread_count }}</div>
+        {% endif %}
+      </a>
+      {% endfor %}
+      {% else %}
+      <div style="text-align:center; padding:40px 16px; color:#aaa; font-size:13px;">
+        チャットルームがありません<br>
+        <span style="font-size:11px;">上のボタンから作成してください</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- メインエリア（ルーム未選択時） -->
+  <div class="main-area">
+    <div class="icon">💬</div>
+    <div class="hint">チャットルームを選択してください</div>
+    <div style="font-size:12px; margin-top:8px; color:#bbb;">または新しいチャットを開始してください</div>
+  </div>
+</div>
+
+<!-- DM作成モーダル -->
+<div class="modal-overlay" id="dmModal">
+  <div class="modal-box">
+    <div class="modal-title">💬 ダイレクトメッセージを開始</div>
+    <form method="post" action="{{ url_for('internal_chat.new_dm') }}">
+      <div class="form-group">
+        <label>メッセージを送る相手</label>
+        <select name="target_id" id="dmTargetId" onchange="updateDmTargetType(this)" required>
+          <option value="">-- 選択してください --</option>
+          {% if all_admins %}
+          <optgroup label="管理者">
+            {% for s in all_admins %}
+            {% if not (s.id == staff.id and staff_type == 'admin') %}
+            <option value="{{ s.id }}" data-type="admin">{{ s.name }}{% if s.position %} ({{ s.position }}){% endif %}</option>
+            {% endif %}
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          {% if all_employees %}
+          <optgroup label="従業員">
+            {% for s in all_employees %}
+            {% if not (s.id == staff.id and staff_type == 'employee') %}
+            <option value="{{ s.id }}" data-type="employee">{{ s.name }}{% if s.position %} ({{ s.position }}){% endif %}</option>
+            {% endif %}
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+        </select>
+        <input type="hidden" name="target_type" id="dmTargetType" value="admin">
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('dmModal').classList.remove('open')">キャンセル</button>
+        <button type="submit" class="btn btn-primary">開始</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- グループ作成モーダル -->
+<div class="modal-overlay" id="groupModal">
+  <div class="modal-box">
+    <div class="modal-title">👥 グループチャットを作成</div>
+    <form method="post" action="{{ url_for('internal_chat.new_group') }}">
+      <div class="form-group">
+        <label>グループ名</label>
+        <input type="text" name="group_name" placeholder="例: 経理チーム" required>
+      </div>
+      <div class="form-group">
+        <label>メンバーを選択（複数可）</label>
+        <div class="member-checkboxes">
+          {% for s in all_admins %}
+          {% if not (s.id == staff.id and staff_type == 'admin') %}
+          <div class="member-check-item">
+            <input type="checkbox" name="member_ids" value="admin:{{ s.id }}" id="adm_{{ s.id }}">
+            <label for="adm_{{ s.id }}">👔 {{ s.name }}{% if s.position %} ({{ s.position }}){% endif %}</label>
+          </div>
+          {% endif %}
+          {% endfor %}
+          {% for s in all_employees %}
+          {% if not (s.id == staff.id and staff_type == 'employee') %}
+          <div class="member-check-item">
+            <input type="checkbox" name="member_ids" value="employee:{{ s.id }}" id="emp_{{ s.id }}">
+            <label for="emp_{{ s.id }}">👷 {{ s.name }}{% if s.position %} ({{ s.position }}){% endif %}</label>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('groupModal').classList.remove('open')">キャンセル</button>
+        <button type="submit" class="btn btn-primary">作成</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function updateDmTargetType(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('dmTargetType').value = opt.dataset.type || 'admin';
+}
+// モーダル外クリックで閉じる
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+</script>
+{% endblock %}

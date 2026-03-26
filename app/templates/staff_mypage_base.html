@@ -277,9 +277,15 @@
                 <span class="icon">⏱️</span> 勤怠管理
             </a>
 
+            <div class="nav-section-label">社内</div>
+            <a href="{{ url_for('internal_chat.room_list') }}"
+               class="nav-item {% if request.endpoint and request.endpoint.startswith('internal_chat.') %}active{% endif %}">
+                <span class="icon">💬</span> 社内チャット
+            </a>
+
             <div class="nav-section-label">情報</div>
             <a href="{{ url_for('staff_mypage.notices') }}"
-               class="nav-item {% if request.endpoint == 'staff_mypage.notices' %}active{% endif %}">
+               class="nav-item {% if request.endpoint in ('staff_mypage.notices', 'staff_mypage.notice_detail', 'staff_mypage.notice_new') %}active{% endif %}">
                 <span class="icon">📢</span> お知らせ
             </a>
         </nav>

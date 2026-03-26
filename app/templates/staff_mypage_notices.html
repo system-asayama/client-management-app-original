@@ -12,13 +12,16 @@
         display: flex; align-items: flex-start; gap: 14px;
         text-decoration: none; color: #333;
         transition: box-shadow 0.2s;
+        position: relative;
     }
     .notice-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
     .notice-card.important { border-left: 4px solid #ef5350; }
+    .notice-card.unread { background: #f8f9ff; }
     .notice-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
     .notice-title-text {
         font-size: 14px; font-weight: 700; color: #1a237e; margin-bottom: 4px;
     }
+    .notice-card.unread .notice-title-text { color: #0d1b7e; }
     .notice-body-preview { font-size: 12px; color: #888; }
     .notice-meta { font-size: 11px; color: #bbb; margin-top: 6px; }
     .important-tag {
@@ -28,14 +31,40 @@
         padding: 2px 7px; border-radius: 4px;
         margin-right: 6px; vertical-align: middle;
     }
+    .unread-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #1a237e; flex-shrink: 0; margin-top: 8px;
+    }
+    .read-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: transparent; flex-shrink: 0; margin-top: 8px;
+    }
+    .unread-badge-count {
+        background: #1a237e; color: #fff;
+        font-size: 12px; font-weight: 700;
+        padding: 2px 10px; border-radius: 12px;
+        margin-left: 8px; vertical-align: middle;
+    }
     .empty-state {
         text-align: center; padding: 60px 20px; color: #aaa;
     }
     .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .filter-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .filter-tab {
+        padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
+        cursor: pointer; border: 1px solid #ddd; background: #fff; color: #666;
+        transition: all 0.15s;
+    }
+    .filter-tab.active { background: #1a237e; color: #fff; border-color: #1a237e; }
 </style>
 
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-    <span style="font-size:14px; color:#888;">{{ notices|length }} 件のお知らせ</span>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <div>
+        <span style="font-size:14px; color:#888;">{{ notices|length }} 件</span>
+        {% if notice_unread_count is defined and notice_unread_count > 0 %}
+        <span class="unread-badge-count">{{ notice_unread_count }} 未読</span>
+        {% endif %}
+    </div>
     {% set role = session.get('role', '') %}
     {% if role in ('tenant_admin', 'admin', 'system_admin') %}
     <a href="{{ url_for('staff_mypage.notice_new') }}" class="btn btn-primary">
@@ -44,16 +73,29 @@
     {% endif %}
 </div>
 
+<!-- フィルタータブ -->
+<div class="filter-tabs">
+    <button class="filter-tab active" onclick="filterNotices('all', this)">すべて</button>
+    <button class="filter-tab" onclick="filterNotices('unread', this)">未読のみ</button>
+    <button class="filter-tab" onclick="filterNotices('important', this)">重要</button>
+</div>
+
 {% if notices %}
-<div class="notice-list">
+<div class="notice-list" id="noticeList">
     {% for n in notices %}
     <a href="{{ url_for('staff_mypage.notice_detail', notice_id=n.id) }}"
-       class="notice-card {% if n.is_important %}important{% endif %}">
+       class="notice-card {% if n.is_important %}important{% endif %} {% if not n.is_read %}unread{% endif %}"
+       data-read="{{ 'true' if n.is_read else 'false' }}"
+       data-important="{{ 'true' if n.is_important else 'false' }}">
+        <div class="{% if not n.is_read %}unread-dot{% else %}read-dot{% endif %}"></div>
         <div class="notice-icon">{% if n.is_important %}🔴{% else %}📢{% endif %}</div>
         <div style="flex:1; min-width:0;">
             <div class="notice-title-text">
                 {% if n.is_important %}<span class="important-tag">重要</span>{% endif %}
                 {{ n.title }}
+                {% if not n.is_read %}
+                <span style="font-size:10px; background:#e8eaf6; color:#1a237e; padding:1px 6px; border-radius:4px; margin-left:4px; vertical-align:middle;">NEW</span>
+                {% endif %}
             </div>
             {% if n.body %}
             <div class="notice-body-preview">{{ n.body[:80] }}{% if n.body|length > 80 %}...{% endif %}</div>
@@ -80,4 +122,18 @@
     {% endif %}
 </div>
 {% endif %}
+
+<script>
+function filterNotices(type, btn) {
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.notice-card').forEach(card => {
+        const isRead     = card.dataset.read === 'true';
+        const isImportant= card.dataset.important === 'true';
+        if (type === 'all')       card.style.display = '';
+        else if (type === 'unread')    card.style.display = isRead ? 'none' : '';
+        else if (type === 'important') card.style.display = isImportant ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}

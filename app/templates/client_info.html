@@ -182,6 +182,9 @@
       <span class="icon">&#128197;</span> 税務カレンダー
     </a>
     {% endif %}
+    <a href="{{ url_for('clients.client_assignments', client_id=client.id) }}" class="action-btn" style="background:#fce4ec;color:#880e4f;border:2px solid #f48fb1;">
+      <span class="icon">&#128101;</span> 担当スタッフ
+    </a>
     <button onclick="startVideoCall({{ client.id }})" class="action-btn btn-video">
       <span class="icon">&#128249;</span> ビデオ通話
     </button>

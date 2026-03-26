@@ -2037,3 +2037,126 @@ def delete_tax_record(client_id, record_id):
         return redirect(url_for('clients.tax_records', client_id=client_id))
     finally:
         db.close()
+
+
+# ─── 担当スタッフ割り当て ───────────────────────────────────────────────────────
+@bp.route('/<int:client_id>/assignments', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def client_assignments(client_id):
+    """顧問先の担当スタッフ割り当て管理"""
+    from app.models_login import TJugyoin, TClientAssignment
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+
+            if action == 'add':
+                staff_id   = request.form.get('staff_id')
+                staff_type = request.form.get('staff_type', 'admin')
+                is_primary = int(request.form.get('is_primary', 0))
+                if staff_id:
+                    existing = db.query(TClientAssignment).filter(
+                        and_(
+                            TClientAssignment.client_id  == client_id,
+                            TClientAssignment.staff_id   == int(staff_id),
+                            TClientAssignment.staff_type == staff_type,
+                        )
+                    ).first()
+                    if not existing:
+                        if is_primary:
+                            db.query(TClientAssignment).filter(
+                                and_(
+                                    TClientAssignment.client_id == client_id,
+                                    TClientAssignment.tenant_id == tenant_id,
+                                )
+                            ).update({'is_primary': 0})
+                        a = TClientAssignment(
+                            tenant_id  = tenant_id,
+                            client_id  = client_id,
+                            staff_id   = int(staff_id),
+                            staff_type = staff_type,
+                            is_primary = is_primary,
+                        )
+                        db.add(a)
+                        db.commit()
+                        flash('担当スタッフを追加しました', 'success')
+                    else:
+                        flash('既に担当として登録されています', 'warning')
+
+            elif action == 'set_primary':
+                assignment_id = int(request.form.get('assignment_id', 0))
+                db.query(TClientAssignment).filter(
+                    and_(
+                        TClientAssignment.client_id == client_id,
+                        TClientAssignment.tenant_id == tenant_id,
+                    )
+                ).update({'is_primary': 0})
+                db.query(TClientAssignment).filter(
+                    TClientAssignment.id == assignment_id
+                ).update({'is_primary': 1})
+                db.commit()
+                flash('主担当を変更しました', 'success')
+
+            elif action == 'remove':
+                assignment_id = int(request.form.get('assignment_id', 0))
+                a = db.query(TClientAssignment).filter(
+                    TClientAssignment.id == assignment_id
+                ).first()
+                if a:
+                    db.delete(a)
+                    db.commit()
+                    flash('担当スタッフを削除しました', 'success')
+
+            return redirect(url_for('clients.client_assignments', client_id=client_id))
+
+        # GET
+        assignments = db.query(TClientAssignment).filter(
+            and_(
+                TClientAssignment.client_id == client_id,
+                TClientAssignment.tenant_id == tenant_id,
+            )
+        ).all()
+
+        for a in assignments:
+            if a.staff_type == 'employee':
+                s = db.query(TJugyoin).filter(TJugyoin.id == a.staff_id).first()
+            else:
+                s = db.query(TKanrisha).filter(TKanrisha.id == a.staff_id).first()
+            a.staff_name_resolved = s.name if s else '(不明)'
+            a.staff_position      = getattr(s, 'position', '') or ''
+            a.staff_role          = getattr(s, 'role', a.staff_type) or a.staff_type
+
+        assigned_admin_ids    = {a.staff_id for a in assignments if a.staff_type == 'admin'}
+        assigned_employee_ids = {a.staff_id for a in assignments if a.staff_type == 'employee'}
+
+        all_admins = db.query(TKanrisha).filter(
+            and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
+        ).order_by(TKanrisha.name).all()
+        all_employees = db.query(TJugyoin).filter(
+            and_(TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1)
+        ).order_by(TJugyoin.name).all()
+
+        available_admins    = [s for s in all_admins    if s.id not in assigned_admin_ids]
+        available_employees = [s for s in all_employees if s.id not in assigned_employee_ids]
+
+        return render_template(
+            'client_assignments.html',
+            client              = client,
+            assignments         = assignments,
+            available_admins    = available_admins,
+            available_employees = available_employees,
+        )
+    finally:
+        db.close()

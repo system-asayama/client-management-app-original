@@ -1487,6 +1487,14 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # 社内チャット・お知らせ既読テーブルのマイグレーション
+        print("\n[マイグレーション] 社内チャット・お知らせ既読テーブルを作成...")
+        try:
+            is_mysql = not _is_pg(conn)
+            migrate_internal_chat_and_notice_read(conn, is_mysql)
+        except Exception as e:
+            print(f"  ⚠️  社内チャットマイグレーションエラー: {e}")
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)
@@ -1497,3 +1505,121 @@ def run_migrations():
 
 if __name__ == "__main__":
     run_migrations()
+
+def migrate_internal_chat_and_notice_read(conn, is_mysql):
+    """社内チャット・お知らせ既読テーブルのマイグレーション"""
+    cur = conn.cursor()
+    tables = [
+        ("T_社内チャットルーム", """
+            CREATE TABLE IF NOT EXISTS `T_社内チャットルーム` (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                tenant_id INTEGER NOT NULL,
+                name VARCHAR(255),
+                room_type VARCHAR(20) DEFAULT 'direct',
+                created_by_id INTEGER,
+                created_by_type VARCHAR(20),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        """, """
+            CREATE TABLE IF NOT EXISTS "T_社内チャットルーム" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tenant_id INTEGER NOT NULL,
+                name TEXT,
+                room_type TEXT DEFAULT 'direct',
+                created_by_id INTEGER,
+                created_by_type TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """),
+        ("T_社内チャットメンバー", """
+            CREATE TABLE IF NOT EXISTS `T_社内チャットメンバー` (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                room_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type VARCHAR(20) DEFAULT 'admin',
+                staff_name VARCHAR(255),
+                joined_at TIMESTAMP DEFAULT NOW()
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        """, """
+            CREATE TABLE IF NOT EXISTS "T_社内チャットメンバー" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type TEXT DEFAULT 'admin',
+                staff_name TEXT,
+                joined_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """),
+        ("T_社内メッセージ", """
+            CREATE TABLE IF NOT EXISTS `T_社内メッセージ` (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                room_id INTEGER NOT NULL,
+                sender_id INTEGER NOT NULL,
+                sender_type VARCHAR(20) DEFAULT 'admin',
+                sender_name VARCHAR(255),
+                message TEXT,
+                message_type VARCHAR(20) DEFAULT 'text',
+                file_url TEXT,
+                file_name VARCHAR(255),
+                created_at TIMESTAMP DEFAULT NOW()
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        """, """
+            CREATE TABLE IF NOT EXISTS "T_社内メッセージ" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_id INTEGER NOT NULL,
+                sender_id INTEGER NOT NULL,
+                sender_type TEXT DEFAULT 'admin',
+                sender_name TEXT,
+                message TEXT,
+                message_type TEXT DEFAULT 'text',
+                file_url TEXT,
+                file_name TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """),
+        ("T_社内メッセージ既読", """
+            CREATE TABLE IF NOT EXISTS `T_社内メッセージ既読` (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                message_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type VARCHAR(20) DEFAULT 'admin',
+                read_at TIMESTAMP DEFAULT NOW()
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        """, """
+            CREATE TABLE IF NOT EXISTS "T_社内メッセージ既読" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type TEXT DEFAULT 'admin',
+                read_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """),
+        ("T_お知らせ既読", """
+            CREATE TABLE IF NOT EXISTS `T_お知らせ既読` (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                notice_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type VARCHAR(20) DEFAULT 'admin',
+                read_at TIMESTAMP DEFAULT NOW()
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        """, """
+            CREATE TABLE IF NOT EXISTS "T_お知らせ既読" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                notice_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type TEXT DEFAULT 'admin',
+                read_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """),
+    ]
+    for table_name, mysql_sql, sqlite_sql in tables:
+        try:
+            sql = mysql_sql if is_mysql else sqlite_sql
+            cur.execute(sql)
+            conn.commit()
+            print(f"  ✅ {table_name}テーブルを確認/作成しました")
+        except Exception as e:
+            print(f"  ⚠️  {table_name}テーブル作成エラー: {e}")
+            conn.rollback()

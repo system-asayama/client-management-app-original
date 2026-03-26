@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 担当スタッフ管理{% endblock %}
+{% block content %}
+<style>
+  .page-wrap { max-width: 800px; margin: 0 auto; }
+  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .breadcrumb a { color: #1a237e; text-decoration: none; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .page-title { font-size: 20px; font-weight: 800; color: #1a237e; margin-bottom: 20px; }
+  .card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 20px 24px; margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 14px; font-weight: 700; color: #1a237e;
+    border-left: 4px solid #1a237e; padding-left: 10px;
+    margin-bottom: 16px;
+  }
+  .staff-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .staff-row:last-child { border-bottom: none; }
+  .staff-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #e8eaf6; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .staff-name { font-size: 14px; font-weight: 700; color: #333; }
+  .staff-meta { font-size: 12px; color: #888; margin-top: 2px; }
+  .primary-badge {
+    background: #fff8e1; color: #e65100;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px;
+    border: 1px solid #ffcc80;
+  }
+  .role-badge {
+    background: #e8eaf6; color: #1a237e;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .staff-actions { margin-left: auto; display: flex; gap: 6px; }
+  .btn-sm {
+    padding: 5px 12px; font-size: 12px; border-radius: 6px;
+    border: none; cursor: pointer; font-weight: 600;
+    text-decoration: none; display: inline-block;
+    transition: all 0.2s;
+  }
+  .btn-primary-sm { background: #1a237e; color: #fff; }
+  .btn-primary-sm:hover { background: #283593; }
+  .btn-danger-sm { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+  .btn-danger-sm:hover { background: #ffcdd2; }
+  .btn-secondary-sm { background: #f5f5f5; color: #333; border: 1px solid #ddd; }
+  .btn-secondary-sm:hover { background: #e0e0e0; }
+  .add-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .add-form select {
+    padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: 13px; color: #333; flex: 1; min-width: 160px;
+  }
+  .add-form select:focus { outline: none; border-color: #1a237e; }
+  .add-form label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; display: block; }
+  .empty-msg { color: #aaa; font-size: 13px; padding: 12px 0; text-align: center; }
+</style>
+
+<div class="page-wrap">
+  <div class="breadcrumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo;
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> &rsaquo;
+    担当スタッフ管理
+  </div>
+
+  <div class="page-title">👤 担当スタッフ管理 — {{ client.name }}</div>
+
+  <!-- フラッシュメッセージ -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  {% for cat, msg in messages %}
+  <div class="alert alert-{{ cat }}" style="margin-bottom:12px;">{{ msg }}</div>
+  {% endfor %}
+  {% endif %}
+  {% endwith %}
+
+  <!-- 現在の担当スタッフ -->
+  <div class="card">
+    <div class="card-title">現在の担当スタッフ</div>
+    {% if assignments %}
+    {% for a in assignments %}
+    <div class="staff-row">
+      <div class="staff-avatar">
+        {% if a.staff_type == 'employee' %}👷{% else %}👔{% endif %}
+      </div>
+      <div>
+        <div class="staff-name">
+          {{ a.staff_name_resolved }}
+          {% if a.is_primary %}
+          <span class="primary-badge">⭐ 主担当</span>
+          {% endif %}
+        </div>
+        <div class="staff-meta">
+          <span class="role-badge">
+            {% if a.staff_role == 'tenant_admin' %}テナント管理者
+            {% elif a.staff_role == 'admin' %}管理者
+            {% elif a.staff_role == 'employee' %}従業員
+            {% else %}{{ a.staff_role }}{% endif %}
+          </span>
+          {% if a.staff_position %}&nbsp;{{ a.staff_position }}{% endif %}
+        </div>
+      </div>
+      <div class="staff-actions">
+        {% if not a.is_primary %}
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="action" value="set_primary">
+          <input type="hidden" name="assignment_id" value="{{ a.id }}">
+          <button type="submit" class="btn-sm btn-secondary-sm">主担当に設定</button>
+        </form>
+        {% endif %}
+        <form method="post" style="display:inline;"
+              onsubmit="return confirm('{{ a.staff_name_resolved }}を担当から外しますか？')">
+          <input type="hidden" name="action" value="remove">
+          <input type="hidden" name="assignment_id" value="{{ a.id }}">
+          <button type="submit" class="btn-sm btn-danger-sm">削除</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-msg">担当スタッフが登録されていません</div>
+    {% endif %}
+  </div>
+
+  <!-- スタッフ追加 -->
+  {% if available_admins or available_employees %}
+  <div class="card">
+    <div class="card-title">担当スタッフを追加</div>
+    <form method="post">
+      <input type="hidden" name="action" value="add">
+      <div class="add-form">
+        <div>
+          <label>スタッフを選択</label>
+          <select name="staff_id" id="staffSelect" onchange="updateStaffType(this)" required>
+            <option value="">-- 選択してください --</option>
+            {% if available_admins %}
+            <optgroup label="管理者">
+              {% for s in available_admins %}
+              <option value="{{ s.id }}" data-type="admin">
+                {{ s.name }}{% if s.position %} ({{ s.position }}){% endif %}
+              </option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+            {% if available_employees %}
+            <optgroup label="従業員">
+              {% for s in available_employees %}
+              <option value="{{ s.id }}" data-type="employee">
+                {{ s.name }}{% if s.position %} ({{ s.position }}){% endif %}
+              </option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+          </select>
+        </div>
+        <input type="hidden" name="staff_type" id="staffTypeInput" value="admin">
+        <div>
+          <label>主担当</label>
+          <select name="is_primary" style="padding:9px 12px; border:1px solid #ddd; border-radius:8px; font-size:13px;">
+            <option value="0">サブ担当</option>
+            <option value="1">主担当</option>
+          </select>
+        </div>
+        <div style="padding-bottom:1px;">
+          <label>&nbsp;</label>
+          <button type="submit" class="btn-sm btn-primary-sm" style="padding:9px 18px;">追加</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-title">担当スタッフを追加</div>
+    <div class="empty-msg">追加できるスタッフがいません（全スタッフが既に担当に登録されています）</div>
+  </div>
+  {% endif %}
+
+  <div style="margin-top:8px;">
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}" class="btn-sm btn-secondary-sm">
+      ← 顧問先詳細に戻る
+    </a>
+  </div>
+</div>
+
+<script>
+function updateStaffType(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('staffTypeInput').value = opt.dataset.type || 'admin';
+}
+</script>
+{% endblock %}

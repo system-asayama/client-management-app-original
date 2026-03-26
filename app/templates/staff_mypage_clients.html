@@ -89,7 +89,7 @@
         <div class="client-actions">
             <a href="{{ url_for('clients.client_detail', client_id=client.id) }}"
                class="btn btn-primary" style="font-size:12px; padding:7px 14px;">詳細</a>
-            <a href="{{ url_for('chat.chat_room', client_id=client.id) }}"
+            <a href="{{ url_for('chat.client_chat', client_id=client.id) }}"
                class="btn btn-secondary" style="font-size:12px; padding:7px 14px;">
                 💬 チャット{% if unread > 0 %} ({{ unread }}){% endif %}
             </a>

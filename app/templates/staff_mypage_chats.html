@@ -65,7 +65,7 @@
     {% set client = item.client %}
     {% set last_msg = item.last_msg %}
     {% set unread = item.unread %}
-    <a href="{{ url_for('chat.chat_room', client_id=client.id) }}"
+    <a href="{{ url_for('chat.client_chat', client_id=client.id) }}"
        class="chat-item {% if unread > 0 %}has-unread{% endif %}">
         <div class="chat-avatar">{{ client.name[0] if client.name else '?' }}</div>
         <div class="chat-info">

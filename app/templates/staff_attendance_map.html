@@ -122,6 +122,12 @@
     }
 </style>
 
+<!-- ページヘッダー -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h5 style="margin:0; font-weight:700; color:#1a237e;">📍 スタッフ位置確認</h5>
+    <a href="{{ url_for('tenant_admin.gps_settings') }}" style="font-size:13px; color:#1a237e; text-decoration:none; background:#e8eaf6; padding:6px 14px; border-radius:7px; font-weight:600;">⚙️ GPS記録設定</a>
+</div>
+
 <!-- フィルターバー -->
 <form method="get" class="map-toolbar">
     <label>日付</label>

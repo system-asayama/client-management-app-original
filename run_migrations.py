@@ -11,13 +11,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.utils.db import get_db_connection, _is_pg
 
 
-def migrate_internal_chat_and_notice_read(conn, is_mysql):
-    """社内チャット・お知らせ既読テーブルのマイグレーション"""
+def migrate_internal_chat_and_notice_read(conn, is_pg):
+    """社内チャット・お知らせ既読テーブルのマイグレーション（PostgreSQL/SQLite対応）"""
     cur = conn.cursor()
-    tables = [
+    # PostgreSQL用SQL（SERIALを使用）
+    pg_tables = [
         ("T_社内チャットルーム", """
-            CREATE TABLE IF NOT EXISTS `T_社内チャットルーム` (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            CREATE TABLE IF NOT EXISTS "T_社内チャットルーム" (
+                id SERIAL PRIMARY KEY,
                 tenant_id INTEGER NOT NULL,
                 name VARCHAR(255),
                 room_type VARCHAR(20) DEFAULT 'direct',
@@ -25,8 +26,54 @@ def migrate_internal_chat_and_notice_read(conn, is_mysql):
                 created_by_type VARCHAR(20),
                 created_at TIMESTAMP DEFAULT NOW(),
                 updated_at TIMESTAMP DEFAULT NOW()
-            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-        """, """
+            )
+        """),
+        ("T_社内チャットメンバー", """
+            CREATE TABLE IF NOT EXISTS "T_社内チャットメンバー" (
+                id SERIAL PRIMARY KEY,
+                room_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type VARCHAR(20) DEFAULT 'admin',
+                staff_name VARCHAR(255),
+                joined_at TIMESTAMP DEFAULT NOW()
+            )
+        """),
+        ("T_社内メッセージ", """
+            CREATE TABLE IF NOT EXISTS "T_社内メッセージ" (
+                id SERIAL PRIMARY KEY,
+                room_id INTEGER NOT NULL,
+                sender_id INTEGER NOT NULL,
+                sender_type VARCHAR(20) DEFAULT 'admin',
+                sender_name VARCHAR(255),
+                message TEXT,
+                message_type VARCHAR(20) DEFAULT 'text',
+                file_url TEXT,
+                file_name VARCHAR(255),
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """),
+        ("T_社内メッセージ既読", """
+            CREATE TABLE IF NOT EXISTS "T_社内メッセージ既読" (
+                id SERIAL PRIMARY KEY,
+                message_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type VARCHAR(20) DEFAULT 'admin',
+                read_at TIMESTAMP DEFAULT NOW()
+            )
+        """),
+        ("T_お知らせ既読", """
+            CREATE TABLE IF NOT EXISTS "T_お知らせ既読" (
+                id SERIAL PRIMARY KEY,
+                notice_id INTEGER NOT NULL,
+                staff_id INTEGER NOT NULL,
+                staff_type VARCHAR(20) DEFAULT 'admin',
+                read_at TIMESTAMP DEFAULT NOW()
+            )
+        """),
+    ]
+    # SQLite用SQL
+    sqlite_tables = [
+        ("T_社内チャットルーム", """
             CREATE TABLE IF NOT EXISTS "T_社内チャットルーム" (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tenant_id INTEGER NOT NULL,
@@ -39,15 +86,6 @@ def migrate_internal_chat_and_notice_read(conn, is_mysql):
             )
         """),
         ("T_社内チャットメンバー", """
-            CREATE TABLE IF NOT EXISTS `T_社内チャットメンバー` (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
-                room_id INTEGER NOT NULL,
-                staff_id INTEGER NOT NULL,
-                staff_type VARCHAR(20) DEFAULT 'admin',
-                staff_name VARCHAR(255),
-                joined_at TIMESTAMP DEFAULT NOW()
-            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-        """, """
             CREATE TABLE IF NOT EXISTS "T_社内チャットメンバー" (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 room_id INTEGER NOT NULL,
@@ -58,19 +96,6 @@ def migrate_internal_chat_and_notice_read(conn, is_mysql):
             )
         """),
         ("T_社内メッセージ", """
-            CREATE TABLE IF NOT EXISTS `T_社内メッセージ` (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
-                room_id INTEGER NOT NULL,
-                sender_id INTEGER NOT NULL,
-                sender_type VARCHAR(20) DEFAULT 'admin',
-                sender_name VARCHAR(255),
-                message TEXT,
-                message_type VARCHAR(20) DEFAULT 'text',
-                file_url TEXT,
-                file_name VARCHAR(255),
-                created_at TIMESTAMP DEFAULT NOW()
-            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-        """, """
             CREATE TABLE IF NOT EXISTS "T_社内メッセージ" (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 room_id INTEGER NOT NULL,
@@ -85,14 +110,6 @@ def migrate_internal_chat_and_notice_read(conn, is_mysql):
             )
         """),
         ("T_社内メッセージ既読", """
-            CREATE TABLE IF NOT EXISTS `T_社内メッセージ既読` (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
-                message_id INTEGER NOT NULL,
-                staff_id INTEGER NOT NULL,
-                staff_type VARCHAR(20) DEFAULT 'admin',
-                read_at TIMESTAMP DEFAULT NOW()
-            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-        """, """
             CREATE TABLE IF NOT EXISTS "T_社内メッセージ既読" (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 message_id INTEGER NOT NULL,
@@ -102,14 +119,6 @@ def migrate_internal_chat_and_notice_read(conn, is_mysql):
             )
         """),
         ("T_お知らせ既読", """
-            CREATE TABLE IF NOT EXISTS `T_お知らせ既読` (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
-                notice_id INTEGER NOT NULL,
-                staff_id INTEGER NOT NULL,
-                staff_type VARCHAR(20) DEFAULT 'admin',
-                read_at TIMESTAMP DEFAULT NOW()
-            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
-        """, """
             CREATE TABLE IF NOT EXISTS "T_お知らせ既読" (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 notice_id INTEGER NOT NULL,
@@ -119,9 +128,9 @@ def migrate_internal_chat_and_notice_read(conn, is_mysql):
             )
         """),
     ]
-    for table_name, mysql_sql, sqlite_sql in tables:
+    tables = pg_tables if is_pg else sqlite_tables
+    for table_name, sql in tables:
         try:
-            sql = mysql_sql if is_mysql else sqlite_sql
             cur.execute(sql)
             conn.commit()
             print(f"  ✅ {table_name}テーブルを確認/作成しました")
@@ -1610,8 +1619,8 @@ def run_migrations():
         # 社内チャット・お知らせ既読テーブルのマイグレーション
         print("\n[マイグレーション] 社内チャット・お知らせ既読テーブルを作成...")
         try:
-            is_mysql = not _is_pg(conn)
-            migrate_internal_chat_and_notice_read(conn, is_mysql)
+            is_pg = _is_pg(conn)
+            migrate_internal_chat_and_notice_read(conn, is_pg)
         except Exception as e:
             print(f"  ⚠️  社内チャットマイグレーションエラー: {e}")
 

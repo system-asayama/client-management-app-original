@@ -162,23 +162,23 @@
     </div>
     <div class="clock-buttons">
         {% if not today_record or not today_record.clock_in %}
-        <form method="post">
+        <form method="post" onsubmit="onClockIn()">
             <input type="hidden" name="action" value="clock_in">
             <button type="submit" class="btn-clock-in">🕐 出勤</button>
         </form>
         {% elif not today_record.clock_out %}
             {% if today_record.break_start and not today_record.break_end %}
-            <form method="post">
+            <form method="post" onsubmit="onBreakEnd()">
                 <input type="hidden" name="action" value="break_end">
                 <button type="submit" class="btn-break-end">✅ 休憩終了</button>
             </form>
             {% else %}
-            <form method="post">
+            <form method="post" onsubmit="onBreakStart()">
                 <input type="hidden" name="action" value="break_start">
                 <button type="submit" class="btn-break-start">🍚 休憩開始</button>
             </form>
             {% endif %}
-            <form method="post">
+            <form method="post" onsubmit="onClockOut()">
                 <input type="hidden" name="action" value="clock_out">
                 <button type="submit" class="btn-clock-out">🕐 退勤</button>
             </form>
@@ -194,7 +194,7 @@
             <div class="gps-label" id="gpsLabel">📍 GPS位置記録</div>
             <div class="gps-detail" id="gpsDetail">
                 {% if today_record and today_record.clock_in and not today_record.clock_out %}
-                    出勤中は自動で位置を記録します
+                    {{ gps_interval_minutes | default(10) }}分間隔で自動記録中
                 {% else %}
                     出勤中のみ位置記録が有効です
                 {% endif %}
@@ -384,7 +384,7 @@ document.getElementById('editModal').addEventListener('click', function(e) {
 // ──────────────────────────────────────────────
 // GPS 位置記録
 // ──────────────────────────────────────────────
-const GPS_INTERVAL_MS = 10 * 60 * 1000; // 10分ごとに記録
+const GPS_INTERVAL_MS = {{ gps_interval_minutes | default(10) }} * 60 * 1000; // {{ gps_interval_minutes | default(10) }}分ごとに記録
 let gpsTimerId = null;
 let gpsActive = false;
 let gpsCount = 0;
@@ -487,5 +487,115 @@ window.addEventListener('load', function() {
     startGps();
 });
 {% endif %}
+
+// ──────────────────────────────────────────────
+// フォーム連動：出退勤・休憩ボタンとGPSの自動連動
+// ──────────────────────────────────────────────
+
+/**
+ * 出勤ボタン押下時：即時GPSを記録してからフォームを送信する
+ * ページ遷移後は自動スタートされるのでここでは位置記録のみ実行
+ */
+function onClockIn() {
+    // 出勤時の位置を即時記録（非同期）
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                fetch('/staff/attendance/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude:      pos.coords.latitude,
+                        longitude:     pos.coords.longitude,
+                        accuracy:      pos.coords.accuracy,
+                        is_background: false
+                    })
+                }).catch(() => {});
+            },
+            function() {}, // エラーは無視（フォーム送信を妄げない）
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+    // フォーム送信はそのまま続行（return trueは不要）
+}
+
+/**
+ * 退勤ボタン押下時：最終位置を記録してからGPSを停止
+ */
+function onClockOut() {
+    // GPSを先に停止
+    stopGps();
+    // 退勤時の最終位置を記録（非同期）
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                fetch('/staff/attendance/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude:      pos.coords.latitude,
+                        longitude:     pos.coords.longitude,
+                        accuracy:      pos.coords.accuracy,
+                        is_background: false
+                    })
+                }).catch(() => {});
+            },
+            function() {},
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+}
+
+/**
+ * 休憩開始ボタン押下時：位置を記録してGPSを一時停止
+ */
+function onBreakStart() {
+    // 休憩前の最終位置を記録
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                fetch('/staff/attendance/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude:      pos.coords.latitude,
+                        longitude:     pos.coords.longitude,
+                        accuracy:      pos.coords.accuracy,
+                        is_background: false
+                    })
+                }).catch(() => {});
+            },
+            function() {},
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+    // GPS自動記録を一時停止（ページ遷移後は休憩中なので自動スタートされない）
+    stopGps();
+}
+
+/**
+ * 休憩終了ボタン押下時：位置を記録してGPSを再開（ページ遷移後に自動スタート）
+ */
+function onBreakEnd() {
+    // 休憩明けの位置を記録（ページ遷移後に自動スタートされる）
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                fetch('/staff/attendance/location', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude:      pos.coords.latitude,
+                        longitude:     pos.coords.longitude,
+                        accuracy:      pos.coords.accuracy,
+                        is_background: false
+                    })
+                }).catch(() => {});
+            },
+            function() {},
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+}
 </script>
 {% endblock %}

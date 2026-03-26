@@ -3024,3 +3024,40 @@ def store_apps(store_id):
         return render_template('tenant_store_apps.html', tenant=tenant, store=store, apps=apps)
     finally:
         db.close()
+
+
+# ─────────────────────────────────────────────
+# GPS記録間隔設定（tenant_admin / system_admin のみ）
+# ─────────────────────────────────────────────
+@bp.route('/gps_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def gps_settings():
+    """GPS位置記録間隔の設定画面"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if not tenant_obj:
+            flash('テナント情報が見つかりません', 'error')
+            return redirect(url_for('tenant_admin.dashboard'))
+
+        if request.method == 'POST':
+            try:
+                interval = int(request.form.get('gps_interval_minutes', 10))
+                if interval < 1:
+                    interval = 1
+                elif interval > 120:
+                    interval = 120
+                tenant_obj.gps_interval_minutes = interval
+                db.commit()
+                flash(f'GPS記録間隔を {interval} 分に更新しました', 'success')
+            except ValueError:
+                flash('正しい数値を入力してください', 'error')
+            return redirect(url_for('tenant_admin.gps_settings'))
+
+        gps_interval = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
+        return render_template('tenant_admin_gps_settings.html',
+                               tenant=tenant_obj,
+                               gps_interval=gps_interval)
+    finally:
+        db.close()

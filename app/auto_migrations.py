@@ -204,7 +204,29 @@ def run_auto_migrations():
         else:
             logger.info("- T_システム管理者_テナント テーブルは既に存在します")
         
-        # 4. T_勤怠位置履歴 テーブルを作成（GPS記録）
+        # 4. T_テナントに gps_interval_minutes カラムを追加
+        if not column_exists(session, 'T_テナント', 'gps_interval_minutes'):
+            logger.info("T_テナントテーブルに gps_interval_minutes カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_テナント"
+                    ADD COLUMN gps_interval_minutes INTEGER DEFAULT 10
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_テナント".gps_interval_minutes IS 'GPS位置記録間隔（分）デフォルト:10'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_テナント`
+                    ADD COLUMN `gps_interval_minutes` INT DEFAULT 10
+                    COMMENT 'GPS位置記録間隔（分）デフォルト:10'
+                """))
+            session.commit()
+            logger.info("✓ gps_interval_minutes カラムを追加しました")
+        else:
+            logger.info("- gps_interval_minutes カラムは既に存在します")
+
+        # 5. T_勤怠位置履歴 テーブルを作成（GPS記録）
         if not table_exists(session, 'T_勤怠位置履歴'):
             logger.info("T_勤怠位置履歴 テーブルを作成中...")
             if db_type == 'postgresql':

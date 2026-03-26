@@ -276,6 +276,12 @@
                class="nav-item {% if request.endpoint in ('staff_mypage.attendance', 'staff_mypage.attendance_record') %}active{% endif %}">
                 <span class="icon">⏱️</span> 勤怠管理
             </a>
+            {% if session.get('role') in ('system_admin', 'tenant_admin', 'admin') %}
+            <a href="{{ url_for('staff_mypage.attendance_map') }}"
+               class="nav-item {% if request.endpoint == 'staff_mypage.attendance_map' %}active{% endif %}">
+                <span class="icon">🗺️</span> スタッフ位置確認
+            </a>
+            {% endif %}
 
             <div class="nav-section-label">社内</div>
             <a href="{{ url_for('internal_chat.room_list') }}"

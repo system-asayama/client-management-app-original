@@ -613,6 +613,10 @@ def attendance():
                 diff = (r.clock_out - r.clock_in).total_seconds() / 60
                 total_work_minutes += max(0, diff - r.break_minutes)
 
+        # GPS記録間隔をテナント設定から取得
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        gps_interval_minutes = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
+
         return render_template('staff_mypage_attendance.html',
                                records=records,
                                today_record=today_record,
@@ -621,7 +625,8 @@ def attendance():
                                year_m=year_m,
                                mon_m=mon_m,
                                total_work_minutes=total_work_minutes,
-                               unread_count=unread_count)
+                               unread_count=unread_count,
+                               gps_interval_minutes=gps_interval_minutes)
     finally:
         db.close()
 
@@ -860,5 +865,111 @@ def today_locations():
         } for l in locs]
 
         return jsonify({'locations': result, 'count': len(result)})
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 管理者向け：スタッフ位置確認画面
+# ─────────────────────────────────────────────
+@bp.route('/attendance/map')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def attendance_map():
+    """管理者向け：スタッフの当日移動ルートを地図で確認する画面"""
+    tenant_id = session.get('tenant_id')
+    user_name = session.get('user_name', '')
+    db = SessionLocal()
+    try:
+        unread_count = _get_unread_count(tenant_id, user_name)
+        today = date.today()
+
+        # 対象日（クエリパラメータで変更可能）
+        date_str = request.args.get('date', today.strftime('%Y-%m-%d'))
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            target_date = today
+
+        # 対象スタッフID（未指定なら全スタッフ）
+        staff_id_param = request.args.get('staff_id')
+
+        # テナント内の全スタッフ（管理者 + 従業員）を取得
+        admins = db.query(TKanrisha).filter(
+            and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
+        ).all()
+        employees = db.query(TJugyoin).filter(
+            and_(TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1)
+        ).all()
+
+        staff_list = [{'id': a.id, 'name': a.name, 'type': 'admin'} for a in admins]
+        staff_list += [{'id': e.id, 'name': e.name, 'type': 'employee'} for e in employees]
+
+        # 対象日の勤怠レコードを取得
+        attendances = db.query(TAttendance).filter(
+            and_(TAttendance.tenant_id == tenant_id,
+                 TAttendance.work_date == target_date)
+        ).all()
+        attendance_map_by_key = {
+            (a.staff_id, a.staff_type): a for a in attendances
+        }
+
+        # GPS位置履歴を取得
+        loc_query = db.query(TAttendanceLocation).filter(
+            and_(TAttendanceLocation.tenant_id == tenant_id,
+                 TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
+                 TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
+        )
+        if staff_id_param:
+            try:
+                sid = int(staff_id_param)
+                loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
+            except ValueError:
+                pass
+
+        locations = loc_query.order_by(
+            TAttendanceLocation.staff_id.asc(),
+            TAttendanceLocation.recorded_at.asc()
+        ).all()
+
+        # スタッフごとに位置データをまとめる
+        staff_tracks = {}
+        for loc in locations:
+            key = (loc.staff_id, loc.staff_type)
+            if key not in staff_tracks:
+                staff_tracks[key] = []
+            staff_tracks[key].append({
+                'lat': loc.latitude,
+                'lng': loc.longitude,
+                'accuracy': loc.accuracy,
+                'is_background': loc.is_background,
+                'time': loc.recorded_at.strftime('%H:%M:%S')
+            })
+
+        # テンプレートに渡すデータを整形
+        tracks_data = []
+        for s in staff_list:
+            key = (s['id'], s['type'])
+            att = attendance_map_by_key.get(key)
+            pts = staff_tracks.get(key, [])
+            tracks_data.append({
+                'staff_id': s['id'],
+                'staff_name': s['name'],
+                'staff_type': s['type'],
+                'clock_in': att.clock_in.strftime('%H:%M') if att and att.clock_in else None,
+                'clock_out': att.clock_out.strftime('%H:%M') if att and att.clock_out else None,
+                'points': pts,
+                'point_count': len(pts)
+            })
+
+        # 位置データがあるスタッフを先頭に
+        tracks_data.sort(key=lambda x: -x['point_count'])
+
+        return render_template('staff_attendance_map.html',
+                               tracks_data=tracks_data,
+                               staff_list=staff_list,
+                               target_date=target_date,
+                               date_str=date_str,
+                               selected_staff_id=staff_id_param,
+                               unread_count=unread_count)
     finally:
         db.close()

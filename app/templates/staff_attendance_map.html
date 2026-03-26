@@ -1,0 +1,299 @@
+{% extends "staff_mypage_base.html" %}
+{% block page_title %}スタッフ位置確認{% endblock %}
+{% block topbar_title %}スタッフ位置確認{% endblock %}
+
+{% block content %}
+<!-- Leaflet.js CDN -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+    .map-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    .map-toolbar label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+    }
+    .map-toolbar input[type="date"],
+    .map-toolbar select {
+        padding: 8px 12px;
+        border: 1px solid #d0d0d0;
+        border-radius: 7px;
+        font-size: 13px;
+        color: #333;
+        background: #fff;
+        outline: none;
+    }
+    .map-toolbar input[type="date"]:focus,
+    .map-toolbar select:focus {
+        border-color: #1a237e;
+    }
+    .btn-filter {
+        background: #1a237e;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        padding: 8px 20px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-filter:hover { background: #283593; }
+
+    #map {
+        width: 100%;
+        height: 480px;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 20px;
+        z-index: 0;
+    }
+
+    .staff-track-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .staff-track-card {
+        background: #fff;
+        border-radius: 10px;
+        border: 2px solid #e0e0e0;
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .staff-track-card:hover {
+        border-color: #1a237e;
+        box-shadow: 0 2px 8px rgba(26,35,126,0.12);
+    }
+    .staff-track-card.active {
+        border-color: #1a237e;
+        background: #e8eaf6;
+    }
+    .staff-track-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a237e;
+        margin-bottom: 4px;
+    }
+    .staff-track-meta {
+        font-size: 11px;
+        color: #888;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .staff-track-meta .badge {
+        background: #e8eaf6;
+        color: #1a237e;
+        border-radius: 10px;
+        padding: 2px 8px;
+        font-weight: 600;
+    }
+    .staff-track-meta .badge.no-data {
+        background: #f5f5f5;
+        color: #aaa;
+    }
+    .no-data-msg {
+        text-align: center;
+        padding: 40px;
+        color: #aaa;
+        font-size: 14px;
+    }
+    .legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: #555;
+        margin-bottom: 12px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+    }
+</style>
+
+<!-- フィルターバー -->
+<form method="get" class="map-toolbar">
+    <label>日付</label>
+    <input type="date" name="date" value="{{ date_str }}">
+    <label>スタッフ</label>
+    <select name="staff_id">
+        <option value="">全員</option>
+        {% for s in staff_list %}
+        <option value="{{ s.id }}" {% if selected_staff_id == s.id|string %}selected{% endif %}>
+            {{ s.name }}（{{ 'スタッフ' if s.type == 'employee' else '管理者' }}）
+        </option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn-filter">絞り込む</button>
+</form>
+
+<!-- 凡例 -->
+<div class="legend">
+    <div class="legend-item">
+        <div class="legend-dot" style="background:#1a237e;"></div> 移動ルート
+    </div>
+    <div class="legend-item">
+        <div class="legend-dot" style="background:#43a047;"></div> 出勤時
+    </div>
+    <div class="legend-item">
+        <div class="legend-dot" style="background:#ef5350;"></div> 退勤時
+    </div>
+    <div class="legend-item">
+        <div class="legend-dot" style="background:#f57c00;"></div> 途中記録
+    </div>
+</div>
+
+<!-- 地図 -->
+<div id="map"></div>
+
+<!-- スタッフカード一覧 -->
+{% if tracks_data %}
+<div class="staff-track-list">
+    {% for t in tracks_data %}
+    <div class="staff-track-card {% if loop.first and t.point_count > 0 %}active{% endif %}"
+         id="card-{{ t.staff_id }}-{{ t.staff_type }}"
+         onclick="focusStaff('{{ t.staff_id }}', '{{ t.staff_type }}')">
+        <div class="staff-track-name">{{ t.staff_name }}</div>
+        <div class="staff-track-meta">
+            {% if t.point_count > 0 %}
+            <span class="badge">📍 {{ t.point_count }}件</span>
+            {% else %}
+            <span class="badge no-data">位置データなし</span>
+            {% endif %}
+            {% if t.clock_in %}
+            <span>出勤 {{ t.clock_in }}</span>
+            {% endif %}
+            {% if t.clock_out %}
+            <span>退勤 {{ t.clock_out }}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="no-data-msg">
+    {{ target_date.strftime('%Y年%m月%d日') }} の位置データはありません
+</div>
+{% endif %}
+
+<script>
+// ──────────────────────────────────────────────
+// 地図初期化
+// ──────────────────────────────────────────────
+const map = L.map('map').setView([35.6812, 139.7671], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+}).addTo(map);
+
+// スタッフごとのカラーパレット
+const COLORS = [
+    '#1a237e', '#c62828', '#2e7d32', '#e65100',
+    '#4a148c', '#006064', '#827717', '#880e4f'
+];
+
+// トラックデータをJinja2から受け取る
+const tracksData = {{ tracks_data | tojson }};
+
+// 描画済みレイヤーを管理
+const layerGroups = {};
+
+function createIcon(color, size) {
+    return L.divIcon({
+        className: '',
+        html: `<div style="
+            width:${size}px; height:${size}px;
+            background:${color};
+            border-radius:50%;
+            border:2px solid #fff;
+            box-shadow:0 1px 4px rgba(0,0,0,0.4);
+        "></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
+    });
+}
+
+function drawTrack(track, colorIndex) {
+    const color = COLORS[colorIndex % COLORS.length];
+    const key = track.staff_id + '-' + track.staff_type;
+    const group = L.layerGroup().addTo(map);
+    layerGroups[key] = { group, color, bounds: null };
+
+    if (!track.points || track.points.length === 0) return;
+
+    const latlngs = track.points.map(p => [p.lat, p.lng]);
+    const bounds = L.latLngBounds(latlngs);
+    layerGroups[key].bounds = bounds;
+
+    // ルートライン
+    L.polyline(latlngs, { color, weight: 3, opacity: 0.75 }).addTo(group);
+
+    // 各ポイントにマーカー
+    track.points.forEach(function(p, i) {
+        let dotColor = '#f57c00';
+        let dotSize = 10;
+        if (i === 0) { dotColor = '#43a047'; dotSize = 14; }
+        if (i === track.points.length - 1) { dotColor = '#ef5350'; dotSize = 14; }
+
+        const marker = L.marker([p.lat, p.lng], { icon: createIcon(dotColor, dotSize) });
+        marker.bindPopup(
+            `<b>${track.staff_name}</b><br>` +
+            `${p.time}<br>` +
+            `緯度: ${p.lat.toFixed(5)}<br>` +
+            `経度: ${p.lng.toFixed(5)}` +
+            (p.accuracy ? `<br>精度: ±${Math.round(p.accuracy)}m` : '')
+        );
+        marker.addTo(group);
+    });
+}
+
+// 全トラックを描画
+let firstBounds = null;
+tracksData.forEach(function(track, i) {
+    drawTrack(track, i);
+    if (!firstBounds && track.points && track.points.length > 0) {
+        const latlngs = track.points.map(p => [p.lat, p.lng]);
+        firstBounds = L.latLngBounds(latlngs);
+    }
+});
+
+// 初期表示：データがあれば全体が見えるようにフィット
+if (firstBounds) {
+    // 全ポイントを含む範囲にフィット
+    const allPoints = [];
+    tracksData.forEach(function(t) {
+        if (t.points) t.points.forEach(function(p) { allPoints.push([p.lat, p.lng]); });
+    });
+    if (allPoints.length > 0) {
+        map.fitBounds(L.latLngBounds(allPoints), { padding: [30, 30] });
+    }
+}
+
+// スタッフカードクリックで地図をフォーカス
+function focusStaff(staffId, staffType) {
+    const key = staffId + '-' + staffType;
+    document.querySelectorAll('.staff-track-card').forEach(function(c) {
+        c.classList.remove('active');
+    });
+    const card = document.getElementById('card-' + key);
+    if (card) card.classList.add('active');
+
+    const layer = layerGroups[key];
+    if (layer && layer.bounds) {
+        map.fitBounds(layer.bounds, { padding: [40, 40] });
+    }
+}
+</script>
+{% endblock %}

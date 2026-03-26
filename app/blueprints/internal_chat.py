@@ -8,7 +8,7 @@ from app.models_login import (
     TInternalChatMember, TInternalMessage, TInternalMessageRead
 )
 from app.utils.decorators import require_roles, ROLES
-from app.utils.tenant_storage_adapter import get_storage_adapter
+from app.utils.tenant_storage_adapter import get_storage_adapter, get_tenant_storage_config
 from sqlalchemy import and_, or_, func as sqlfunc
 from datetime import datetime
 import os
@@ -424,14 +424,21 @@ def room_upload(room_id):
         original_name = file.filename
         ext = os.path.splitext(original_name)[1].lower()
 
-        # ストレージにアップロード（社内チャット用フォルダ）
+        # ストレージにアップロード（テナントのストレージ設定を使用）
         try:
             adapter = get_storage_adapter(tenant_id)
+            # テナントのbase_folder_pathを取得（Dropbox等の設定フォルダを起点にする）
+            storage_config = get_tenant_storage_config(tenant_id)
+            if storage_config and getattr(storage_config, 'base_folder_path', None):
+                base = storage_config.base_folder_path.rstrip('/')
+                chat_folder = f'{base}/internal_chat'
+            else:
+                chat_folder = f'tenant-{tenant_id}/internal_chat'
             file_url = adapter.upload(
                 file_stream         = file.stream,
                 original_name       = original_name,
                 client_id           = 0,
-                client_folder_path  = f'tenant-{tenant_id}/internal_chat',
+                client_folder_path  = chat_folder,
                 subfolder           = f'room-{room_id}',
             )
         except Exception as e:

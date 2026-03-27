@@ -423,10 +423,13 @@ function fetchLatestLocations() {
         + String(today.getDate()).padStart(2,'0');
     const staffId = params.get('staff_id') || '';
 
-    fetch('/staff/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : ''))
+    const apiUrl = '/staff/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : '');
+    console.log('[RT] fetch:', apiUrl);
+    fetch(apiUrl)
         .then(r => r.json())
         .then(data => {
-            if (!data.ok) return;
+            console.log('[RT] response ok:', data.ok, 'tracks:', data.tracks ? data.tracks.length : 0, data.tracks);
+            if (!data.ok) { console.warn('[RT] API error:', data.error); return; }
 
             // 既存レイヤーを全て削除（group / layer どちらのプロパティ名にも対応）
             Object.values(layerGroups).forEach(function(lg) {

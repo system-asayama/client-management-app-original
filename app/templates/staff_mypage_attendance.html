@@ -161,7 +161,7 @@
         </div>
     </div>
     <div class="clock-buttons">
-        {% if not today_record or not today_record.clock_in %}
+        {% if not today_record or not today_record.clock_in or today_record.clock_out %}
         <form method="post" onsubmit="onClockIn()">
             <input type="hidden" name="action" value="clock_in">
             <button type="submit" class="btn-clock-in">🕐 出勤</button>

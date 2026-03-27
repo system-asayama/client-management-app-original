@@ -485,26 +485,38 @@ def attendance():
                  TAttendance.work_date <= month_end)
         ).order_by(TAttendance.work_date.asc()).all()
 
-        # 今日の勤怠
+        # 今日の勤怠：未退勤のレコードを優先（再出勤対応）
         today_record = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
-                 TAttendance.work_date == today)
-        ).first()
+                 TAttendance.work_date == today,
+                 TAttendance.clock_out == None)
+        ).order_by(TAttendance.id.desc()).first()
+        # 未退勤レコードがなければ最新レコードを取得（退勤済み状態の表示用）
+        if not today_record:
+            today_record = db.query(TAttendance).filter(
+                and_(TAttendance.tenant_id == tenant_id,
+                     TAttendance.staff_id == user_id,
+                     TAttendance.staff_type == staff_type,
+                     TAttendance.work_date == today)
+            ).order_by(TAttendance.id.desc()).first()
 
         if request.method == 'POST':
             action = request.form.get('action', '')
 
             if action == 'clock_in':
-                if today_record and today_record.clock_in:
-                    flash('本日はすでに出勤済みです', 'warning')
+                if today_record and today_record.clock_in and not today_record.clock_out:
+                    # 出勤中（未退勤）の場合は重複出勤を防ぐ
+                    flash('本日はすでに出勤中です', 'warning')
                 else:
                     now = now_jst()
-                    if today_record:
+                    if today_record and not today_record.clock_in:
+                        # レコードはあるが未出勤の場合（通常は発生しないが念のため）
                         today_record.clock_in = now
                         today_record.updated_at = now
                     else:
+                        # 初回出勤 or 退勤済みで再出勤する場合は新規レコードを作成
                         new_rec = TAttendance(
                             tenant_id=tenant_id,
                             staff_id=user_id,

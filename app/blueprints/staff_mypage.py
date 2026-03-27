@@ -935,6 +935,17 @@ def attendance_map():
         # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
         staff_id_set = {(s['id'], s['type']) for s in staff_list}
 
+        # tenant_id=NULLのシステム管理者も取得し、同名のスタッフがいれば「IDの別名マップ」を作成
+        # 例: id=1（浅山直希, tenant_id=NULL）→ id=34（浅山直希, tenant_id=1）にマッピング
+        null_admins = db.query(TKanrisha).filter(TKanrisha.tenant_id == None).all()
+        # 名前→テナント内スタッフIDのマップ
+        name_to_tenant_staff = {s['name']: s['id'] for s in staff_list if s['type'] == 'admin'}
+        # null_admin.id → tenant_staff.id のマッピング
+        null_id_to_tenant_id = {}
+        for na in null_admins:
+            if na.name in name_to_tenant_staff:
+                null_id_to_tenant_id[na.id] = name_to_tenant_staff[na.name]
+
         # 対象日の勤怠レコードを取得
         attendances = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
@@ -945,6 +956,7 @@ def attendance_map():
         }
 
         # GPS位置履歴を取得
+        # staff_id_paramがtenant_id=NULLのスタッフのIDにマッピングされる場合、元のIDでも検索
         loc_query = db.query(TAttendanceLocation).filter(
             and_(TAttendanceLocation.tenant_id == tenant_id,
                  TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
@@ -953,7 +965,16 @@ def attendance_map():
         if staff_id_param:
             try:
                 sid = int(staff_id_param)
-                loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
+                # sidがtenant内スタッフIDの場合、null_adminのIDも含めて検索
+                null_ids_for_sid = [nid for nid, tid in null_id_to_tenant_id.items() if tid == sid]
+                if null_ids_for_sid:
+                    from sqlalchemy import or_ as sa_or
+                    loc_query = loc_query.filter(sa_or(
+                        TAttendanceLocation.staff_id == sid,
+                        TAttendanceLocation.staff_id.in_(null_ids_for_sid)
+                    ))
+                else:
+                    loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
             except ValueError:
                 pass
 
@@ -963,9 +984,12 @@ def attendance_map():
         ).all()
 
         # スタッフごとに位置データをまとめる
+        # tenant_id=NULLのIDは対応するtenant内IDに変換して統合する
         staff_tracks = {}
         for loc in locations:
-            key = (loc.staff_id, loc.staff_type)
+            # null_id_to_tenant_idで変換（同名スタッフを統合）
+            effective_sid = null_id_to_tenant_id.get(loc.staff_id, loc.staff_id)
+            key = (effective_sid, loc.staff_type)
             if key not in staff_tracks:
                 staff_tracks[key] = []
             staff_tracks[key].append({
@@ -975,13 +999,6 @@ def attendance_map():
                 'is_background': loc.is_background,
                 'time': loc.recorded_at.strftime('%H:%M:%S')
             })
-            # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
-            if key not in staff_id_set:
-                staff_id_set.add(key)
-                # スタッフ名を取得
-                extra_staff = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
-                if extra_staff:
-                    staff_list.append({'id': extra_staff.id, 'name': extra_staff.name, 'type': loc.staff_type})
 
         # テンプレートに渡すデータを整形
         tracks_data = []
@@ -1095,19 +1112,7 @@ def attendance_map_realtime_data():
             TAttendanceLocation.recorded_at.asc()
         ).all()
 
-        # スタッフごとにまとめる
-        staff_tracks = {}
-        for loc in locations:
-            key = (loc.staff_id, loc.staff_type)
-            if key not in staff_tracks:
-                staff_tracks[key] = []
-            staff_tracks[key].append({
-                'lat': loc.latitude,
-                'lng': loc.longitude,
-                'time': loc.recorded_at.strftime('%H:%M:%S')
-            })
-
-        # スタッフ名を取得（tenant_id=NULLのシステム管理者も含む）
+        # tenant_id=NULLのシステム管理者とtenant内スタッフのIDマッピングを作成
         admins = db.query(TKanrisha).filter(
             and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
         ).all()
@@ -1116,12 +1121,30 @@ def attendance_map_realtime_data():
         ).all()
         name_map = {(a.id, 'admin'): a.name for a in admins}
         name_map.update({(e.id, 'employee'): e.name for e in employees})
+        name_to_tenant_id = {a.name: a.id for a in admins}
+        null_admins = db.query(TKanrisha).filter(TKanrisha.tenant_id == None).all()
+        null_id_to_tenant_id = {}
+        for na in null_admins:
+            if na.name in name_to_tenant_id:
+                null_id_to_tenant_id[na.id] = name_to_tenant_id[na.name]
+
+        # スタッフごとにまとめる（tenant_id=NULLのIDは対応するtenant内IDに変換）
+        staff_tracks = {}
+        for loc in locations:
+            effective_sid = null_id_to_tenant_id.get(loc.staff_id, loc.staff_id)
+            key = (effective_sid, loc.staff_type)
+            if key not in staff_tracks:
+                staff_tracks[key] = []
+            staff_tracks[key].append({
+                'lat': loc.latitude,
+                'lng': loc.longitude,
+                'time': loc.recorded_at.strftime('%H:%M:%S')
+            })
 
         tracks = []
         for (sid, stype), pts in staff_tracks.items():
             staff_name = name_map.get((sid, stype))
             if not staff_name:
-                # tenant_id=NULLのシステム管理者などを検索
                 extra = db.query(TKanrisha).filter(TKanrisha.id == sid).first()
                 staff_name = extra.name if extra else '不明'
             tracks.append({

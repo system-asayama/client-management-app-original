@@ -112,15 +112,22 @@ def dashboard():
             TNotice.tenant_id == tenant_id
         ).order_by(TNotice.created_at.desc()).limit(5).all()
 
-        # 今日の勤怠
+        # 今日の勤怠（未退勤レコードを優先取得）
         today = today_jst()
         staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
-        today_attendance = db.query(TAttendance).filter(
+        today_attendance_all = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).first()
+        ).order_by(TAttendance.id.asc()).all()
+        today_attendance = None
+        for r in today_attendance_all:
+            if r.clock_in and not r.clock_out:
+                today_attendance = r
+                break
+        if today_attendance is None and today_attendance_all:
+            today_attendance = today_attendance_all[-1]
 
         # 直近の税務期限（担当顧問先）
         upcoming_deadlines = []
@@ -485,26 +492,38 @@ def attendance():
                  TAttendance.work_date <= month_end)
         ).order_by(TAttendance.work_date.asc()).all()
 
-        # 今日の勤怠
-        today_record = db.query(TAttendance).filter(
+        # 今日の勤怠（最新の未退勤レコードを優先取得）
+        today_records_all = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).first()
+        ).order_by(TAttendance.id.asc()).all()
+
+        # 未退勤のレコードがあればそれを使用、なければ最新レコードを使用
+        today_record = None
+        for r in today_records_all:
+            if r.clock_in and not r.clock_out:
+                today_record = r
+                break
+        if today_record is None and today_records_all:
+            today_record = today_records_all[-1]
 
         if request.method == 'POST':
             action = request.form.get('action', '')
 
             if action == 'clock_in':
-                if today_record and today_record.clock_in:
-                    flash('本日はすでに出勤済みです', 'warning')
+                # 退勤済みの場合は新規レコードを作成して再出勤を許可
+                if today_record and today_record.clock_in and not today_record.clock_out:
+                    flash('現在出勤中です', 'warning')
                 else:
                     now = now_jst()
-                    if today_record:
+                    if today_record and not today_record.clock_in:
+                        # clock_inが未設定のレコードがある場合は更新
                         today_record.clock_in = now
                         today_record.updated_at = now
                     else:
+                        # 退勤済みまたはレコードなし → 新規レコード作成
                         new_rec = TAttendance(
                             tenant_id=tenant_id,
                             staff_id=user_id,
@@ -814,13 +833,20 @@ def record_location():
     db = SessionLocal()
     try:
         today = today_jst()
-        # 今日の勤怠レコードを取得（attendance_idの紐付け用）
-        today_record = db.query(TAttendance).filter(
+        # 今日の勤怠レコードを取得（未退勤レコードを優先）
+        today_records_loc = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).first()
+        ).order_by(TAttendance.id.asc()).all()
+        today_record = None
+        for r in today_records_loc:
+            if r.clock_in and not r.clock_out:
+                today_record = r
+                break
+        if today_record is None and today_records_loc:
+            today_record = today_records_loc[-1]
 
         loc = TAttendanceLocation(
             tenant_id=tenant_id,
@@ -855,18 +881,27 @@ def today_locations():
     db = SessionLocal()
     try:
         today = today_jst()
-        today_record = db.query(TAttendance).filter(
+        today_records_today = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).first()
+        ).order_by(TAttendance.id.asc()).all()
+        today_record = None
+        for r in today_records_today:
+            if r.clock_in and not r.clock_out:
+                today_record = r
+                break
+        if today_record is None and today_records_today:
+            today_record = today_records_today[-1]
 
         if not today_record:
             return jsonify({'locations': [], 'count': 0})
 
+        # 今日の全レコードの位置データを取得
+        today_att_ids = [r.id for r in today_records_today]
         locs = db.query(TAttendanceLocation).filter(
-            and_(TAttendanceLocation.attendance_id == today_record.id,
+            and_(TAttendanceLocation.attendance_id.in_(today_att_ids),
                  TAttendanceLocation.tenant_id == tenant_id)
         ).order_by(TAttendanceLocation.recorded_at.asc()).all()
 

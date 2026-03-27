@@ -279,8 +279,18 @@ const COLORS = [
 // トラックデータをJinja2から受け取る
 const tracksData = {{ tracks_data | tojson }};
 
-// 描画済みレイヤーを管理
+// 描画済みレイヤーを管理する層グループ（リアルタイム更新でも共通使用）
 const layerGroups = {};
+
+// 全レイヤーを地図から削除する共通関数
+function clearAllLayers() {
+    Object.values(layerGroups).forEach(function(lg) {
+        if (lg.group) { map.removeLayer(lg.group); }
+        if (lg.layer) { map.removeLayer(lg.layer); }
+        if (lg.marker) { map.removeLayer(lg.marker); }
+    });
+    Object.keys(layerGroups).forEach(function(k) { delete layerGroups[k]; });
+}
 
 function createIcon(color, size) {
     return L.divIcon({
@@ -415,48 +425,79 @@ function updateRealtimeUI() {
 
 // リアルタイム時の地図自動更新
 function fetchLatestLocations() {
-    const url = new URL(window.location.href);
-    const params = new URLSearchParams(url.search);
-    // 今日のデータのみ取得
+    // 現在のURLからスタッフIDを取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const staffId = urlParams.get('staff_id') || '';
+
+    // 今日の日付を取得
     const today = new Date();
     const dateStr = today.getFullYear() + '-'
         + String(today.getMonth()+1).padStart(2,'0') + '-'
         + String(today.getDate()).padStart(2,'0');
-    params.set('date', dateStr);
-    const staffId = params.get('staff_id') || '';
 
-    fetch('/staff/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : ''))
-        .then(r => r.json())
-        .then(data => {
+    const apiUrl = '/staff/attendance/map/realtime_data?date=' + dateStr
+        + (staffId ? '&staff_id=' + staffId : '');
+
+    fetch(apiUrl)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
             if (!data.ok) return;
-            // 既存レイヤーをクリア
-            Object.values(layerGroups).forEach(function(lg) {
-                if (lg.layer) map.removeLayer(lg.layer);
-                if (lg.marker) map.removeLayer(lg.marker);
-            });
+
+            // 全レイヤーをクリア（初期描画・リアルタイム両方対応）
+            clearAllLayers();
+
+            if (!data.tracks || data.tracks.length === 0) return;
+
+            const allBounds = [];
+
             // 新しいデータで再描画
             data.tracks.forEach(function(t, idx) {
                 if (!t.points || t.points.length === 0) return;
                 const color = COLORS[idx % COLORS.length];
                 const key = t.staff_id + '-' + t.staff_type;
                 const pts = t.points.map(function(p) { return [p.lat, p.lng]; });
-                // ライン
-                const line = L.polyline(pts, { color: color, weight: 3, opacity: 0.7 });
-                // 最新位置のパルスアニメーション付きマーカー
-                const lastPt = pts[pts.length - 1];
-                const marker = L.circleMarker(lastPt, {
-                    radius: 10,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.95
-                }).bindTooltip(t.staff_name + ' (' + (t.points[t.points.length-1].time || '') + ')', { permanent: false });
-                const group = L.layerGroup([line, marker]).addTo(map);
-                layerGroups[key] = { layer: group, marker: marker, bounds: line.getBounds() };
+
+                // ルートライン
+                const line = L.polyline(pts, { color: color, weight: 3, opacity: 0.75 });
+
+                // 各ポイントにマーカーを追加
+                const markers = [];
+                t.points.forEach(function(p, i) {
+                    let dotColor = '#f57c00';
+                    let dotSize = 10;
+                    if (i === 0) { dotColor = '#43a047'; dotSize = 14; }
+                    if (i === t.points.length - 1) { dotColor = '#ef5350'; dotSize = 14; }
+                    const m = L.marker([p.lat, p.lng], { icon: createIcon(dotColor, dotSize) });
+                    m.bindPopup('<b>' + t.staff_name + '</b><br>' + p.time
+                        + '<br>緯度: ' + p.lat.toFixed(5)
+                        + '<br>経度: ' + p.lng.toFixed(5));
+                    markers.push(m);
+                    allBounds.push([p.lat, p.lng]);
+                });
+
+                const group = L.layerGroup([line, ...markers]).addTo(map);
+                layerGroups[key] = { group: group, bounds: line.getBounds() };
             });
+
+            // スタッフカードを更新
+            updateStaffCards(data.tracks);
         })
-        .catch(function() {});
+        .catch(function(e) { console.error('realtime fetch error:', e); });
+}
+
+// リアルタイム更新時にスタッフカードの件数を更新
+function updateStaffCards(tracks) {
+    tracks.forEach(function(t) {
+        const key = 'card-' + t.staff_id + '-' + t.staff_type;
+        const card = document.getElementById(key);
+        if (card) {
+            const badge = card.querySelector('.badge');
+            if (badge && t.points && t.points.length > 0) {
+                badge.textContent = '📍 ' + t.points.length + '件';
+                badge.classList.remove('no-data');
+            }
+        }
+    });
 }
 
 function startRealtimeRefresh() {

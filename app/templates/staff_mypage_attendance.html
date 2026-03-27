@@ -182,12 +182,6 @@
                 <input type="hidden" name="action" value="clock_out">
                 <button type="submit" class="btn-clock-out">🕐 退勤</button>
             </form>
-        {% else %}
-        {# 退勤済みの場合は再出勤ボタンを表示 #}
-        <form method="post" onsubmit="onClockIn()">
-            <input type="hidden" name="action" value="clock_in">
-            <button type="submit" class="btn-clock-in">🕐 再出勤</button>
-        </form>
         {% endif %}
     </div>
 </div>

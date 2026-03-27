@@ -112,22 +112,15 @@ def dashboard():
             TNotice.tenant_id == tenant_id
         ).order_by(TNotice.created_at.desc()).limit(5).all()
 
-        # 今日の勤怠（未退勤レコードを優先取得）
+        # 今日の勤怠
         today = today_jst()
         staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
-        today_attendance_all = db.query(TAttendance).filter(
+        today_attendance = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).order_by(TAttendance.id.asc()).all()
-        today_attendance = None
-        for r in today_attendance_all:
-            if r.clock_in and not r.clock_out:
-                today_attendance = r
-                break
-        if today_attendance is None and today_attendance_all:
-            today_attendance = today_attendance_all[-1]
+        ).first()
 
         # 直近の税務期限（担当顧問先）
         upcoming_deadlines = []
@@ -492,38 +485,26 @@ def attendance():
                  TAttendance.work_date <= month_end)
         ).order_by(TAttendance.work_date.asc()).all()
 
-        # 今日の勤怠（最新の未退勤レコードを優先取得）
-        today_records_all = db.query(TAttendance).filter(
+        # 今日の勤怠
+        today_record = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).order_by(TAttendance.id.asc()).all()
-
-        # 未退勤のレコードがあればそれを使用、なければ最新レコードを使用
-        today_record = None
-        for r in today_records_all:
-            if r.clock_in and not r.clock_out:
-                today_record = r
-                break
-        if today_record is None and today_records_all:
-            today_record = today_records_all[-1]
+        ).first()
 
         if request.method == 'POST':
             action = request.form.get('action', '')
 
             if action == 'clock_in':
-                # 退勤済みの場合は新規レコードを作成して再出勤を許可
-                if today_record and today_record.clock_in and not today_record.clock_out:
-                    flash('現在出勤中です', 'warning')
+                if today_record and today_record.clock_in:
+                    flash('本日はすでに出勤済みです', 'warning')
                 else:
                     now = now_jst()
-                    if today_record and not today_record.clock_in:
-                        # clock_inが未設定のレコードがある場合は更新
+                    if today_record:
                         today_record.clock_in = now
                         today_record.updated_at = now
                     else:
-                        # 退勤済みまたはレコードなし → 新規レコード作成
                         new_rec = TAttendance(
                             tenant_id=tenant_id,
                             staff_id=user_id,
@@ -833,20 +814,13 @@ def record_location():
     db = SessionLocal()
     try:
         today = today_jst()
-        # 今日の勤怠レコードを取得（未退勤レコードを優先）
-        today_records_loc = db.query(TAttendance).filter(
+        # 今日の勤怠レコードを取得（attendance_idの紐付け用）
+        today_record = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).order_by(TAttendance.id.asc()).all()
-        today_record = None
-        for r in today_records_loc:
-            if r.clock_in and not r.clock_out:
-                today_record = r
-                break
-        if today_record is None and today_records_loc:
-            today_record = today_records_loc[-1]
+        ).first()
 
         loc = TAttendanceLocation(
             tenant_id=tenant_id,
@@ -881,27 +855,18 @@ def today_locations():
     db = SessionLocal()
     try:
         today = today_jst()
-        today_records_today = db.query(TAttendance).filter(
+        today_record = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.staff_id == user_id,
                  TAttendance.staff_type == staff_type,
                  TAttendance.work_date == today)
-        ).order_by(TAttendance.id.asc()).all()
-        today_record = None
-        for r in today_records_today:
-            if r.clock_in and not r.clock_out:
-                today_record = r
-                break
-        if today_record is None and today_records_today:
-            today_record = today_records_today[-1]
+        ).first()
 
         if not today_record:
             return jsonify({'locations': [], 'count': 0})
 
-        # 今日の全レコードの位置データを取得
-        today_att_ids = [r.id for r in today_records_today]
         locs = db.query(TAttendanceLocation).filter(
-            and_(TAttendanceLocation.attendance_id.in_(today_att_ids),
+            and_(TAttendanceLocation.attendance_id == today_record.id,
                  TAttendanceLocation.tenant_id == tenant_id)
         ).order_by(TAttendanceLocation.recorded_at.asc()).all()
 
@@ -955,68 +920,27 @@ def attendance_map():
         staff_list = [{'id': a.id, 'name': a.name, 'type': 'admin'} for a in admins]
         staff_list += [{'id': e.id, 'name': e.name, 'type': 'employee'} for e in employees]
 
-        # 対象日の勤怠レコードを取得（同一スタッフの複数レコードに対応するためリストで取得）
+        # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
+        staff_id_set = {(s['id'], s['type']) for s in staff_list}
+
+        # 対象日の勤怠レコードを取得
         attendances = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.work_date == target_date)
-        ).order_by(TAttendance.id.asc()).all()
-        # 同一スタッフの複数レコードは最新のものを使用
-        attendance_map_by_key = {}
-        for a in attendances:
-            attendance_map_by_key[(a.staff_id, a.staff_type)] = a
+        ).all()
+        attendance_map_by_key = {
+            (a.staff_id, a.staff_type): a for a in attendances
+        }
 
-        # GPS位置履歴を先に全件取得（スタッフ一覧にないスタッフを補完するため）
-        all_locs_query = db.query(TAttendanceLocation).filter(
-            and_(TAttendanceLocation.tenant_id == tenant_id,
-                 TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
-                 TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
-        ).order_by(TAttendanceLocation.staff_id.asc(), TAttendanceLocation.recorded_at.asc()).all()
-
-        # 位置データに含まれるがスタッフ一覧にないスタッフを補完（tenant_id=NULLのシステム管理者など）
-        staff_id_set = {(s['id'], s['type']) for s in staff_list}
-        extra_staff_ids = set()
-        for loc in all_locs_query:
-            key = (loc.staff_id, loc.staff_type)
-            if key not in staff_id_set and loc.staff_id not in extra_staff_ids:
-                extra_staff_ids.add(loc.staff_id)
-                extra_staff = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
-                if extra_staff:
-                    staff_list.append({'id': extra_staff.id, 'name': extra_staff.name, 'type': loc.staff_type})
-                    staff_id_set.add(key)
-
-        # スタッフ一覧の重複を除去（同名スタッフが複数ある場合、実際に位置データを持つIDを優先）
-        loc_staff_ids = {loc.staff_id for loc in all_locs_query}
-        # 位置データがあるスタッフはそのまま、ないスタッフは除外しない（全員表示）
-
-        # staff_id_paramの変換：ドロップダウンの選択値が実際の位置データのスタッフIDと異なる場合の補完
-        # 例：ドロップダウンでid=34を選択しても、実際のデータはid=1にある場合
-        effective_staff_id_param = staff_id_param
-        if staff_id_param:
-            try:
-                sid_selected = int(staff_id_param)
-                # 選択されたIDに位置データがなく、同名スタッフの別IDにデータがある場合はそちらを使用
-                if sid_selected not in loc_staff_ids:
-                    # 選択したスタッフの名前を取得
-                    selected_staff_name = next((s['name'] for s in staff_list if s['id'] == sid_selected), None)
-                    if selected_staff_name:
-                        # 同名で位置データを持つ別のIDを探す
-                        for loc in all_locs_query:
-                            alt_staff = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
-                            if alt_staff and alt_staff.name == selected_staff_name:
-                                effective_staff_id_param = str(loc.staff_id)
-                                break
-            except ValueError:
-                pass
-
-        # GPS位置履歴を取得（補完後の有効IDでフィルタリング）
+        # GPS位置履歴を取得
         loc_query = db.query(TAttendanceLocation).filter(
             and_(TAttendanceLocation.tenant_id == tenant_id,
                  TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
                  TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
         )
-        if effective_staff_id_param:
+        if staff_id_param:
             try:
-                sid = int(effective_staff_id_param)
+                sid = int(staff_id_param)
                 loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
             except ValueError:
                 pass
@@ -1039,30 +963,15 @@ def attendance_map():
                 'is_background': loc.is_background,
                 'time': loc.recorded_at.strftime('%H:%M:%S')
             })
+            # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
+            if key not in staff_id_set:
+                staff_id_set.add(key)
+                # スタッフ名を取得
+                extra_staff = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
+                if extra_staff:
+                    staff_list.append({'id': extra_staff.id, 'name': extra_staff.name, 'type': loc.staff_type})
 
         # テンプレートに渡すデータを整形
-        # staff_listの重複を除去：同名スタッフが複数いる場合、位置データを持つIDを優先して1エントリにまとめる
-        # 名前→実際の位置データを持つIDのマッピングを作成
-        name_to_loc_id = {}
-        for loc in all_locs_query:
-            if loc.staff_id not in name_to_loc_id.values():
-                s_obj = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
-                if s_obj:
-                    name_to_loc_id[s_obj.name] = loc.staff_id
-
-        # staff_listから重複を除去（同名の場合、位置データを持つIDを優先）
-        seen_names = {}
-        deduped_staff_list = []
-        for s in staff_list:
-            name = s['name']
-            if name not in seen_names:
-                # 位置データを持つIDがあればそちらに置き換え
-                if name in name_to_loc_id and s['id'] != name_to_loc_id[name]:
-                    s = dict(s, id=name_to_loc_id[name])
-                seen_names[name] = s['id']
-                deduped_staff_list.append(s)
-        staff_list = deduped_staff_list
-
         tracks_data = []
         for s in staff_list:
             key = (s['id'], s['type'])
@@ -1090,7 +999,7 @@ def attendance_map():
                                staff_list=staff_list,
                                target_date=target_date,
                                date_str=date_str,
-                               selected_staff_id=effective_staff_id_param,
+                               selected_staff_id=staff_id_param,
                                unread_count=unread_count,
                                gps_realtime_enabled=gps_realtime_enabled)
     finally:
@@ -1156,40 +1065,23 @@ def attendance_map_realtime_data():
 
         staff_id_param = request.args.get('staff_id')
 
-        # GPS位置履歴を先に全件取得（staff_idの補完判定のため）
-        all_locs_rt = db.query(TAttendanceLocation).filter(
+        # GPS位置履歴を取得
+        loc_query = db.query(TAttendanceLocation).filter(
             and_(TAttendanceLocation.tenant_id == tenant_id,
                  TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
                  TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
-        ).order_by(TAttendanceLocation.staff_id.asc(), TAttendanceLocation.recorded_at.asc()).all()
-
-        # staff_id_paramの補完：選択されたIDにデータがない場合、同名スタッフの別IDを探す
-        effective_staff_id_param = staff_id_param
+        )
         if staff_id_param:
             try:
-                sid_selected = int(staff_id_param)
-                loc_staff_ids_rt = {loc.staff_id for loc in all_locs_rt}
-                if sid_selected not in loc_staff_ids_rt:
-                    # 選択したスタッフの名前を取得
-                    selected_admin = db.query(TKanrisha).filter(TKanrisha.id == sid_selected).first()
-                    if selected_admin:
-                        for loc in all_locs_rt:
-                            alt = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
-                            if alt and alt.name == selected_admin.name:
-                                effective_staff_id_param = str(loc.staff_id)
-                                break
+                sid = int(staff_id_param)
+                loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
             except ValueError:
                 pass
 
-        # フィルタリング後の位置データを取得
-        if effective_staff_id_param:
-            try:
-                sid = int(effective_staff_id_param)
-                locations = [loc for loc in all_locs_rt if loc.staff_id == sid]
-            except ValueError:
-                locations = all_locs_rt
-        else:
-            locations = all_locs_rt
+        locations = loc_query.order_by(
+            TAttendanceLocation.staff_id.asc(),
+            TAttendanceLocation.recorded_at.asc()
+        ).all()
 
         # スタッフごとにまとめる
         staff_tracks = {}

@@ -938,13 +938,16 @@ def attendance_map():
         # tenant_id=NULLのシステム管理者も取得し、同名のスタッフがいれば「IDの別名マップ」を作成
         # 例: id=1（浅山直希, tenant_id=NULL）→ id=34（浅山直希, tenant_id=1）にマッピング
         null_admins = db.query(TKanrisha).filter(TKanrisha.tenant_id == None).all()
-        # 名前→テナント内スタッフIDのマップ
-        name_to_tenant_staff = {s['name']: s['id'] for s in staff_list if s['type'] == 'admin'}
-        # null_admin.id → tenant_staff.id のマッピング
+        # 名前の全角・半角スペースを正規化する関数
+        def normalize_name(n): return n.replace('\u3000', ' ').strip() if n else ''
+        # 名前（正規化済み）→テナント内スタッフIDのマップ
+        name_to_tenant_staff = {normalize_name(s['name']): s['id'] for s in staff_list if s['type'] == 'admin'}
+        # null_admin.id → tenant_staff.id のマッピング（名前の正規化で照合）
         null_id_to_tenant_id = {}
         for na in null_admins:
-            if na.name in name_to_tenant_staff:
-                null_id_to_tenant_id[na.id] = name_to_tenant_staff[na.name]
+            normalized = normalize_name(na.name)
+            if normalized in name_to_tenant_staff:
+                null_id_to_tenant_id[na.id] = name_to_tenant_staff[normalized]
 
         # 対象日の勤怠レコードを取得
         attendances = db.query(TAttendance).filter(
@@ -1103,12 +1106,14 @@ def attendance_map_realtime_data():
         ).all()
         name_map = {(a.id, 'admin'): a.name for a in admins}
         name_map.update({(e.id, 'employee'): e.name for e in employees})
-        name_to_tenant_id = {a.name: a.id for a in admins}
+        def normalize_name(n): return n.replace('\u3000', ' ').strip() if n else ''
+        name_to_tenant_id = {normalize_name(a.name): a.id for a in admins}
         null_admins = db.query(TKanrisha).filter(TKanrisha.tenant_id == None).all()
         null_id_to_tenant_id = {}
         for na in null_admins:
-            if na.name in name_to_tenant_id:
-                null_id_to_tenant_id[na.id] = name_to_tenant_id[na.name]
+            normalized = normalize_name(na.name)
+            if normalized in name_to_tenant_id:
+                null_id_to_tenant_id[na.id] = name_to_tenant_id[normalized]
 
         # GPS位置履歴を取得
         loc_query = db.query(TAttendanceLocation).filter(

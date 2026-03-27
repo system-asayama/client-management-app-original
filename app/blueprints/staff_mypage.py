@@ -1094,25 +1094,7 @@ def attendance_map_realtime_data():
 
         staff_id_param = request.args.get('staff_id')
 
-        # GPS位置履歴を取得
-        loc_query = db.query(TAttendanceLocation).filter(
-            and_(TAttendanceLocation.tenant_id == tenant_id,
-                 TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
-                 TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
-        )
-        if staff_id_param:
-            try:
-                sid = int(staff_id_param)
-                loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
-            except ValueError:
-                pass
-
-        locations = loc_query.order_by(
-            TAttendanceLocation.staff_id.asc(),
-            TAttendanceLocation.recorded_at.asc()
-        ).all()
-
-        # tenant_id=NULLのシステム管理者とtenant内スタッフのIDマッピングを作成
+        # tenant_id=NULLのシステム管理者とtenant内スタッフのIDマッピングを作成（絞り込み前に必要）
         admins = db.query(TKanrisha).filter(
             and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
         ).all()
@@ -1127,6 +1109,33 @@ def attendance_map_realtime_data():
         for na in null_admins:
             if na.name in name_to_tenant_id:
                 null_id_to_tenant_id[na.id] = name_to_tenant_id[na.name]
+
+        # GPS位置履歴を取得
+        loc_query = db.query(TAttendanceLocation).filter(
+            and_(TAttendanceLocation.tenant_id == tenant_id,
+                 TAttendanceLocation.recorded_at >= datetime.combine(target_date, datetime.min.time()),
+                 TAttendanceLocation.recorded_at < datetime.combine(target_date + timedelta(days=1), datetime.min.time()))
+        )
+        if staff_id_param:
+            try:
+                sid = int(staff_id_param)
+                # tenant内IDに対応するnull_adminのIDも含めて検索
+                null_ids_for_sid = [nid for nid, tid in null_id_to_tenant_id.items() if tid == sid]
+                if null_ids_for_sid:
+                    from sqlalchemy import or_ as sa_or
+                    loc_query = loc_query.filter(sa_or(
+                        TAttendanceLocation.staff_id == sid,
+                        TAttendanceLocation.staff_id.in_(null_ids_for_sid)
+                    ))
+                else:
+                    loc_query = loc_query.filter(TAttendanceLocation.staff_id == sid)
+            except ValueError:
+                pass
+
+        locations = loc_query.order_by(
+            TAttendanceLocation.staff_id.asc(),
+            TAttendanceLocation.recorded_at.asc()
+        ).all()
 
         # スタッフごとにまとめる（tenant_id=NULLのIDは対応するtenant内IDに変換）
         staff_tracks = {}

@@ -909,6 +909,7 @@ def attendance_map():
         staff_id_param = request.args.get('staff_id')
 
         # テナント内の全スタッフ（管理者 + 従業員）を取得
+        # tenant_id=NULLのシステム管理者も含める（位置データを記録している場合があるため）
         admins = db.query(TKanrisha).filter(
             and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
         ).all()
@@ -918,6 +919,9 @@ def attendance_map():
 
         staff_list = [{'id': a.id, 'name': a.name, 'type': 'admin'} for a in admins]
         staff_list += [{'id': e.id, 'name': e.name, 'type': 'employee'} for e in employees]
+
+        # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
+        staff_id_set = {(s['id'], s['type']) for s in staff_list}
 
         # 対象日の勤怠レコードを取得
         attendances = db.query(TAttendance).filter(
@@ -959,6 +963,13 @@ def attendance_map():
                 'is_background': loc.is_background,
                 'time': loc.recorded_at.strftime('%H:%M:%S')
             })
+            # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
+            if key not in staff_id_set:
+                staff_id_set.add(key)
+                # スタッフ名を取得
+                extra_staff = db.query(TKanrisha).filter(TKanrisha.id == loc.staff_id).first()
+                if extra_staff:
+                    staff_list.append({'id': extra_staff.id, 'name': extra_staff.name, 'type': loc.staff_type})
 
         # テンプレートに渡すデータを整形
         tracks_data = []
@@ -1084,7 +1095,7 @@ def attendance_map_realtime_data():
                 'time': loc.recorded_at.strftime('%H:%M:%S')
             })
 
-        # スタッフ名を取得
+        # スタッフ名を取得（tenant_id=NULLのシステム管理者も含む）
         admins = db.query(TKanrisha).filter(
             and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
         ).all()
@@ -1096,10 +1107,15 @@ def attendance_map_realtime_data():
 
         tracks = []
         for (sid, stype), pts in staff_tracks.items():
+            staff_name = name_map.get((sid, stype))
+            if not staff_name:
+                # tenant_id=NULLのシステム管理者などを検索
+                extra = db.query(TKanrisha).filter(TKanrisha.id == sid).first()
+                staff_name = extra.name if extra else '不明'
             tracks.append({
                 'staff_id': sid,
                 'staff_type': stype,
-                'staff_name': name_map.get((sid, stype), '不明'),
+                'staff_name': staff_name,
                 'points': pts
             })
 

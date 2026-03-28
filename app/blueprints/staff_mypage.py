@@ -957,10 +957,32 @@ def attendance_map():
         attendances = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.work_date == target_date)
-        ).all()
-        attendance_map_by_key = {
-            (a.staff_id, a.staff_type): a for a in attendances
-        }
+        ).order_by(TAttendance.clock_in.asc()).all()
+        # 1日に複数レコードがある場合も対応：同一スタッフの全レコードを集約して代表値を作る
+        # 出勤=最初のclock_in、退勤=最後のclock_out、break_start/break_end=存在するレコードから取得
+        attendance_agg = {}
+        for a in attendances:
+            k = (a.staff_id, a.staff_type)
+            if k not in attendance_agg:
+                attendance_agg[k] = {
+                    'clock_in': a.clock_in,
+                    'clock_out': a.clock_out,
+                    'break_start': a.break_start,
+                    'break_end': a.break_end
+                }
+            else:
+                # clock_in: 最初の値を保持（すでに記録済みなら上書きしない）
+                if a.clock_in and not attendance_agg[k]['clock_in']:
+                    attendance_agg[k]['clock_in'] = a.clock_in
+                # clock_out: 最後の値で上書き
+                if a.clock_out:
+                    attendance_agg[k]['clock_out'] = a.clock_out
+                # break_start/break_end: 存在する値で上書き
+                if a.break_start:
+                    attendance_agg[k]['break_start'] = a.break_start
+                if a.break_end:
+                    attendance_agg[k]['break_end'] = a.break_end
+        attendance_map_by_key = attendance_agg
 
         # GPS位置履歴を取得
         # staff_id_paramがtenant_id=NULLのスタッフのIDにマッピングされる場合、元のIDでも検索
@@ -1011,16 +1033,20 @@ def attendance_map():
         tracks_data = []
         for s in staff_list:
             key = (s['id'], s['type'])
-            att = attendance_map_by_key.get(key)
+            att = attendance_map_by_key.get(key)  # dict or None
             pts = staff_tracks.get(key, [])
+            def _fmt(val):
+                if val is None: return None
+                if hasattr(val, 'strftime'): return val.strftime('%H:%M:%S')
+                return str(val)
             tracks_data.append({
                 'staff_id': s['id'],
                 'staff_name': s['name'],
                 'staff_type': s['type'],
-                'clock_in': att.clock_in.strftime('%H:%M:%S') if att and att.clock_in else None,
-                'clock_out': att.clock_out.strftime('%H:%M:%S') if att and att.clock_out else None,
-                'break_start': att.break_start.strftime('%H:%M:%S') if att and att.break_start else None,
-                'break_end': att.break_end.strftime('%H:%M:%S') if att and att.break_end else None,
+                'clock_in': _fmt(att['clock_in']) if att else None,
+                'clock_out': _fmt(att['clock_out']) if att else None,
+                'break_start': _fmt(att['break_start']) if att else None,
+                'break_end': _fmt(att['break_end']) if att else None,
                 'points': pts,
                 'point_count': len(pts)
             })
@@ -1125,8 +1151,27 @@ def attendance_map_realtime_data():
         attendances_rt = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
                  TAttendance.work_date == target_date)
-        ).all()
-        attendance_map_rt = {(a.staff_id, a.staff_type): a for a in attendances_rt}
+        ).order_by(TAttendance.clock_in.asc()).all()
+        # 1日に複数レコードがある場合も対応：同一スタッフの全レコードを集約
+        attendance_map_rt = {}
+        for a in attendances_rt:
+            k = (a.staff_id, a.staff_type)
+            if k not in attendance_map_rt:
+                attendance_map_rt[k] = {
+                    'clock_in': a.clock_in,
+                    'clock_out': a.clock_out,
+                    'break_start': a.break_start,
+                    'break_end': a.break_end
+                }
+            else:
+                if a.clock_in and not attendance_map_rt[k]['clock_in']:
+                    attendance_map_rt[k]['clock_in'] = a.clock_in
+                if a.clock_out:
+                    attendance_map_rt[k]['clock_out'] = a.clock_out
+                if a.break_start:
+                    attendance_map_rt[k]['break_start'] = a.break_start
+                if a.break_end:
+                    attendance_map_rt[k]['break_end'] = a.break_end
 
         # GPS位置履歴を取得
         loc_query = db.query(TAttendanceLocation).filter(
@@ -1174,15 +1219,19 @@ def attendance_map_realtime_data():
             if not staff_name:
                 extra = db.query(TKanrisha).filter(TKanrisha.id == sid).first()
                 staff_name = extra.name if extra else '不明'
-            att_rt = attendance_map_rt.get((sid, stype))
+            att_rt = attendance_map_rt.get((sid, stype))  # dict or None
+            def _fmt_rt(val):
+                if val is None: return None
+                if hasattr(val, 'strftime'): return val.strftime('%H:%M:%S')
+                return str(val)
             tracks.append({
                 'staff_id': sid,
                 'staff_type': stype,
                 'staff_name': staff_name,
-                'clock_in': att_rt.clock_in.strftime('%H:%M:%S') if att_rt and att_rt.clock_in else None,
-                'clock_out': att_rt.clock_out.strftime('%H:%M:%S') if att_rt and att_rt.clock_out else None,
-                'break_start': att_rt.break_start.strftime('%H:%M:%S') if att_rt and att_rt.break_start else None,
-                'break_end': att_rt.break_end.strftime('%H:%M:%S') if att_rt and att_rt.break_end else None,
+                'clock_in': _fmt_rt(att_rt['clock_in']) if att_rt else None,
+                'clock_out': _fmt_rt(att_rt['clock_out']) if att_rt else None,
+                'break_start': _fmt_rt(att_rt['break_start']) if att_rt else None,
+                'break_end': _fmt_rt(att_rt['break_end']) if att_rt else None,
                 'points': pts
             })
 

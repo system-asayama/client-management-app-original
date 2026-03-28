@@ -332,8 +332,8 @@ function findNearestPoint(points, targetTime) {
             best = points[i];
         }
     }
-    // 最大10分（600秒）以内のポイントのみ採用
-    return bestDiff <= 600 ? best : null;
+    // 制限なし：常に最も近いポイントを返す
+    return best;
 }
 
 // ──────────────────────────────────────────────

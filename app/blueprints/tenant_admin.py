@@ -3075,6 +3075,7 @@ def gps_settings():
         import os
         mobile_api_key = os.environ.get('MOBILE_API_KEY', '')
         flask_base_url = request.host_url.rstrip('/')
+        tenant_slug = getattr(tenant_obj, 'slug', '') or ''
         return render_template('tenant_admin_gps_settings.html',
                                tenant=tenant_obj,
                                gps_enabled=gps_enabled,
@@ -3083,7 +3084,8 @@ def gps_settings():
                                android_apk_url=android_apk_url,
                                android_apk_version=android_apk_version,
                                mobile_api_key=mobile_api_key,
-                               flask_base_url=flask_base_url)
+                               flask_base_url=flask_base_url,
+                               tenant_slug=tenant_slug)
     finally:
         db.close()
 

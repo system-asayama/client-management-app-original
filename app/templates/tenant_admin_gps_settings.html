@@ -328,8 +328,18 @@
 <div class="settings-card" style="margin-top:24px;">
     <div class="settings-title">📱 モバイルアプリ接続情報</div>
     <div class="settings-desc">
-        Expoアプリの設定画面で以下の情報を入力してください。「コピー」ボタンでクリップボードにコピーできます。
+        スタッフのスマホでQRコードをスキャンすると、アプリに設定が自動入力されます。手動で入力する場合は各項目をコピーしてください。
     </div>
+
+    {% if mobile_api_key %}
+    <!-- QRコード表示エリア -->
+    <div style="display:flex; flex-direction:column; align-items:center; margin:20px 0 24px 0;">
+        <div style="font-weight:700; color:#1a237e; margin-bottom:12px; font-size:15px;">📷 QRコードをスキャンして一発設定</div>
+        <div id="qrcode" style="background:#fff; padding:16px; border-radius:12px; border:2px solid #e3e8f0; display:inline-block;"></div>
+        <div style="margin-top:10px; font-size:12px; color:#666;">スタッフ勤怠GPSアプリ → 設定タブ → QRスキャンボタンで読み取り</div>
+    </div>
+    {% endif %}
+
     <div class="form-group">
         <label style="font-weight:700; color:#1a237e;">接続先URL（アプリURL）</label>
         <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
@@ -349,6 +359,16 @@
                     style="padding:6px 14px; background:#1a56db; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; white-space:nowrap;">コピー</button>
         </div>
         <div class="form-hint">Expoアプリ設定画面「モバイルAPIキー」欄に入力してください</div>
+    </div>
+    <div class="form-group" style="margin-top:16px;">
+        <label style="font-weight:700; color:#1a237e;">テナントスラッグ</label>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input type="text" readonly id="tenantSlugInput" value="{{ tenant_slug }}"
+                   style="flex:1; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px; background:#f5f5f5; font-family:monospace; font-size:13px;">
+            <button type="button" onclick="copyToClipboard('tenantSlugInput', this)"
+                    style="padding:6px 14px; background:#1a56db; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; white-space:nowrap;">コピー</button>
+        </div>
+        <div class="form-hint">Expoアプリ設定画面「テナントスラッグ」欄に入力してください</div>
     </div>
     {% if not mobile_api_key %}
     <div class="notice-box warning" style="margin-top:12px;">
@@ -392,7 +412,27 @@
     </form>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
+{% if mobile_api_key %}
+(function() {
+    var qrData = JSON.stringify({
+        apiUrl: {{ flask_base_url | tojson }},
+        mobileApiKey: {{ mobile_api_key | tojson }},
+        tenantSlug: {{ tenant_slug | tojson }},
+        gpsIntervalMinutes: {{ gps_interval }}
+    });
+    new QRCode(document.getElementById('qrcode'), {
+        text: qrData,
+        width: 220,
+        height: 220,
+        colorDark: '#1a237e',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+    });
+})();
+{% endif %}
+
 function onToggleChange(checkbox) {
     const enabled = checkbox.checked;
     document.getElementById('gpsEnabledInput').value = enabled ? '1' : '0';

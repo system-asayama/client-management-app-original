@@ -172,6 +172,7 @@ def get_today_attendance():
     db = SessionLocal()
     try:
         today = today_jst()
+        # 複数レコードがある場合は最新（clock_inが最も新しい）レコードを返す
         rec = db.query(TAttendance).filter(
             and_(
                 TAttendance.tenant_id == staff_info['tenant_id'],
@@ -179,10 +180,21 @@ def get_today_attendance():
                 TAttendance.staff_type == staff_info['staff_type'],
                 TAttendance.work_date == today,
             )
-        ).first()
+        ).order_by(TAttendance.clock_in.desc().nullslast()).first()
 
         if not rec:
             return jsonify({'ok': True, 'attendance': None})
+
+        # clock_in/clock_out/break_start/break_endから現在の出退勤状態を動的に計算
+        # statusカラム（normal/late等）は勤怠種別であり出退勤状態ではないため使用しない
+        if not rec.clock_in:
+            computed_status = 'off'
+        elif rec.clock_out:
+            computed_status = 'finished'
+        elif rec.break_start and not rec.break_end:
+            computed_status = 'break'
+        else:
+            computed_status = 'working'
 
         return jsonify({
             'ok': True,
@@ -194,7 +206,7 @@ def get_today_attendance():
                 'break_start': rec.break_start.strftime('%H:%M') if rec.break_start else None,
                 'break_end': rec.break_end.strftime('%H:%M') if rec.break_end else None,
                 'break_minutes': rec.break_minutes or 0,
-                'status': rec.status,
+                'status': computed_status,
                 'note': rec.note,
             }
         })

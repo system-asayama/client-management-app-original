@@ -150,11 +150,24 @@ def _verify_staff_token(token: str):
 def _auth_required():
     """APIキーとstaff_tokenを検証してスタッフ情報を返す。失敗時はNoneを返す"""
     if not _check_api_key():
+        api_key_recv = request.headers.get('X-Mobile-API-Key', '')
+        current_app.logger.warning(
+            f'[_auth_required] APIキー無効 path={request.path} '
+            f'key_present={bool(api_key_recv)} key_len={len(api_key_recv)}'
+        )
         return None, jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
     token = request.headers.get('X-Staff-Token', '')
     staff_info = _verify_staff_token(token)
     if not staff_info:
+        current_app.logger.warning(
+            f'[_auth_required] staff_token無効 path={request.path} '
+            f'token_present={bool(token)} token_len={len(token)}'
+        )
         return None, jsonify({'ok': False, 'error': '認証トークンが無効です'}), 401
+    current_app.logger.info(
+        f'[_auth_required] 認証成功 path={request.path} '
+        f'staff_id={staff_info["staff_id"]} staff_type={staff_info["staff_type"]} tenant_id={staff_info["tenant_id"]}'
+    )
     return staff_info, None, None
 
 
@@ -167,11 +180,14 @@ def get_today_attendance():
     """今日の勤怠状態を取得"""
     staff_info, err_resp, err_code = _auth_required()
     if err_resp:
+        current_app.logger.warning(f'[attendance/today] 認証失敗: {err_code}')
         return err_resp, err_code
 
     db = SessionLocal()
     try:
         today = today_jst()
+        current_app.logger.info(f'[attendance/today] staff_id={staff_info["staff_id"]} staff_type={staff_info["staff_type"]} tenant_id={staff_info["tenant_id"]} today={today}')
+
         # 複数レコードがある場合は最新（clock_inが最も新しい）レコードを返す
         rec = db.query(TAttendance).filter(
             and_(
@@ -183,10 +199,10 @@ def get_today_attendance():
         ).order_by(TAttendance.clock_in.desc().nullslast()).first()
 
         if not rec:
+            current_app.logger.info(f'[attendance/today] レコードなし → status=off')
             return jsonify({'ok': True, 'attendance': None})
 
         # clock_in/clock_out/break_start/break_endから現在の出退勤状態を動的に計算
-        # statusカラム（normal/late等）は勤怠種別であり出退勤状態ではないため使用しない
         if not rec.clock_in:
             computed_status = 'off'
         elif rec.clock_out:
@@ -195,6 +211,11 @@ def get_today_attendance():
             computed_status = 'break'
         else:
             computed_status = 'working'
+
+        current_app.logger.info(
+            f'[attendance/today] rec.id={rec.id} clock_in={rec.clock_in} clock_out={rec.clock_out} '
+            f'break_start={rec.break_start} break_end={rec.break_end} → computed_status={computed_status}'
+        )
 
         return jsonify({
             'ok': True,
@@ -211,6 +232,7 @@ def get_today_attendance():
             }
         })
     except Exception as e:
+        current_app.logger.error(f'[attendance/today] 例外: {e}', exc_info=True)
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()

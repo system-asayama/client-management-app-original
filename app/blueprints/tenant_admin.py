@@ -3051,17 +3051,18 @@ def gps_settings():
                 gps_continuous = 1 if request.form.get('gps_continuous') == '1' else 0
                 tenant_obj.gps_continuous = gps_continuous
 
-                # GPS記録間隔（常時モードのときは間隔は無視）
-                interval = int(request.form.get('gps_interval_minutes', 10))
-                if interval < 1:
-                    interval = 1
-                elif interval > 120:
-                    interval = 120
-                tenant_obj.gps_interval_minutes = interval
+                # GPS記録間隔（秒単位）
+                interval_sec = int(request.form.get('gps_interval_seconds', 300))
+                if interval_sec < 10:
+                    interval_sec = 10
+                elif interval_sec > 3600:
+                    interval_sec = 3600
+                setattr(tenant_obj, 'gps_interval_seconds', interval_sec)
+                tenant_obj.gps_interval_minutes = max(1, interval_sec // 60)
                 db.commit()
 
                 status_label = '有効' if gps_enabled else '無効'
-                mode_label = '常時記録' if gps_continuous else f'間隔記録（{interval}分）'
+                mode_label = '常時記録' if gps_continuous else f'間隔記録（{interval_sec}秒）'
                 flash(f'GPS設定を更新しました（GPS機能: {status_label}、モード: {mode_label}）', 'success')
             except ValueError:
                 flash('正しい数値を入力してください', 'error')
@@ -3069,6 +3070,7 @@ def gps_settings():
 
         gps_enabled = getattr(tenant_obj, 'gps_enabled', 0) or 0
         gps_interval = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
+        gps_interval_seconds = getattr(tenant_obj, 'gps_interval_seconds', None) or (gps_interval * 60)
         gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
         android_apk_url = getattr(tenant_obj, 'android_apk_url', None) or ''
         android_apk_version = getattr(tenant_obj, 'android_apk_version', None) or ''
@@ -3080,6 +3082,7 @@ def gps_settings():
                                tenant=tenant_obj,
                                gps_enabled=gps_enabled,
                                gps_interval=gps_interval,
+                               gps_interval_seconds=gps_interval_seconds,
                                gps_continuous=gps_continuous,
                                android_apk_url=android_apk_url,
                                android_apk_version=android_apk_version,

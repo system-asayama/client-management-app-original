@@ -291,31 +291,31 @@
                 </div>
 
                 <div class="form-group">
-                    <label>GPS記録間隔（アプリの間隔記録にも使用）</label>
-                    <input type="number" name="gps_interval_minutes" id="intervalInput"
-                           value="{{ gps_interval }}" min="1" max="120">
-                    <span class="unit">分ごとに記録</span>
-                    <div class="form-hint">1〜120分の範囲で入力してください（推奨: 10〜30分）</div>
+                    <label>GPS記録間隔（秒単位）</label>
+                    <input type="number" name="gps_interval_seconds" id="intervalInput"
+                           value="{{ gps_interval_seconds }}" min="10" max="3600">
+                    <span class="unit">秒ごとに記録</span>
+                    <div class="form-hint">10～3600秒の範囲で入力してください（推奨: 30～300秒）</div>
                 </div>
 
                 <div class="preset-buttons">
                     <span style="font-size:12px; color:#888; align-self:center;">プリセット：</span>
-                    <button type="button" class="preset-btn {% if gps_interval == 5 %}active{% endif %}"
-                            onclick="setPreset(5)">5分</button>
-                    <button type="button" class="preset-btn {% if gps_interval == 10 %}active{% endif %}"
-                            onclick="setPreset(10)">10分（推奨）</button>
-                    <button type="button" class="preset-btn {% if gps_interval == 15 %}active{% endif %}"
-                            onclick="setPreset(15)">15分</button>
-                    <button type="button" class="preset-btn {% if gps_interval == 30 %}active{% endif %}"
-                            onclick="setPreset(30)">30分</button>
-                    <button type="button" class="preset-btn {% if gps_interval == 60 %}active{% endif %}"
-                            onclick="setPreset(60)">60分</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 30 %}active{% endif %}"
+                            onclick="setPreset(30)">30秒</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 60 %}active{% endif %}"
+                            onclick="setPreset(60)">1分</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 120 %}active{% endif %}"
+                            onclick="setPreset(120)">2分</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 300 %}active{% endif %}"
+                            onclick="setPreset(300)">5分（推奨）</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 600 %}active{% endif %}"
+                            onclick="setPreset(600)">10分</button>
                 </div>
             </div>
 
             <!-- ブラウザモード時も間隔値は送信（hidden） -->
-            <input type="hidden" id="intervalInputHidden" name="gps_interval_minutes_web"
-                   value="{{ gps_interval }}">
+            <input type="hidden" id="intervalInputHidden" name="gps_interval_seconds_hidden"
+                   value="{{ gps_interval_seconds }}">
         </div>
 
         <div style="margin-top:28px;">
@@ -420,7 +420,7 @@
         apiUrl: {{ flask_base_url | tojson }},
         mobileApiKey: {{ mobile_api_key | tojson }},
         tenantSlug: {{ tenant_slug | tojson }},
-        gpsIntervalMinutes: {{ gps_interval }}
+        gpsIntervalSeconds: {{ gps_interval_seconds }}
     });
     new QRCode(document.getElementById('qrcode'), {
         text: qrData,

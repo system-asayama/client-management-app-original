@@ -119,6 +119,7 @@ def mobile_login():
             'name': staff.name,
             'gps_enabled': bool(tenant.gps_enabled),
             'gps_interval_minutes': tenant.gps_interval_minutes or 5,
+            'gps_interval_seconds': getattr(tenant, 'gps_interval_seconds', None) or (tenant.gps_interval_minutes or 5) * 60,
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500

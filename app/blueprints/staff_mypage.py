@@ -1177,3 +1177,42 @@ def attendance_map_realtime_data():
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+# ─────────────────────────────────────────────
+# APKプロキシダウンロード（永続URL）
+# ─────────────────────────────────────────────
+@bp.route('/apk_download')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def apk_download():
+    """APKファイルをプロキシ配信する（署名付きURLの期限切れに依存しない永続エンドポイント）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        apk_url = getattr(tenant, 'android_apk_url', None) if tenant else None
+        if not apk_url:
+            flash('APKファイルが設定されていません。管理者にお問い合わせください。', 'error')
+            return redirect(url_for('staff_mypage.dashboard'))
+        import requests as req_lib
+        from flask import Response, stream_with_context
+        try:
+            resp = req_lib.get(apk_url, stream=True, timeout=30)
+            if resp.status_code == 200:
+                apk_version = getattr(tenant, 'android_apk_version', None) or '1.0'
+                filename = 'staff-gps-app-{}.apk'.format(apk_version)
+                return Response(
+                    stream_with_context(resp.iter_content(chunk_size=8192)),
+                    content_type='application/vnd.android.package-archive',
+                    headers={
+                        'Content-Disposition': 'attachment; filename="{}"'.format(filename),
+                        'Content-Length': resp.headers.get('Content-Length', ''),
+                    }
+                )
+            else:
+                flash('APKファイルのダウンロードに失敗しました（HTTP {}）。管理者にお問い合わせください。'.format(resp.status_code), 'error')
+                return redirect(url_for('staff_mypage.dashboard'))
+        except Exception as e:
+            flash('APKファイルの取得中にエラーが発生しました: {}'.format(str(e)), 'error')
+            return redirect(url_for('staff_mypage.dashboard'))
+    finally:
+        db.close()

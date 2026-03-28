@@ -115,10 +115,17 @@
         font-size: 12px;
         color: #555;
         margin-bottom: 12px;
+        align-items: center;
     }
-    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
     .legend-dot {
-        width: 10px; height: 10px; border-radius: 50%;
+        width: 14px; height: 14px; border-radius: 50%;
+        border: 2px solid rgba(0,0,0,0.15);
+        flex-shrink: 0;
+    }
+    .legend-line {
+        width: 28px; height: 4px; border-radius: 2px;
+        flex-shrink: 0;
     }
     /* リアルタイムボタン */
     .btn-realtime {
@@ -159,14 +166,6 @@
         0%, 100% { box-shadow: 0 0 0 0 rgba(229,57,53,0.4); }
         50% { box-shadow: 0 0 0 6px rgba(229,57,53,0); }
     }
-    .realtime-status {
-        font-size: 12px;
-        color: #e53935;
-        font-weight: 700;
-        margin-left: 4px;
-        display: none;
-    }
-    .realtime-status.visible { display: inline; }
     .auto-refresh-badge {
         font-size: 11px;
         background: #e8f5e9;
@@ -213,16 +212,19 @@
 <!-- 凡例 -->
 <div class="legend">
     <div class="legend-item">
-        <div class="legend-dot" style="background:#1a237e;"></div> 移動ルート
+        <div class="legend-line" style="background:#1a237e;"></div> 移動経路
     </div>
     <div class="legend-item">
-        <div class="legend-dot" style="background:#43a047;"></div> 出勤時
+        <div class="legend-dot" style="background:#43a047;"></div> 出勤地点
     </div>
     <div class="legend-item">
-        <div class="legend-dot" style="background:#ef5350;"></div> 退勤時
+        <div class="legend-dot" style="background:#f57c00;"></div> 休憩開始
     </div>
     <div class="legend-item">
-        <div class="legend-dot" style="background:#f57c00;"></div> 途中記録
+        <div class="legend-dot" style="background:#ab47bc;"></div> 休憩終了
+    </div>
+    <div class="legend-item">
+        <div class="legend-dot" style="background:#ef5350;"></div> 退勤地点
     </div>
 </div>
 
@@ -244,10 +246,10 @@
             <span class="badge no-data">位置データなし</span>
             {% endif %}
             {% if t.clock_in %}
-            <span>出勤 {{ t.clock_in }}</span>
+            <span>出勤 {{ t.clock_in[:5] }}</span>
             {% endif %}
             {% if t.clock_out %}
-            <span>退勤 {{ t.clock_out }}</span>
+            <span>退勤 {{ t.clock_out[:5] }}</span>
             {% endif %}
         </div>
     </div>
@@ -270,7 +272,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19
 }).addTo(map);
 
-// スタッフごとのカラーパレット
+// スタッフごとのカラーパレット（移動経路の色）
 const COLORS = [
     '#1a237e', '#c62828', '#2e7d32', '#e65100',
     '#4a148c', '#006064', '#827717', '#880e4f'
@@ -282,21 +284,61 @@ const tracksData = {{ tracks_data | tojson }};
 // 描画済みレイヤーを管理
 const layerGroups = {};
 
-function createIcon(color, size) {
+// ──────────────────────────────────────────────
+// 特定地点用の○マーカーを作成
+// color: 塗りつぶし色, size: 直径(px), label: ポップアップ内のラベル
+// ──────────────────────────────────────────────
+function createCircleIcon(color, size, borderColor) {
+    borderColor = borderColor || '#fff';
     return L.divIcon({
         className: '',
         html: `<div style="
             width:${size}px; height:${size}px;
             background:${color};
             border-radius:50%;
-            border:2px solid #fff;
-            box-shadow:0 1px 4px rgba(0,0,0,0.4);
+            border:3px solid ${borderColor};
+            box-shadow:0 2px 6px rgba(0,0,0,0.35);
+            box-sizing:border-box;
         "></div>`,
         iconSize: [size, size],
-        iconAnchor: [size/2, size/2]
+        iconAnchor: [size/2, size/2],
+        popupAnchor: [0, -size/2]
     });
 }
 
+// ──────────────────────────────────────────────
+// 時刻文字列 "HH:MM:SS" をパースして秒数に変換
+// ──────────────────────────────────────────────
+function timeToSeconds(timeStr) {
+    if (!timeStr) return null;
+    const parts = timeStr.split(':');
+    return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + (parseInt(parts[2]) || 0);
+}
+
+// ──────────────────────────────────────────────
+// pointsの中から指定時刻に最も近いポイントを返す
+// targetTime: "HH:MM:SS" 形式
+// ──────────────────────────────────────────────
+function findNearestPoint(points, targetTime) {
+    if (!points || points.length === 0 || !targetTime) return null;
+    const targetSec = timeToSeconds(targetTime);
+    let best = null;
+    let bestDiff = Infinity;
+    for (let i = 0; i < points.length; i++) {
+        const sec = timeToSeconds(points[i].time);
+        const diff = Math.abs(sec - targetSec);
+        if (diff < bestDiff) {
+            bestDiff = diff;
+            best = points[i];
+        }
+    }
+    // 最大10分（600秒）以内のポイントのみ採用
+    return bestDiff <= 600 ? best : null;
+}
+
+// ──────────────────────────────────────────────
+// トラックを描画する（経路=太い線、特定地点=○マーカーのみ）
+// ──────────────────────────────────────────────
 function drawTrack(track, colorIndex) {
     const color = COLORS[colorIndex % COLORS.length];
     const key = track.staff_id + '-' + track.staff_type;
@@ -309,23 +351,90 @@ function drawTrack(track, colorIndex) {
     const bounds = L.latLngBounds(latlngs);
     layerGroups[key].bounds = bounds;
 
-    // ルートライン
-    L.polyline(latlngs, { color, weight: 3, opacity: 0.75 }).addTo(group);
+    // ── 移動経路：太い連続線（マーカーなし）
+    L.polyline(latlngs, {
+        color: color,
+        weight: 5,
+        opacity: 0.85,
+        lineJoin: 'round',
+        lineCap: 'round'
+    }).addTo(group);
 
-    // 各ポイントにマーカー
-    track.points.forEach(function(p, i) {
-        let dotColor = '#f57c00';
-        let dotSize = 10;
-        if (i === 0) { dotColor = '#43a047'; dotSize = 14; }
-        if (i === track.points.length - 1) { dotColor = '#ef5350'; dotSize = 14; }
+    // ── 特定地点のみ○マーカーを表示
+    const specialPoints = [];
 
-        const marker = L.marker([p.lat, p.lng], { icon: createIcon(dotColor, dotSize) });
+    // 出勤地点（最初のポイント）
+    const firstPt = track.points[0];
+    specialPoints.push({
+        pt: firstPt,
+        color: '#43a047',
+        border: '#fff',
+        size: 18,
+        label: '🟢 出勤地点'
+    });
+
+    // 退勤地点（最後のポイント）
+    if (track.points.length > 1) {
+        const lastPt = track.points[track.points.length - 1];
+        specialPoints.push({
+            pt: lastPt,
+            color: '#ef5350',
+            border: '#fff',
+            size: 18,
+            label: '🔴 退勤地点'
+        });
+    }
+
+    // 休憩開始地点（break_startに最も近いポイント）
+    if (track.break_start) {
+        const bsPt = findNearestPoint(track.points, track.break_start);
+        if (bsPt) {
+            specialPoints.push({
+                pt: bsPt,
+                color: '#f57c00',
+                border: '#fff',
+                size: 16,
+                label: '🟠 休憩開始（' + track.break_start.substring(0,5) + '）'
+            });
+        }
+    }
+
+    // 休憩終了地点（break_endに最も近いポイント）
+    if (track.break_end) {
+        const bePt = findNearestPoint(track.points, track.break_end);
+        if (bePt) {
+            specialPoints.push({
+                pt: bePt,
+                color: '#ab47bc',
+                border: '#fff',
+                size: 16,
+                label: '🟣 休憩終了（' + track.break_end.substring(0,5) + '）'
+            });
+        }
+    }
+
+    // 重複排除（同じlat/lngのマーカーが重ならないよう、最後に追加したものを優先）
+    const seen = new Set();
+    const dedupedPoints = [];
+    for (let i = specialPoints.length - 1; i >= 0; i--) {
+        const key2 = specialPoints[i].pt.lat.toFixed(6) + ',' + specialPoints[i].pt.lng.toFixed(6);
+        if (!seen.has(key2)) {
+            seen.add(key2);
+            dedupedPoints.unshift(specialPoints[i]);
+        }
+    }
+
+    // マーカーを追加
+    dedupedPoints.forEach(function(sp) {
+        const marker = L.marker([sp.pt.lat, sp.pt.lng], {
+            icon: createCircleIcon(sp.color, sp.size, sp.border)
+        });
         marker.bindPopup(
             `<b>${track.staff_name}</b><br>` +
-            `${p.time}<br>` +
-            `緯度: ${p.lat.toFixed(5)}<br>` +
-            `経度: ${p.lng.toFixed(5)}` +
-            (p.accuracy ? `<br>精度: ±${Math.round(p.accuracy)}m` : '')
+            `${sp.label}<br>` +
+            `時刻: ${sp.pt.time}<br>` +
+            `緯度: ${sp.pt.lat.toFixed(5)}<br>` +
+            `経度: ${sp.pt.lng.toFixed(5)}`
         );
         marker.addTo(group);
     });
@@ -343,7 +452,6 @@ tracksData.forEach(function(track, i) {
 
 // 初期表示：データがあれば全体が見えるようにフィット
 if (firstBounds) {
-    // 全ポイントを含む範囲にフィット
     const allPoints = [];
     tracksData.forEach(function(t) {
         if (t.points) t.points.forEach(function(p) { allPoints.push([p.lat, p.lng]); });
@@ -368,6 +476,7 @@ function focusStaff(staffId, staffType) {
     }
 }
 
+// ──────────────────────────────────────────────
 // リアルタイム追跡機能
 // ──────────────────────────────────────────────
 let realtimeEnabled = {{ 'true' if gps_realtime_enabled else 'false' }};
@@ -424,62 +533,38 @@ function fetchLatestLocations() {
     const staffId = params.get('staff_id') || '';
 
     const apiUrl = '/staff/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : '');
-    console.log('[RT] fetch:', apiUrl);
     fetch(apiUrl)
         .then(r => r.json())
         .then(data => {
-            console.log('[RT] response ok:', data.ok, 'tracks:', data.tracks ? data.tracks.length : 0, data.tracks);
-            if (!data.ok) { console.warn('[RT] API error:', data.error); return; }
+            if (!data.ok) return;
 
-            // 既存レイヤーを全て削除（clearLayers()してからremove()）
+            // 既存レイヤーを全て削除
             Object.values(layerGroups).forEach(function(lg) {
                 if (lg.group) {
                     try { lg.group.clearLayers(); } catch(e) {}
                     try { lg.group.remove(); } catch(e) {}
                 }
             });
-            // layerGroupsをリセット
             Object.keys(layerGroups).forEach(function(k) { delete layerGroups[k]; });
 
             // 新しいデータで再描画
-            const allLatLngs = [];
             let latestPoint = null;
             data.tracks.forEach(function(t, idx) {
                 if (!t.points || t.points.length === 0) return;
-                const color = COLORS[idx % COLORS.length];
-                const key = t.staff_id + '-' + t.staff_type;
-                const group = L.layerGroup().addTo(map);
-                const latlngs = t.points.map(function(p) { return [p.lat, p.lng]; });
-                const bounds = L.latLngBounds(latlngs);
-                layerGroups[key] = { group: group, color: color, bounds: bounds };
-
-                // ルートライン
-                L.polyline(latlngs, { color: color, weight: 3, opacity: 0.75 }).addTo(group);
-
-                // 各ポイントにマーカー
-                t.points.forEach(function(p, i) {
-                    let dotColor = '#f57c00';
-                    let dotSize = 10;
-                    if (i === 0) { dotColor = '#43a047'; dotSize = 14; }
-                    if (i === t.points.length - 1) { dotColor = '#ef5350'; dotSize = 14; }
-                    const m = L.marker([p.lat, p.lng], { icon: createIcon(dotColor, dotSize) });
-                    m.bindPopup('<b>' + t.staff_name + '</b><br>' + p.time
-                        + '<br>緯度: ' + p.lat.toFixed(5)
-                        + '<br>経度: ' + p.lng.toFixed(5));
-                    m.addTo(group);
-                    allLatLngs.push([p.lat, p.lng]);
-                    // 最新ポイント（最後のポイント）を記録
-                    if (i === t.points.length - 1) { latestPoint = [p.lat, p.lng]; }
-                });
+                drawTrack(t, idx);
+                // 最新位置（最後のポイント）を記録
+                latestPoint = [t.points[t.points.length - 1].lat, t.points[t.points.length - 1].lng];
 
                 // スタッフカードの件数を更新
-                const cardEl = document.getElementById('card-' + key);
+                const cardKey = t.staff_id + '-' + t.staff_type;
+                const cardEl = document.getElementById('card-' + cardKey);
                 if (cardEl) {
                     const pointBadge = cardEl.querySelector('.badge');
                     if (pointBadge) pointBadge.textContent = '📍 ' + t.points.length + '件';
                 }
             });
-            // 最新位置に地図を追従（現在のズームレベルを維持しつつ中心を移動）
+
+            // 最新位置に地図を追従
             if (latestPoint) {
                 map.panTo(latestPoint, { animate: true, duration: 0.5 });
             }

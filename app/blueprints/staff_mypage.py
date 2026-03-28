@@ -1017,8 +1017,10 @@ def attendance_map():
                 'staff_id': s['id'],
                 'staff_name': s['name'],
                 'staff_type': s['type'],
-                'clock_in': att.clock_in.strftime('%H:%M') if att and att.clock_in else None,
-                'clock_out': att.clock_out.strftime('%H:%M') if att and att.clock_out else None,
+                'clock_in': att.clock_in.strftime('%H:%M:%S') if att and att.clock_in else None,
+                'clock_out': att.clock_out.strftime('%H:%M:%S') if att and att.clock_out else None,
+                'break_start': att.break_start.strftime('%H:%M:%S') if att and att.break_start else None,
+                'break_end': att.break_end.strftime('%H:%M:%S') if att and att.break_end else None,
                 'points': pts,
                 'point_count': len(pts)
             })
@@ -1119,6 +1121,13 @@ def attendance_map_realtime_data():
             if normalized in name_to_tenant_id:
                 null_id_to_tenant_id[na.id] = name_to_tenant_id[normalized]
 
+        # 勤怠データを取得（break_start/break_end/clock_in/clock_outを地図表示に使用）
+        attendances_rt = db.query(TAttendance).filter(
+            and_(TAttendance.tenant_id == tenant_id,
+                 TAttendance.work_date == target_date)
+        ).all()
+        attendance_map_rt = {(a.staff_id, a.staff_type): a for a in attendances_rt}
+
         # GPS位置履歴を取得
         loc_query = db.query(TAttendanceLocation).filter(
             and_(TAttendanceLocation.tenant_id == tenant_id,
@@ -1165,10 +1174,15 @@ def attendance_map_realtime_data():
             if not staff_name:
                 extra = db.query(TKanrisha).filter(TKanrisha.id == sid).first()
                 staff_name = extra.name if extra else '不明'
+            att_rt = attendance_map_rt.get((sid, stype))
             tracks.append({
                 'staff_id': sid,
                 'staff_type': stype,
                 'staff_name': staff_name,
+                'clock_in': att_rt.clock_in.strftime('%H:%M:%S') if att_rt and att_rt.clock_in else None,
+                'clock_out': att_rt.clock_out.strftime('%H:%M:%S') if att_rt and att_rt.clock_out else None,
+                'break_start': att_rt.break_start.strftime('%H:%M:%S') if att_rt and att_rt.break_start else None,
+                'break_end': att_rt.break_end.strftime('%H:%M:%S') if att_rt and att_rt.break_end else None,
                 'points': pts
             })
 

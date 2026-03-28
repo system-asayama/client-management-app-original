@@ -3053,8 +3053,8 @@ def gps_settings():
 
                 # GPS記録間隔（秒単位）
                 interval_sec = int(request.form.get('gps_interval_seconds', 300))
-                if interval_sec < 10:
-                    interval_sec = 10
+                if interval_sec < 1:
+                    interval_sec = 1
                 elif interval_sec > 3600:
                     interval_sec = 3600
                 setattr(tenant_obj, 'gps_interval_seconds', interval_sec)

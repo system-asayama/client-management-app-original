@@ -293,21 +293,29 @@
                 <div class="form-group">
                     <label>GPS記録間隔（秒単位）</label>
                     <input type="number" name="gps_interval_seconds" id="intervalInput"
-                           value="{{ gps_interval_seconds }}" min="10" max="3600">
+                           value="{{ gps_interval_seconds }}" min="1" max="3600">
                     <span class="unit">秒ごとに記録</span>
-                    <div class="form-hint">10～3600秒の範囲で入力してください（推奨: 30～300秒）</div>
+                    <div class="form-hint">1～3600秒の範囲で入力できます</div>
+                </div>
+
+                <div id="batteryWarning" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#856404;">
+                    ⚠️ <strong>30秒未満の設定はバッテリーの消耗が大幅に増加します。常時電源接続での使用を推奨します。
                 </div>
 
                 <div class="preset-buttons">
                     <span style="font-size:12px; color:#888; align-self:center;">プリセット：</span>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 1 %}active{% endif %}"
+                            onclick="setPreset(1)">1秒</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 5 %}active{% endif %}"
+                            onclick="setPreset(5)">5秒</button>
+                    <button type="button" class="preset-btn {% if gps_interval_seconds == 10 %}active{% endif %}"
+                            onclick="setPreset(10)">10秒</button>
                     <button type="button" class="preset-btn {% if gps_interval_seconds == 30 %}active{% endif %}"
                             onclick="setPreset(30)">30秒</button>
                     <button type="button" class="preset-btn {% if gps_interval_seconds == 60 %}active{% endif %}"
                             onclick="setPreset(60)">1分</button>
-                    <button type="button" class="preset-btn {% if gps_interval_seconds == 120 %}active{% endif %}"
-                            onclick="setPreset(120)">2分</button>
                     <button type="button" class="preset-btn {% if gps_interval_seconds == 300 %}active{% endif %}"
-                            onclick="setPreset(300)">5分（推奨）</button>
+                            onclick="setPreset(300)">5分</button>
                     <button type="button" class="preset-btn {% if gps_interval_seconds == 600 %}active{% endif %}"
                             onclick="setPreset(600)">10分</button>
                 </div>
@@ -451,13 +459,38 @@ function selectMode(mode) {
     document.getElementById('continuousSection').classList.toggle('hidden', !isContinuous);
 }
 
+function updateBatteryWarning(val) {
+    var warning = document.getElementById('batteryWarning');
+    if (val < 30) {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+}
+
 function setPreset(val) {
     document.getElementById('intervalInput').value = val;
     document.querySelectorAll('.preset-btn').forEach(function(btn) {
         btn.classList.remove('active');
-        if (parseInt(btn.textContent) === val) btn.classList.add('active');
     });
+    // active class on matching preset button
+    document.querySelectorAll('.preset-btn').forEach(function(btn) {
+        if (parseInt(btn.getAttribute('onclick').match(/\d+/)[0]) === val) {
+            btn.classList.add('active');
+        }
+    });
+    updateBatteryWarning(val);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('intervalInput');
+    if (input) {
+        updateBatteryWarning(parseInt(input.value) || 600);
+        input.addEventListener('input', function() {
+            updateBatteryWarning(parseInt(this.value) || 600);
+        });
+    }
+});
 
 function copyToClipboard(inputId, btn) {
     var input = document.getElementById(inputId);

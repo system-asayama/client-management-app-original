@@ -431,16 +431,19 @@ function fetchLatestLocations() {
             console.log('[RT] response ok:', data.ok, 'tracks:', data.tracks ? data.tracks.length : 0, data.tracks);
             if (!data.ok) { console.warn('[RT] API error:', data.error); return; }
 
-            // 既存レイヤーを全て削除（group / layer どちらのプロパティ名にも対応）
+            // 既存レイヤーを全て削除（clearLayers()してからremove()）
             Object.values(layerGroups).forEach(function(lg) {
-                if (lg.group) { try { map.removeLayer(lg.group); } catch(e) {} }
-                if (lg.layer) { try { map.removeLayer(lg.layer); } catch(e) {} }
-                if (lg.marker) { try { map.removeLayer(lg.marker); } catch(e) {} }
+                if (lg.group) {
+                    try { lg.group.clearLayers(); } catch(e) {}
+                    try { lg.group.remove(); } catch(e) {}
+                }
             });
             // layerGroupsをリセット
             Object.keys(layerGroups).forEach(function(k) { delete layerGroups[k]; });
 
-            // 新しいデータで再描画（drawTrackと同じスタイル）
+            // 新しいデータで再描画
+            const allLatLngs = [];
+            let latestPoint = null;
             data.tracks.forEach(function(t, idx) {
                 if (!t.points || t.points.length === 0) return;
                 const color = COLORS[idx % COLORS.length];
@@ -453,7 +456,7 @@ function fetchLatestLocations() {
                 // ルートライン
                 L.polyline(latlngs, { color: color, weight: 3, opacity: 0.75 }).addTo(group);
 
-                // 各ポイントにマーカー（初回描画と同じスタイル）
+                // 各ポイントにマーカー
                 t.points.forEach(function(p, i) {
                     let dotColor = '#f57c00';
                     let dotSize = 10;
@@ -464,15 +467,22 @@ function fetchLatestLocations() {
                         + '<br>緯度: ' + p.lat.toFixed(5)
                         + '<br>経度: ' + p.lng.toFixed(5));
                     m.addTo(group);
+                    allLatLngs.push([p.lat, p.lng]);
+                    // 最新ポイント（最後のポイント）を記録
+                    if (i === t.points.length - 1) { latestPoint = [p.lat, p.lng]; }
                 });
 
                 // スタッフカードの件数を更新
                 const cardEl = document.getElementById('card-' + key);
                 if (cardEl) {
-                    const badge = cardEl.querySelector('.point-count');
-                    if (badge) badge.textContent = t.points.length + '件';
+                    const pointBadge = cardEl.querySelector('.badge');
+                    if (pointBadge) pointBadge.textContent = '📍 ' + t.points.length + '件';
                 }
             });
+            // 最新位置に地図を追従（現在のズームレベルを維持しつつ中心を移動）
+            if (latestPoint) {
+                map.panTo(latestPoint, { animate: true, duration: 0.5 });
+            }
         })
         .catch(function() {});
 }

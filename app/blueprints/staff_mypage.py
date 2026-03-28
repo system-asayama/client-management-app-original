@@ -138,6 +138,8 @@ def dashboard():
             upcoming_deadlines.sort(key=lambda x: x['date'])
             upcoming_deadlines = upcoming_deadlines[:5]
 
+        android_apk_url = getattr(tenant, 'android_apk_url', None) if tenant else None
+        android_apk_version = getattr(tenant, 'android_apk_version', None) if tenant else None
         return render_template('staff_mypage_dashboard.html',
                                tenant=tenant,
                                assigned_count=assigned_count,
@@ -146,7 +148,9 @@ def dashboard():
                                notices=notices,
                                today_attendance=today_attendance,
                                upcoming_deadlines=upcoming_deadlines,
-                               today=today)
+                               today=today,
+                               android_apk_url=android_apk_url,
+                               android_apk_version=android_apk_version)
     finally:
         db.close()
 

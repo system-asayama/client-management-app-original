@@ -1653,6 +1653,60 @@ def run_migrations():
             migrate_internal_chat_and_notice_read(conn, is_pg)
         except Exception as e:
             print(f"  ⚠️  社内チャットマイグレーションエラー: {e}")
+        # T_テナントにandroid_apk_urlカラムを追加
+        print("\n[マイグレーション] T_テナントにandroid_apk_urlカラムを追加...")
+        try:
+            is_pg = _is_pg(conn)
+            if is_pg:
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_テナント' AND column_name = 'android_apk_url'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_テナント" ADD COLUMN android_apk_url TEXT')
+                    conn.commit()
+                    print('  ✅ T_テナント.android_apk_urlカラムを追加しました')
+                else:
+                    print('  ℹ️  T_テナント.android_apk_urlカラムは既に存在します（スキップ）')
+            else:
+                cur.execute('PRAGMA table_info("T_テナント")')
+                existing = [row[1] for row in cur.fetchall()]
+                if 'android_apk_url' not in existing:
+                    cur.execute('ALTER TABLE "T_テナント" ADD COLUMN android_apk_url TEXT')
+                    conn.commit()
+                    print('  ✅ T_テナント.android_apk_urlカラムを追加しました')
+                else:
+                    print('  ℹ️  T_テナント.android_apk_urlカラムは既に存在します（スキップ）')
+        except Exception as e:
+            print(f'  ⚠️  android_apk_urlマイグレーションエラー: {e}')
+            conn.rollback()
+        # T_テナントにandroid_apk_versionカラムを追加
+        print("\n[マイグレーション] T_テナントにandroid_apk_versionカラムを追加...")
+        try:
+            is_pg = _is_pg(conn)
+            if is_pg:
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_\u30c6\u30ca\u30f3\u30c8' AND column_name = 'android_apk_version'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_\u30c6\u30ca\u30f3\u30c8" ADD COLUMN android_apk_version VARCHAR(20)')
+                    conn.commit()
+                    print('  \u2705 T_\u30c6\u30ca\u30f3\u30c8.android_apk_version\u30ab\u30e9\u30e0\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f')
+                else:
+                    print('  \u2139\ufe0f  T_\u30c6\u30ca\u30f3\u30c8.android_apk_version\u30ab\u30e9\u30e0\u306f\u65e2\u306b\u5b58\u5728\u3057\u307e\u3059\uff08\u30b9\u30ad\u30c3\u30d7\uff09')
+            else:
+                cur.execute('PRAGMA table_info("T_\u30c6\u30ca\u30f3\u30c8")')
+                existing = [row[1] for row in cur.fetchall()]
+                if 'android_apk_version' not in existing:
+                    cur.execute('ALTER TABLE "T_\u30c6\u30ca\u30f3\u30c8" ADD COLUMN android_apk_version VARCHAR(20)')
+                    conn.commit()
+                    print('  \u2705 T_\u30c6\u30ca\u30f3\u30c8.android_apk_version\u30ab\u30e9\u30e0\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f')
+                else:
+                    print('  \u2139\ufe0f  T_\u30c6\u30ca\u30f3\u30c8.android_apk_version\u30ab\u30e9\u30e0\u306f\u65e2\u306b\u5b58\u5728\u3057\u307e\u3059\uff08\u30b9\u30ad\u30c3\u30d7\uff09')
+        except Exception as e:
+            print(f'  \u26a0\ufe0f  android_apk_version\u30de\u30a4\u30b0\u30ec\u30fc\u30b7\u30e7\u30f3\u30a8\u30e9\u30fc: {e}')
+            conn.rollback()
 
         print("\n" + "=" * 60)
         print("マイグレーション完了")

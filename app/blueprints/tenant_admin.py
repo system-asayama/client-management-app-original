@@ -3070,10 +3070,70 @@ def gps_settings():
         gps_enabled = getattr(tenant_obj, 'gps_enabled', 0) or 0
         gps_interval = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
         gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
+        android_apk_url = getattr(tenant_obj, 'android_apk_url', None) or ''
+        android_apk_version = getattr(tenant_obj, 'android_apk_version', None) or ''
+        import os
+        mobile_api_key = os.environ.get('MOBILE_API_KEY', '')
+        flask_base_url = request.host_url.rstrip('/')
         return render_template('tenant_admin_gps_settings.html',
                                tenant=tenant_obj,
                                gps_enabled=gps_enabled,
                                gps_interval=gps_interval,
-                               gps_continuous=gps_continuous)
+                               gps_continuous=gps_continuous,
+                               android_apk_url=android_apk_url,
+                               android_apk_version=android_apk_version,
+                               mobile_api_key=mobile_api_key,
+                               flask_base_url=flask_base_url)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# APK配布エンドポイント
+# ─────────────────────────────────────────────
+@bp.route('/update_apk_url', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def update_apk_url():
+    """APKダウンロードURLを更新"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if not tenant_obj:
+            flash('テナント情報が見つかりません', 'error')
+            return redirect(url_for('tenant_admin.gps_settings'))
+        apk_url = request.form.get('android_apk_url', '').strip()
+        apk_version = request.form.get('android_apk_version', '').strip()
+        tenant_obj.android_apk_url = apk_url if apk_url else None
+        tenant_obj.android_apk_version = apk_version if apk_version else None
+        db.commit()
+        if apk_url:
+            flash('APK URLを登録しました。配布ページが有効になりました。', 'success')
+        else:
+            flash('APK URLを削除しました。', 'success')
+        return redirect(url_for('tenant_admin.gps_settings'))
+    except Exception as e:
+        db.rollback()
+        flash(f'URLの保存に失敗しました: {e}', 'error')
+        return redirect(url_for('tenant_admin.gps_settings'))
+    finally:
+        db.close()
+
+
+@bp.route('/apk_download')
+def apk_download_page():
+    """スタッフ向けAPKダウンロードページ（認証不要）"""
+    # テナントのslugまたはIDをURLパラメータから取得、なければセッションから
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
+        apk_url = getattr(tenant_obj, 'android_apk_url', None) if tenant_obj else None
+        apk_version = getattr(tenant_obj, 'android_apk_version', None) if tenant_obj else None
+        tenant_name = getattr(tenant_obj, '名称', '') if tenant_obj else ''
+        return render_template('apk_download.html',
+                               apk_url=apk_url,
+                               apk_version=apk_version,
+                               tenant_name=tenant_name)
     finally:
         db.close()

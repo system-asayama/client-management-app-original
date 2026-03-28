@@ -324,6 +324,74 @@
     </form>
 </div>
 
+<!-- モバイルアプリ接続情報セクション -->
+<div class="settings-card" style="margin-top:24px;">
+    <div class="settings-title">📱 モバイルアプリ接続情報</div>
+    <div class="settings-desc">
+        Expoアプリの設定画面で以下の情報を入力してください。「コピー」ボタンでクリップボードにコピーできます。
+    </div>
+    <div class="form-group">
+        <label style="font-weight:700; color:#1a237e;">接続先URL（アプリURL）</label>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input type="text" readonly id="flaskUrlInput" value="{{ flask_base_url }}"
+                   style="flex:1; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px; background:#f5f5f5; font-family:monospace; font-size:13px;">
+            <button type="button" onclick="copyToClipboard('flaskUrlInput', this)"
+                    style="padding:6px 14px; background:#1a56db; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; white-space:nowrap;">コピー</button>
+        </div>
+        <div class="form-hint">Expoアプリ設定画面「アプリURL」欄に入力してください</div>
+    </div>
+    <div class="form-group" style="margin-top:16px;">
+        <label style="font-weight:700; color:#1a237e;">モバイルAPIキー</label>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input type="text" readonly id="mobileApiKeyInput" value="{{ mobile_api_key }}"
+                   style="flex:1; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px; background:#f5f5f5; font-family:monospace; font-size:13px;">
+            <button type="button" onclick="copyToClipboard('mobileApiKeyInput', this)"
+                    style="padding:6px 14px; background:#1a56db; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; white-space:nowrap;">コピー</button>
+        </div>
+        <div class="form-hint">Expoアプリ設定画面「モバイルAPIキー」欄に入力してください</div>
+    </div>
+    {% if not mobile_api_key %}
+    <div class="notice-box warning" style="margin-top:12px;">
+        <strong>⚠ MOBILE_API_KEYが未設定です。</strong>サーバーの環境変数にMOBILE_API_KEYを設定してください。
+    </div>
+    {% endif %}
+</div>
+
+<!-- APK配布セクション -->
+<div class="settings-card" style="margin-top:24px;">
+    <div class="settings-title">📱 Androidアプリ配布</div>
+    <div class="settings-desc">
+        Androidアプリ（APK）のダウンロードURLを登録すると、スタッフがブラウザから直接アプリをインストールできる配布ページが自動生成されます。
+    </div>
+    <form method="post" action="{{ url_for('tenant_admin.update_apk_url') }}">
+        <div class="form-group">
+            <label>APKダウンロードURL</label>
+            <input type="url" name="android_apk_url"
+                   value="{{ android_apk_url or '' }}"
+                   placeholder="https://example.com/app.apk"
+                   style="width:100%; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px;">
+            <div class="form-hint">ファイル名が .apk で終わる直リンクを入力してください</div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>APKバージョン</label>
+            <input type="text" name="android_apk_version"
+                   value="{{ android_apk_version or '' }}"
+                   placeholder="例: v1.0.2"
+                   style="width:160px; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px;">
+            <div class="form-hint">スタッフのダウンロード画面に表示されます</div>
+        </div>
+        {% if android_apk_url %}
+        <div class="notice-box info" style="margin-bottom:16px;">
+            スタッフ向け配布ページ:
+            <a href="{{ url_for('tenant_admin.apk_download_page') }}" target="_blank" style="color:#1565c0; font-weight:700;">
+                {{ request.host_url }}ta/apk_download
+            </a>
+        </div>
+        {% endif %}
+        <button type="submit" class="save-btn">URLを保存</button>
+    </form>
+</div>
+
 <script>
 function onToggleChange(checkbox) {
     const enabled = checkbox.checked;
@@ -348,6 +416,23 @@ function setPreset(val) {
     document.querySelectorAll('.preset-btn').forEach(function(btn) {
         btn.classList.remove('active');
         if (parseInt(btn.textContent) === val) btn.classList.add('active');
+    });
+}
+
+function copyToClipboard(inputId, btn) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(function() {
+        var orig = btn.textContent;
+        btn.textContent = 'コピー済';
+        btn.style.background = '#22c55e';
+        setTimeout(function() {
+            btn.textContent = orig;
+            btn.style.background = '#1a56db';
+        }, 1500);
+    }).catch(function() {
+        input.select();
+        document.execCommand('copy');
     });
 }
 </script>

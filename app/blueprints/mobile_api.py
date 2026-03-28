@@ -392,7 +392,9 @@ def break_end():
 def record_location():
     """GPS位置情報を記録
     
-    JSONボディ: { latitude, longitude, accuracy, attendance_id, is_background }
+    JSONボディ: { latitude, longitude, accuracy, attendance_id, is_background, recorded_at }
+    recorded_at: 実際に位置を取得した時刻（ISO 8601形式、例: "2024-01-15T09:30:00.000Z"）
+               未指定またはnullの場合は現在時刻（JST）を使用する
     """
     staff_info, err_resp, err_code = _auth_required()
     if err_resp:
@@ -404,9 +406,26 @@ def record_location():
     accuracy = data.get('accuracy')
     attendance_id = data.get('attendance_id')
     is_background = 1 if data.get('is_background') else 0
+    recorded_at_str = data.get('recorded_at')  # ISO 8601形式の文字列またはnull
 
     if latitude is None or longitude is None:
         return jsonify({'ok': False, 'error': '緯度・経度が必要です'}), 400
+
+    # recorded_atをパースする。未指定またはパース失敗時は現在時刻を使用
+    recorded_at = now_jst()
+    if recorded_at_str:
+        try:
+            # ISO 8601形式（UTCまたはJST）をパースしてJSTの naive datetimeに変換
+            dt = datetime.fromisoformat(recorded_at_str.replace('Z', '+00:00'))
+            if dt.tzinfo is not None:
+                # タイムゾーン付きの場合はJSTに変換してtzinfoを除去
+                recorded_at = dt.astimezone(JST).replace(tzinfo=None)
+            else:
+                # タイムゾーンなしはそのまま使用
+                recorded_at = dt
+        except (ValueError, TypeError):
+            # パース失敗時は現在時刻を使用（ログは出すがエラーにはしない）
+            current_app.logger.warning(f'recorded_atのパース失敗: {recorded_at_str}')
 
     db = SessionLocal()
     try:
@@ -433,7 +452,7 @@ def record_location():
             longitude=float(longitude),
             accuracy=float(accuracy) if accuracy is not None else None,
             is_background=is_background,
-            recorded_at=now_jst(),
+            recorded_at=recorded_at,  # 実際に位置を取得した時刻（オフライン時の正確な時刻を保持）
         )
         db.add(loc)
         db.commit()

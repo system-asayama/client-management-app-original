@@ -251,18 +251,20 @@ def clock_in():
         today = today_jst()
         now = now_jst()
 
-        # 既存レコード確認
+        # 未退勤の出勤中レコードを確認（退勤済みは再出勤可能）
         rec = db.query(TAttendance).filter(
             and_(
                 TAttendance.tenant_id == staff_info['tenant_id'],
                 TAttendance.staff_id == staff_info['staff_id'],
                 TAttendance.staff_type == staff_info['staff_type'],
                 TAttendance.work_date == today,
+                TAttendance.clock_in.isnot(None),
+                TAttendance.clock_out.is_(None),
             )
         ).first()
 
-        if rec and rec.clock_in:
-            return jsonify({'ok': False, 'error': '既に出勤済みです'}), 400
+        if rec:
+            return jsonify({'ok': False, 'error': '既に出勤中です'}), 400
 
         # スタッフ名を取得
         staff_name = ''
@@ -273,19 +275,16 @@ def clock_in():
         if s:
             staff_name = s.name
 
-        if rec:
-            rec.clock_in = now
-            rec.updated_at = now
-        else:
-            rec = TAttendance(
-                tenant_id=staff_info['tenant_id'],
-                staff_id=staff_info['staff_id'],
-                staff_type=staff_info['staff_type'],
-                staff_name=staff_name,
-                work_date=today,
-                clock_in=now,
-            )
-            db.add(rec)
+        # 常に新しいレコードを作成（退勤後の再出勤対応）
+        rec = TAttendance(
+            tenant_id=staff_info['tenant_id'],
+            staff_id=staff_info['staff_id'],
+            staff_type=staff_info['staff_type'],
+            staff_name=staff_name,
+            work_date=today,
+            clock_in=now,
+        )
+        db.add(rec)
 
         db.commit()
         db.refresh(rec)

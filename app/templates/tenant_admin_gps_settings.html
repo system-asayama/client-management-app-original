@@ -470,6 +470,8 @@ function updateBatteryWarning(val) {
 
 function setPreset(val) {
     document.getElementById('intervalInput').value = val;
+    // hiddenフィールドも同時に更新（ブラウザモード時に間隔値が送信されるように）
+    document.getElementById('intervalInputHidden').value = val;
     document.querySelectorAll('.preset-btn').forEach(function(btn) {
         btn.classList.remove('active');
     });
@@ -487,6 +489,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (input) {
         updateBatteryWarning(parseInt(input.value) || 600);
         input.addEventListener('input', function() {
+            // hiddenフィールドも同時に更新
+            document.getElementById('intervalInputHidden').value = this.value;
             updateBatteryWarning(parseInt(this.value) || 600);
         });
     }

@@ -3052,7 +3052,9 @@ def gps_settings():
                 tenant_obj.gps_continuous = gps_continuous
 
                 # GPS記録間隔（秒単位）
-                interval_sec = int(request.form.get('gps_interval_seconds', 300))
+                # gps_interval_secondsが送信されない場合（ブラウザモード選択時）はhiddenフィールドを使う
+                raw_sec = request.form.get('gps_interval_seconds') or request.form.get('gps_interval_seconds_hidden', '300')
+                interval_sec = int(raw_sec)
                 if interval_sec < 1:
                     interval_sec = 1
                 elif interval_sec > 3600:

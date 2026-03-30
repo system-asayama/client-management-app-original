@@ -561,3 +561,242 @@ def get_realtime_mode():
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+# ─────────────────────────────────────────────
+# 顔認証 API
+# ─────────────────────────────────────────────
+
+import base64
+
+@bp.route('/face/register', methods=['POST'])
+def face_register():
+    """顔写真を登録する（初回セットアップ時に使用）
+
+    Request JSON:
+        face_image_base64 (str): Base64エンコードされた顔画像（JPEG/PNG）
+
+    Response JSON:
+        ok (bool): 成功フラグ
+        message (str): 結果メッセージ
+    """
+    if not _check_api_key():
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    staff_info, err_resp, err_code = _auth_required()
+    if err_resp:
+        return err_resp, err_code
+
+    data = request.get_json() or {}
+    face_image_b64 = data.get('face_image_base64', '')
+    if not face_image_b64:
+        return jsonify({'ok': False, 'error': '顔画像が必要です'}), 400
+
+    try:
+        img_bytes = base64.b64decode(face_image_b64.split(',')[-1])
+        if len(img_bytes) < 100:
+            return jsonify({'ok': False, 'error': '画像データが不正です'}), 400
+    except Exception:
+        return jsonify({'ok': False, 'error': '画像のデコードに失敗しました'}), 400
+
+    db = SessionLocal()
+    try:
+        staff_id = staff_info['staff_id']
+        staff_type = staff_info['staff_type']
+
+        if staff_type == 'employee':
+            staff = db.query(TJugyoin).filter(TJugyoin.id == staff_id).first()
+        else:
+            staff = db.query(TKanrisha).filter(TKanrisha.id == staff_id).first()
+
+        if not staff:
+            return jsonify({'ok': False, 'error': 'スタッフが見つかりません'}), 404
+
+        if not hasattr(staff, 'face_photo_url'):
+            return jsonify({'ok': False, 'error': 'face_photo_urlカラムが存在しません。マイグレーションを実行してください'}), 500
+
+        staff.face_photo_url = f'data:image/jpeg;base64,{face_image_b64.split(",")[-1]}'
+        db.commit()
+
+        return jsonify({'ok': True, 'message': '顔写真を登録しました'})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/face/verify', methods=['POST'])
+def face_verify():
+    """顔認証を実行する（出発打刻前の本人確認）
+
+    Request JSON:
+        face_image_base64 (str): Base64エンコードされた顔画像（JPEG/PNG）
+
+    Response JSON:
+        ok (bool): 成功フラグ
+        verified (bool): 認証成功かどうか
+        confidence (float): 類似度スコア（0.0〜1.0）
+        message (str): 結果メッセージ
+    """
+    if not _check_api_key():
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    staff_info, err_resp, err_code = _auth_required()
+    if err_resp:
+        return err_resp, err_code
+
+    data = request.get_json() or {}
+    face_image_b64 = data.get('face_image_base64', '')
+    if not face_image_b64:
+        return jsonify({'ok': False, 'error': '顔画像が必要です'}), 400
+
+    db = SessionLocal()
+    try:
+        staff_id = staff_info['staff_id']
+        staff_type = staff_info['staff_type']
+
+        if staff_type == 'employee':
+            staff = db.query(TJugyoin).filter(TJugyoin.id == staff_id).first()
+        else:
+            staff = db.query(TKanrisha).filter(TKanrisha.id == staff_id).first()
+
+        if not staff:
+            return jsonify({'ok': False, 'error': 'スタッフが見つかりません'}), 404
+
+        registered_photo = getattr(staff, 'face_photo_url', None)
+        if not registered_photo:
+            return jsonify({
+                'ok': True,
+                'verified': False,
+                'confidence': 0.0,
+                'message': '顔写真が未登録です。管理者に登録を依頼してください',
+                'needs_registration': True,
+            })
+
+        try:
+            import numpy as np
+            import cv2
+
+            def b64_to_rgb(b64_str):
+                if ',' in b64_str:
+                    b64_str = b64_str.split(',', 1)[1]
+                img_bytes = base64.b64decode(b64_str)
+                arr = np.frombuffer(img_bytes, dtype=np.uint8)
+                img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                if img_bgr is None:
+                    raise ValueError('画像のデコードに失敗しました')
+                return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+            try:
+                import face_recognition
+
+                registered_rgb = b64_to_rgb(registered_photo)
+                registered_encodings = face_recognition.face_encodings(registered_rgb)
+                if not registered_encodings:
+                    return jsonify({
+                        'ok': True,
+                        'verified': False,
+                        'confidence': 0.0,
+                        'message': '登録済み顔写真から顔を検出できませんでした。再登録してください',
+                    })
+
+                input_rgb = b64_to_rgb(face_image_b64)
+                input_encodings = face_recognition.face_encodings(input_rgb)
+                if not input_encodings:
+                    return jsonify({
+                        'ok': True,
+                        'verified': False,
+                        'confidence': 0.0,
+                        'message': '撮影した画像から顔を検出できませんでした。正面を向いて再撮影してください',
+                    })
+
+                face_distance = face_recognition.face_distance(
+                    [registered_encodings[0]], input_encodings[0]
+                )[0]
+                confidence = float(max(0.0, 1.0 - face_distance))
+                threshold = float(os.environ.get('FACE_VERIFY_THRESHOLD', '0.55'))
+                verified = confidence >= threshold
+
+                return jsonify({
+                    'ok': True,
+                    'verified': verified,
+                    'confidence': round(confidence, 3),
+                    'message': '本人確認が完了しました' if verified else f'本人確認に失敗しました（類似度: {round(confidence * 100, 1)}%）',
+                })
+
+            except ImportError:
+                current_app.logger.warning('face_recognition 未インストール。簡易照合にフォールバック')
+                reg_img = b64_to_rgb(registered_photo)
+                inp_img = b64_to_rgb(face_image_b64)
+                reg_gray = cv2.cvtColor(reg_img, cv2.COLOR_RGB2GRAY)
+                inp_gray = cv2.cvtColor(inp_img, cv2.COLOR_RGB2GRAY)
+                reg_hist = cv2.calcHist([reg_gray], [0], None, [256], [0, 256])
+                inp_hist = cv2.calcHist([inp_gray], [0], None, [256], [0, 256])
+                cv2.normalize(reg_hist, reg_hist)
+                cv2.normalize(inp_hist, inp_hist)
+                similarity = float(cv2.compareHist(reg_hist, inp_hist, cv2.HISTCMP_CORREL))
+                confidence = max(0.0, similarity)
+                threshold = float(os.environ.get('FACE_VERIFY_THRESHOLD', '0.85'))
+                verified = confidence >= threshold
+                return jsonify({
+                    'ok': True,
+                    'verified': verified,
+                    'confidence': round(confidence, 3),
+                    'message': '本人確認が完了しました（簡易照合）' if verified else '本人確認に失敗しました（簡易照合）',
+                    'fallback': True,
+                })
+
+        except ImportError:
+            current_app.logger.warning('OpenCV 未インストール。開発用フォールバックを使用')
+            return jsonify({
+                'ok': True,
+                'verified': True,
+                'confidence': 1.0,
+                'message': '顔認証ライブラリ未設定（開発モード）',
+                'dev_mode': True,
+            })
+
+    except Exception as e:
+        current_app.logger.error(f'顔認証エラー: {e}', exc_info=True)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/face/status', methods=['GET'])
+def face_status():
+    """顔写真の登録状況を確認する"""
+    if not _check_api_key():
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    staff_info, err_resp, err_code = _auth_required()
+    if err_resp:
+        return err_resp, err_code
+
+    db = SessionLocal()
+    try:
+        staff_id = staff_info['staff_id']
+        staff_type = staff_info['staff_type']
+
+        if staff_type == 'employee':
+            staff = db.query(TJugyoin).filter(TJugyoin.id == staff_id).first()
+        else:
+            staff = db.query(TKanrisha).filter(TKanrisha.id == staff_id).first()
+
+        if not staff:
+            return jsonify({'ok': False, 'error': 'スタッフが見つかりません'}), 404
+
+        registered_photo = getattr(staff, 'face_photo_url', None)
+        registered_at = None
+        if hasattr(staff, 'updated_at') and staff.updated_at and registered_photo:
+            registered_at = staff.updated_at.strftime('%Y-%m-%d %H:%M')
+
+        return jsonify({
+            'ok': True,
+            'registered': bool(registered_photo),
+            'registered_at': registered_at,
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()

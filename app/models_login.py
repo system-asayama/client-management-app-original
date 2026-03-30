@@ -63,6 +63,7 @@ class TTenant(Base):
     created_by_admin_id = Column(Integer, ForeignKey('T_管理者.id'), nullable=True, comment='このテナントを作成したシステム管理者のID')
     gps_enabled = Column(Integer, default=0, comment='GPS位置記録機能の有効/無効（1=有効, 0=無効）')
     gps_interval_minutes = Column(Integer, default=10, comment='GPS位置記録間隔（分）デフォルト:10')
+    gps_interval_seconds = Column(Integer, nullable=True, comment='GPS位置記録間隔（秒）。設定時はgps_interval_minutesより優先される')
     gps_continuous = Column(Integer, default=0, comment='GPS常時記録モード（1=常時記録, 0=間隔記録）')
     gps_realtime_enabled = Column(Integer, default=0, comment='リアルタイム追跡モード（1=有効, 0=無効）管理者が地図画面からON/OFF')
     android_apk_url = Column(Text, nullable=True, comment='AndroidアプリのAPKダウンロードURL')

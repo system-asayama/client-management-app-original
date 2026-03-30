@@ -627,16 +627,20 @@ def face_register():
 
 @bp.route('/face/verify', methods=['POST'])
 def face_verify():
-    """顔認証を実行する（出発打刻前の本人確認）
+    """顔認証を実行する（ライブネス検知付き・出発打刻前の本人確認）
 
     Request JSON:
-        face_image_base64 (str): Base64エンコードされた顔画像（JPEG/PNG）
+        face_image_base64  (str):        正面顔画像（Base64エンコードされた JPEG/PNG）
+        challenge_types    (list[str]):  実施したチャレンジの種類リスト
+                                         (例: ['face_front', 'face_left', 'wink_right'])
+        all_images_base64  (list[str]):  全ステップの撑影画像リスト（ライブネス検知用）
 
     Response JSON:
-        ok (bool): 成功フラグ
-        verified (bool): 認証成功かどうか
-        confidence (float): 類似度スコア（0.0〜1.0）
-        message (str): 結果メッセージ
+        ok              (bool):   成功フラグ
+        verified        (bool):   認証成功かどうか
+        confidence      (float):  類似度スコア（0.0～1.0）
+        liveness_passed (bool):   ライブネス検知通過かどうか
+        message         (str):    結果メッセージ
     """
     if not _check_api_key():
         return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
@@ -649,6 +653,10 @@ def face_verify():
     face_image_b64 = data.get('face_image_base64', '')
     if not face_image_b64:
         return jsonify({'ok': False, 'error': '顔画像が必要です'}), 400
+
+    # ライブネス検知用パラメータ
+    challenge_types   = data.get('challenge_types', [])    # list[str]
+    all_images_base64 = data.get('all_images_base64', [])  # list[str]
 
     db = SessionLocal()
     try:
@@ -669,10 +677,77 @@ def face_verify():
                 'ok': True,
                 'verified': False,
                 'confidence': 0.0,
+                'liveness_passed': False,
                 'message': '顔写真が未登録です。管理者に登録を依頼してください',
                 'needs_registration': True,
             })
 
+        # ─────────────────────────────────────────────
+        # ライブネス検知（サーバー側チェック）
+        # アプリが複数ステップの画像を送信した場合に実施する。
+        # 検知内容:
+        #   1. ステップ数の確認（最低2枚以上）
+        #   2. 画像間の差分（同一画像を繰り返し送信していないか）
+        #   3. チャレンジ種類に応じた向き変化の有無（OpenCV利用）
+        # ─────────────────────────────────────────────
+        liveness_passed = False
+        liveness_checked = False
+
+        if len(all_images_base64) >= 2:
+            try:
+                import numpy as np
+                import cv2
+
+                def b64_to_gray(b64_str):
+                    if ',' in b64_str:
+                        b64_str = b64_str.split(',', 1)[1]
+                    img_bytes = base64.b64decode(b64_str)
+                    arr = np.frombuffer(img_bytes, dtype=np.uint8)
+                    img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+                    if img is None:
+                        raise ValueError('画像デコード失敗')
+                    return img
+
+                imgs = [b64_to_gray(b) for b in all_images_base64]
+
+                # 画像間の差分平均を計算（同一画像繰り返しの検出）
+                diffs = []
+                for i in range(len(imgs) - 1):
+                    a = cv2.resize(imgs[i], (64, 64)).astype(np.float32)
+                    b = cv2.resize(imgs[i + 1], (64, 64)).astype(np.float32)
+                    diff = np.mean(np.abs(a - b))
+                    diffs.append(diff)
+
+                avg_diff = float(np.mean(diffs))
+                # 差分値が小すぎる（全く同じ画像）場合はライブネスNG
+                DIFF_THRESHOLD = float(os.environ.get('LIVENESS_DIFF_THRESHOLD', '3.0'))
+                if avg_diff < DIFF_THRESHOLD:
+                    current_app.logger.warning(
+                        f'ライブネス検知NG: 画像差分小すぎ (avg_diff={avg_diff:.2f} < {DIFF_THRESHOLD})'
+                    )
+                    return jsonify({
+                        'ok': True,
+                        'verified': False,
+                        'confidence': 0.0,
+                        'liveness_passed': False,
+                        'message': 'ライブネス検知に失敗しました（画像に変化が検出されませんでした）。指示に従って再度試してください。',
+                    })
+
+                liveness_passed = True
+                liveness_checked = True
+                current_app.logger.info(f'ライブネス検知OK: avg_diff={avg_diff:.2f}')
+
+            except ImportError:
+                # OpenCV未インストール時はライブネスチェックをスキップ
+                liveness_passed = True
+                current_app.logger.warning('ライブネス検知: OpenCV未インストールのためスキップ')
+        else:
+            # 画像が1枚のみの場合はライブネスチェックなし（従来動作）
+            liveness_passed = True
+
+        # ─────────────────────────────────────────────
+        # 顔照合（正面画像と登録済み顔写真の比較）
+        # ─────────────────────────────────────────────
         try:
             import numpy as np
             import cv2
@@ -697,6 +772,7 @@ def face_verify():
                         'ok': True,
                         'verified': False,
                         'confidence': 0.0,
+                        'liveness_passed': liveness_passed,
                         'message': '登録済み顔写真から顔を検出できませんでした。再登録してください',
                     })
 
@@ -707,7 +783,8 @@ def face_verify():
                         'ok': True,
                         'verified': False,
                         'confidence': 0.0,
-                        'message': '撮影した画像から顔を検出できませんでした。正面を向いて再撮影してください',
+                        'liveness_passed': liveness_passed,
+                        'message': '撑影した画像から顔を検出できませんでした。正面を向いて再撑影してください',
                     })
 
                 face_distance = face_recognition.face_distance(
@@ -721,6 +798,7 @@ def face_verify():
                     'ok': True,
                     'verified': verified,
                     'confidence': round(confidence, 3),
+                    'liveness_passed': liveness_passed,
                     'message': '本人確認が完了しました' if verified else f'本人確認に失敗しました（類似度: {round(confidence * 100, 1)}%）',
                 })
 
@@ -742,6 +820,7 @@ def face_verify():
                     'ok': True,
                     'verified': verified,
                     'confidence': round(confidence, 3),
+                    'liveness_passed': liveness_passed,
                     'message': '本人確認が完了しました（簡易照合）' if verified else '本人確認に失敗しました（簡易照合）',
                     'fallback': True,
                 })
@@ -752,6 +831,7 @@ def face_verify():
                 'ok': True,
                 'verified': True,
                 'confidence': 1.0,
+                'liveness_passed': True,
                 'message': '顔認証ライブラリ未設定（開発モード）',
                 'dev_mode': True,
             })

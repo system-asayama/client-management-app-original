@@ -45,7 +45,7 @@ class TJugyoin(Base):
     position = Column(String(100), nullable=True, comment='役職')
     face_photo_url = Column(Text, nullable=True, comment='顔認証用写真URL（Base64またはストレージURL）')
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
 
 
 class TTenant(Base):

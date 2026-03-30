@@ -353,6 +353,48 @@ def run_auto_migrations():
         else:
             logger.info("- T_勤怠位置履歴 テーブルは既に存在します")
 
+        # 8. T_管理者に face_photo_url カラムを追加
+        if not column_exists(session, 'T_管理者', 'face_photo_url'):
+            logger.info("T_管理者テーブルに face_photo_url カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_管理者"
+                    ADD COLUMN face_photo_url TEXT
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_管理者".face_photo_url IS '顔認証用写真URL（Base64またはストレージURL）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_管理者`
+                    ADD COLUMN `face_photo_url` TEXT COMMENT '顔認証用写真URL（Base64またはストレージURL）'
+                """))
+            session.commit()
+            logger.info("✓ T_管理者.face_photo_url カラムを追加しました")
+        else:
+            logger.info("- T_管理者.face_photo_url カラムは既に存在します（スキップ）")
+
+        # 8b. T_従業員に face_photo_url カラムを追加
+        if not column_exists(session, 'T_従業員', 'face_photo_url'):
+            logger.info("T_従業員テーブルに face_photo_url カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_従業員"
+                    ADD COLUMN face_photo_url TEXT
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_従業員".face_photo_url IS '顔認証用写真URL（Base64またはストレージURL）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_従業員`
+                    ADD COLUMN `face_photo_url` TEXT COMMENT '顔認証用写真URL（Base64またはストレージURL）'
+                """))
+            session.commit()
+            logger.info("✓ T_従業員.face_photo_url カラムを追加しました")
+        else:
+            logger.info("- T_従業員.face_photo_url カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

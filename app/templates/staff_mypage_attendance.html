@@ -215,9 +215,9 @@
 {% set prev_month = '%04d-%02d' % (year_m - 1 if mon_m == 1 else year_m, 12 if mon_m == 1 else mon_m - 1) %}
 {% set next_month = '%04d-%02d' % (year_m + 1 if mon_m == 12 else year_m, 1 if mon_m == 12 else mon_m + 1) %}
 <div class="month-nav">
-    <a href="{{ url_for('staff_mypage.attendance', month=prev_month) }}">← 前月</a>
+    <a href="{{ url_for('kintaikanri.attendance', month=prev_month) }}">← 前月</a>
     <span class="current">{{ year_m }}年{{ mon_m }}月</span>
-    <a href="{{ url_for('staff_mypage.attendance', month=next_month) }}">翌月 →</a>
+    <a href="{{ url_for('kintaikanri.attendance', month=next_month) }}">翌月 →</a>
 </div>
 
 <!-- 月間集計 -->
@@ -399,7 +399,7 @@ const detail = document.getElementById('gpsDetail');
 const badge  = document.getElementById('gpsCountBadge');
 
 // ページ読み込み時に今日の記録件数を取得
-fetch('/staff/attendance/location/today')
+fetch('/kintaikanri/attendance/location/today')
     .then(r => r.json())
     .then(data => {
         gpsCount = data.count || 0;
@@ -431,7 +431,7 @@ function sendLocation(pos, labelText) {
         accuracy:      pos.coords.accuracy,
         is_background: false
     };
-    fetch('/staff/attendance/location', {
+    fetch('/kintaikanri/attendance/location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

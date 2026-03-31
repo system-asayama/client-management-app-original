@@ -485,7 +485,7 @@ const REALTIME_REFRESH_MS = 4000; // 4秒ごとに地図を更新
 
 function toggleRealtimeMode() {
     const newState = !realtimeEnabled;
-    fetch('/staff/attendance/realtime_mode', {
+    fetch('/kintaikanri/attendance/realtime_mode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: newState })
@@ -532,7 +532,7 @@ function fetchLatestLocations() {
         + String(today.getDate()).padStart(2,'0');
     const staffId = params.get('staff_id') || '';
 
-    const apiUrl = '/staff/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : '');
+    const apiUrl = '/kintaikanri/attendance/map/realtime_data?date=' + dateStr + (staffId ? '&staff_id=' + staffId : '');
     fetch(apiUrl)
         .then(r => r.json())
         .then(data => {

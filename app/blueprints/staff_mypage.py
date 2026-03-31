@@ -513,6 +513,143 @@ def attendance_map_realtime_data():
     return redirect(url_for('kintaikanri.attendance_map_realtime_data', **kwargs), code=301)
 
 # ─────────────────────────────────────────────
+# お知らせ一覧
+# ─────────────────────────────────────────────
+@bp.route('/notices')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def notices():
+    tenant_id  = session.get('tenant_id')
+    user_name  = session.get('user_name', '')
+    user_id    = session.get('user_id')
+    role       = session.get('role', '')
+    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
+    db = SessionLocal()
+    try:
+        unread_count = _get_unread_count(tenant_id, user_name)
+        notices_list = db.query(TNotice).filter(
+            TNotice.tenant_id == tenant_id
+        ).order_by(TNotice.is_important.desc(), TNotice.created_at.desc()).all()
+        if user_id:
+            read_ids = {r.notice_id for r in db.query(TNoticeRead).filter(
+                and_(
+                    TNoticeRead.staff_id   == user_id,
+                    TNoticeRead.staff_type == staff_type,
+                )
+            ).all()}
+        else:
+            read_ids = set()
+        for n in notices_list:
+            n.is_read = (n.id in read_ids)
+        notice_unread_count = sum(1 for n in notices_list if not n.is_read)
+        return render_template('staff_mypage_notices.html',
+                               notices=notices_list,
+                               unread_count=unread_count,
+                               notice_unread_count=notice_unread_count)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# お知らせ詳細
+# ─────────────────────────────────────────────
+@bp.route('/notices/<int:notice_id>')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def notice_detail(notice_id):
+    tenant_id = session.get('tenant_id')
+    user_name = session.get('user_name', '')
+    user_id   = session.get('user_id')
+    role      = session.get('role', '')
+    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
+    db = SessionLocal()
+    try:
+        unread_count = _get_unread_count(tenant_id, user_name)
+        notice = db.query(TNotice).filter(
+            and_(TNotice.id == notice_id, TNotice.tenant_id == tenant_id)
+        ).first()
+        if not notice:
+            flash('お知らせが見つかりません', 'error')
+            return redirect(url_for('staff_mypage.notices'))
+        if user_id:
+            already = db.query(TNoticeRead).filter(
+                and_(
+                    TNoticeRead.notice_id  == notice_id,
+                    TNoticeRead.staff_id   == user_id,
+                    TNoticeRead.staff_type == staff_type,
+                )
+            ).first()
+            if not already:
+                db.add(TNoticeRead(
+                    notice_id  = notice_id,
+                    staff_id   = user_id,
+                    staff_type = staff_type,
+                ))
+                db.commit()
+        return render_template('staff_mypage_notice_detail.html',
+                               notice=notice,
+                               unread_count=unread_count)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# お知らせ投稿（tenant_admin / admin のみ）
+# ─────────────────────────────────────────────
+@bp.route('/notices/new', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def notice_new():
+    tenant_id = session.get('tenant_id')
+    user_id = session.get('user_id')
+    user_name = session.get('user_name', '')
+    db = SessionLocal()
+    try:
+        unread_count = _get_unread_count(tenant_id, user_name)
+        if request.method == 'POST':
+            title = request.form.get('title', '').strip()
+            body = request.form.get('body', '').strip()
+            is_important = 1 if request.form.get('is_important') else 0
+            if not title:
+                flash('タイトルは必須です', 'error')
+            else:
+                notice = TNotice(
+                    tenant_id=tenant_id,
+                    title=title,
+                    body=body,
+                    author_id=user_id,
+                    author_name=user_name,
+                    is_important=is_important,
+                    published_at=now_jst()
+                )
+                db.add(notice)
+                db.commit()
+                flash('お知らせを投稿しました', 'success')
+                return redirect(url_for('staff_mypage.notices'))
+        return render_template('staff_mypage_notice_new.html', unread_count=unread_count)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# お知らせ削除（tenant_admin / admin のみ）
+# ─────────────────────────────────────────────
+@bp.route('/notices/<int:notice_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def notice_delete(notice_id):
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        notice = db.query(TNotice).filter(
+            and_(TNotice.id == notice_id, TNotice.tenant_id == tenant_id)
+        ).first()
+        if notice:
+            db.delete(notice)
+            db.commit()
+            flash('お知らせを削除しました', 'success')
+        return redirect(url_for('staff_mypage.notices'))
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
 # APKプロキシダウンロード（永続URL）
 # ─────────────────────────────────────────────
 @bp.route('/apk_download')

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}勤怠管理システム{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px">
+  <h1 style="margin-top:12px">勤怠管理システム</h1>
+  <p style="color:#666">スタッフのGPS勤怠管理アプリ</p>
+</div>
+
+<div class="card" style="max-width:600px">
+  <h2 style="margin-bottom:16px">📱 スタッフGPS勤怠管理</h2>
+  
+  <div style="background:#f0f7ff;border-radius:8px;padding:16px;margin-bottom:20px">
+    <p style="margin:0;color:#333">
+      スタッフの出退勤打刻・GPS位置情報の管理を行います。<br>
+      スタッフはスマートフォンアプリ（Android APK）からログインして利用します。
+    </p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <a href="{{ url_for('tenant_admin.employees') }}" style="text-decoration:none">
+      <div class="card" style="cursor:pointer;border:1px solid #e0e0e0">
+        <h3 style="color:#6B46C1;margin-bottom:6px">👥 従業員管理</h3>
+        <p style="color:#666;margin:0;font-size:0.9em">従業員の登録・編集・GPS追跡モードの設定</p>
+      </div>
+    </a>
+
+    <a href="{{ url_for('tenant_admin.dashboard') }}" style="text-decoration:none">
+      <div class="card" style="cursor:pointer;border:1px solid #e0e0e0">
+        <h3 style="color:#6B46C1;margin-bottom:6px">🏠 ダッシュボード</h3>
+        <p style="color:#666;margin:0;font-size:0.9em">テナント管理ダッシュボードに戻る</p>
+      </div>
+    </a>
+  </div>
+
+  <div style="margin-top:24px;padding:16px;background:#fff8e1;border-radius:8px;border-left:4px solid #f59e0b">
+    <h4 style="margin:0 0 8px;color:#92400e">📲 アプリのダウンロード</h4>
+    <p style="margin:0;color:#78350f;font-size:0.9em">
+      スタッフ用スマートフォンアプリ（Android）をインストールして、<br>
+      ログインIDとパスワードでログインしてください。
+    </p>
+  </div>
+
+  <div style="margin-top:20px">
+    <a class="btn sub" href="{{ url_for('tenant_admin.tenant_apps') }}">利用可能アプリ一覧に戻る</a>
+  </div>
+</div>
+{% endblock %}

@@ -2196,6 +2196,10 @@ def tenant_apps():
         
         for app in AVAILABLE_APPS:
             if app['scope'] == 'tenant':
+                # urlフィールドがあるアプリ（外部アプリ）は常に表示
+                if app.get('url'):
+                    enabled_apps.append(app)
+                    continue
                 try:
                     app_setting = db.query(TTenantAppSetting).filter(
                         and_(

@@ -297,6 +297,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ video_call blueprint 登録エラー: {e}")
 
+    # 勤怠管理システム blueprint登録
+    try:
+        from .blueprints.kintaikanri import bp as kintaikanri_bp
+        app.register_blueprint(kintaikanri_bp)
+        print("✅ kintaikanri blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ kintaikanri blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

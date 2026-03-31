@@ -110,6 +110,9 @@ def mobile_login():
         sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
         staff_token = f"{payload}:{sig}"
 
+        # スタッフ個別のGPSモードを取得（always=常時追跡, checkin_only=出退勤時のみ）
+        gps_mode = getattr(staff, 'gps_mode', None) or 'always'
+
         return jsonify({
             'ok': True,
             'staff_token': staff_token,
@@ -120,6 +123,7 @@ def mobile_login():
             'gps_enabled': bool(tenant.gps_enabled),
             'gps_interval_minutes': tenant.gps_interval_minutes or 5,
             'gps_interval_seconds': getattr(tenant, 'gps_interval_seconds', None) or (tenant.gps_interval_minutes or 5) * 60,
+            'gps_mode': gps_mode,
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
@@ -194,6 +198,9 @@ def get_staff_info():
             staff = db.query(TJugyoin).filter(TJugyoin.id == staff_id).first()
         name = staff.name if staff else ''
 
+        # スタッフ個別のGPSモードを取得（always=常時追跡, checkin_only=出退勤時のみ）
+        gps_mode = getattr(staff, 'gps_mode', None) or 'always'
+
         return jsonify({
             'ok': True,
             'staff_id': staff_id,
@@ -203,6 +210,7 @@ def get_staff_info():
             'gps_enabled': bool(tenant.gps_enabled),
             'gps_interval_minutes': tenant.gps_interval_minutes or 5,
             'gps_interval_seconds': getattr(tenant, 'gps_interval_seconds', None) or (tenant.gps_interval_minutes or 5) * 60,
+            'gps_mode': gps_mode,
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500

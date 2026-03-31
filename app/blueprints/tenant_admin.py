@@ -1922,6 +1922,13 @@ AVAILABLE_APPS = [
         'display_name': '顧問先管理システム',
         'scope': 'tenant',
         'description': '顧問先・クライアント管理システム'
+    },
+    {
+        'name': 'attendance',
+        'display_name': '勤怠管理システム',
+        'scope': 'tenant',
+        'description': 'スタッフの勤怠・GPS追跡管理システム',
+        'url': '/kintaikanri/'
     }
 ]
 
@@ -2778,6 +2785,9 @@ def employee_edit(employee_id):
             password_confirm = request.form.get('password_confirm', '')
             active = 1 if request.form.get('active') == '1' else 0
             store_ids = request.form.getlist('store_ids')
+            gps_mode = request.form.get('gps_mode', 'always').strip()
+            if gps_mode not in ('always', 'checkin_only'):
+                gps_mode = 'always'
             
             # バリデーション
             if not name or not email:
@@ -2831,6 +2841,8 @@ def employee_edit(employee_id):
             employee.email = email
             employee.role = new_role
             employee.active = active
+            if hasattr(employee, 'gps_mode'):
+                employee.gps_mode = gps_mode
             if password:
                 employee.password_hash = generate_password_hash(password)
             

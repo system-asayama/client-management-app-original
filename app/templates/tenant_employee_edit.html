@@ -74,6 +74,15 @@
       {% endif %}
     </div>
     
+    <div class="row">
+      <label style="font-weight:bold">GPS追跡モード</label>
+      <select id="gps_mode" name="gps_mode">
+        <option value="always" {% if not employee.gps_mode or employee.gps_mode == 'always' %}selected{% endif %}>常時追跡（勤務中常にGPS送信）</option>
+        <option value="checkin_only" {% if employee.gps_mode == 'checkin_only' %}selected{% endif %}>出退勤時のみ（打刻時にGPS送信）</option>
+      </select>
+      <small style="color:#666;margin-top:4px;display:block">常時追跡：勤務中に一定間隔でGPS位置を送信します。出退勤時のみ：出勤・退勤打刻時にのみGPS位置を送信します。</small>
+    </div>
+
     <div class="actions" style="margin-top:20px; display:flex; gap:10px">
       <button class="btn" type="submit">更新</button>
       <a class="btn sub" href="{{ url_for('tenant_admin.employees') }}">キャンセル</a>

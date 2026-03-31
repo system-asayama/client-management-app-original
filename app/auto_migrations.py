@@ -395,6 +395,28 @@ def run_auto_migrations():
         else:
             logger.info("- T_従業員.face_photo_url カラムは既に存在します（スキップ）")
 
+        # T_従業員テーブルに gps_mode カラムを追加
+        if not column_exists(session, 'T_従業員', 'gps_mode'):
+            logger.info("T_従業員テーブルに gps_mode カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_従業員"
+                    ADD COLUMN gps_mode VARCHAR(20) DEFAULT 'always'
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_従業員".gps_mode IS 'GPS追跡モード: always=常時追跡, checkin_only=出退勤時のみ'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_従業員`
+                    ADD COLUMN `gps_mode` VARCHAR(20) DEFAULT 'always'
+                    COMMENT 'GPS追跡モード: always=常時追跡, checkin_only=出退勤時のみ'
+                """))
+            session.commit()
+            logger.info("✓ T_従業員.gps_mode カラムを追加しました")
+        else:
+            logger.info("- T_従業員.gps_mode カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

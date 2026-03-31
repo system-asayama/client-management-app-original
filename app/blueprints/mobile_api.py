@@ -418,6 +418,75 @@ def break_end():
         db.close()
 
 
+@bp.route('/attendance/monthly', methods=['GET'])
+def get_monthly_attendance():
+    """月次勤怠一覧を取得
+    
+    クエリパラメータ: year_month=YYYY-MM
+    """
+    staff_info, err_resp, err_code = _auth_required()
+    if err_resp:
+        return err_resp, err_code
+
+    year_month = request.args.get('year_month', '')
+    if not year_month or len(year_month) != 7:
+        return jsonify({'ok': False, 'error': 'year_month パラメータが必要です（例: 2024-01）'}), 400
+
+    try:
+        year, month = int(year_month[:4]), int(year_month[5:7])
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'year_month の形式が不正です'}), 400
+
+    db = SessionLocal()
+    try:
+        # 月初〜月末の範囲でフィルタ
+        from calendar import monthrange
+        last_day = monthrange(year, month)[1]
+        start_date = date(year, month, 1)
+        end_date = date(year, month, last_day)
+
+        records = db.query(TAttendance).filter(
+            and_(
+                TAttendance.tenant_id == staff_info['tenant_id'],
+                TAttendance.staff_id == staff_info['staff_id'],
+                TAttendance.staff_type == staff_info['staff_type'],
+                TAttendance.work_date >= start_date,
+                TAttendance.work_date <= end_date,
+            )
+        ).order_by(TAttendance.work_date.desc()).all()
+
+        result = []
+        for rec in records:
+            # 動的にステータスを計算
+            if not rec.clock_in:
+                computed_status = 'off'
+            elif rec.clock_out:
+                computed_status = 'finished'
+            elif rec.break_start and not rec.break_end:
+                computed_status = 'break'
+            else:
+                computed_status = 'working'
+
+            result.append({
+                'id': rec.id,
+                'work_date': rec.work_date.isoformat(),
+                'clock_in': rec.clock_in.strftime('%H:%M') if rec.clock_in else None,
+                'clock_out': rec.clock_out.strftime('%H:%M') if rec.clock_out else None,
+                'break_start': rec.break_start.strftime('%H:%M') if rec.break_start else None,
+                'break_end': rec.break_end.strftime('%H:%M') if rec.break_end else None,
+                'break_minutes': rec.break_minutes or 0,
+                'status': computed_status,
+                'note': rec.note,
+            })
+
+        return jsonify({'ok': True, 'records': result, 'year_month': year_month})
+    except Exception as e:
+        current_app.logger.error(f'[attendance/monthly] 例外: {e}', exc_info=True)
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
 # ─────────────────────────────────────────────
 # GPS位置情報エンドポイント
 # ─────────────────────────────────────────────

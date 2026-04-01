@@ -256,6 +256,84 @@ def mypage():
         db.close()
 
 
+@bp.route('/mypage/edit_profile', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def edit_profile():
+    """プロフィール編集"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            and_(TKanrisha.id == user_id, TKanrisha.role == ROLES["SYSTEM_ADMIN"])
+        ).first()
+        if not admin:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('system_admin.dashboard'))
+        if request.method == 'POST':
+            login_id = request.form.get('login_id', '').strip()
+            name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip()
+            if not login_id or not name:
+                flash('ログインIDと氏名は必須です', 'error')
+                user = {'login_id': admin.login_id, 'name': admin.name, 'email': admin.email}
+                return render_template('sys_mypage_edit_profile.html', user=user)
+            existing = db.query(TKanrisha).filter(
+                and_(TKanrisha.login_id == login_id, TKanrisha.id != user_id)
+            ).first()
+            if existing:
+                flash('このログインIDは既に使用されています', 'error')
+                user = {'login_id': login_id, 'name': name, 'email': email}
+                return render_template('sys_mypage_edit_profile.html', user=user)
+            admin.login_id = login_id
+            admin.name = name
+            admin.email = email
+            db.commit()
+            flash('プロフィール情報を更新しました', 'success')
+            return redirect(url_for('system_admin.mypage'))
+        user = {'login_id': admin.login_id, 'name': admin.name, 'email': admin.email}
+        return render_template('sys_mypage_edit_profile.html', user=user)
+    finally:
+        db.close()
+
+
+@bp.route('/mypage/change_password', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def change_password():
+    """パスワード変更"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            and_(TKanrisha.id == user_id, TKanrisha.role == ROLES["SYSTEM_ADMIN"])
+        ).first()
+        if not admin:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('system_admin.dashboard'))
+        if request.method == 'POST':
+            current_password = request.form.get('current_password', '').strip()
+            new_password = request.form.get('new_password', '').strip()
+            new_password_confirm = request.form.get('new_password_confirm', '').strip()
+            if not current_password or not new_password or not new_password_confirm:
+                flash('全ての項目を入力してください', 'error')
+                return render_template('sys_mypage_change_password.html')
+            if new_password != new_password_confirm:
+                flash('新しいパスワードが一致しません', 'error')
+                return render_template('sys_mypage_change_password.html')
+            if len(new_password) < 8:
+                flash('パスワードは8文字以上で入力してください', 'error')
+                return render_template('sys_mypage_change_password.html')
+            if not check_password_hash(admin.password_hash, current_password):
+                flash('現在のパスワードが正しくありません', 'error')
+                return render_template('sys_mypage_change_password.html')
+            admin.password_hash = generate_password_hash(new_password)
+            db.commit()
+            flash('パスワードを変更しました', 'success')
+            return redirect(url_for('system_admin.mypage'))
+        return render_template('sys_mypage_change_password.html')
+    finally:
+        db.close()
+
+
 @bp.route('/settings', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def settings():
@@ -1775,6 +1853,32 @@ def app_management():
                              selected_tenant=selected_tenant)
     finally:
         db.close()
+
+@bp.route('/select_app_manager_group_from_mypage', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def select_app_manager_group_from_mypage():
+    """マイページからアプリ管理者グループを選択してアプリ管理者ダッシュボードへ"""
+    group_id = request.form.get('group_id')
+    if not group_id:
+        flash('アプリ管理者グループを選択してください', 'error')
+        return redirect(url_for('system_admin.mypage'))
+    db = SessionLocal()
+    try:
+        from app.models_login import TAppManagerGroup
+        group = db.query(TAppManagerGroup).filter(
+            and_(TAppManagerGroup.id == group_id, TAppManagerGroup.active == 1)
+        ).first()
+        if not group:
+            flash('選択したグループが見つかりません', 'error')
+            return redirect(url_for('system_admin.mypage'))
+        session['app_manager_group_id'] = group.id
+        session['tenant_id'] = None
+        session['store_id'] = None
+        flash(f'アプリ管理者グループ「{group.group_name}」を選択しました', 'success')
+        return redirect('/app_manager/')
+    finally:
+        db.close()
+
 
 @bp.route('/select_tenant_from_mypage', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])

@@ -1,250 +1,292 @@
 {% extends "base.html" %}
 {% block title %}従業員一覧{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
 <style>
-  .employee-table-wrapper {
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    margin-bottom: 0.25rem;
+    letter-spacing: 0.05em;
+  }
+  .office-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+  }
+  .office-header .header-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover {
+    background: rgba(255,255,255,0.25);
+  }
+
+  .action-bar {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    align-items: center;
+  }
+  .action-bar .btn-primary {
+    background: #2563a8;
+    color: #fff;
+    border: none;
+    padding: 0.55rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .action-bar .btn-primary:hover { background: #1a4f8a; }
+  .action-bar .btn-secondary {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    padding: 0.55rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .action-bar .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  .search-box {
+    margin-bottom: 1.5rem;
+  }
+  .search-box input {
     width: 100%;
-    overflow-x: auto;
+    max-width: 400px;
+    padding: 0.6rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s;
   }
-  
-  .employee-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85em;
+  .search-box input:focus { border-color: #2563a8; }
+  .search-result { font-size: 0.8rem; color: #6b7280; margin-left: 0.75rem; }
+
+  .employee-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
-  
-  .employee-table thead tr {
-    background: #f5f5f5;
-    border-bottom: 2px solid #ddd;
+  .employee-card .emp-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #dbeafe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
   }
-  
-  .employee-table th {
-    padding: 8px;
-    text-align: left;
-    white-space: nowrap;
+  .employee-card .emp-info { flex: 1; min-width: 0; }
+  .employee-card .emp-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
   }
-  
-  .employee-table tbody tr {
-    border-bottom: 1px solid #eee;
+  .employee-card .emp-sub {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.15rem;
   }
-  
-  .employee-table td {
-    padding: 8px;
-    white-space: nowrap;
+  .employee-card .emp-meta {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
   }
-  
-  .employee-table td[data-label="所属店舗: "] {
-    white-space: normal;
+  .badge-active {
+    background: #dcfce7;
+    color: #166534;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-weight: 500;
   }
-  
-  .employee-table .btn.small {
-    font-size: 0.9em;
-    padding: 4px 8px;
+  .badge-inactive {
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-weight: 500;
   }
-  
-  /* スマホ用カード型レイアウト */
-  @media (max-width: 768px) {
-    .employee-table-wrapper {
-      overflow-x: visible;
-    }
-    
-    .employee-table thead {
-      display: none;
-    }
-    
-    .employee-table tbody {
-      display: block;
-    }
-    
-    .employee-table tbody tr {
-      display: block;
-      margin-bottom: 16px;
-      padding: 16px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-    }
-    
-    .employee-table td {
-      display: block;
-      padding: 8px 0;
-      white-space: normal;
-      border: none;
-    }
-    
-    .employee-table td::before {
-      content: attr(data-label);
-      font-weight: 600;
-      display: inline-block;
-      width: 100px;
-      color: #374151;
-    }
-    
-    .employee-table td.employee-actions {
-      padding-top: 12px;
-      margin-top: 8px;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    .employee-table td.employee-actions::before {
-      display: none;
-    }
-    
-    .employee-table .btn.small {
-      display: inline-block;
-      margin: 4px 4px 4px 0;
-      font-size: 0.9em;
-      padding: 8px 12px;
-    }
-    
-    .employee-table td.employee-actions form {
-      display: inline-block;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] {
-      position: relative;
-    }
-    
-    .employee-table td[data-label="所属店舗: "]::before {
-      display: inline-block;
-      position: absolute;
-      left: 0;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] span {
-      margin-left: 100px;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] span:first-child {
-      display: inline !important;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] span:not(:first-child) {
-      display: block;
-    }
+  .emp-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .emp-actions a, .emp-actions button {
+    padding: 0.35rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: opacity 0.15s;
+  }
+  .emp-actions a:hover, .emp-actions button:hover { opacity: 0.8; }
+  .btn-edit { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .btn-delete { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .btn-toggle-off { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .btn-toggle-on { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #9ca3af;
+    font-size: 0.9rem;
+  }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+  .section-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
   }
 </style>
 
-<div style="margin-bottom:20px">
-  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
-  <div style="font-size:1.1em;font-weight:bold;color:#888;margin-top:4px">{{ store.名称 if store else '店舗名' }}</div>
-  <h1 style="margin-top:12px">従業員一覧</h1>
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+    <h1>従業員管理</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.jimusho_dashboard') }}">← ダッシュボードへ</a>
+  </div>
 </div>
 
-<div style="margin-bottom:20px">
-  <a class="btn" href="{{ url_for('tenant_admin.employee_new') }}">新規作成</a>
-  <a class="btn" href="{{ url_for('tenant_admin.employee_invite') }}">従業員を招待</a>
-  <a class="btn sub" href="{{ url_for('tenant_admin.dashboard') }}">戻る</a>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- アクションバー -->
+<div class="action-bar">
+  <a class="btn-primary" href="{{ url_for('tenant_admin.employee_new') }}">＋ 新規作成</a>
+  <a class="btn-secondary" href="{{ url_for('tenant_admin.employee_invite') }}">📧 従業員を招待</a>
 </div>
 
-<!-- 検索フィールド -->
-<div style="margin-bottom:20px">
-  <input type="text" id="searchInput" placeholder="ログインIDまたは氏名で検索..." 
-         style="width:100%;max-width:400px;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
-  <span id="searchResult" style="margin-left:10px;color:#666"></span>
+<!-- 検索 -->
+<div class="search-box">
+  <input type="text" id="searchInput" placeholder="ログインIDまたは氏名で検索...">
+  <span id="searchResult" class="search-result"></span>
 </div>
+
+<!-- 従業員一覧 -->
+<div class="section-title">スタッフ一覧（{{ employees|length if employees else 0 }}名）</div>
 
 {% if employees %}
-<div class="employee-table-wrapper">
-  <table class="employee-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>ログインID</th>
-        <th>氏名</th>
-        <th>メールアドレス</th>
-        <th>所属店舗</th>
-        <th>有効</th>
-        <th>作成日時</th>
-        <th>更新日時</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for e in employees %}
-      <tr class="employee-row" 
-          data-login-id="{{ e.login_id }}" 
-          data-name="{{ e.name }}">
-        <td data-label="ID: ">{{ e.id }}</td>
-        <td data-label="ログインID: "><code>{{ e.login_id }}</code></td>
-        <td data-label="氏名: "><strong>{{ e.name }}</strong></td>
-        <td data-label="メールアドレス: ">{{ e.email if e.email else '-' }}</td>
-        <td data-label="所属店舗: " style="color:#666">
-          {% if e.stores %}
-            {% for store in e.stores %}
-              <span style="display:block">{{ store.name }}</span>
-            {% endfor %}
-          {% else %}
-            <span>未設定</span>
-          {% endif %}
-        </td>
-        <td data-label="有効: ">
-          {% if e.active %}
-            <span style="color:#4caf50;font-weight:bold">✓ 有効</span>
-          {% else %}
-            <span style="color:#999">無効</span>
-          {% endif %}
-        </td>
-        <td data-label="作成日時: " style="color:#666">{{ e.created_at }}</td>
-        <td data-label="更新日時: " style="color:#666">{{ e.updated_at if e.updated_at else '-' }}</td>
-        <td class="employee-actions">
-          <a class="btn small" href="{{ url_for('tenant_admin.employee_edit', employee_id=e.id) }}">編集</a>
-          <form method="post" action="{{ url_for('tenant_admin.employee_delete', employee_id=e.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
-            <button class="btn small" type="submit" style="background:#d32f2f">削除</button>
-          </form>
-          <form method="post" action="{{ url_for('tenant_admin.employee_toggle_active', employee_id=e.id) }}" style="display:inline">
-            {% if e.active %}
-              <button type="submit" class="btn small" style="background:#ff9800;color:white">無効化</button>
-            {% else %}
-              <button type="submit" class="btn small" style="background:#4caf50;color:white">有効化</button>
-            {% endif %}
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  {% for e in employees %}
+  <div class="employee-card employee-row" data-login-id="{{ e.login_id }}" data-name="{{ e.name }}">
+    <div class="emp-avatar">👤</div>
+    <div class="emp-info">
+      <div class="emp-name">{{ e.name }}</div>
+      <div class="emp-sub">
+        ID: {{ e.login_id }}
+        {% if e.email %} &nbsp;·&nbsp; {{ e.email }}{% endif %}
+        {% if e.stores %}
+          &nbsp;·&nbsp;
+          {% for store in e.stores %}{{ store.name }}{% if not loop.last %}、{% endif %}{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+    <div class="emp-meta">
+      {% if e.active %}
+        <span class="badge-active">✓ 有効</span>
+      {% else %}
+        <span class="badge-inactive">無効</span>
+      {% endif %}
+    </div>
+    <div class="emp-actions">
+      <a class="btn-edit" href="{{ url_for('tenant_admin.employee_edit', employee_id=e.id) }}">編集</a>
+      <form method="post" action="{{ url_for('tenant_admin.employee_toggle_active', employee_id=e.id) }}" style="display:inline">
+        {% if e.active %}
+          <button type="submit" class="btn-toggle-off">無効化</button>
+        {% else %}
+          <button type="submit" class="btn-toggle-on">有効化</button>
+        {% endif %}
+      </form>
+      <form method="post" action="{{ url_for('tenant_admin.employee_delete', employee_id=e.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
+        <button class="btn-delete" type="submit">削除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
 {% else %}
-<p style="color:#666">従業員が登録されていません。</p>
+  <div class="empty-state">
+    <div class="empty-icon">👥</div>
+    <div>従業員が登録されていません。</div>
+  </div>
 {% endif %}
 
 <script>
-// 検索機能
 document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('searchInput');
   const searchResult = document.getElementById('searchResult');
-  const employeeRows = document.querySelectorAll('.employee-row');
-  
+  const rows = document.querySelectorAll('.employee-row');
+
   function performSearch() {
     const query = searchInput.value.toLowerCase().trim();
-    let visibleCount = 0;
-    
-    // 行を検索
-    employeeRows.forEach(function(row) {
-      const loginId = row.dataset.loginId.toLowerCase();
-      const name = row.dataset.name.toLowerCase();
-      
-      if (query === '' || loginId.includes(query) || name.includes(query)) {
-        row.style.display = '';
-        visibleCount++;
-      } else {
-        row.style.display = 'none';
-      }
+    let visible = 0;
+    rows.forEach(function(row) {
+      const match = query === '' || row.dataset.loginId.toLowerCase().includes(query) || row.dataset.name.toLowerCase().includes(query);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
     });
-    
-    // 検索結果を表示
-    if (query === '') {
-      searchResult.textContent = '';
-    } else {
-      const totalCount = employeeRows.length;
-      searchResult.textContent = visibleCount + ' / ' + totalCount + ' 件表示中';
-    }
+    searchResult.textContent = query ? visible + ' / ' + rows.length + ' 件表示中' : '';
   }
-  
-  // 入力イベントをリスン
+
   searchInput.addEventListener('input', performSearch);
-  searchInput.addEventListener('keyup', performSearch);
 });
 </script>
 {% endblock %}

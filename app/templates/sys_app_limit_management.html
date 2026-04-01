@@ -1,84 +1,170 @@
 {% extends "base.html" %}
 {% block title %}利用可能アプリ管理{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
-<h2>利用可能アプリ管理</h2>
-<p class="small" style="color:#666">アプリ管理者グループが配布できるアプリ種類数の上限を設定します</p>
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem; display: flex; justify-content: space-between;
+    align-items: flex-end; flex-wrap: wrap; gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); padding: 0.45rem 1rem;
+    border-radius: 8px; text-decoration: none; font-size: 0.875rem; transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .page-header .header-actions a.btn-create {
+    background: rgba(255,255,255,0.9); color: #1a3a5c; font-weight: 600; border-color: transparent;
+  }
+  .page-header .header-actions a.btn-create:hover { background: #fff; }
+  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .data-table thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+  .data-table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .data-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9fafb; }
+  .data-table td { padding: 0.75rem 1rem; color: #374151; white-space: nowrap; }
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
+  .badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-yes { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-no  { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+  .badge-active { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .action-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+  .btn-sm { padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.15s; }
+  .btn-sm:hover { opacity: 0.85; }
+  .btn-sm.edit    { background: #2563a8; color: #fff; }
+  .btn-sm.delete  { background: #dc2626; color: #fff; }
+  .btn-sm.disable { background: #f59e0b; color: #fff; }
+  .btn-sm.enable  { background: #059669; color: #fff; }
+  .btn-sm.grant   { background: #059669; color: #fff; }
+  .btn-sm.revoke  { background: #6b7280; color: #fff; }
+  .btn-sm.transfer { background: #ea580c; color: #fff; }
+  .btn-sm.detail  { background: #2563a8; color: #fff; }
+  .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.75rem; max-width: 700px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.875rem; font-weight: 600; color: #374151; }
+  .form-group label .req { color: #dc2626; margin-left: 2px; }
+  .form-group input[type=text], .form-group input[type=email], .form-group input[type=password], .form-group input[type=number], .form-group select, .form-group textarea {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.9rem; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .form-group .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.3rem; }
+  .checkbox-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+  .checkbox-card label { display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; margin: 0; font-weight: 600; color: #374151; font-size: 0.9rem; }
+  .checkbox-card input[type=checkbox] { width: auto; margin-top: 2px; flex-shrink: 0; }
+  .checkbox-card .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.35rem; margin-left: 1.5rem; }
+  .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .btn-primary-form { background: #2563a8; color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary-form:hover { opacity: 0.88; }
+  .btn-cancel-form { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+  .btn-cancel-form:hover { background: #e5e7eb; }
+  .empty-state { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .empty-state p { color: #9ca3af; margin-bottom: 1rem; }
+  .toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .search-box { position: relative; flex: 1; max-width: 400px; }
+  .search-box input { width: 100%; padding: 0.55rem 0.75rem 0.55rem 2.25rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
+  .search-box input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
+  .search-box .search-icon { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+  #searchResult { font-size: 0.85rem; color: #6b7280; }
+  .section-title { font-size: 0.875rem; font-weight: 700; color: #1a3a5c; border-left: 4px solid #2563a8; padding-left: 0.75rem; margin: 0 0 1rem; }
+  .doc-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .doc-card h4 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.5rem; }
+  .doc-card p { font-size: 0.875rem; color: #6b7280; margin: 0 0 1rem; }
+  .doc-card .doc-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .mobile-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+  .mobile-card.owner-card { background: #fffbf0; border-color: #fde68a; }
+  .mobile-card-row { display: flex; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
+  .mobile-card-row:last-of-type { border-bottom: none; }
+  .mobile-card-label { font-size: 0.78rem; font-weight: 600; color: #9ca3af; min-width: 110px; }
+  .mobile-card-value { font-size: 0.875rem; color: #374151; flex: 1; word-break: break-all; }
+  .mobile-card-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  @media (max-width: 768px) { .desktop-table { display: none; } .mobile-cards { display: block; } }
+  @media (min-width: 769px) { .desktop-table { display: block; } .mobile-cards { display: none; } }
+  @media (max-width: 640px) { .page-header { padding: 1.5rem 1.25rem 1.25rem; } .page-header h1 { font-size: 1.4rem; } }
+</style>
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <h1>利用可能アプリ管理</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+  </div>
+</div>
+
+<p style="font-size:0.875rem;color:#6b7280;margin-bottom:1.5rem">アプリ管理者グループが配布できるアプリ種類数の上限を設定します</p>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-    {% endfor %}
+    <div style="margin-bottom:1rem">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
   {% endif %}
 {% endwith %}
 
 {% if groups %}
-  <div style="margin-top:20px">
-    <table>
-      <thead>
-        <tr>
-          <th>グループ名</th>
-          <th>オーナー</th>
-          <th>メンバー数</th>
-          <th>アプリ種類上限</th>
-          <th>配布済み種類</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for group in groups %}
-        <tr>
-          <td>{{ group.group_name }}</td>
-          <td>{{ group.owner_name }}</td>
-          <td>{{ group.member_count }}名</td>
-          <td>
-            {% if group.app_limit is none %}
-              <span style="color:#666">無制限</span>
-            {% else %}
-              {{ group.app_limit }}種類
-            {% endif %}
-          </td>
-          <td>{{ group.distributed_app_types }}種類</td>
-          <td>
-            <button class="button secondary small" onclick="editAppLimit({{ group.group_id }}, '{{ group.group_name }}', {{ group.app_limit if group.app_limit is not none else 'null' }})">編集</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="table-card">
+  <div style="overflow-x:auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>グループ名</th><th>オーナー</th><th>メンバー数</th>
+        <th>アプリ種類上限</th><th>配布済み種類</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group in groups %}
+      <tr>
+        <td><strong>{{ group.group_name }}</strong></td>
+        <td>{{ group.owner_name }}</td>
+        <td>{{ group.member_count }}名</td>
+        <td>{% if group.app_limit is none %}<span style="color:#059669;font-weight:600">無制限</span>{% else %}{{ group.app_limit }}種類{% endif %}</td>
+        <td>{{ group.distributed_app_types }}種類</td>
+        <td>
+          <button class="btn-sm edit" onclick="editAppLimit({{ group.group_id }}, '{{ group.group_name }}', {{ group.app_limit if group.app_limit is not none else 'null' }})">編集</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
   </div>
+</div>
 {% else %}
-  <div class="card" style="margin-top:20px">
-    <p style="color:#666">アプリ管理者グループが登録されていません。</p>
-  </div>
+<div class="empty-state">
+  <p>アプリ管理者グループが登録されていません。</p>
+</div>
 {% endif %}
 
-<div style="margin-top:20px">
-  <a class="button secondary" href="{{ url_for('system_admin.dashboard') }}">戻る</a>
-</div>
-
 <!-- 編集モーダル -->
-<div id="editModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
-  <div class="card" style="max-width:500px;width:90%;margin:20px">
-    <h3 id="modalTitle">アプリ種類数上限編集</h3>
+<div id="editModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:2rem;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 id="modalTitle" style="font-size:1.1rem;font-weight:700;color:#1a3a5c;margin:0 0 1.25rem">アプリ種類数上限編集</h3>
     <form method="post" action="{{ url_for('system_admin.update_app_limit') }}">
       <input type="hidden" id="group_id" name="group_id">
       <div class="form-group">
-        <label for="app_limit">配布可能なアプリ種類数</label>
+        <label>配布可能なアプリ種類数</label>
         <input type="number" id="app_limit" name="app_limit" min="1" placeholder="空欄で無制限">
-        <p class="small" style="color:#666;margin-top:4px">
-          ※ グループが顧問先に配布できるアプリの種類数（会計、給与、勤怠など）<br>
-          ※ 空欄にすると無制限になります
-        </p>
+        <div class="hint">グループが顧問先に配布できるアプリの種類数（会計、給与、勤怠など）<br>空欄にすると無制限になります</div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button type="submit" class="button primary">保存</button>
-        <button type="button" class="button secondary" onclick="closeModal()">キャンセル</button>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary-form">保存</button>
+        <button type="button" class="btn-cancel-form" onclick="closeModal()">キャンセル</button>
       </div>
     </form>
   </div>
 </div>
-
 <script>
 function editAppLimit(groupId, groupName, currentLimit) {
   document.getElementById('group_id').value = groupId;
@@ -86,36 +172,7 @@ function editAppLimit(groupId, groupName, currentLimit) {
   document.getElementById('app_limit').value = currentLimit !== null ? currentLimit : '';
   document.getElementById('editModal').style.display = 'flex';
 }
-
-function closeModal() {
-  document.getElementById('editModal').style.display = 'none';
-}
-
-// モーダル外クリックで閉じる
-document.getElementById('editModal').addEventListener('click', function(e) {
-  if (e.target === this) {
-    closeModal();
-  }
-});
+function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+document.getElementById('editModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 </script>
-
-<style>
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.85em;
-  color: white;
-  font-weight: 500;
-}
-
-.button.small {
-  padding: 6px 12px;
-  font-size: 0.9em;
-}
-
-#editModal {
-  display: none;
-}
-</style>
 {% endblock %}

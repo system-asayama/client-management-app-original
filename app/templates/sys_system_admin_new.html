@@ -1,122 +1,175 @@
 {% extends "base.html" %}
 {% block title %}システム管理者新規作成{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
-<h2>システム管理者新規作成</h2>
-
-<div class="card" style="max-width:640px">
-  <form method="post" autocomplete="off">
-    <label>ログインID（メールアドレス推奨）</label>
-    <input name="login_id" type="text" required 
-           placeholder="例: admin@example.com"
-           autocomplete="off">
-    <div class="small" style="color:#666;margin-top:4px">
-      ログイン時に使用するIDです。メールアドレス形式を推奨します。
-    </div>
-
-    <label style="margin-top:16px">氏名</label>
-    <input name="name" type="text" required 
-           placeholder="例: 山田 太郎"
-           autocomplete="off">
-
-    <label style="margin-top:16px">メールアドレス</label>
-    <input name="email" type="email" 
-           placeholder="例: admin@example.com"
-           autocomplete="off">
-    <div class="small" style="color:#666;margin-top:4px">
-      連絡先や通知用のメールアドレスです。
-    </div>
-
-    <label style="margin-top:16px">パスワード</label>
-    <input name="password" type="password" required 
-           minlength="8"
-           placeholder="8文字以上"
-           autocomplete="new-password">
-    <div class="small" style="color:#666;margin-top:4px">
-      8文字以上のパスワードを設定してください。
-    </div>
-
-    <label style="margin-top:16px">パスワード（確認）</label>
-    <input name="password_confirm" type="password" required 
-           minlength="8"
-           placeholder="もう一度入力"
-           autocomplete="new-password">
-
-    <div style="margin-top:24px;padding:16px;background:#f9f9f9;border-radius:8px">
-      <label style="display:flex;align-items:center;cursor:pointer;margin:0">
-        <input name="active" type="checkbox" value="1" checked
-               style="width:auto;margin-right:8px">
-        <span style="font-weight:normal">有効</span>
-      </label>
-      <div class="small" style="color:#666;margin-top:4px;margin-left:28px">
-        チェックを外すとこのシステム管理者は無効化されます。
-      </div>
-    </div>
-
-    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
-      <label style="display:flex;align-items:center;cursor:pointer;margin:0">
-        <input name="can_manage_admins" type="checkbox" value="1"
-               style="width:auto;margin-right:8px">
-        <span style="font-weight:normal">管理者管理権限</span>
-      </label>
-      <div class="small" style="color:#666;margin-top:4px;margin-left:28px">
-        チェックを入れるとこのシステム管理者は他のシステム管理者を管理できるようになります。
-      </div>
-    </div>
-
-    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
-      <label style="display:flex;align-items:center;cursor:pointer;margin:0">
-        <input name="can_manage_all_tenants" type="checkbox" value="1"
-               style="width:auto;margin-right:8px">
-        <span style="font-weight:normal">全テナント管理権限</span>
-      </label>
-      <div class="small" style="color:#666;margin-top:4px;margin-left:28px">
-        チェックを入れると、このシステム管理者はすべてのテナントにアクセスできます。チェックを外すと、自分で作成または招待されたテナントのみアクセス可能です。
-      </div>
-    </div>
-
-    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
-      <label style="display:flex;align-items:center;cursor:pointer;margin:0">
-        <input name="can_distribute_apps" type="checkbox" value="1"
-               style="width:auto;margin-right:8px">
-        <span style="font-weight:normal">アプリ配布権限</span>
-      </label>
-      <div class="small" style="color:#666;margin-top:4px;margin-left:28px">
-        チェックを入れると、このシステム管理者は他のシステム管理者にアプリを配布できます。また、他のシステム管理者のプランを設定できます。
-      </div>
-    </div>
-
-    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
-      <label style="margin:0;margin-bottom:8px;display:block">アプリ使用上限数（プラン）</label>
-      <input name="app_limit" type="number" min="0" step="1"
-             placeholder="空欄=無制限"
-             style="max-width:200px">
-      <div class="small" style="color:#666;margin-top:4px">
-        このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。
-      </div>
-    </div>
-
-    <div style="margin-top:24px;display:flex;gap:8px">
-      <button class="btn" type="submit">作成する</button>
-      <a class="btn sub" href="{{ url_for('system_admin.system_admins') }}">キャンセル</a>
-    </div>
-  </form>
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem; display: flex; justify-content: space-between;
+    align-items: flex-end; flex-wrap: wrap; gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); padding: 0.45rem 1rem;
+    border-radius: 8px; text-decoration: none; font-size: 0.875rem; transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .page-header .header-actions a.btn-create {
+    background: rgba(255,255,255,0.9); color: #1a3a5c; font-weight: 600; border-color: transparent;
+  }
+  .page-header .header-actions a.btn-create:hover { background: #fff; }
+  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .data-table thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+  .data-table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .data-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9fafb; }
+  .data-table td { padding: 0.75rem 1rem; color: #374151; white-space: nowrap; }
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
+  .badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-yes { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-no  { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+  .badge-active { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .action-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+  .btn-sm { padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.15s; }
+  .btn-sm:hover { opacity: 0.85; }
+  .btn-sm.edit    { background: #2563a8; color: #fff; }
+  .btn-sm.delete  { background: #dc2626; color: #fff; }
+  .btn-sm.disable { background: #f59e0b; color: #fff; }
+  .btn-sm.enable  { background: #059669; color: #fff; }
+  .btn-sm.grant   { background: #059669; color: #fff; }
+  .btn-sm.revoke  { background: #6b7280; color: #fff; }
+  .btn-sm.transfer { background: #ea580c; color: #fff; }
+  .btn-sm.detail  { background: #2563a8; color: #fff; }
+  .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.75rem; max-width: 700px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.875rem; font-weight: 600; color: #374151; }
+  .form-group label .req { color: #dc2626; margin-left: 2px; }
+  .form-group input[type=text], .form-group input[type=email], .form-group input[type=password], .form-group input[type=number], .form-group select, .form-group textarea {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.9rem; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .form-group .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.3rem; }
+  .checkbox-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+  .checkbox-card label { display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; margin: 0; font-weight: 600; color: #374151; font-size: 0.9rem; }
+  .checkbox-card input[type=checkbox] { width: auto; margin-top: 2px; flex-shrink: 0; }
+  .checkbox-card .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.35rem; margin-left: 1.5rem; }
+  .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .btn-primary-form { background: #2563a8; color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary-form:hover { opacity: 0.88; }
+  .btn-cancel-form { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+  .btn-cancel-form:hover { background: #e5e7eb; }
+  .empty-state { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .empty-state p { color: #9ca3af; margin-bottom: 1rem; }
+  .toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .search-box { position: relative; flex: 1; max-width: 400px; }
+  .search-box input { width: 100%; padding: 0.55rem 0.75rem 0.55rem 2.25rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
+  .search-box input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
+  .search-box .search-icon { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+  #searchResult { font-size: 0.85rem; color: #6b7280; }
+  .section-title { font-size: 0.875rem; font-weight: 700; color: #1a3a5c; border-left: 4px solid #2563a8; padding-left: 0.75rem; margin: 0 0 1rem; }
+  .doc-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .doc-card h4 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.5rem; }
+  .doc-card p { font-size: 0.875rem; color: #6b7280; margin: 0 0 1rem; }
+  .doc-card .doc-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .mobile-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+  .mobile-card.owner-card { background: #fffbf0; border-color: #fde68a; }
+  .mobile-card-row { display: flex; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
+  .mobile-card-row:last-of-type { border-bottom: none; }
+  .mobile-card-label { font-size: 0.78rem; font-weight: 600; color: #9ca3af; min-width: 110px; }
+  .mobile-card-value { font-size: 0.875rem; color: #374151; flex: 1; word-break: break-all; }
+  .mobile-card-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  @media (max-width: 768px) { .desktop-table { display: none; } .mobile-cards { display: block; } }
+  @media (min-width: 769px) { .desktop-table { display: block; } .mobile-cards { display: none; } }
+  @media (max-width: 640px) { .page-header { padding: 1.5rem 1.25rem 1.25rem; } .page-header h1 { font-size: 1.4rem; } }
+</style>
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <h1>システム管理者新規作成</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('system_admin.system_admins') }}">一覧に戻る</a>
+  </div>
 </div>
 
 {% if get_flashed_messages() %}
-<div style="margin-top:20px;max-width:640px">
+<div style="margin-bottom:1rem">
   {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert alert-{{ category }}" style="padding:12px;margin-bottom:8px;border-radius:4px;
-         {% if category == 'success' %}background:#d4edda;color:#155724;border:1px solid #c3e6cb{% endif %}
-         {% if category == 'error' %}background:#f8d7da;color:#721c24;border:1px solid #f5c6cb{% endif %}">
-      {{ message }}
-    </div>
+    <div class="alert alert-{{ category }}">{{ message }}</div>
   {% endfor %}
 </div>
 {% endif %}
 
-<div class="card" style="max-width:640px;margin-top:20px;background:#f9f9f9">
-  <h3 style="margin:0 0 12px;font-size:1em">📌 注意事項</h3>
-  <ul style="margin:0;padding-left:20px;font-size:0.9em;color:#666">
+<div class="form-card">
+  <form method="post" autocomplete="off">
+    <div class="form-group">
+      <label>ログインID（メールアドレス推奨）</label>
+      <input name="login_id" type="text" required placeholder="例: admin@example.com" autocomplete="off">
+      <div class="hint">ログイン時に使用するIDです。メールアドレス形式を推奨します。</div>
+    </div>
+    <div class="form-group">
+      <label>氏名</label>
+      <input name="name" type="text" required placeholder="例: 山田 太郎" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input name="email" type="email" placeholder="例: admin@example.com" autocomplete="off">
+      <div class="hint">連絡先や通知用のメールアドレスです。</div>
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input name="password" type="password" required minlength="8" placeholder="8文字以上" autocomplete="new-password">
+      <div class="hint">8文字以上のパスワードを設定してください。</div>
+    </div>
+    <div class="form-group">
+      <label>パスワード（確認）</label>
+      <input name="password_confirm" type="password" required minlength="8" placeholder="もう一度入力" autocomplete="new-password">
+    </div>
+
+    <p class="section-title" style="margin-top:1.5rem">権限設定</p>
+    <div class="checkbox-card">
+      <label><input name="active" type="checkbox" value="1" checked><span>有効</span></label>
+      <div class="hint">チェックを外すとこのシステム管理者は無効化されます。</div>
+    </div>
+    <div class="checkbox-card">
+      <label><input name="can_manage_admins" type="checkbox" value="1"><span>管理者管理権限</span></label>
+      <div class="hint">チェックを入れるとこのシステム管理者は他のシステム管理者を管理できるようになります。</div>
+    </div>
+    <div class="checkbox-card">
+      <label><input name="can_manage_all_tenants" type="checkbox" value="1"><span>全テナント管理権限</span></label>
+      <div class="hint">チェックを入れると、このシステム管理者はすべてのテナントにアクセスできます。チェックを外すと、自分で作成または招待されたテナントのみアクセス可能です。</div>
+    </div>
+    <div class="checkbox-card">
+      <label><input name="can_distribute_apps" type="checkbox" value="1"><span>アプリ配布権限</span></label>
+      <div class="hint">チェックを入れると、このシステム管理者は他のシステム管理者にアプリを配布できます。また、他のシステム管理者のプランを設定できます。</div>
+    </div>
+
+    <div class="form-group" style="margin-top:1rem">
+      <label>アプリ使用上限数（プラン）</label>
+      <input name="app_limit" type="number" min="0" step="1" placeholder="空欄=無制限" style="max-width:200px">
+      <div class="hint">このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。</div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-primary-form" type="submit">作成する</button>
+      <a class="btn-cancel-form" href="{{ url_for('system_admin.system_admins') }}">キャンセル</a>
+    </div>
+  </form>
+</div>
+
+<div class="form-card" style="background:#f9fafb">
+  <p class="section-title">注意事項</p>
+  <ul style="margin:0;padding-left:1.25rem;font-size:0.875rem;color:#6b7280;line-height:1.8">
     <li>システム管理者は全テナント横断の最高権限を持ちます</li>
     <li>作成後、ログインIDとパスワードを本人に安全に共有してください</li>
     <li>不要になったアカウントは速やかに無効化または削除してください</li>

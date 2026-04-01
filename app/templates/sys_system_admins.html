@@ -1,433 +1,259 @@
 {% extends "base.html" %}
 {% block title %}システム管理者一覧{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
 <style>
-  @media (max-width: 768px) {
-    .admin-table {
-      display: none;
-    }
-    .admin-cards {
-      display: block;
-    }
-    .admin-card {
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .admin-card.owner {
-      background: #fffbf0;
-      border-color: #ff6f00;
-    }
-    .admin-card-row {
-      display: flex;
-      padding: 8px 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .admin-card-row:last-child {
-      border-bottom: none;
-    }
-    .admin-card-label {
-      font-weight: bold;
-      color: #666;
-      min-width: 100px;
-      white-space: nowrap;
-    }
-    .admin-card-value {
-      flex: 1;
-      color: #333;
-      word-break: break-all;
-      overflow-wrap: break-word;
-    }
-    .admin-card-actions {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 2px solid #f0f0f0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .admin-card-actions .btn {
-      font-size: 0.9em;
-      padding: 6px 12px;
-    }
-    .admin-card-actions form {
-      display: inline;
-    }
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem; display: flex; justify-content: space-between;
+    align-items: flex-end; flex-wrap: wrap; gap: 1rem;
   }
-  @media (min-width: 769px) {
-    .admin-table {
-      display: table;
-    }
-    .admin-cards {
-      display: none;
-    }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); padding: 0.45rem 1rem;
+    border-radius: 8px; text-decoration: none; font-size: 0.875rem; transition: background 0.15s;
   }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .page-header .header-actions a.btn-create {
+    background: rgba(255,255,255,0.9); color: #1a3a5c; font-weight: 600; border-color: transparent;
+  }
+  .page-header .header-actions a.btn-create:hover { background: #fff; }
+  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .data-table thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+  .data-table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .data-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table tbody tr:hover { background: #f9fafb; }
+  .data-table td { padding: 0.75rem 1rem; color: #374151; white-space: nowrap; }
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
+  .badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-yes { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-no  { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+  .badge-active { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .action-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+  .btn-sm { padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.15s; }
+  .btn-sm:hover { opacity: 0.85; }
+  .btn-sm.edit    { background: #2563a8; color: #fff; }
+  .btn-sm.delete  { background: #dc2626; color: #fff; }
+  .btn-sm.disable { background: #f59e0b; color: #fff; }
+  .btn-sm.enable  { background: #059669; color: #fff; }
+  .btn-sm.grant   { background: #059669; color: #fff; }
+  .btn-sm.revoke  { background: #6b7280; color: #fff; }
+  .btn-sm.transfer { background: #ea580c; color: #fff; }
+  .btn-sm.detail  { background: #2563a8; color: #fff; }
+  .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.75rem; max-width: 700px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.875rem; font-weight: 600; color: #374151; }
+  .form-group label .req { color: #dc2626; margin-left: 2px; }
+  .form-group input[type=text], .form-group input[type=email], .form-group input[type=password], .form-group input[type=number], .form-group select, .form-group textarea {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.9rem; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .form-group .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.3rem; }
+  .checkbox-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+  .checkbox-card label { display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; margin: 0; font-weight: 600; color: #374151; font-size: 0.9rem; }
+  .checkbox-card input[type=checkbox] { width: auto; margin-top: 2px; flex-shrink: 0; }
+  .checkbox-card .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.35rem; margin-left: 1.5rem; }
+  .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .btn-primary-form { background: #2563a8; color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn-primary-form:hover { opacity: 0.88; }
+  .btn-cancel-form { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+  .btn-cancel-form:hover { background: #e5e7eb; }
+  .empty-state { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .empty-state p { color: #9ca3af; margin-bottom: 1rem; }
+  .toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .search-box { position: relative; flex: 1; max-width: 400px; }
+  .search-box input { width: 100%; padding: 0.55rem 0.75rem 0.55rem 2.25rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
+  .search-box input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
+  .search-box .search-icon { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+  #searchResult { font-size: 0.85rem; color: #6b7280; }
+  .section-title { font-size: 0.875rem; font-weight: 700; color: #1a3a5c; border-left: 4px solid #2563a8; padding-left: 0.75rem; margin: 0 0 1rem; }
+  .doc-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+  .doc-card h4 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.5rem; }
+  .doc-card p { font-size: 0.875rem; color: #6b7280; margin: 0 0 1rem; }
+  .doc-card .doc-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .mobile-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+  .mobile-card.owner-card { background: #fffbf0; border-color: #fde68a; }
+  .mobile-card-row { display: flex; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
+  .mobile-card-row:last-of-type { border-bottom: none; }
+  .mobile-card-label { font-size: 0.78rem; font-weight: 600; color: #9ca3af; min-width: 110px; }
+  .mobile-card-value { font-size: 0.875rem; color: #374151; flex: 1; word-break: break-all; }
+  .mobile-card-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  @media (max-width: 768px) { .desktop-table { display: none; } .mobile-cards { display: block; } }
+  @media (min-width: 769px) { .desktop-table { display: block; } .mobile-cards { display: none; } }
+  @media (max-width: 640px) { .page-header { padding: 1.5rem 1.25rem 1.25rem; } .page-header h1 { font-size: 1.4rem; } }
 </style>
-
-<h1>システム管理者一覧</h1>
-
-<div style="margin-bottom:20px">
-  {% if can_manage_system_admins() %}
-  <a class="btn" href="{{ url_for('system_admin.system_admin_new') }}">＋ 新しいシステム管理者を作成</a>
-  {% endif %}
-  <a class="btn sub" href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <h1>システム管理者一覧</h1>
+  </div>
+  <div class="header-actions">
+    {% if can_manage_system_admins() %}
+    <a class="btn-create" href="{{ url_for('system_admin.system_admin_new') }}">＋ 新しいシステム管理者を作成</a>
+    {% endif %}
+    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+  </div>
 </div>
 
-<!-- 検索フィールド -->
-<div style="margin-bottom:20px">
-  <input type="text" id="searchInput" placeholder="ログインIDまたは氏名で検索..." 
-         style="width:100%;max-width:400px;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
-  <span id="searchResult" style="margin-left:10px;color:#666"></span>
+<div class="toolbar">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="ログインIDまたは氏名で検索...">
+  </div>
+  <span id="searchResult"></span>
 </div>
 
 {% if admins %}
-<!-- デスクトップ用テーブル -->
-<div style="overflow-x:auto">
-<table class="admin-table" style="width:100%;border-collapse:collapse;font-size:0.85em;margin:0 auto">
-  <thead>
-    <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
-      <th style="padding:8px;text-align:left;white-space:nowrap">ID</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">ログインID</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">氏名</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">オーナー</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">管理権限</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">全テナント<br>管理権限</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">アプリ<br>配布権限</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">プラン<br>（上限数）</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">有効</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">作成日時</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">更新日時</th>
-      <th style="padding:8px;text-align:left;white-space:nowrap">操作</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for a in admins %}
-    <tr class="admin-row" data-login-id="{{ a.login_id }}" data-name="{{ a.name }}" 
-        style="border-bottom:1px solid #eee{% if a.is_owner == 1 %};background:#fffbf0{% endif %}">
-      <td style="padding:8px;white-space:nowrap">{{ a.id }}</td>
-      <td style="padding:8px;white-space:nowrap"><code>{{ a.login_id }}</code></td>
-      <td style="padding:8px;white-space:nowrap"><strong>{{ a.name }}</strong></td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.is_owner == 1 %}
-          <span style="color:#ff6f00;font-weight:bold">★ オーナー</span>
-        {% else %}
-          <span style="color:#999">-</span>
-        {% endif %}
-      </td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
-        {% elif a.can_manage_admins == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有</span>
-        {% else %}
-          <span style="color:#999">無</span>
-        {% endif %}
-      </td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
-        {% elif a.can_manage_all_tenants == 1 %}
-          <span style="color:green;font-weight:bold">✓ 全テナント</span>
-        {% else %}
-          <span style="color:#999">作成/招待のみ</span>
-        {% endif %}
-      </td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
-        {% elif a.can_distribute_apps == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有</span>
-        {% else %}
-          <span style="color:#999">無</span>
-        {% endif %}
-      </td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">無制限</span>
-        {% elif a.app_limit is not none %}
-          <span style="color:#333">{{ a.app_limit }}アプリ</span>
-        {% else %}
-          <span style="color:green">無制限</span>
-        {% endif %}
-      </td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有効（常に有効）</span>
-        {% elif a.active == 1 %}
-          <span style="color:green">✓ 有効</span>
-        {% else %}
-          <span style="color:#999">無効</span>
-        {% endif %}
-      </td>
-      <td style="padding:8px;white-space:nowrap;color:#666">{{ a.created_at }}</td>
-      <td style="padding:8px;white-space:nowrap;color:#666">{{ a.updated_at if a.updated_at else '-' }}</td>
-      <td style="padding:8px;white-space:nowrap">
-        {% if a.id == session.user_id and not is_owner() %}
-          <span style="color:#999">（自分）</span>
-        {% elif can_manage_system_admins() or (a.id == session.user_id and is_owner()) %}
-          {# システム管理者管理権限を持つ場合 #}
-          {% if a.is_owner == 1 %}
-            {# オーナーは編集のみ #}
-            <a class="btn small" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}" style="background:#1976d2;font-size:0.9em;padding:4px 8px">編集</a>
-          {% elif is_owner() or (a.can_manage_admins != 1 and a.is_owner != 1) %}
-            {# オーナーは全員編集可、非オーナーは管理権限なしのみ編集可 #}
-            <a class="btn small" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}" style="background:#1976d2;font-size:0.9em;padding:4px 8px">編集</a>
-            <form method="post" action="{{ url_for('system_admin.system_admin_delete', admin_id=a.id) }}" 
-                  onsubmit="return confirm('本当に削除しますか？');" style="display:inline">
-              <button class="btn small" type="submit" style="background:#d32f2f;font-size:0.9em;padding:4px 8px">削除</button>
-            </form>
-            <form method="post" action="{{ url_for('system_admin.system_admin_toggle', admin_id=a.id) }}" style="display:inline">
-              <button class="btn small" type="submit" style="background:{% if a.active == 1 %}#ff9800{% else %}#4caf50{% endif %};font-size:0.9em;padding:4px 8px">
-                {% if a.active == 1 %}無効化{% else %}有効化{% endif %}
-              </button>
-            </form>
-          {% else %}
-            <span style="color:#999">管理権限保持者は編集不可</span>
-          {% endif %}
-          {# オーナーのみの操作 #}
-          {% if is_owner() and a.is_owner != 1 %}
-            <form method="post" action="{{ url_for('system_admin.toggle_manage_permission', admin_id=a.id) }}" style="display:inline">
-              <button class="btn small" type="submit" style="background:{% if a.can_manage_admins == 1 %}#999{% else %}#4caf50{% endif %};font-size:0.9em;padding:4px 8px">
-                {% if a.can_manage_admins == 1 %}管理権限剥奪{% else %}管理権限付与{% endif %}
-              </button>
-            </form>
-
-          <form method="post" action="{{ url_for('system_admin.transfer_ownership', admin_id=a.id) }}" 
-                class="transfer-ownership-form" data-admin-name="{{ a.name }}" style="display:inline">
-            <button class="btn small" type="submit" style="background:#ff6f00;font-size:0.9em;padding:4px 8px">オーナー移譲</button>
-          </form>
-          {% endif %}
-        {% else %}
-          <span style="color:#999">管理権限なし</span>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-card desktop-table">
+  <div style="overflow-x:auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th><th>ログインID</th><th>氏名</th><th>オーナー</th>
+        <th>管理権限</th><th>全テナント管理権限</th><th>アプリ配布権限</th>
+        <th>プラン（上限数）</th><th>有効</th><th>作成日時</th><th>更新日時</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in admins %}
+      <tr class="admin-row {% if a.is_owner == 1 %}owner-row{% endif %}" data-login-id="{{ a.login_id }}" data-name="{{ a.name }}" {% if a.is_owner == 1 %}style="background:#fffbf0"{% endif %}>
+        <td style="color:#9ca3af">{{ a.id }}</td>
+        <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:0.82rem">{{ a.login_id }}</code></td>
+        <td><strong>{{ a.name }}</strong></td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-owner">★ オーナー</span>{% else %}<span style="color:#d1d5db">—</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_manage_admins == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_manage_all_tenants == 1 %}<span class="badge badge-yes">全テナント</span>{% else %}<span class="badge badge-no">作成/招待のみ</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_distribute_apps == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span style="color:#059669;font-weight:600">無制限</span>{% elif a.app_limit is not none %}{{ a.app_limit }}アプリ{% else %}<span style="color:#059669">無制限</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-active">常に有効</span>{% elif a.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</td>
+        <td style="color:#9ca3af;font-size:0.8rem">{{ a.created_at }}</td>
+        <td style="color:#9ca3af;font-size:0.8rem">{{ a.updated_at if a.updated_at else '—' }}</td>
+        <td>
+          <div class="action-btns">
+            {% if a.id == session.user_id and not is_owner() %}
+              <span style="color:#9ca3af;font-size:0.8rem">（自分）</span>
+            {% elif can_manage_system_admins() or (a.id == session.user_id and is_owner()) %}
+              {% if a.is_owner == 1 %}
+                <a class="btn-sm edit" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}">編集</a>
+              {% elif is_owner() or (a.can_manage_admins != 1 and a.is_owner != 1) %}
+                <a class="btn-sm edit" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}">編集</a>
+                <form method="post" action="{{ url_for('system_admin.system_admin_delete', admin_id=a.id) }}" onsubmit="return confirm('本当に削除しますか？');" style="display:inline">
+                  <button class="btn-sm delete" type="submit">削除</button>
+                </form>
+                <form method="post" action="{{ url_for('system_admin.system_admin_toggle', admin_id=a.id) }}" style="display:inline">
+                  <button class="btn-sm {% if a.active == 1 %}disable{% else %}enable{% endif %}" type="submit">{% if a.active == 1 %}無効化{% else %}有効化{% endif %}</button>
+                </form>
+              {% else %}
+                <span style="color:#9ca3af;font-size:0.8rem">管理権限保持者は編集不可</span>
+              {% endif %}
+              {% if is_owner() and a.is_owner != 1 %}
+                <form method="post" action="{{ url_for('system_admin.toggle_manage_permission', admin_id=a.id) }}" style="display:inline">
+                  <button class="btn-sm {% if a.can_manage_admins == 1 %}revoke{% else %}grant{% endif %}" type="submit">{% if a.can_manage_admins == 1 %}管理権限剥奪{% else %}管理権限付与{% endif %}</button>
+                </form>
+                <form method="post" action="{{ url_for('system_admin.transfer_ownership', admin_id=a.id) }}" class="transfer-ownership-form" data-admin-name="{{ a.name }}" style="display:inline">
+                  <button class="btn-sm transfer" type="submit">オーナー移譲</button>
+                </form>
+              {% endif %}
+            {% else %}
+              <span style="color:#9ca3af;font-size:0.8rem">管理権限なし</span>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
 </div>
-
-<!-- スマホ用カード -->
-<div class="admin-cards">
+<div class="mobile-cards">
   {% for a in admins %}
-  <div class="admin-card{% if a.is_owner == 1 %} owner{% endif %}" data-login-id="{{ a.login_id }}" data-name="{{ a.name }}">
-    <div class="admin-card-row">
-      <div class="admin-card-label">ID:</div>
-      <div class="admin-card-value">{{ a.id }}</div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">ログインID:</div>
-      <div class="admin-card-value"><code>{{ a.login_id }}</code></div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">氏名:</div>
-      <div class="admin-card-value"><strong>{{ a.name }}</strong></div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">オーナー:</div>
-      <div class="admin-card-value">
-        {% if a.is_owner == 1 %}
-          <span style="color:#ff6f00;font-weight:bold">★ オーナー</span>
-        {% else %}
-          <span style="color:#999">-</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">管理権限:</div>
-      <div class="admin-card-value">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
-        {% elif a.can_manage_admins == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有</span>
-        {% else %}
-          <span style="color:#999">無</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">全テナント<br>管理権限:</div>
-      <div class="admin-card-value">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
-        {% elif a.can_manage_all_tenants == 1 %}
-          <span style="color:green;font-weight:bold">✓ 全テナント</span>
-        {% else %}
-          <span style="color:#999">作成/招待のみ</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">アプリ<br>配布権限:</div>
-      <div class="admin-card-value">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有（常に有）</span>
-        {% elif a.can_distribute_apps == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有</span>
-        {% else %}
-          <span style="color:#999">無</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">プラン<br>（上限数）:</div>
-      <div class="admin-card-value">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">無制限</span>
-        {% elif a.app_limit is not none %}
-          <span style="color:#333">{{ a.app_limit }}アプリ</span>
-        {% else %}
-          <span style="color:green">無制限</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">有効:</div>
-      <div class="admin-card-value">
-        {% if a.is_owner == 1 %}
-          <span style="color:green;font-weight:bold">✓ 有効（常に有効）</span>
-        {% elif a.active == 1 %}
-          <span style="color:green">✓ 有効</span>
-        {% else %}
-          <span style="color:#999">無効</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">作成日時:</div>
-      <div class="admin-card-value" style="color:#666">{{ a.created_at }}</div>
-    </div>
-    <div class="admin-card-row">
-      <div class="admin-card-label">更新日時:</div>
-      <div class="admin-card-value" style="color:#666">{{ a.updated_at if a.updated_at else '-' }}</div>
-    </div>
-    
-    <div class="admin-card-actions">
+  <div class="mobile-card {% if a.is_owner == 1 %}owner-card{% endif %} admin-card" data-login-id="{{ a.login_id }}" data-name="{{ a.name }}">
+    <div class="mobile-card-row"><div class="mobile-card-label">ID</div><div class="mobile-card-value">{{ a.id }}</div></div>
+    <div class="mobile-card-row"><div class="mobile-card-label">ログインID</div><div class="mobile-card-value"><code>{{ a.login_id }}</code></div></div>
+    <div class="mobile-card-row"><div class="mobile-card-label">氏名</div><div class="mobile-card-value"><strong>{{ a.name }}</strong>{% if a.is_owner == 1 %}<span class="badge badge-owner" style="margin-left:6px">★ オーナー</span>{% endif %}</div></div>
+    <div class="mobile-card-row"><div class="mobile-card-label">管理権限</div><div class="mobile-card-value">{% if a.is_owner == 1 or a.can_manage_admins == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</div></div>
+    <div class="mobile-card-row"><div class="mobile-card-label">有効</div><div class="mobile-card-value">{% if a.is_owner == 1 or a.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</div></div>
+    <div class="mobile-card-actions">
       {% if a.id == session.user_id and not is_owner() %}
-        <span style="color:#999">（自分）</span>
+        <span style="color:#9ca3af;font-size:0.8rem">（自分）</span>
       {% elif can_manage_system_admins() or (a.id == session.user_id and is_owner()) %}
-        {# システム管理者管理権限を持つ場合 #}
         {% if a.is_owner == 1 %}
-          {# オーナーは編集のみ #}
-          <a class="btn small" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}" style="background:#1976d2">編集</a>
+          <a class="btn-sm edit" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}">編集</a>
         {% elif is_owner() or (a.can_manage_admins != 1 and a.is_owner != 1) %}
-          {# オーナーは全員編集可、非オーナーは管理権限なしのみ編集可 #}
-          <a class="btn small" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}" style="background:#1976d2">編集</a>
-          <form method="post" action="{{ url_for('system_admin.system_admin_delete', admin_id=a.id) }}" 
-                onsubmit="return confirm('本当に削除しますか？');">
-            <button class="btn small" type="submit" style="background:#d32f2f">削除</button>
+          <a class="btn-sm edit" href="{{ url_for('system_admin.system_admin_edit', admin_id=a.id) }}">編集</a>
+          <form method="post" action="{{ url_for('system_admin.system_admin_delete', admin_id=a.id) }}" onsubmit="return confirm('本当に削除しますか？');">
+            <button class="btn-sm delete" type="submit">削除</button>
           </form>
           <form method="post" action="{{ url_for('system_admin.system_admin_toggle', admin_id=a.id) }}">
-            <button class="btn small" type="submit" style="background:{% if a.active == 1 %}#ff9800{% else %}#4caf50{% endif %}">
-              {% if a.active == 1 %}無効化{% else %}有効化{% endif %}
-            </button>
+            <button class="btn-sm {% if a.active == 1 %}disable{% else %}enable{% endif %}" type="submit">{% if a.active == 1 %}無効化{% else %}有効化{% endif %}</button>
           </form>
         {% else %}
-          <span style="color:#999">管理権限保持者は編集不可</span>
+          <span style="color:#9ca3af;font-size:0.8rem">管理権限保持者は編集不可</span>
         {% endif %}
-        {# オーナーのみの操作 #}
         {% if is_owner() and a.is_owner != 1 %}
           <form method="post" action="{{ url_for('system_admin.toggle_manage_permission', admin_id=a.id) }}">
-            <button class="btn small" type="submit" style="background:{% if a.can_manage_admins == 1 %}#999{% else %}#4caf50{% endif %}">
-              {% if a.can_manage_admins == 1 %}管理権限剥奪{% else %}管理権限付与{% endif %}
-            </button>
+            <button class="btn-sm {% if a.can_manage_admins == 1 %}revoke{% else %}grant{% endif %}" type="submit">{% if a.can_manage_admins == 1 %}管理権限剥奪{% else %}管理権限付与{% endif %}</button>
           </form>
-
-          <form method="post" action="{{ url_for('system_admin.transfer_ownership', admin_id=a.id) }}" 
-                class="transfer-ownership-form" data-admin-name="{{ a.name }}">
-            <button class="btn small" type="submit" style="background:#ff6f00">オーナー移譲</button>
+          <form method="post" action="{{ url_for('system_admin.transfer_ownership', admin_id=a.id) }}" class="transfer-ownership-form" data-admin-name="{{ a.name }}">
+            <button class="btn-sm transfer" type="submit">オーナー移譲</button>
           </form>
         {% endif %}
       {% else %}
-        <span style="color:#999">管理権限なし</span>
+        <span style="color:#9ca3af;font-size:0.8rem">管理権限なし</span>
       {% endif %}
     </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
-<div class="card" style="text-align:center;padding:40px">
-  <p style="color:#999">システム管理者がまだ作成されていません</p>
-  <a class="btn" href="{{ url_for('system_admin.system_admin_new') }}">最初のシステム管理者を作成</a>
+<div class="empty-state">
+  <p>システム管理者がまだ作成されていません</p>
+  <a class="btn-sm edit" href="{{ url_for('system_admin.system_admin_new') }}" style="font-size:0.9rem;padding:0.5rem 1.25rem">最初のシステム管理者を作成</a>
 </div>
 {% endif %}
-
 {% if get_flashed_messages() %}
-<div style="margin-top:20px">
+<div style="margin-top:1rem">
   {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert alert-{{ category }}" style="padding:12px;margin-bottom:8px;border-radius:4px;
-         {% if category == 'success' %}background:#d4edda;color:#155724;border:1px solid #c3e6cb{% endif %}
-         {% if category == 'error' %}background:#f8d7da;color:#721c24;border:1px solid #f5c6cb{% endif %}">
-      {{ message }}
-    </div>
+    <div class="alert alert-{{ category }}">{{ message }}</div>
   {% endfor %}
 </div>
 {% endif %}
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // オーナー移譲確認
-  const forms = document.querySelectorAll('.transfer-ownership-form');
-  forms.forEach(function(form) {
+  document.querySelectorAll('.transfer-ownership-form').forEach(function(form) {
     form.addEventListener('submit', function(e) {
-      const adminName = this.dataset.adminName;
-      if (!confirm('オーナー権限を「' + adminName + '」に移譲しますか？')) {
-        e.preventDefault();
-      }
+      if (!confirm('オーナー権限を「' + this.dataset.adminName + '」に移譲しますか？')) e.preventDefault();
     });
   });
-  
-  // 検索機能
   const searchInput = document.getElementById('searchInput');
   const searchResult = document.getElementById('searchResult');
   const adminRows = document.querySelectorAll('.admin-row');
   const adminCards = document.querySelectorAll('.admin-card');
-  
   function performSearch() {
     const query = searchInput.value.toLowerCase().trim();
     let visibleCount = 0;
-    
-    // テーブル行を検索
     adminRows.forEach(function(row) {
-      const loginId = row.dataset.loginId.toLowerCase();
-      const name = row.dataset.name.toLowerCase();
-      
-      if (query === '' || loginId.includes(query) || name.includes(query)) {
-        row.style.display = '';
-        visibleCount++;
-      } else {
-        row.style.display = 'none';
-      }
+      const match = query === '' || row.dataset.loginId.toLowerCase().includes(query) || row.dataset.name.toLowerCase().includes(query);
+      row.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
     });
-    
-    // カードを検索
     adminCards.forEach(function(card) {
-      const loginId = card.dataset.loginId.toLowerCase();
-      const name = card.dataset.name.toLowerCase();
-      
-      if (query === '' || loginId.includes(query) || name.includes(query)) {
-        card.style.display = '';
-        visibleCount++;
-      } else {
-        card.style.display = 'none';
-      }
+      const match = query === '' || card.dataset.loginId.toLowerCase().includes(query) || card.dataset.name.toLowerCase().includes(query);
+      card.style.display = match ? '' : 'none';
     });
-    
-    // 検索結果を表示
-    if (query === '') {
-      searchResult.textContent = '';
-    } else {
-      const totalCount = adminRows.length;
-      searchResult.textContent = visibleCount + ' / ' + totalCount + ' 件表示中';
-    }
+    searchResult.textContent = query ? visibleCount + ' / ' + adminRows.length + ' 件表示中' : '';
   }
-  
-  // 入力イベントをリスン
   searchInput.addEventListener('input', performSearch);
-  searchInput.addEventListener('keyup', performSearch);
 });
 </script>
 {% endblock %}

@@ -417,6 +417,83 @@ def run_auto_migrations():
         else:
             logger.info("- T_従業員.gps_mode カラムは既に存在します（スキップ）")
 
+        # T_アプリ管理者グループ テーブルを作成
+        if not table_exists(session, 'T_アプリ管理者グループ'):
+            logger.info("T_アプリ管理者グループ テーブルを作成中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    CREATE TABLE "T_アプリ管理者グループ" (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        description TEXT,
+                        active INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+            else:
+                session.execute(text("""
+                    CREATE TABLE `T_アプリ管理者グループ` (
+                        `id` INT NOT NULL AUTO_INCREMENT,
+                        `name` VARCHAR(255) NOT NULL,
+                        `description` TEXT,
+                        `active` INT DEFAULT 1,
+                        `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        PRIMARY KEY (`id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            session.commit()
+            logger.info("✓ T_アプリ管理者グループ テーブルを作成しました")
+        else:
+            logger.info("- T_アプリ管理者グループ テーブルは既に存在します")
+
+        # T_管理者テーブルに app_manager_group_id カラムを追加
+        if not column_exists(session, 'T_管理者', 'app_manager_group_id'):
+            logger.info("T_管理者テーブルに app_manager_group_id カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_管理者"
+                    ADD COLUMN app_manager_group_id INTEGER NULL
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_管理者".app_manager_group_id
+                    IS 'アプリ管理者グループID（アプリ管理者ロールの場合に使用）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_管理者`
+                    ADD COLUMN `app_manager_group_id` INT NULL
+                    COMMENT 'アプリ管理者グループID（アプリ管理者ロールの場合に使用）'
+                """))
+            session.commit()
+            logger.info("✓ T_管理者.app_manager_group_id カラムを追加しました")
+        else:
+            logger.info("- T_管理者.app_manager_group_id カラムは既に存在します（スキップ）")
+
+        # T_管理者テーブルに can_distribute_apps カラムを追加
+        if not column_exists(session, 'T_管理者', 'can_distribute_apps'):
+            logger.info("T_管理者テーブルに can_distribute_apps カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_管理者"
+                    ADD COLUMN can_distribute_apps INTEGER DEFAULT 0
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_管理者".can_distribute_apps
+                    IS 'アプリ配布権限（1=配布可能、0=不可）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_管理者`
+                    ADD COLUMN `can_distribute_apps` INT DEFAULT 0
+                    COMMENT 'アプリ配布権限（1=配布可能、0=不可）'
+                """))
+            session.commit()
+            logger.info("✓ T_管理者.can_distribute_apps カラムを追加しました")
+        else:
+            logger.info("- T_管理者.can_distribute_apps カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

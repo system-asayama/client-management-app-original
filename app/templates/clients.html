@@ -1,170 +1,198 @@
 {% extends "base.html" %}
 {% block title %}顧問先一覧{% endblock %}
-
+{% block header %}{% endblock %}
 {% block content %}
 <style>
-  .page-wrap { max-width: 800px; margin: 0 auto; }
-
-  .page-header {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
-  .page-title-group {}
-  .page-title { font-size: 22px; font-weight: 700; color: #1a237e; }
-  .page-subtitle { font-size: 13px; color: #888; margin-top: 2px; }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .btn-add-header {
+    background: #fff !important;
+    color: #1a3a5c !important;
+    border: none !important;
+    font-weight: 700 !important;
+    padding: 0.5rem 1.25rem !important;
+    border-radius: 8px !important;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: opacity 0.15s;
+  }
+  .btn-add-header:hover { opacity: 0.85; }
+
+  .search-box { margin-bottom: 1.5rem; }
+  .search-box input {
+    width: 100%;
+    padding: 0.65rem 1rem; border: 1px solid #e5e7eb;
+    border-radius: 8px; font-size: 0.875rem; outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-box input:focus { border-color: #2563a8; }
+
+  .section-title {
+    font-size: 0.8rem; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
 
   .profession-badge {
-    display: inline-block; padding: 4px 14px; border-radius: 20px;
-    font-size: 13px; font-weight: 700;
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 99px;
+    font-size: 0.75rem; font-weight: 700;
   }
-  .badge-tax        { background: #e3f2fd; color: #1565c0; }
-  .badge-legal      { background: #fce4ec; color: #880e4f; }
-  .badge-accounting { background: #e8f5e9; color: #1b5e20; }
-  .badge-sr         { background: #fff8e1; color: #e65100; }
-  .badge-none       { background: #f5f5f5; color: #777; }
+  .badge-tax        { background: #dbeafe; color: #1e40af; }
+  .badge-legal      { background: #fce7f3; color: #9d174d; }
+  .badge-accounting { background: #dcfce7; color: #166534; }
+  .badge-sr         { background: #fef3c7; color: #92400e; }
+  .badge-none       { background: #f3f4f6; color: #6b7280; }
 
-  .btn-add {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 20px; border-radius: 8px;
-    font-size: 14px; font-weight: 700;
-    background: #1a237e; color: #fff;
-    text-decoration: none; white-space: nowrap;
-  }
-  .btn-add:hover { background: #283593; }
-
-  /* 検索バー */
-  .search-bar {
-    display: flex; gap: 8px; margin-bottom: 16px;
-  }
-  .search-bar input {
-    flex: 1; padding: 9px 14px; border: 1.5px solid #ddd;
-    border-radius: 8px; font-size: 14px; color: #333;
-  }
-  .search-bar input:focus { outline: none; border-color: #1a237e; }
-
-  /* カードリスト */
-  .client-list { display: flex; flex-direction: column; gap: 10px; }
+  .client-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
   .client-card {
-    background: #fff; border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
     display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; text-decoration: none; color: inherit;
-    border: 1.5px solid transparent;
-    transition: all 0.18s;
+    gap: 1rem; text-decoration: none; color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
   }
   .client-card:hover {
-    border-color: #1a237e;
-    box-shadow: 0 4px 16px rgba(26,35,126,0.12);
+    border-color: #2563a8;
+    box-shadow: 0 4px 16px rgba(37,99,168,0.1);
     transform: translateY(-1px);
   }
 
   .client-card-left { flex: 1; min-width: 0; }
   .client-card-name {
-    font-size: 15px; font-weight: 700; color: #1a237e;
+    font-size: 0.975rem; font-weight: 700; color: #111827;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .client-card-meta {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px;
+    display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem;
   }
   .meta-tag {
-    display: inline-block; padding: 2px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600;
+    display: inline-block; padding: 0.15rem 0.6rem; border-radius: 99px;
+    font-size: 0.75rem; font-weight: 500;
   }
-  .tag-type-corp { background: #e3f2fd; color: #1565c0; }
-  .tag-type-ind  { background: #f3e5f5; color: #7b1fa2; }
-  .tag-email     { background: #f5f5f5; color: #666; }
-  .tag-phone     { background: #f5f5f5; color: #666; }
+  .tag-type-corp { background: #dbeafe; color: #1e40af; }
+  .tag-type-ind  { background: #f3e8ff; color: #6b21a8; }
+  .tag-email     { background: #f3f4f6; color: #4b5563; }
+  .tag-phone     { background: #f3f4f6; color: #4b5563; }
 
-  .client-card-right {
-    display: flex; align-items: center;
-    color: #bbb; font-size: 20px; flex-shrink: 0;
-  }
+  .client-card-right { color: #d1d5db; font-size: 1.25rem; flex-shrink: 0; }
 
-  /* 空状態 */
-  .empty-state {
-    text-align: center; padding: 60px 20px;
-    background: #fff; border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.9rem; }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; text-decoration: none;
+    cursor: pointer; display: inline-block;
   }
-  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
-  .empty-state .msg { font-size: 15px; color: #888; margin-bottom: 20px; }
 </style>
 
-<div class="page-wrap">
-
-  <div style="font-size:13px;color:#888;margin-bottom:14px;">
-    <a href="{{ url_for('clients.home') }}" style="color:#1a237e;text-decoration:none;">ホーム</a> &rsaquo; 顧問先一覧
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">顧問先管理</div>
+    <h1>👥 顧問先一覧</h1>
   </div>
+  <div class="header-actions">
+    <a href="{{ url_for('clients.home') }}">← ホームへ</a>
+    <a href="{{ url_for('clients.add_client') }}" class="btn-add-header">＋ 顧問先を追加</a>
+  </div>
+</div>
 
-  <div class="page-header">
-    <div class="page-title-group">
-      <div class="page-title">顧問先一覧</div>
-      <div class="page-subtitle">
-        {% if profession == 'tax' %}<span class="profession-badge badge-tax">税理士</span>
-        {% elif profession == 'legal' %}<span class="profession-badge badge-legal">弁護士</span>
-        {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">公認会計士</span>
-        {% elif profession == 'sr' %}<span class="profession-badge badge-sr">社労士</span>
-        {% else %}<span class="profession-badge badge-none">士業未設定</span>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- 検索 -->
+<div class="search-box">
+  <input type="text" id="searchInput" placeholder="顧問先名・メール・電話番号で検索..." oninput="filterClients()">
+</div>
+
+<!-- 一覧 -->
+<div class="section-title">
+  {% if profession == 'tax' %}<span class="profession-badge badge-tax">税理士</span>
+  {% elif profession == 'legal' %}<span class="profession-badge badge-legal">弁護士</span>
+  {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">公認会計士</span>
+  {% elif profession == 'sr' %}<span class="profession-badge badge-sr">社労士</span>
+  {% else %}<span class="profession-badge badge-none">士業未設定</span>
+  {% endif %}
+  &nbsp;{{ clients | length }}件
+</div>
+
+{% if clients %}
+<div class="client-list" id="clientList">
+  {% for c in clients %}
+  <a href="{{ url_for('clients.client_info', client_id=c.id) }}" class="client-card"
+     data-name="{{ c.name | lower }}" data-email="{{ (c.email or '') | lower }}" data-phone="{{ c.phone or '' }}">
+    <div class="client-card-left">
+      <div class="client-card-name">{{ c.name }}</div>
+      <div class="client-card-meta">
+        {% if c.type %}
+        <span class="meta-tag {% if c.type == '法人' %}tag-type-corp{% else %}tag-type-ind{% endif %}">{{ c.type }}</span>
         {% endif %}
-        &nbsp;{{ clients | length }}件
+        {% if c.email %}
+        <span class="meta-tag tag-email">✉ {{ c.email }}</span>
+        {% endif %}
+        {% if c.phone %}
+        <span class="meta-tag tag-phone">📞 {{ c.phone }}</span>
+        {% endif %}
+        {% if profession == 'tax' and c.tax_accountant_code %}
+        <span class="meta-tag" style="background:#e0e7ff;color:#3730a3;">{{ c.tax_accountant_code }}</span>
+        {% elif profession == 'legal' and c.case_type %}
+        <span class="meta-tag" style="background:#fce7f3;color:#9d174d;">{{ c.case_type }}</span>
+        {% elif profession == 'sr' and c.employee_count %}
+        <span class="meta-tag" style="background:#fef3c7;color:#92400e;">{{ c.employee_count }}名</span>
+        {% endif %}
       </div>
     </div>
-    <a href="{{ url_for('clients.add_client') }}" class="btn-add">
-      &#43; 顧問先を追加
-    </a>
-  </div>
-
-  <!-- 検索バー -->
-  <div class="search-bar">
-    <input type="text" id="searchInput" placeholder="顧問先名・メール・電話番号で検索..." oninput="filterClients()">
-  </div>
-
-  <!-- カードリスト -->
-  {% if clients %}
-  <div class="client-list" id="clientList">
-    {% for c in clients %}
-    <a href="{{ url_for('clients.client_info', client_id=c.id) }}" class="client-card" data-name="{{ c.name | lower }}" data-email="{{ (c.email or '') | lower }}" data-phone="{{ c.phone or '' }}">
-      <div class="client-card-left">
-        <div class="client-card-name">{{ c.name }}</div>
-        <div class="client-card-meta">
-          {% if c.type %}
-          <span class="meta-tag {% if c.type == '法人' %}tag-type-corp{% else %}tag-type-ind{% endif %}">{{ c.type }}</span>
-          {% endif %}
-          {% if c.email %}
-          <span class="meta-tag tag-email">&#9993; {{ c.email }}</span>
-          {% endif %}
-          {% if c.phone %}
-          <span class="meta-tag tag-phone">&#128222; {{ c.phone }}</span>
-          {% endif %}
-          {% if profession == 'tax' and c.tax_accountant_code %}
-          <span class="meta-tag" style="background:#e8eaf6;color:#3949ab;">{{ c.tax_accountant_code }}</span>
-          {% elif profession == 'legal' and c.case_type %}
-          <span class="meta-tag" style="background:#fce4ec;color:#880e4f;">{{ c.case_type }}</span>
-          {% elif profession == 'sr' and c.employee_count %}
-          <span class="meta-tag" style="background:#fff8e1;color:#e65100;">{{ c.employee_count }}名</span>
-          {% endif %}
-        </div>
-      </div>
-      <div class="client-card-right">&#8250;</div>
-    </a>
-    {% endfor %}
-  </div>
-
-  <div id="noResult" style="display:none; text-align:center; padding:30px; color:#aaa; font-size:14px;">
-    検索結果が見つかりませんでした
-  </div>
-
-  {% else %}
-  <div class="empty-state">
-    <div class="icon">&#128101;</div>
-    <div class="msg">顧問先がまだ登録されていません</div>
-    <a href="{{ url_for('clients.add_client') }}" class="btn-add">&#43; 最初の顧問先を追加</a>
-  </div>
-  {% endif %}
-
+    <div class="client-card-right">›</div>
+  </a>
+  {% endfor %}
 </div>
+
+<div id="noResult" style="display:none; text-align:center; padding:2rem; color:#9ca3af; font-size:0.875rem;">
+  検索結果が見つかりませんでした
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">👥</div>
+  <div>顧問先がまだ登録されていません</div>
+  <div style="margin-top:1rem">
+    <a href="{{ url_for('clients.add_client') }}" class="btn-primary">＋ 最初の顧問先を追加</a>
+  </div>
+</div>
+{% endif %}
 
 <script>
 function filterClients() {

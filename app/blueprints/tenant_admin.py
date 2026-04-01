@@ -1860,6 +1860,128 @@ def employee_invite():
         db.close()
 
 
+
+@bp.route('/employees/add_from_admin', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def employee_add_from_admin():
+    """テナント管理者・店舗管理者を従業員として追加"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        stores = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).all()
+
+        if request.method == 'POST':
+            admin_ids = request.form.getlist('admin_ids')
+            store_ids = request.form.getlist('store_ids')
+
+            if not admin_ids:
+                flash('追加するユーザーを1名以上選択してください', 'error')
+                return redirect(url_for('tenant_admin.employees'))
+
+            added = []
+            skipped = []
+            for admin_id_str in admin_ids:
+                admin_id = int(admin_id_str)
+                admin = db.query(TKanrisha).filter(TKanrisha.id == admin_id).first()
+                if not admin:
+                    continue
+
+                # 既に同じlogin_idで従業員登録済みかチェック
+                existing = db.query(TJugyoin).filter(
+                    TJugyoin.login_id == admin.login_id
+                ).first()
+                if existing:
+                    skipped.append(admin.name)
+                    # 既存の従業員に店舗を追加
+                    for sid in store_ids:
+                        already = db.query(TJugyoinTenpo).filter(
+                            TJugyoinTenpo.employee_id == existing.id,
+                            TJugyoinTenpo.store_id == int(sid)
+                        ).first()
+                        if not already:
+                            db.add(TJugyoinTenpo(employee_id=existing.id, store_id=int(sid)))
+                    continue
+
+                # 新規従業員として登録
+                new_emp = TJugyoin(
+                    login_id=admin.login_id,
+                    name=admin.name,
+                    email=admin.email,
+                    password_hash=admin.password_hash,
+                    tenant_id=tenant_id,
+                    role='employee',
+                    active=1,
+                    phone=getattr(admin, 'phone', None),
+                    position=getattr(admin, 'position', None),
+                )
+                db.add(new_emp)
+                db.flush()
+
+                for sid in store_ids:
+                    db.add(TJugyoinTenpo(employee_id=new_emp.id, store_id=int(sid)))
+
+                added.append(admin.name)
+
+            db.commit()
+            if added:
+                flash(f'従業員として追加しました: {", ".join(added)}', 'success')
+            if skipped:
+                flash(f'既に従業員登録済みのため店舗を更新しました: {", ".join(skipped)}', 'info')
+            return redirect(url_for('tenant_admin.employees'))
+
+        # GET: テナントに紐づく管理者一覧を取得
+        tenant_admin_ids = db.query(TTenantAdminTenant.admin_id).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_id_list = [r[0] for r in tenant_admin_ids]
+
+        # 店舗管理者（TKanrishaTenpo経由で同テナントの店舗に紐づく管理者）
+        store_id_list = [s.id for s in stores]
+        store_admin_ids = []
+        if store_id_list:
+            store_admin_rows = db.query(TKanrishaTenpo.admin_id).filter(
+                TKanrishaTenpo.store_id.in_(store_id_list)
+            ).all()
+            store_admin_ids = [r[0] for r in store_admin_rows]
+
+        all_admin_ids = list(set(tenant_admin_id_list + store_admin_ids))
+        admins = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids),
+            TKanrisha.active == 1
+        ).order_by(TKanrisha.name).all()
+
+        # 既に従業員登録済みのlogin_idセット
+        existing_login_ids = set(
+            r[0] for r in db.query(TJugyoin.login_id).filter(
+                TJugyoin.tenant_id == tenant_id
+            ).all()
+        )
+
+        admins_data = []
+        for a in admins:
+            role_label = {
+                'tenant_admin': 'テナント管理者',
+                'admin': '店舗管理者',
+                'system_admin': 'システム管理者',
+            }.get(a.role, a.role)
+            admins_data.append({
+                'id': a.id,
+                'login_id': a.login_id,
+                'name': a.name,
+                'email': a.email,
+                'role': a.role,
+                'role_label': role_label,
+                'already_employee': a.login_id in existing_login_ids,
+            })
+
+        return render_template('tenant_employee_add_from_admin.html',
+                               admins=admins_data,
+                               stores=stores,
+                               tenant=tenant)
+    finally:
+        db.close()
+
 @bp.route('/employees/new', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def employee_new():

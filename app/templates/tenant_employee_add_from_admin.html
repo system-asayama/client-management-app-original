@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}管理者から従業員追加{% endblock %}
+{% block head %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563eb 100%);
+    color: #fff;
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .page-header .subtitle { font-size: 0.85rem; opacity: 0.8; margin-top: 0.25rem; }
+  .header-btn {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .header-btn:hover { background: rgba(255,255,255,0.25); color: #fff; }
+  .card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .alert { padding: 0.85rem 1.1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+  .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .alert-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  .alert-info    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+  .alert-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+  /* 管理者リスト */
+  .admin-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .admin-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .admin-item:hover { border-color: #2563eb; background: #f0f7ff; }
+  .admin-item.selected { border-color: #2563eb; background: #eff6ff; }
+  .admin-item.already { opacity: 0.5; cursor: default; }
+  .admin-item.already:hover { border-color: #e5e7eb; background: #fff; }
+  .admin-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1a3a5c, #2563eb);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .admin-info { flex: 1; min-width: 0; }
+  .admin-name { font-weight: 600; font-size: 0.95rem; color: #1e293b; }
+  .admin-sub  { font-size: 0.78rem; color: #6b7280; margin-top: 0.1rem; }
+  .badge-role {
+    font-size: 0.7rem; font-weight: 600;
+    padding: 0.15rem 0.55rem; border-radius: 99px;
+    white-space: nowrap;
+  }
+  .badge-tenant { background: #ede9fe; color: #5b21b6; }
+  .badge-admin  { background: #dbeafe; color: #1d4ed8; }
+  .badge-sys    { background: #fef3c7; color: #92400e; }
+  .badge-already { background: #f3f4f6; color: #6b7280; font-size: 0.7rem; padding: 0.15rem 0.55rem; border-radius: 99px; }
+
+  /* 店舗選択 */
+  .store-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .store-chip {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 99px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .store-chip:hover { border-color: #2563eb; background: #f0f7ff; }
+  .store-chip.selected { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+  .store-chip input { display: none; }
+
+  /* ボタン */
+  .btn-primary {
+    background: #2563eb; color: #fff;
+    border: none; border-radius: 8px;
+    padding: 0.65rem 1.5rem; font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+  .btn-secondary {
+    background: #f1f5f9; color: #475569;
+    border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 0.65rem 1.5rem; font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: background 0.15s;
+    display: inline-block;
+  }
+  .btn-secondary:hover { background: #e2e8f0; }
+
+  .empty-state { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; }
+  .empty-icon  { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .select-all-bar {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.82rem; color: #6b7280;
+  }
+  .select-all-bar a { color: #2563eb; cursor: pointer; text-decoration: underline; }
+</style>
+{% endblock %}
+{% block content %}
+<!-- ヘッダー -->
+<div class="page-header">
+  <div>
+    <div class="subtitle">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+    <h1>管理者から従業員を追加</h1>
+  </div>
+  <a class="header-btn" href="{{ url_for('tenant_admin.employees') }}">← 従業員一覧へ戻る</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="post" id="addForm">
+  <!-- 管理者選択 -->
+  <div class="card">
+    <div class="card-title">追加するユーザーを選択</div>
+    {% if admins %}
+      <div class="select-all-bar">
+        <span>{{ admins|length }} 名が対象</span>
+        <a onclick="selectAll()">すべて選択</a>
+        <a onclick="clearAll()">すべて解除</a>
+      </div>
+      <div class="admin-list" id="adminList">
+        {% for a in admins %}
+        <label class="admin-item {% if a.already_employee %}already{% endif %}" id="item-{{ a.id }}">
+          <input type="checkbox" name="admin_ids" value="{{ a.id }}"
+            {% if a.already_employee %}disabled{% endif %}
+            onchange="updateItem(this)">
+          <div class="admin-avatar">{{ a.name[0] if a.name else '?' }}</div>
+          <div class="admin-info">
+            <div class="admin-name">{{ a.name }}</div>
+            <div class="admin-sub">{{ a.login_id }}{% if a.email %} &nbsp;·&nbsp; {{ a.email }}{% endif %}</div>
+          </div>
+          {% if a.role == 'tenant_admin' %}
+            <span class="badge-role badge-tenant">テナント管理者</span>
+          {% elif a.role == 'admin' %}
+            <span class="badge-role badge-admin">店舗管理者</span>
+          {% else %}
+            <span class="badge-role badge-sys">{{ a.role_label }}</span>
+          {% endif %}
+          {% if a.already_employee %}
+            <span class="badge-already">登録済み</span>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">👤</div>
+        <div>このテナントに紐づく管理者が見つかりません。</div>
+        <div style="font-size:0.8rem;margin-top:0.5rem;color:#9ca3af;">テナント管理者または店舗管理者を先に登録してください。</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 所属店舗選択（任意） -->
+  {% if stores %}
+  <div class="card">
+    <div class="card-title">所属店舗を選択（任意）</div>
+    <p style="font-size:0.82rem;color:#6b7280;margin-bottom:0.85rem;">選択した店舗に従業員として紐付けます。未選択の場合は店舗なしで登録されます。</p>
+    <div class="store-grid" id="storeGrid">
+      {% for s in stores %}
+      <label class="store-chip" id="store-chip-{{ s.id }}">
+        <input type="checkbox" name="store_ids" value="{{ s.id }}" onchange="updateChip(this, 'store-chip-{{ s.id }}')">
+        🏢 {{ s.名称 }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 送信ボタン -->
+  <div style="display:flex;gap:1rem;align-items:center;">
+    <button type="submit" class="btn-primary" id="submitBtn" disabled>
+      ＋ 従業員として追加
+    </button>
+    <a href="{{ url_for('tenant_admin.employees') }}" class="btn-secondary">キャンセル</a>
+    <span id="selectedCount" style="font-size:0.82rem;color:#6b7280;"></span>
+  </div>
+</form>
+
+<script>
+function updateItem(checkbox) {
+  const label = checkbox.closest('.admin-item');
+  if (checkbox.checked) {
+    label.classList.add('selected');
+  } else {
+    label.classList.remove('selected');
+  }
+  updateSubmitBtn();
+}
+function updateChip(checkbox, chipId) {
+  const chip = document.getElementById(chipId);
+  if (checkbox.checked) {
+    chip.classList.add('selected');
+  } else {
+    chip.classList.remove('selected');
+  }
+}
+function updateSubmitBtn() {
+  const checked = document.querySelectorAll('input[name="admin_ids"]:checked');
+  const btn = document.getElementById('submitBtn');
+  const counter = document.getElementById('selectedCount');
+  btn.disabled = checked.length === 0;
+  counter.textContent = checked.length > 0 ? checked.length + ' 名選択中' : '';
+}
+function selectAll() {
+  document.querySelectorAll('input[name="admin_ids"]:not(:disabled)').forEach(cb => {
+    cb.checked = true;
+    cb.closest('.admin-item').classList.add('selected');
+  });
+  updateSubmitBtn();
+}
+function clearAll() {
+  document.querySelectorAll('input[name="admin_ids"]:not(:disabled)').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.admin-item').classList.remove('selected');
+  });
+  updateSubmitBtn();
+}
+</script>
+{% endblock %}

@@ -1,250 +1,278 @@
 {% extends "base.html" %}
 {% block title %}顧問先追加{% endblock %}
-
+{% block header %}{% endblock %}
 {% block content %}
 <style>
-  .page-wrap { max-width: 700px; margin: 0 auto; }
-  .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
-  .breadcrumb a { color: #1a237e; text-decoration: none; }
-  .breadcrumb a:hover { text-decoration: underline; }
-  .page-title { font-size: 22px; font-weight: 700; color: #1a237e; margin-bottom: 4px; }
-  .flash-msg { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
-  .flash-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
-  .flash-error   { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .profession-badge {
+    display: inline-block; padding: 0.2rem 0.75rem; border-radius: 99px;
+    font-size: 0.8rem; font-weight: 700; margin-bottom: 1.5rem;
+  }
+  .badge-tax        { background: #dbeafe; color: #1e40af; }
+  .badge-legal      { background: #fce7f3; color: #9d174d; }
+  .badge-accounting { background: #dcfce7; color: #166534; }
+  .badge-sr         { background: #fef3c7; color: #92400e; }
+  .badge-none       { background: #f3f4f6; color: #6b7280; }
+
   .form-card {
-    background: #fff; border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-    padding: 28px 28px 24px; margin-bottom: 20px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 1.5rem;
   }
   .section-title {
-    font-size: 14px; font-weight: 700; color: #1a237e;
-    border-left: 4px solid #1a237e; padding-left: 10px;
-    margin: 20px 0 14px;
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 1.5rem 0 1rem;
   }
   .section-title:first-child { margin-top: 0; }
-  .form-row { margin-bottom: 16px; }
-  .form-row label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 5px; }
-  .form-row label .req { color: #e53935; margin-left: 3px; }
+
+  .form-row { margin-bottom: 1rem; }
+  .form-row label { display: block; font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+  .form-row label .req { color: #ef4444; margin-left: 3px; }
   .form-row input, .form-row select, .form-row textarea {
-    width: 100%; padding: 9px 12px;
-    border: 1.5px solid #ddd; border-radius: 8px;
-    font-size: 14px; color: #333; box-sizing: border-box;
+    width: 100%; padding: 0.6rem 0.875rem;
+    border: 1px solid #e5e7eb; border-radius: 8px;
+    font-size: 0.875rem; color: #111827; box-sizing: border-box;
+    transition: border-color 0.15s;
   }
   .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
-    outline: none; border-color: #1a237e;
+    outline: none; border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.08);
   }
-  .form-row .hint { font-size: 12px; color: #999; margin-top: 4px; }
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
   @media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } }
-  .profession-badge {
-    display: inline-block; padding: 4px 14px; border-radius: 20px;
-    font-size: 13px; font-weight: 700; margin-bottom: 16px;
-  }
-  .badge-tax        { background: #e3f2fd; color: #1565c0; }
-  .badge-legal      { background: #fce4ec; color: #880e4f; }
-  .badge-accounting { background: #e8f5e9; color: #1b5e20; }
-  .badge-sr         { background: #fff8e1; color: #e65100; }
-  .badge-none       { background: #f5f5f5; color: #777; }
+
   .btn-submit {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 11px 28px; border-radius: 8px;
-    font-size: 15px; font-weight: 700;
-    background: #1a237e; color: #fff;
-    border: none; cursor: pointer;
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.65rem 1.75rem; border-radius: 8px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    transition: background 0.15s;
   }
-  .btn-back {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 20px; border-radius: 6px;
-    font-size: 14px; font-weight: 600;
-    background: #e8eaf6; color: #1a237e;
-    text-decoration: none; margin-left: 10px;
+  .btn-submit:hover { background: #1a4f8a; }
+  .btn-cancel {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    margin-left: 0.75rem; display: inline-block;
+    transition: background 0.15s;
   }
+  .btn-cancel:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
 </style>
 
-<div class="page-wrap">
-  <div class="breadcrumb">
-    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> &rsaquo; 顧問先追加
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">顧問先管理</div>
+    <h1>👤 顧問先追加</h1>
   </div>
-  <div class="page-title">顧問先追加</div>
-  <div style="margin-bottom:16px">
-    {% if profession == 'tax' %}<span class="profession-badge badge-tax">&#128202; 税理士</span>
-    {% elif profession == 'legal' %}<span class="profession-badge badge-legal">&#9878; 弁護士</span>
-    {% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">&#128200; 公認会計士</span>
-    {% elif profession == 'sr' %}<span class="profession-badge badge-sr">&#128101; 社労士</span>
-    {% else %}<span class="profession-badge badge-none">士業未設定</span>
-    {% endif %}
+  <div class="header-actions">
+    <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ</a>
   </div>
+</div>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}{% for category, message in messages %}
-    <div class="flash-msg flash-{{ category }}">{{ message }}</div>
-    {% endfor %}{% endif %}
-  {% endwith %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for category, message in messages %}
+  <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
 
-  <form method="POST">
-    <div class="form-card">
-      <div class="section-title">基本情報</div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>区分 <span class="req">*</span></label>
-          <select name="type" required>
-            <option value="">選択してください</option>
-            <option value="個人">{% if profession == 'legal' %}個人（自然人）{% else %}個人{% endif %}</option>
-            <option value="法人">{% if profession == 'legal' %}法人・団体{% else %}法人{% endif %}</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>
-            {% if profession == 'legal' %}依頼者名 / 案件名
-            {% elif profession == 'sr' %}会社名 / 事業所名
-            {% else %}名称{% endif %}
-            <span class="req">*</span>
-          </label>
-          <input type="text" name="name" required placeholder="例: 株式会社○○">
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>メールアドレス</label>
-          <input type="email" name="email" placeholder="例: info@example.com">
-        </div>
-        <div class="form-row">
-          <label>電話番号</label>
-          <input type="text" name="phone" placeholder="例: 03-1234-5678">
-        </div>
-      </div>
+{% if profession == 'tax' %}<span class="profession-badge badge-tax">📊 税理士</span>
+{% elif profession == 'legal' %}<span class="profession-badge badge-legal">⚖ 弁護士</span>
+{% elif profession == 'accounting' %}<span class="profession-badge badge-accounting">📈 公認会計士</span>
+{% elif profession == 'sr' %}<span class="profession-badge badge-sr">👥 社労士</span>
+{% else %}<span class="profession-badge badge-none">士業未設定</span>
+{% endif %}
+
+<form method="POST">
+  <div class="form-card">
+    <div class="section-title">基本情報</div>
+    <div class="form-grid">
       <div class="form-row">
-        <label>住所</label>
-        <input type="text" name="address" placeholder="例: 東京都渋谷区○○1-2-3">
-      </div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>業種</label>
-          <input type="text" name="industry" placeholder="例: 製造業、小売業">
-        </div>
-        <div class="form-row">
-          <label>契約開始日</label>
-          <input type="date" name="contract_start_date">
-        </div>
-      </div>
-      {% if profession != 'legal' %}
-      <div class="form-row">
-        <label>決算月</label>
-        <select name="fiscal_year_end">
+        <label>区分 <span class="req">*</span></label>
+        <select name="type" required>
           <option value="">選択してください</option>
-          {% for m in range(1, 13) %}
-          <option value="{{ m }}月">{{ m }}月</option>
-          {% endfor %}
+          <option value="個人">{% if profession == 'legal' %}個人（自然人）{% else %}個人{% endif %}</option>
+          <option value="法人">{% if profession == 'legal' %}法人・団体{% else %}法人{% endif %}</option>
         </select>
       </div>
-      {% endif %}
-
-      {% if profession == 'tax' %}
-      <div class="section-title">税理士業務情報</div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>顧問先コード</label>
-          <input type="text" name="tax_accountant_code" placeholder="例: C-001">
-        </div>
-        <div class="form-row">
-          <label>法人番号 / マイナンバー</label>
-          <input type="text" name="tax_id_number" placeholder="例: 1234567890123">
-        </div>
+      <div class="form-row">
+        <label>
+          {% if profession == 'legal' %}依頼者名 / 案件名
+          {% elif profession == 'sr' %}会社名 / 事業所名
+          {% else %}名称{% endif %}
+          <span class="req">*</span>
+        </label>
+        <input type="text" name="name" required placeholder="例: 株式会社○○">
       </div>
-
-      {% elif profession == 'legal' %}
-      <div class="section-title">弁護士業務情報</div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>事件番号</label>
-          <input type="text" name="case_number" placeholder="例: 令和6年（ワ）第1234号">
-        </div>
-        <div class="form-row">
-          <label>事件種別</label>
-          <select name="case_type">
-            <option value="">選択してください</option>
-            <option value="民事訴訟">民事訴訟</option>
-            <option value="刑事弁護">刑事弁護</option>
-            <option value="家事事件">家事事件（離婚・相続等）</option>
-            <option value="労働事件">労働事件</option>
-            <option value="倒産・再生">倒産・再生</option>
-            <option value="企業法務">企業法務・顧問</option>
-            <option value="不動産">不動産関連</option>
-            <option value="交通事故">交通事故</option>
-            <option value="債権回収">債権回収</option>
-            <option value="その他">その他</option>
-          </select>
-        </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>メールアドレス</label>
+        <input type="email" name="email" placeholder="例: info@example.com">
       </div>
       <div class="form-row">
-        <label>相手方</label>
-        <input type="text" name="opposing_party" placeholder="例: 株式会社○○ / 山田 花子">
+        <label>電話番号</label>
+        <input type="text" name="phone" placeholder="例: 03-1234-5678">
       </div>
-
-      {% elif profession == 'accounting' %}
-      <div class="section-title">公認会計士業務情報</div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>監査種別</label>
-          <select name="audit_type">
-            <option value="">選択してください</option>
-            <option value="法定監査">法定監査</option>
-            <option value="任意監査">任意監査</option>
-            <option value="レビュー">レビュー</option>
-            <option value="合意された手続き">合意された手続き</option>
-            <option value="コンサルティング">コンサルティング</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>上場区分</label>
-          <select name="listed">
-            <option value="0">非上場</option>
-            <option value="1">上場</option>
-          </select>
-        </div>
-      </div>
-
-      {% elif profession == 'sr' %}
-      <div class="section-title">社労士業務情報</div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>従業員数</label>
-          <input type="number" name="employee_count" min="0" placeholder="例: 50">
-        </div>
-        <div class="form-row">
-          <label>給与締め日</label>
-          <select name="payroll_closing_day">
-            <option value="">選択してください</option>
-            <option value="末日">末日</option>
-            <option value="10日">10日</option>
-            <option value="15日">15日</option>
-            <option value="20日">20日</option>
-            <option value="25日">25日</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label>労働保険番号</label>
-          <input type="text" name="labor_insurance_number" placeholder="例: 12-345678-901">
-        </div>
-        <div class="form-row">
-          <label>社会保険番号（事業所整理記号）</label>
-          <input type="text" name="social_insurance_number" placeholder="例: 01-イロハ">
-        </div>
-      </div>
-      {% endif %}
-
-      <div class="section-title">メモ</div>
+    </div>
+    <div class="form-row">
+      <label>住所</label>
+      <input type="text" name="address" placeholder="例: 東京都渋谷区○○1-2-3">
+    </div>
+    <div class="form-grid">
       <div class="form-row">
-        <textarea name="notes" rows="3" placeholder="備考・メモを入力してください"></textarea>
+        <label>業種</label>
+        <input type="text" name="industry" placeholder="例: 製造業、小売業">
+      </div>
+      <div class="form-row">
+        <label>契約開始日</label>
+        <input type="date" name="contract_start_date">
+      </div>
+    </div>
+    {% if profession != 'legal' %}
+    <div class="form-row">
+      <label>決算月</label>
+      <select name="fiscal_year_end">
+        <option value="">選択してください</option>
+        {% for m in range(1, 13) %}
+        <option value="{{ m }}月">{{ m }}月</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    {% if profession == 'tax' %}
+    <div class="section-title">税理士業務情報</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>顧問先コード</label>
+        <input type="text" name="tax_accountant_code" placeholder="例: C-001">
+      </div>
+      <div class="form-row">
+        <label>法人番号 / マイナンバー</label>
+        <input type="text" name="tax_id_number" placeholder="例: 1234567890123">
       </div>
     </div>
 
-    <div>
-      <button type="submit" class="btn-submit">+ 顧問先を追加</button>
-      <a href="{{ url_for('clients.clients') }}" class="btn-back">← キャンセル</a>
+    {% elif profession == 'legal' %}
+    <div class="section-title">弁護士業務情報</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>事件番号</label>
+        <input type="text" name="case_number" placeholder="例: 令和6年（ワ）第1234号">
+      </div>
+      <div class="form-row">
+        <label>事件種別</label>
+        <select name="case_type">
+          <option value="">選択してください</option>
+          <option value="民事訴訟">民事訴訟</option>
+          <option value="刑事弁護">刑事弁護</option>
+          <option value="家事事件">家事事件（離婚・相続等）</option>
+          <option value="労働事件">労働事件</option>
+          <option value="倒産・再生">倒産・再生</option>
+          <option value="企業法務">企業法務・顧問</option>
+          <option value="不動産">不動産関連</option>
+          <option value="交通事故">交通事故</option>
+          <option value="債権回収">債権回収</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
     </div>
-  </form>
-</div>
+    <div class="form-row">
+      <label>相手方</label>
+      <input type="text" name="opposing_party" placeholder="例: 株式会社○○ / 山田 花子">
+    </div>
+
+    {% elif profession == 'accounting' %}
+    <div class="section-title">公認会計士業務情報</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>監査種別</label>
+        <select name="audit_type">
+          <option value="">選択してください</option>
+          <option value="法定監査">法定監査</option>
+          <option value="任意監査">任意監査</option>
+          <option value="レビュー">レビュー</option>
+          <option value="合意された手続き">合意された手続き</option>
+          <option value="コンサルティング">コンサルティング</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>上場区分</label>
+        <select name="listed">
+          <option value="0">非上場</option>
+          <option value="1">上場</option>
+        </select>
+      </div>
+    </div>
+
+    {% elif profession == 'sr' %}
+    <div class="section-title">社労士業務情報</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>従業員数</label>
+        <input type="number" name="employee_count" min="0" placeholder="例: 50">
+      </div>
+      <div class="form-row">
+        <label>給与締め日</label>
+        <select name="payroll_closing_day">
+          <option value="">選択してください</option>
+          <option value="末日">末日</option>
+          <option value="10日">10日</option>
+          <option value="15日">15日</option>
+          <option value="20日">20日</option>
+          <option value="25日">25日</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>労働保険番号</label>
+        <input type="text" name="labor_insurance_number" placeholder="例: 12-345678-901">
+      </div>
+      <div class="form-row">
+        <label>社会保険番号（事業所整理記号）</label>
+        <input type="text" name="social_insurance_number" placeholder="例: 01-イロハ">
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="section-title">メモ</div>
+    <div class="form-row">
+      <textarea name="notes" rows="3" placeholder="備考・メモを入力してください"></textarea>
+    </div>
+  </div>
+
+  <div>
+    <button type="submit" class="btn-submit">＋ 顧問先を追加</button>
+    <a href="{{ url_for('clients.clients') }}" class="btn-cancel">← キャンセル</a>
+  </div>
+</form>
 {% endblock %}

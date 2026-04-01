@@ -7,6 +7,10 @@
     <h3>システム管理者</h3>
     <p class="small" style="color:#666">全テナント横断の最高権限</p>
   </a>
+  <a class="card" href="{{ url_for('app_manager.login') }}" style="text-decoration:none">
+    <h3>アプリ管理者</h3>
+    <p class="small" style="color:#666">アプリ配布・管理グループの管理者</p>
+  </a>
   <a class="card" href="{{ url_for('auth.tenant_admin_login') }}" style="text-decoration:none">
     <h3>テナント管理者</h3>
     <p class="small" style="color:#666">テナント単位の管理者</p>

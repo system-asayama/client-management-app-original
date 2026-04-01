@@ -15,8 +15,9 @@ class TKanrisha(Base):
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
     password_hash = Column(Text, nullable=False)
-    role = Column(String(50), default='admin')  # system_admin, tenant_admin, admin
+    role = Column(String(50), default='admin')  # system_admin, tenant_admin, admin, app_manager
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=True)
+    app_manager_group_id = Column(Integer, ForeignKey('T_アプリ管理者グループ.id'), nullable=True, comment='アプリ管理者が所属するグループID')
     active = Column(Integer, default=1)
     is_owner = Column(Integer, default=0)
     can_manage_admins = Column(Integer, default=0)

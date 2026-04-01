@@ -1,78 +1,172 @@
 {% extends "base.html" %}
+{% block title %}事務所情報の編集{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
-<div style="margin-bottom:20px">
-  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant['name'] if tenant else 'テナント名' }}</div>
-  <h2 style="margin-top:12px">テナント情報の編集</h2>
+<style>
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .form-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 1.5rem;
+    max-width: 700px;
+  }
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 1.5rem 0 1rem;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  .form-row { margin-bottom: 1rem; }
+  .form-row label { display: block; font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+  .form-row label .req { color: #ef4444; margin-left: 3px; }
+  .form-row .hint { font-size: 0.75rem; color: #9ca3af; margin-top: 0.3rem; }
+  .form-row input, .form-row select, .form-row textarea {
+    width: 100%; padding: 0.6rem 0.875rem;
+    border: 1px solid #e5e7eb; border-radius: 8px;
+    font-size: 0.875rem; color: #111827; box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+    outline: none; border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.08);
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  @media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } }
+
+  .btn-submit {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.65rem 1.75rem; border-radius: 8px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-submit:hover { background: #1a4f8a; }
+  .btn-cancel {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    margin-left: 0.75rem; display: inline-block;
+    transition: background 0.15s;
+  }
+  .btn-cancel:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+</style>
+
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">{{ tenant['name'] if tenant else '事務所' }}</div>
+    <h1>⚙️ 事務所情報の編集</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.tenant_info') }}">← 戻る</a>
+  </div>
 </div>
-<p class="small" style="color:#666">テナントの基本情報を編集します。</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for category, message in messages %}
+  <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
 
 <form method="post" action="">
   {% if session.csrf_token %}
     <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
   {% endif %}
 
-  <div class="card" style="max-width:680px">
-    <div class="row">
-      <label>名称 <span style="color:red">*</span></label>
-      <input name="name" value="{{ tenant['name'] if tenant else '' }}" required>
+  <div class="form-card">
+    <div class="section-title">基本情報</div>
+
+    <div class="form-row">
+      <label>名称 <span class="req">*</span></label>
+      <input name="name" value="{{ tenant['name'] if tenant else '' }}" required placeholder="例: 税理士法人○○">
     </div>
 
-    <div class="row">
-      <label>slug <span style="color:red">*</span></label>
-      <input name="slug" value="{{ tenant['slug'] if tenant else '' }}" required>
-      <p class="small" style="color:#666">URL に使う英数字・ハイフンの識別子</p>
+    <div class="form-row">
+      <label>slug <span class="req">*</span></label>
+      <input name="slug" value="{{ tenant['slug'] if tenant else '' }}" required placeholder="例: zeioks">
+      <div class="hint">URL に使う英数字・ハイフンの識別子</div>
     </div>
 
-    <div class="row">
-      <label>郵便番号</label>
-      <input name="postal_code" value="{{ tenant['postal_code'] if tenant else '' }}" placeholder="例: 123-4567">
+    <div class="form-grid">
+      <div class="form-row">
+        <label>郵便番号</label>
+        <input name="postal_code" value="{{ tenant['postal_code'] if tenant else '' }}" placeholder="例: 123-4567">
+      </div>
+      <div class="form-row">
+        <label>電話番号</label>
+        <input name="phone" value="{{ tenant['phone'] if tenant else '' }}" placeholder="例: 03-1234-5678">
+      </div>
     </div>
 
-    <div class="row">
+    <div class="form-row">
       <label>住所</label>
-      <input name="address" value="{{ tenant['address'] if tenant else '' }}" placeholder="例: 東京都渋谷区...">
+      <input name="address" value="{{ tenant['address'] if tenant else '' }}" placeholder="例: 東京都渋谷区○○1-2-3">
     </div>
 
-    <div class="row">
-      <label>電話番号</label>
-      <input name="phone" value="{{ tenant['phone'] if tenant else '' }}" placeholder="例: 03-1234-5678">
-    </div>
-
-    <div class="row">
+    <div class="form-row">
       <label>メールアドレス</label>
       <input type="email" name="email" value="{{ tenant['email'] if tenant else '' }}" placeholder="例: info@example.com">
     </div>
 
-    <div class="row">
+    <div class="section-title">士業・システム設定</div>
+
+    <div class="form-row">
       <label>士業種別</label>
-      <select name="profession" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:1em">
+      <select name="profession">
         <option value="" {% if not tenant or not tenant.get('profession') %}selected{% endif %}>未設定</option>
         <option value="tax" {% if tenant and tenant.get('profession') == 'tax' %}selected{% endif %}>📊 税理士</option>
         <option value="legal" {% if tenant and tenant.get('profession') == 'legal' %}selected{% endif %}>⚖️ 弁護士</option>
         <option value="accounting" {% if tenant and tenant.get('profession') == 'accounting' %}selected{% endif %}>📈 公認会計士</option>
         <option value="sr" {% if tenant and tenant.get('profession') == 'sr' %}selected{% endif %}>👥 社労士</option>
       </select>
-      <p class="small" style="color:#666">士業種別を設定すると、顧問先管理の入力項目が士業に合わせて最適化されます</p>
+      <div class="hint">士業種別を設定すると、顧問先管理の入力項目が士業に合わせて最適化されます</div>
     </div>
 
-    <div class="row">
+    <div class="form-row">
       <label>OpenAI APIキー</label>
       <input type="text" name="openai_api_key" value="{{ tenant['openai_api_key'] if tenant else '' }}" placeholder="sk-...">
-      <p class="small" style="color:#666">テナント内の全店舗で使用されるOpenAI APIキーを設定します</p>
+      <div class="hint">テナント内の全店舗で使用されるOpenAI APIキーを設定します</div>
     </div>
 
-    <div class="row">
+    <div class="form-row">
       <label>有効/無効</label>
-      <select name="active" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:1em">
+      <select name="active">
         <option value="1" {% if tenant and tenant['active'] == 1 %}selected{% endif %}>有効</option>
         <option value="0" {% if tenant and tenant['active'] == 0 %}selected{% endif %}>無効</option>
       </select>
     </div>
+  </div>
 
-    <div class="actions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="btn" type="submit">保存</button>
-      <a class="btn sub" href="{{ url_for('tenant_admin.tenant_info') }}">戻る</a>
-    </div>
+  <div>
+    <button type="submit" class="btn-submit">💾 保存する</button>
+    <a href="{{ url_for('tenant_admin.tenant_info') }}" class="btn-cancel">← キャンセル</a>
   </div>
 </form>
 {% endblock %}

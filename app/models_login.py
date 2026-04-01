@@ -293,3 +293,16 @@ class TNoticeRead(Base):
     staff_id = Column(Integer, nullable=False)
     staff_type = Column(String(20), default='admin')
     read_at = Column(DateTime, server_default=func.now())
+
+class TAppManagerGroup(Base):
+    """T_アプリ管理者グループテーブル（税理士事務所など）"""
+    __tablename__ = 'T_アプリ管理者グループ'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_name = Column(String(255), nullable=False, comment='グループ名（事務所名など）')
+    contact_email = Column(String(255), nullable=True, comment='連絡先メールアドレス')
+    contact_phone = Column(String(50), nullable=True, comment='連絡先電話番号')
+    description = Column(Text, nullable=True, comment='グループの説明')
+    active = Column(Integer, default=1, comment='有効/無効')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

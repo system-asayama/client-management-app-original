@@ -167,6 +167,12 @@ def create_app() -> Flask:
         print(f"⚠️ auth blueprint 登録エラー: {e}")
 
     try:
+        from .blueprints.app_manager import bp as app_manager_bp
+        app.register_blueprint(app_manager_bp)
+    except Exception as e:
+        print(f"⚠️ app_manager blueprint 登録エラー: {e}")
+
+    try:
         from .blueprints.system_admin import bp as system_admin_bp
         app.register_blueprint(system_admin_bp)
     except Exception as e:

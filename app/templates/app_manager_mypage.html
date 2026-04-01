@@ -30,7 +30,7 @@
     }
   }
 </style>
-<h1>システム管理者マイページ</h1>
+<h1>アプリ管理者マイページ</h1>
 
 <div class="card" style="max-width:640px">
   <h2>プロフィール情報</h2>
@@ -58,12 +58,8 @@
         <td>{{ user.role }}</td>
       </tr>
       <tr>
-        <th>オーナー権限</th>
-        <td>{{ 'あり' if user.is_owner else 'なし' }}</td>
-      </tr>
-      <tr>
-        <th>管理者管理権限</th>
-        <td>{{ 'あり' if user.can_manage_admins else 'なし' }}</td>
+        <th>所属グループ</th>
+        <td>{{ user.group_name }}</td>
       </tr>
       <tr>
         <th>作成日時</th>
@@ -77,31 +73,14 @@
   </div>
 
   <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap">
-    <a class="btn sub" href="{{ url_for('system_admin.dashboard') }}">システム管理者ダッシュボードへ進む</a>
-    <a class="btn" href="{{ url_for('system_admin.edit_profile') }}">プロフィール編集</a>
-    <a class="btn" href="{{ url_for('system_admin.change_password') }}">パスワード変更</a>
+    <a class="btn sub" href="{{ url_for('app_manager.dashboard') }}">アプリ管理者ダッシュボードへ進む</a>
+    <a class="btn" href="{{ url_for('app_manager.edit_profile') }}">プロフィール編集</a>
+    <a class="btn" href="{{ url_for('app_manager.change_password') }}">パスワード変更</a>
   </div>
-
-  <h2 style="margin-top:30px">アプリ管理者グループ選択</h2>
-  <p style="margin-top:10px; color:#666">アプリ管理者グループを選択してアプリ管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('system_admin.select_app_manager_group_from_mypage') }}" style="margin-top:20px">
-    <div style="margin-bottom:15px">
-      <label for="group_search" style="display:block; margin-bottom:5px">グループを検索</label>
-      <input type="text" id="group_search" placeholder="グループ名で検索..." oninput="filterGroups()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px">
-      <label for="group_id" style="display:block; margin-bottom:5px">グループを選択</label>
-      <select id="group_id" name="group_id" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-        <option value="">-- グループを選択してください --</option>
-        {% for group in app_manager_groups %}
-          <option value="{{ group.id }}" data-name="{{ group.name }}">{{ group.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn">アプリ管理者ダッシュボードへ進む</button>
-  </form>
 
   <h2 style="margin-top:30px">テナント選択</h2>
   <p style="margin-top:10px; color:#666">テナントを選択してテナント管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('system_admin.select_tenant_from_mypage') }}" style="margin-top:20px">
+  <form method="POST" action="{{ url_for('app_manager.select_tenant_from_mypage') }}" style="margin-top:20px">
     <div style="margin-bottom:15px">
       <label for="tenant_search" style="display:block; margin-bottom:5px">テナントを検索</label>
       <input type="text" id="tenant_search" placeholder="テナント名で検索..." oninput="filterTenants()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px">
@@ -118,7 +97,7 @@
 
   <h2 style="margin-top:30px">店舗選択</h2>
   <p style="margin-top:10px; color:#666">店舗を選択して店舗管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('system_admin.select_store_from_mypage') }}" style="margin-top:20px">
+  <form method="POST" action="{{ url_for('app_manager.select_store_from_mypage') }}" style="margin-top:20px">
     <div style="margin-bottom:15px">
       <label for="store_tenant_search" style="display:block; margin-bottom:5px">テナントを検索</label>
       <input type="text" id="store_tenant_search" placeholder="テナント名で検索..." oninput="filterStoreTenants()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px">
@@ -145,32 +124,6 @@
   </form>
 
   <script>
-  // グループ選択の検索機能
-  function filterGroups() {
-    const searchText = document.getElementById('group_search').value.toLowerCase();
-    const groupSelect = document.getElementById('group_id');
-    const options = groupSelect.querySelectorAll('option');
-    
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const option = options[i];
-      const groupName = option.dataset.name.toLowerCase();
-      
-      if (groupName.includes(searchText)) {
-        option.style.display = '';
-        visibleCount++;
-      } else {
-        option.style.display = 'none';
-      }
-    }
-    
-    if (visibleCount === 0 && searchText) {
-      options[0].textContent = '-- 検索結果がありません --';
-    } else {
-      options[0].textContent = '-- グループを選択してください --';
-    }
-  }
-  
   // テナント選択の検索機能
   function filterTenants() {
     const searchText = document.getElementById('tenant_search').value.toLowerCase();

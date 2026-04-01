@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}プロフィール編集 - アプリ管理者{% endblock %}
+{% block content %}
+<h1>プロフィール編集</h1>
+
+<div style="margin-bottom:20px">
+  <a class="btn sub" href="{{ url_for('app_manager.mypage') }}">マイページに戻る</a>
+</div>
+
+<div style="max-width:600px;background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+  <form method="post" style="display:flex;flex-direction:column;gap:20px">
+    <div>
+      <label for="login_id" style="display:block;margin-bottom:8px;font-weight:bold">ログインID <span style="color:red">*</span></label>
+      <input 
+        type="text" 
+        id="login_id" 
+        name="login_id" 
+        value="{{ app_manager.login_id }}"
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+    </div>
+    
+    <div>
+      <label for="name" style="display:block;margin-bottom:8px;font-weight:bold">氏名 <span style="color:red">*</span></label>
+      <input 
+        type="text" 
+        id="name" 
+        name="name" 
+        value="{{ app_manager.name }}"
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+    </div>
+    
+    <div>
+      <label for="email" style="display:block;margin-bottom:8px;font-weight:bold">メールアドレス <span style="color:red">*</span></label>
+      <input 
+        type="email" 
+        id="email" 
+        name="email" 
+        value="{{ app_manager.email }}"
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+    </div>
+    
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button type="submit" class="btn">保存する</button>
+      <a href="{{ url_for('app_manager.mypage') }}" class="btn" style="background:#999">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

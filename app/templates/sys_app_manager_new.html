@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}アプリ管理者作成{% endblock %}
+{% block content %}
+<h1>アプリ管理者作成</h1>
+<div style="margin-bottom:20px">
+  {% if preselected_group_id %}
+  <a class="btn sub" href="{{ url_for('system_admin.app_manager_group_detail', group_id=preselected_group_id) }}">グループ詳細に戻る</a>
+  {% else %}
+  <a class="btn sub" href="{{ url_for('system_admin.app_manager_groups') }}">一覧に戻る</a>
+  {% endif %}
+</div>
+<div class="card" style="max-width:700px">
+  <form method="post">
+    <div style="margin-bottom:20px">
+      <label for="app_manager_group_id" style="display:block;margin-bottom:8px;font-weight:bold">所属グループ <span style="color:red">*</span></label>
+      <select 
+        id="app_manager_group_id" 
+        name="app_manager_group_id"
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px">
+        <option value="">-- グループを選択してください --</option>
+        {% for group in groups %}
+        <option value="{{ group.id }}" {% if preselected_group_id == group.id %}selected{% endif %}>{{ group.group_name }}</option>
+        {% endfor %}
+      </select>
+      <small style="color:#666">アプリ管理者が所属するグループを選択してください</small>
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="login_id" style="display:block;margin-bottom:8px;font-weight:bold">ログインID <span style="color:red">*</span></label>
+      <input 
+        type="text" 
+        id="login_id" 
+        name="login_id" 
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="app_manager01">
+      <small style="color:#666">半角英数字とアンダースコアで入力してください</small>
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="name" style="display:block;margin-bottom:8px;font-weight:bold">氏名 <span style="color:red">*</span></label>
+      <input 
+        type="text" 
+        id="name" 
+        name="name" 
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="山田 太郎">
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="email" style="display:block;margin-bottom:8px;font-weight:bold">メールアドレス <span style="color:red">*</span></label>
+      <input 
+        type="email" 
+        id="email" 
+        name="email" 
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="manager@example.com">
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="password" style="display:block;margin-bottom:8px;font-weight:bold">パスワード <span style="color:red">*</span></label>
+      <input 
+        type="password" 
+        id="password" 
+        name="password" 
+        required
+        minlength="8"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="8文字以上">
+      <small style="color:#666">8文字以上で設定してください</small>
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="password_confirm" style="display:block;margin-bottom:8px;font-weight:bold">パスワード（確認） <span style="color:red">*</span></label>
+      <input 
+        type="password" 
+        id="password_confirm" 
+        name="password_confirm" 
+        required
+        minlength="8"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="もう一度入力してください">
+    </div>
+    
+    <div style="display:flex;gap:10px;margin-top:30px">
+      <button type="submit" class="btn">作成する</button>
+      {% if preselected_group_id %}
+      <a href="{{ url_for('system_admin.app_manager_group_detail', group_id=preselected_group_id) }}" class="btn" style="background:#999">キャンセル</a>
+      {% else %}
+      <a href="{{ url_for('system_admin.app_manager_groups') }}" class="btn" style="background:#999">キャンセル</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+<script>
+  // パスワード一致確認
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('password_confirm').value;
+    
+    if (password !== confirm) {
+      e.preventDefault();
+      alert('パスワードが一致しません');
+    }
+  });
+</script>
+{% endblock %}

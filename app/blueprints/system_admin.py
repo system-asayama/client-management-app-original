@@ -2555,6 +2555,89 @@ def app_manager_group_delete(group_id):
     finally:
         db.close()
 
+
+@bp.route('/app_manager/new', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_manager_new():
+    """アプリ管理者新規作成"""
+    from app.models_login import TAppManagerGroup
+    
+    db = SessionLocal()
+    try:
+        # グループ一覧を取得
+        groups = db.query(TAppManagerGroup).filter(TAppManagerGroup.active == 1).order_by(TAppManagerGroup.group_name).all()
+        
+        # URLパラメータからgroup_idを取得
+        preselected_group_id = request.args.get('group_id', type=int)
+        
+        if request.method == 'GET':
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        # POST処理
+        login_id = request.form.get('login_id', '').strip()
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+        group_id = request.form.get('app_manager_group_id', '').strip()
+        
+        # バリデーション
+        if not login_id or not name or not email or not password:
+            flash('必須項目を全て入力してください', 'error')
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        if not group_id:
+            flash('所属グループを選択してください', 'error')
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        if password != password_confirm:
+            flash('パスワードが一致しません', 'error')
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        if len(password) < 8:
+            flash('パスワードは8文字以上にしてください', 'error')
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        # ログインID重複チェック
+        existing = db.query(TKanrisha).filter(TKanrisha.login_id == login_id).first()
+        if existing:
+            flash(f'ログインID "{login_id}" は既に使用されています', 'error')
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        # グループの存在確認
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        if not group:
+            flash('選択されたグループが見つかりません', 'error')
+            return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+        
+        # 新規アプリ管理者作成
+        new_manager = TKanrisha(
+            login_id=login_id,
+            name=name,
+            email=email,
+            password_hash=generate_password_hash(password),
+            role='app_manager',
+            app_manager_group_id=int(group_id),
+            active=1
+        )
+        db.add(new_manager)
+        db.commit()
+        
+        flash(f'アプリ管理者「{name}」を作成しました（所属: {group.group_name}）', 'success')
+        
+        # グループ詳細から来た場合はグループ詳細に戻る
+        if preselected_group_id:
+            return redirect(url_for('system_admin.app_manager_group_detail', group_id=preselected_group_id))
+        else:
+            return redirect(url_for('system_admin.app_manager_groups'))
+        
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return render_template('sys_app_manager_new.html', groups=groups, preselected_group_id=preselected_group_id)
+    finally:
+        db.close()
+
 @bp.route('/app_limit_management', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def app_limit_management():

@@ -1,31 +1,90 @@
 {% extends "base.html" %}
 {% block title %}利用可能アプリ一覧{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
-<div style="margin-bottom:20px">
-  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
-  <h1 style="margin-top:12px">利用可能アプリ一覧</h1>
-</div>
+<style>
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
 
-<div class="card">
-  <h2>{{ tenant.名称 if tenant else 'テナント名' }} で利用可能なアプリ</h2>
-  
-  {% if apps and apps|length > 0 %}
-    <div style="margin-top:20px">
-      {% for app in apps %}
-      <a href="{{ app.url if app.url else '#' }}" style="text-decoration:none;color:inherit">
-        <div class="card" style="margin-bottom:16px;cursor:pointer">
-          <h3 style="color:#6B46C1;margin-bottom:8px">{{ app.display_name }}</h3>
-          <p style="color:#666;margin:0">{{ app.description or '利用可能なアプリの一覧を表示' }}</p>
-        </div>
-      </a>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p style="color:#999;margin-top:20px">利用可能なアプリはありません</p>
-  {% endif %}
+  .app-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1rem;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: all 0.18s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .app-card:hover {
+    border-color: #2563a8;
+    box-shadow: 0 6px 20px rgba(37,99,168,0.12);
+    transform: translateY(-2px);
+  }
+  .app-card h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin: 0 0 0.5rem;
+  }
+  .app-card p {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .no-apps {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #9ca3af;
+    font-size: 0.9rem;
+  }
+</style>
 
-  <div style="margin-top:20px">
-    <a class="btn sub" href="{{ url_for('tenant_admin.dashboard') }}">ダッシュボードに戻る</a>
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+    <h1>📱 利用可能アプリ一覧</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードへ</a>
   </div>
 </div>
+
+{% if apps and apps|length > 0 %}
+  {% for app in apps %}
+  <a href="{{ app.url if app.url else '#' }}" class="app-card">
+    <h3>{{ app.display_name }}</h3>
+    <p>{{ app.description or '顧問先・クライアント管理システム' }}</p>
+  </a>
+  {% endfor %}
+{% else %}
+  <div class="no-apps">利用可能なアプリはありません</div>
+{% endif %}
 {% endblock %}

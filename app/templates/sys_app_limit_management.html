@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}利用可能アプリ管理{% endblock %}
+{% block content %}
+<h2>利用可能アプリ管理</h2>
+<p class="small" style="color:#666">アプリ管理者グループが配布できるアプリ種類数の上限を設定します</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% if groups %}
+  <div style="margin-top:20px">
+    <table>
+      <thead>
+        <tr>
+          <th>グループ名</th>
+          <th>オーナー</th>
+          <th>メンバー数</th>
+          <th>アプリ種類上限</th>
+          <th>配布済み種類</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in groups %}
+        <tr>
+          <td>{{ group.group_name }}</td>
+          <td>{{ group.owner_name }}</td>
+          <td>{{ group.member_count }}名</td>
+          <td>
+            {% if group.app_limit is none %}
+              <span style="color:#666">無制限</span>
+            {% else %}
+              {{ group.app_limit }}種類
+            {% endif %}
+          </td>
+          <td>{{ group.distributed_app_types }}種類</td>
+          <td>
+            <button class="button secondary small" onclick="editAppLimit({{ group.group_id }}, '{{ group.group_name }}', {{ group.app_limit if group.app_limit is not none else 'null' }})">編集</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="card" style="margin-top:20px">
+    <p style="color:#666">アプリ管理者グループが登録されていません。</p>
+  </div>
+{% endif %}
+
+<div style="margin-top:20px">
+  <a class="button secondary" href="{{ url_for('system_admin.dashboard') }}">戻る</a>
+</div>
+
+<!-- 編集モーダル -->
+<div id="editModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="max-width:500px;width:90%;margin:20px">
+    <h3 id="modalTitle">アプリ種類数上限編集</h3>
+    <form method="post" action="{{ url_for('system_admin.update_app_limit') }}">
+      <input type="hidden" id="group_id" name="group_id">
+      <div class="form-group">
+        <label for="app_limit">配布可能なアプリ種類数</label>
+        <input type="number" id="app_limit" name="app_limit" min="1" placeholder="空欄で無制限">
+        <p class="small" style="color:#666;margin-top:4px">
+          ※ グループが顧問先に配布できるアプリの種類数（会計、給与、勤怠など）<br>
+          ※ 空欄にすると無制限になります
+        </p>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button type="submit" class="button primary">保存</button>
+        <button type="button" class="button secondary" onclick="closeModal()">キャンセル</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function editAppLimit(groupId, groupName, currentLimit) {
+  document.getElementById('group_id').value = groupId;
+  document.getElementById('modalTitle').textContent = groupName + ' のアプリ種類数上限編集';
+  document.getElementById('app_limit').value = currentLimit !== null ? currentLimit : '';
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+// モーダル外クリックで閉じる
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeModal();
+  }
+});
+</script>
+
+<style>
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: white;
+  font-weight: 500;
+}
+
+.button.small {
+  padding: 6px 12px;
+  font-size: 0.9em;
+}
+
+#editModal {
+  display: none;
+}
+</style>
+{% endblock %}

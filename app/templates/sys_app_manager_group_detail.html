@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}アプリ管理者グループ詳細{% endblock %}
+{% block content %}
+<h1>アプリ管理者グループ詳細</h1>
+
+<div style="margin-bottom:30px">
+  <a class="btn sub" href="{{ url_for('system_admin.app_manager_groups') }}">一覧に戻る</a>
+  <a class="btn" href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}" style="background:#1976d2">編集</a>
+  <a class="btn" href="{{ url_for('system_admin.app_manager_new', group_id=group.id) }}" style="background:#4caf50">＋ アプリ管理者を追加</a>
+</div>
+
+<!-- グループ情報カード -->
+<div class="card" style="margin-bottom:30px;padding:30px">
+  <h2 style="margin-top:0;padding-bottom:15px;border-bottom:2px solid #f0f0f0">基本情報</h2>
+  
+  <div style="display:grid;grid-template-columns:200px 1fr;gap:15px;margin-top:20px">
+    <div style="font-weight:bold;color:#666">グループID:</div>
+    <div>{{ group.id }}</div>
+    
+    <div style="font-weight:bold;color:#666">グループ名:</div>
+    <div style="font-size:1.2em;font-weight:bold;color:#333">{{ group.group_name }}</div>
+    
+    <div style="font-weight:bold;color:#666">説明:</div>
+    <div>{{ group.description or '（未設定）' }}</div>
+    
+    <div style="font-weight:bold;color:#666">連絡先メール:</div>
+    <div>
+      {% if group.contact_email %}
+        📧 <a href="mailto:{{ group.contact_email }}">{{ group.contact_email }}</a>
+      {% else %}
+        <span style="color:#999">（未設定）</span>
+      {% endif %}
+    </div>
+    
+    <div style="font-weight:bold;color:#666">連絡先電話:</div>
+    <div>
+      {% if group.contact_phone %}
+        📞 {{ group.contact_phone }}
+      {% else %}
+        <span style="color:#999">（未設定）</span>
+      {% endif %}
+    </div>
+    
+    <div style="font-weight:bold;color:#666">状態:</div>
+    <div>
+      {% if group.active == 1 %}
+        <span style="color:#4caf50;font-weight:bold">● 有効</span>
+      {% else %}
+        <span style="color:#999;font-weight:bold">● 無効</span>
+      {% endif %}
+    </div>
+    
+    <div style="font-weight:bold;color:#666">作成日時:</div>
+    <div>{{ group.created_at.strftime('%Y-%m-%d %H:%M:%S') if group.created_at else '-' }}</div>
+    
+    <div style="font-weight:bold;color:#666">更新日時:</div>
+    <div>{{ group.updated_at.strftime('%Y-%m-%d %H:%M:%S') if group.updated_at else '-' }}</div>
+  </div>
+</div>
+
+<!-- 所属アプリ管理者一覧 -->
+<div class="card" style="padding:30px">
+  <h2 style="margin-top:0;padding-bottom:15px;border-bottom:2px solid #f0f0f0">
+    所属アプリ管理者 <span style="color:#2196f3;font-size:1.2em">({{ managers|length }}人)</span>
+  </h2>
+  
+  {% if managers %}
+  <div style="overflow-x:auto;margin-top:20px">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
+          <th style="padding:12px;text-align:left">ID</th>
+          <th style="padding:12px;text-align:left">ログインID</th>
+          <th style="padding:12px;text-align:left">氏名</th>
+          <th style="padding:12px;text-align:left">メールアドレス</th>
+          <th style="padding:12px;text-align:left">オーナー</th>
+          <!-- <th style="padding:12px;text-align:left">アプリ上限数</th> マイグレーション008実行後に有効化 -->
+          <th style="padding:12px;text-align:left">状態</th>
+          <th style="padding:12px;text-align:left">作成日時</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for manager in managers %}
+        <tr style="border-bottom:1px solid #eee{% if manager.is_owner == 1 %};background:#fffbf0{% endif %}">
+          <td style="padding:12px">{{ manager.id }}</td>
+          <td style="padding:12px"><code>{{ manager.login_id }}</code></td>
+          <td style="padding:12px">
+            <strong>{{ manager.name }}</strong>
+            {% if manager.is_owner == 1 %}
+            <span style="color:#ff6f00;font-weight:bold;margin-left:5px">★ オーナー</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px">{{ manager.email or '-' }}</td>
+          <td style="padding:12px;text-align:center">
+            {% if manager.is_owner == 1 %}
+              <span style="color:#ff6f00;font-weight:bold">✓</span>
+            {% else %}
+              <span style="color:#999">-</span>
+            {% endif %}
+          </td>
+          <!-- マイグレーション008実行後に有効化
+          <td style="padding:12px;text-align:center">
+            {% if manager.is_owner == 1 %}
+              <span style="color:green;font-weight:bold">無制限</span>
+            {% elif manager.app_limit is not none %}
+              <span style="color:#333">{{ manager.app_limit }}アプリ</span>
+            {% else %}
+              <span style="color:green">無制限</span>
+            {% endif %}
+          </td>
+          -->
+          <td style="padding:12px">
+            {% if manager.active == 1 %}
+              <span style="color:#4caf50">✓ 有効</span>
+            {% else %}
+              <span style="color:#999">無効</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px;font-size:0.9em;color:#666">
+            {{ manager.created_at.strftime('%Y-%m-%d %H:%M') if manager.created_at else '-' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:#999;background:#f9f9f9;border-radius:8px;margin-top:20px">
+    <p style="font-size:1.1em">このグループにはまだアプリ管理者が所属していません</p>
+    <p style="font-size:0.9em;margin-top:10px">「アプリ管理者を追加」ボタンから追加できます</p>
+    <div style="margin-top:20px">
+      <a class="btn" href="{{ url_for('system_admin.app_manager_new', group_id=group.id) }}" style="background:#4caf50">＋ アプリ管理者を追加</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+  @media (max-width: 768px) {
+    div[style*="grid-template-columns"] {
+      display: block !important;
+    }
+    div[style*="grid-template-columns"] > div {
+      padding: 8px 0;
+    }
+    div[style*="grid-template-columns"] > div:nth-child(odd) {
+      font-size: 0.9em;
+    }
+    table {
+      font-size: 0.85em;
+    }
+    th, td {
+      padding: 8px !important;
+    }
+  }
+</style>
+{% endblock %}

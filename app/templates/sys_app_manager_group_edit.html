@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}アプリ管理者グループ編集{% endblock %}
+{% block content %}
+<h1>アプリ管理者グループ編集</h1>
+
+<div style="margin-bottom:20px">
+  <a class="btn sub" href="{{ url_for('system_admin.app_manager_groups') }}">一覧に戻る</a>
+</div>
+
+<div class="card" style="max-width:700px">
+  <form method="post">
+    <div style="margin-bottom:20px">
+      <label for="group_name" style="display:block;margin-bottom:8px;font-weight:bold">グループ名 <span style="color:red">*</span></label>
+      <input 
+        type="text" 
+        id="group_name" 
+        name="group_name" 
+        value="{{ group.group_name }}"
+        required
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="例: 〇〇税理士事務所">
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="contact_email" style="display:block;margin-bottom:8px;font-weight:bold">連絡先メールアドレス</label>
+      <input 
+        type="email" 
+        id="contact_email" 
+        name="contact_email"
+        value="{{ group.contact_email if group.contact_email else '' }}"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="contact@example.com">
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="contact_phone" style="display:block;margin-bottom:8px;font-weight:bold">連絡先電話番号</label>
+      <input 
+        type="tel" 
+        id="contact_phone" 
+        name="contact_phone"
+        value="{{ group.contact_phone if group.contact_phone else '' }}"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="03-1234-5678">
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="description" style="display:block;margin-bottom:8px;font-weight:bold">説明</label>
+      <textarea 
+        id="description" 
+        name="description"
+        rows="4"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px"
+        placeholder="グループの説明や特記事項を入力してください">{{ group.description if group.description else '' }}</textarea>
+    </div>
+    
+    <div style="margin-bottom:20px">
+      <label for="active" style="display:block;margin-bottom:8px;font-weight:bold">状態</label>
+      <select 
+        id="active" 
+        name="active"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px">
+        <option value="1" {% if group.active == 1 %}selected{% endif %}>有効</option>
+        <option value="0" {% if group.active == 0 %}selected{% endif %}>無効</option>
+      </select>
+      <small style="color:#666">無効にすると、このグループに所属するアプリ管理者のログインも無効化されます</small>
+    </div>
+    
+    <div style="display:flex;gap:10px;margin-top:30px">
+      <button type="submit" class="btn">更新する</button>
+      <a href="{{ url_for('system_admin.app_manager_groups') }}" class="btn" style="background:#999">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

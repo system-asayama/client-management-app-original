@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}アプリ管理者グループ管理{% endblock %}
+{% block content %}
+<h1>アプリ管理者グループ管理</h1>
+
+<div style="margin-bottom:20px">
+  <a class="btn" href="{{ url_for('system_admin.app_manager_group_new') }}">＋ 新しいグループを作成</a>
+  <a class="btn" href="{{ url_for('system_admin.app_manager_new') }}" style="background:#2196f3">＋ アプリ管理者を追加</a>
+  <a class="btn sub" href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+</div>
+
+{% if groups %}
+<div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
+        <th style="padding:12px;text-align:left">ID</th>
+        <th style="padding:12px;text-align:left">グループ名</th>
+        <th style="padding:12px;text-align:left">連絡先</th>
+        <th style="padding:12px;text-align:left">アプリ管理者数</th>
+        <th style="padding:12px;text-align:left">状態</th>
+        <th style="padding:12px;text-align:left">作成日時</th>
+        <th style="padding:12px;text-align:left">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group in groups %}
+      <tr style="border-bottom:1px solid #eee">
+        <td style="padding:12px">{{ group.id }}</td>
+        <td style="padding:12px">
+          <strong>{{ group.group_name }}</strong>
+          {% if group.description %}
+          <br><small style="color:#666">{{ group.description[:50] }}{% if group.description|length > 50 %}...{% endif %}</small>
+          {% endif %}
+        </td>
+        <td style="padding:12px">
+          {% if group.contact_email %}
+          <div style="font-size:0.9em">📧 {{ group.contact_email }}</div>
+          {% endif %}
+          {% if group.contact_phone %}
+          <div style="font-size:0.9em">📞 {{ group.contact_phone }}</div>
+          {% endif %}
+          {% if not group.contact_email and not group.contact_phone %}
+          <span style="color:#999">未設定</span>
+          {% endif %}
+        </td>
+        <td style="padding:12px">
+          <span style="font-size:1.2em;font-weight:bold;color:#2196f3">{{ group.manager_count }}</span> 人
+        </td>
+        <td style="padding:12px">
+          {% if group.active == 1 %}
+          <span style="color:#4caf50;font-weight:bold">● 有効</span>
+          {% else %}
+          <span style="color:#999;font-weight:bold">● 無効</span>
+          {% endif %}
+        </td>
+        <td style="padding:12px;font-size:0.9em;color:#666">
+          {{ group.created_at.strftime('%Y-%m-%d %H:%M') if group.created_at else '-' }}
+        </td>
+        <td style="padding:12px">
+          <a href="{{ url_for('system_admin.app_manager_group_detail', group_id=group.id) }}" class="btn small" style="background:#2196f3">詳細</a>
+          <a href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}" class="btn small" style="background:#1976d2">編集</a>
+          {% if group.manager_count == 0 %}
+          <form method="post" action="{{ url_for('system_admin.app_manager_group_delete', group_id=group.id) }}" 
+                onsubmit="return confirm('本当に削除しますか？');" style="display:inline">
+            <button class="btn small" type="submit" style="background:#d32f2f">削除</button>
+          </form>
+          {% else %}
+          <button class="btn small" type="button" style="background:#ccc;cursor:not-allowed" disabled
+                  title="アプリ管理者が所属しているため削除できません">削除</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:40px;color:#999">
+  <p>アプリ管理者グループがまだ登録されていません</p>
+  <p style="font-size:0.9em;margin-top:10px">「新しいグループを作成」ボタンから最初のグループを作成してください</p>
+</div>
+{% endif %}
+
+<style>
+  @media (max-width: 768px) {
+    table {
+      font-size: 0.85em;
+    }
+    th, td {
+      padding: 8px !important;
+    }
+  }
+</style>
+{% endblock %}

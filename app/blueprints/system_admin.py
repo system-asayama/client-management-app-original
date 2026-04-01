@@ -2299,3 +2299,297 @@ def store_apps(tid, sid):
         return render_template('sys_store_apps.html', tenant=tenant_data, store=store_data, apps=apps, tid=tid, sid=sid)
     finally:
         db.close()
+
+@bp.route('/app_manager_groups')
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_manager_groups():
+    """アプリ管理者グループ一覧"""
+    from app.models_login import TAppManagerGroup
+    
+    db = SessionLocal()
+    try:
+        groups = db.query(TAppManagerGroup).order_by(TAppManagerGroup.id).all()
+        
+        # 各グループのアプリ管理者数を取得
+        groups_with_count = []
+        for group in groups:
+            manager_count = db.query(TKanrisha).filter(
+                and_(
+                    TKanrisha.app_manager_group_id == group.id,
+                    TKanrisha.role == 'app_manager'
+                )
+            ).count()
+            
+            groups_with_count.append({
+                'id': group.id,
+                'group_name': group.group_name,
+                'contact_email': group.contact_email,
+                'contact_phone': group.contact_phone,
+                'description': group.description,
+                'active': group.active,
+                'manager_count': manager_count,
+                'created_at': group.created_at
+            })
+        
+        return render_template('sys_app_manager_groups.html', groups=groups_with_count)
+    finally:
+        db.close()
+
+
+@bp.route('/app_manager_group/new', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_manager_group_new():
+    """アプリ管理者グループ新規作成"""
+    from app.models_login import TAppManagerGroup
+    
+    if request.method == 'GET':
+        return render_template('sys_app_manager_group_new.html')
+    
+    # POST処理
+    group_name = request.form.get('group_name', '').strip()
+    contact_email = request.form.get('contact_email', '').strip()
+    contact_phone = request.form.get('contact_phone', '').strip()
+    description = request.form.get('description', '').strip()
+    
+    if not group_name:
+        flash('グループ名を入力してください', 'error')
+        return render_template('sys_app_manager_group_new.html')
+    
+    db = SessionLocal()
+    try:
+        # 新規グループ作成
+        new_group = TAppManagerGroup(
+            group_name=group_name,
+            contact_email=contact_email if contact_email else None,
+            contact_phone=contact_phone if contact_phone else None,
+            description=description if description else None,
+            active=1
+        )
+        db.add(new_group)
+        db.commit()
+        
+        flash(f'アプリ管理者グループ「{group_name}」を作成しました', 'success')
+        return redirect(url_for('system_admin.app_manager_groups'))
+        
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return render_template('sys_app_manager_group_new.html')
+    finally:
+        db.close()
+
+
+@bp.route('/app_manager_group/<int:group_id>/detail')
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_manager_group_detail(group_id):
+    """アプリ管理者グループ詳細"""
+    from app.models_login import TAppManagerGroup
+    
+    db = SessionLocal()
+    try:
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        
+        if not group:
+            flash('グループが見つかりません', 'error')
+            return redirect(url_for('system_admin.app_manager_groups'))
+        
+        # このグループに所属するアプリ管理者を取得
+        managers = db.query(TKanrisha).filter(
+            and_(
+                TKanrisha.app_manager_group_id == group_id,
+                TKanrisha.role == 'app_manager'
+            )
+        ).order_by(TKanrisha.id).all()
+        
+        return render_template('sys_app_manager_group_detail.html', group=group, managers=managers)
+    finally:
+        db.close()
+
+
+@bp.route('/app_manager_group/<int:group_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_manager_group_edit(group_id):
+    """アプリ管理者グループ編集"""
+    from app.models_login import TAppManagerGroup
+    
+    db = SessionLocal()
+    try:
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        
+        if not group:
+            flash('グループが見つかりません', 'error')
+            return redirect(url_for('system_admin.app_manager_groups'))
+        
+        if request.method == 'GET':
+            return render_template('sys_app_manager_group_edit.html', group=group)
+        
+        # POST処理
+        group_name = request.form.get('group_name', '').strip()
+        contact_email = request.form.get('contact_email', '').strip()
+        contact_phone = request.form.get('contact_phone', '').strip()
+        description = request.form.get('description', '').strip()
+        active = int(request.form.get('active', 1))
+        
+        if not group_name:
+            flash('グループ名を入力してください', 'error')
+            return render_template('sys_app_manager_group_edit.html', group=group)
+        
+        # 更新
+        group.group_name = group_name
+        group.contact_email = contact_email if contact_email else None
+        group.contact_phone = contact_phone if contact_phone else None
+        group.description = description if description else None
+        group.active = active
+        db.commit()
+        
+        flash(f'アプリ管理者グループ「{group_name}」を更新しました', 'success')
+        return redirect(url_for('system_admin.app_manager_groups'))
+        
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('system_admin.app_manager_groups'))
+    finally:
+        db.close()
+
+
+@bp.route('/app_manager_group/<int:group_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_manager_group_delete(group_id):
+    """アプリ管理者グループ削除"""
+    from app.models_login import TAppManagerGroup
+    
+    db = SessionLocal()
+    try:
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        
+        if not group:
+            flash('グループが見つかりません', 'error')
+            return redirect(url_for('system_admin.app_manager_groups'))
+        
+        # このグループに所属するアプリ管理者がいないかチェック
+        manager_count = db.query(TKanrisha).filter(
+            and_(
+                TKanrisha.app_manager_group_id == group_id,
+                TKanrisha.role == 'app_manager'
+            )
+        ).count()
+        
+        if manager_count > 0:
+            flash(f'このグループには{manager_count}人のアプリ管理者が所属しているため削除できません', 'error')
+            return redirect(url_for('system_admin.app_manager_groups'))
+        
+        group_name = group.group_name
+        db.delete(group)
+        db.commit()
+        
+        flash(f'アプリ管理者グループ「{group_name}」を削除しました', 'success')
+        return redirect(url_for('system_admin.app_manager_groups'))
+        
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('system_admin.app_manager_groups'))
+    finally:
+        db.close()
+
+@bp.route('/app_limit_management', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_limit_management():
+    """利用可能アプリ管理画面"""
+    db = SessionLocal()
+    
+    try:
+        # 全てのアプリ管理者グループを取得
+        from app.models_login import TAppManagerGroup
+        groups = db.query(TAppManagerGroup).order_by(TAppManagerGroup.id).all()
+        
+        group_data = []
+        for group in groups:
+            # グループに所属するアプリ管理者数を取得
+            member_count = db.query(func.count(TKanrisha.id)).filter(
+                TKanrisha.app_manager_group_id == group.id
+            ).scalar()
+            
+            # グループのオーナーを取得
+            owner = db.query(TKanrisha).filter(
+                and_(
+                    TKanrisha.app_manager_group_id == group.id,
+                    TKanrisha.is_owner == 1
+                )
+            ).first()
+            
+            # 配布済みアプリ種類数を計算
+            # TODO: TTenantAppSettingから、このグループが配布したユニークなアプリ種類をカウント
+            distributed_app_types = 0  # 一時的に0
+            
+            group_data.append({
+                'group_id': group.id,
+                'group_name': group.group_name,
+                'owner_name': owner.name if owner else 'なし',
+                'member_count': member_count,
+                # 'app_limit': group.app_limit,  # マイグレーション008実行後に有効化
+                'app_limit': None,  # 一時的にNone
+                'distributed_app_types': distributed_app_types
+            })
+        
+        return render_template('sys_app_limit_management.html', groups=group_data)
+    
+    finally:
+        db.close()
+
+
+@bp.route('/app_limit_management/update', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def update_app_limit():
+    """アプリ配布数上限を更新"""
+    db = SessionLocal()
+    
+    try:
+        from app.models_login import TAppManagerGroup
+        
+        group_id = request.form.get('group_id')
+        app_limit = request.form.get('app_limit', '').strip()
+        
+        if not group_id:
+            flash('グループIDが指定されていません', 'error')
+            return redirect(url_for('system_admin.app_limit_management'))
+        
+        # アプリ管理者グループを取得
+        group = db.query(TAppManagerGroup).filter(
+            TAppManagerGroup.id == group_id
+        ).first()
+        
+        if not group:
+            flash('アプリ管理者グループが見つかりません', 'error')
+            return redirect(url_for('system_admin.app_limit_management'))
+        
+        # app_limitの処理
+        # app_limit_value = None
+        # if app_limit:
+        #     try:
+        #         app_limit_value = int(app_limit)
+        #         if app_limit_value < 1:
+        #             flash('アプリ種類数上限は1以上を指定してください', 'error')
+        #             return redirect(url_for('system_admin.app_limit_management'))
+        #     except ValueError:
+        #         flash('アプリ種類数上限は数値で入力してください', 'error')
+        #         return redirect(url_for('system_admin.app_limit_management'))
+        
+        # group.app_limit = app_limit_value  # マイグレーション008実行後に有効化
+        # db.commit()
+        # 
+        # limit_text = f'{app_limit_value}種類' if app_limit_value else '無制限'
+        # flash(f'{group.group_name} のアプリ種類数上限を「{limit_text}」に設定しました', 'success')
+        
+        # 一時的なメッセージ
+        flash('アプリ種類数上限機能は現在準備中です（マイグレーション008実行待ち）', 'warning')
+        return redirect(url_for('system_admin.app_limit_management'))
+        
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('system_admin.app_limit_management'))
+    finally:
+        db.close()
+

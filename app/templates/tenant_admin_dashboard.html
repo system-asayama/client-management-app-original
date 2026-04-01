@@ -1,264 +1,86 @@
 {% extends "base.html" %}
-{% block title %}{{ tenant_name or '事務所' }} - ダッシュボード{% endblock %}
-{% block header %}{% endblock %}
+{% block title %}テナント管理者ダッシュボード{% endblock %}
 {% block content %}
-<style>
-  .office-header {
-    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
-    color: #fff;
-    border-radius: 16px;
-    padding: 2rem 2rem 1.5rem;
-    margin-bottom: 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-  .office-header .office-title {
-    font-size: 0.85rem;
-    opacity: 0.75;
-    margin-bottom: 0.25rem;
-    letter-spacing: 0.05em;
-  }
-  .office-header h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin: 0;
-    color: #fff;
-  }
-  .office-header .header-actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-  .office-header .header-actions a {
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.3);
-    padding: 0.45rem 1rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 0.875rem;
-    transition: background 0.15s;
-  }
-  .office-header .header-actions a:hover {
-    background: rgba(255,255,255,0.25);
-  }
-
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-  .stat-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    text-align: center;
-  }
-  .stat-card .stat-label {
-    font-size: 0.8rem;
-    color: #6b7280;
-    margin-bottom: 0.5rem;
-  }
-  .stat-card .stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1a3a5c;
-    line-height: 1;
-  }
-  .stat-card .stat-sub {
-    font-size: 0.75rem;
-    color: #9ca3af;
-    margin-top: 0.35rem;
-  }
-  .stat-card.working .stat-value { color: #16a34a; }
-
-  .section-title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.75rem;
-  }
-
-  .app-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-  .app-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 1.5rem;
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    transition: box-shadow 0.15s, border-color 0.15s;
-    position: relative;
-  }
-  .app-card:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    border-color: #2563a8;
-  }
-  .app-card.disabled {
-    opacity: 0.6;
-    cursor: default;
-    pointer-events: none;
-  }
-  .app-card .app-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    flex-shrink: 0;
-  }
-  .app-card .app-icon.blue   { background: #dbeafe; }
-  .app-card .app-icon.green  { background: #dcfce7; }
-  .app-card .app-icon.purple { background: #ede9fe; }
-  .app-card .app-icon.amber  { background: #fef3c7; }
-  .app-card .app-body { flex: 1; min-width: 0; }
-  .app-card .app-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #111827;
-    margin-bottom: 0.25rem;
-  }
-  .app-card .app-desc {
-    font-size: 0.8rem;
-    color: #6b7280;
-    line-height: 1.4;
-  }
-  .app-card .badge-coming {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    background: #f3f4f6;
-    color: #6b7280;
-    font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 99px;
-    font-weight: 500;
-  }
-
-  .mgmt-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-  }
-  .mgmt-link {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 0.9rem 1rem;
-    text-decoration: none;
-    color: #374151;
-    font-size: 0.875rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: background 0.12s;
-  }
-  .mgmt-link:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
-</style>
-
-<!-- 事務所ヘッダー -->
-<div class="office-header">
-  <div>
-    <div class="office-title">{{ profession_label }}事務所</div>
-    <h1>{{ tenant_name or '事務所ダッシュボード' }}</h1>
+<div style="margin-bottom:20px">
+  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant_name if tenant_name else 'テナント名' }}</div>
+  <h1 style="margin-top:12px">テナント管理者ダッシュボード</h1>
+</div>
+<div class="card">
+  <h2>ようこそ、{{ session.user_name }}さん</h2>
+  {% if session.role == 'system_admin' %}
+    <p>システム管理者としてログインしています。</p>
+  {% else %}
+    <p>テナント管理者としてログインしています。</p>
+  {% endif %}
+  
+  <div style="margin-top:20px">
+    <h3>ロール情報</h3>
+    <ul>
+      <li><strong>ユーザーID:</strong> {{ session.user_id }}</li>
+      <li><strong>氏名:</strong> {{ session.user_name }}</li>
+      <li><strong>ロール:</strong> {{ session.role }}</li>
+      <li><strong>テナントID:</strong> {{ tenant_id }}</li>
+    </ul>
   </div>
-  <div class="header-actions">
-    <a href="{{ url_for('tenant_admin.mypage') }}">マイページ</a>
-    <a href="{{ url_for('auth.logout') }}">ログアウト</a>
+
+  <div style="margin-top:30px">
+    <h3>業務アプリ</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px">
+      <a class="card" href="{{ url_for('clients.home') }}" style="text-decoration:none">
+        <h4>顧問先管理</h4>
+        <p class="small" style="color:#666">顧問先（法人・個人）の管理</p>
+      </a>
+      <a class="card" href="{{ url_for('tenant_admin.employees') }}" style="text-decoration:none">
+        <h4>従業員管理</h4>
+        <p class="small" style="color:#666">スタッフの登録・編集・管理</p>
+      </a>
+      <a class="card" href="{{ url_for('kintaikanri.attendance') }}" style="text-decoration:none">
+        <h4>勤怠管理</h4>
+        <p class="small" style="color:#666">全スタッフの出退勤記録・GPS位置確認</p>
+      </a>
+      <a class="card" href="{{ url_for('finance.index') }}" style="text-decoration:none">
+        <h4>財務管理 <span style="font-size:0.75em;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:99px;padding:2px 8px;margin-left:4px">準備中</span></h4>
+        <p class="small" style="color:#666">事務所の売上・経費・損益管理</p>
+      </a>
+    </div>
+  </div>
+
+  <div style="margin-top:30px">
+    <h3>管理機能</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px">
+      <a class="card" href="{{ url_for('tenant_admin.tenant_apps') }}" style="text-decoration:none">
+        <h4>利用可能アプリ一覧</h4>
+        <p class="small" style="color:#666">利用可能なアプリの一覧を表示</p>
+      </a>
+      <a class="card" href="{{ url_for('tenant_admin.tenant_info') }}" style="text-decoration:none">
+        <h4>テナント情報</h4>
+        <p class="small" style="color:#666">テナント情報の表示・編集</p>
+      </a>
+      <a class="card" href="{{ url_for('tenant_admin.tenant_admins') }}" style="text-decoration:none">
+        <h4>テナント管理者管理</h4>
+        <p class="small" style="color:#666">テナント管理者の作成・編集・削除</p>
+      </a>
+      <a class="card" href="{{ url_for('tenant_admin.stores') }}" style="text-decoration:none">
+        <h4>店舗管理</h4>
+        <p class="small" style="color:#666">店舗の作成・編集・削除</p>
+      </a>
+      <a class="card" href="{{ url_for('tenant_admin.app_management') }}" style="text-decoration:none">
+        <h4>店舗アプリ管理</h4>
+        <p class="small" style="color:#666">店舗別アプリ使用設定</p>
+      </a>
+    </div>
+  </div>
+
+  <div style="margin-top:30px">
+    <a class="btn sub" href="{{ mypage_url }}">マイページ</a>
+    <a class="btn" href="{{ url_for('auth.logout') }}">ログアウト</a>
   </div>
 </div>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-  {% for category, message in messages %}
-    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+{% if get_flashed_messages() %}
+<div style="margin-top:20px">
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
   {% endfor %}
+</div>
 {% endif %}
-{% endwith %}
-
-<!-- サマリー統計 -->
-<div class="stats-row">
-  <div class="stat-card">
-    <div class="stat-label">顧問先数</div>
-    <div class="stat-value">{{ client_count }}</div>
-    <div class="stat-sub">法人 {{ corp_count }} / 個人 {{ ind_count }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">スタッフ数</div>
-    <div class="stat-value">{{ employee_count }}</div>
-    <div class="stat-sub">有効アカウント</div>
-  </div>
-  <div class="stat-card working">
-    <div class="stat-label">本日出勤中</div>
-    <div class="stat-value">{{ working_now }}</div>
-    <div class="stat-sub">名</div>
-  </div>
-</div>
-
-<!-- メインアプリ -->
-<div class="section-title">業務アプリ</div>
-<div class="app-grid">
-  <a class="app-card" href="{{ url_for('clients.home') }}">
-    <div class="app-icon blue">📋</div>
-    <div class="app-body">
-      <div class="app-name">顧問先管理</div>
-      <div class="app-desc">顧問先・クライアントの情報管理、法人・個人の一覧・詳細</div>
-    </div>
-  </a>
-
-  <a class="app-card" href="{{ url_for('tenant_admin.employees') }}">
-    <div class="app-icon green">👥</div>
-    <div class="app-body">
-      <div class="app-name">従業員管理</div>
-      <div class="app-desc">スタッフのアカウント管理、招待・権限設定</div>
-    </div>
-  </a>
-
-  <a class="app-card" href="{{ url_for('kintaikanri.attendance') }}">
-    <div class="app-icon purple">🕐</div>
-    <div class="app-body">
-      <div class="app-name">勤怠管理</div>
-      <div class="app-desc">全スタッフの出退勤記録・GPS位置確認・月次集計</div>
-    </div>
-  </a>
-
-  <a class="app-card" href="{{ url_for('finance.index') }}">
-    <div class="app-icon amber">💰</div>
-    <div class="app-body">
-      <div class="app-name">財務管理</div>
-      <div class="app-desc">事務所の売上・経費・損益管理</div>
-    </div>
-    <span class="badge-coming">準備中</span>
-  </a>
-</div>
-
-<!-- 管理・設定 -->
-<div class="section-title">管理・設定</div>
-<div class="mgmt-grid">
-  <a class="mgmt-link" href="{{ url_for('tenant_admin.tenant_detail') }}">⚙️ 事務所情報</a>
-  <a class="mgmt-link" href="{{ url_for('tenant_admin.tenant_admins') }}">🔑 管理者管理</a>
-  <a class="mgmt-link" href="{{ url_for('tenant_admin.stores') }}">🏢 拠点管理</a>
-  <a class="mgmt-link" href="{{ url_for('tenant_admin.app_management') }}">📱 アプリ設定</a>
-  <a class="mgmt-link" href="{{ url_for('kintaikanri.attendance_map') }}">📍 GPS位置確認</a>
-</div>
-
 {% endblock %}

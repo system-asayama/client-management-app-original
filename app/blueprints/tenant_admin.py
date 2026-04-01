@@ -1981,17 +1981,10 @@ def employee_new():
 AVAILABLE_APPS = [
     {
         'name': 'client-management',
-        'display_name': '顧問先管理システム',
+        'display_name': '事務所運営アプリ',
         'scope': 'tenant',
         'description': '顧問先・クライアント管理システム',
         'url': '/tenant_admin/jimusho'
-    },
-    {
-        'name': 'attendance',
-        'display_name': '勤怠管理システム',
-        'scope': 'tenant',
-        'description': 'スタッフの勤怠・GPS追跡管理システム',
-        'url': '/kintaikanri/attendance'
     }
 ]
 

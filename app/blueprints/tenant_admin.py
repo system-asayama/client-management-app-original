@@ -6,7 +6,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAppSetting, TTenpoAppSetting, TTenantAdminTenant
+from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAppSetting, TTenpoAppSetting, TTenantAdminTenant, TAttendance
+from app.models_clients import TClient
 from sqlalchemy import func, and_, or_
 from ..utils.decorators import ROLES
 from ..utils.decorators import require_roles
@@ -40,41 +41,70 @@ def can_manage_tenant_admins():
         db.close()
 
 
+PROFESSION_LABELS = {
+    'tax': '税理士',
+    'legal': '弁護士',
+    'accounting': '公認会計士',
+    'sr': '社労士',
+}
+
 @bp.route('/')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def dashboard():
-    """テナント管理者ダッシュボード"""
+    """事務所トップページ（士業事務所運営アプリ）"""
+    from datetime import datetime, timezone, timedelta
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
-    
     try:
-        # テナント情報を取得
+        # テナント情報
         tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
         tenant_name = tenant.名称 if tenant else None
-        
-        # AVAILABLE_APPSからテナントレベルのアプリをフィルタリング
-        from ..blueprints.tenant_admin import AVAILABLE_APPS
-        
-        # 有効化されたアプリのみを取得
-        tenant_apps = []
-        for app in AVAILABLE_APPS:
-            if app.get('scope') == 'tenant':
-                # TTenantAppSettingでenabled=1のアプリのみ追加
-                app_setting = db.query(TTenantAppSetting).filter(
-                    and_(
-                        TTenantAppSetting.tenant_id == tenant_id,
-                        TTenantAppSetting.app_id == app.get('name'),
-                        TTenantAppSetting.enabled == 1
-                    )
-                ).first()
-                
-                if app_setting:
-                    tenant_apps.append(app)
-        
-        return render_template('tenant_admin_dashboard.html', 
-                             tenant_id=tenant_id,
-                             tenant_name=tenant_name,
-                             tenant_apps=tenant_apps)
+        profession = getattr(tenant, 'profession', None) or '' if tenant else ''
+        profession_label = PROFESSION_LABELS.get(profession, '士業事務所')
+
+        # 顧問先統計
+        try:
+            all_clients = db.query(TClient).filter(TClient.tenant_id == tenant_id).all()
+            client_count = len(all_clients)
+            corp_count = sum(1 for c in all_clients if c.type == '法人')
+            ind_count = sum(1 for c in all_clients if c.type == '個人')
+        except Exception:
+            client_count = corp_count = ind_count = 0
+
+        # 従業員統計
+        try:
+            employee_count = db.query(TJugyoin).filter(
+                TJugyoin.tenant_id == tenant_id,
+                TJugyoin.active == 1
+            ).count()
+        except Exception:
+            employee_count = 0
+
+        # 今日の出勤中スタッフ数
+        try:
+            jst = timezone(timedelta(hours=9))
+            today = datetime.now(jst).date()
+            working_now = db.query(TAttendance).filter(
+                and_(
+                    TAttendance.tenant_id == tenant_id,
+                    TAttendance.work_date == today,
+                    TAttendance.clock_in != None,
+                    TAttendance.clock_out == None
+                )
+            ).count()
+        except Exception:
+            working_now = 0
+
+        return render_template('tenant_admin_dashboard.html',
+                               tenant_id=tenant_id,
+                               tenant_name=tenant_name,
+                               profession=profession,
+                               profession_label=profession_label,
+                               client_count=client_count,
+                               corp_count=corp_count,
+                               ind_count=ind_count,
+                               employee_count=employee_count,
+                               working_now=working_now)
     finally:
         db.close()
 

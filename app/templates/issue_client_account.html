@@ -1,8 +1,54 @@
 {% extends 'base.html' %}
+{%% block head %%}
+<style>
+.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
+.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.page-header-title{margin:0;font-size:1.6em;font-weight:700}
+.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
+.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
+.header-btn:hover{background:#e8f0fe}
+.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
+.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
+.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
+.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
+.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
+.data-table{width:100%;border-collapse:collapse;margin-top:8px}
+.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
+.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
+.data-table tr:hover td{background:#f8fafc}
+.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
+.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
+.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
+.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
+.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-primary:hover{background:#1a4f8a}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
+.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
+.search-bar{margin-bottom:20px}
+.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
+@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
+</style>
+{%% endblock %%}
 
 {% block title %}クライアントアカウント発行 | {{ client.name }}{% endblock %}
 
 {% block content %}
+<div class="page-header">
+  <div class="page-header-inner">
+    <div><h1 class="page-header-title">顧問先アカウント発行</h1></div>
+  </div>
+</div>
+
 <style>
     .breadcrumb { font-size: 13px; color: #888; margin-bottom: 16px; }
     .breadcrumb a { color: #1a237e; text-decoration: none; }

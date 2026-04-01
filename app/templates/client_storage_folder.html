@@ -1,169 +1,52 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ストレージフォルダ設定 - {{ client.name }}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; color: #333; }
-        .container { max-width: 640px; margin: 40px auto; padding: 0 16px; }
-        .card {
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 28px;
-        }
-        h2 { font-size: 20px; color: #1a237e; margin-bottom: 8px; }
-        .subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
-        .client-name {
-            background: #e8eaf6;
-            border-radius: 6px;
-            padding: 10px 16px;
-            font-weight: bold;
-            color: #1a237e;
-            margin-bottom: 20px;
-        }
-        .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 14px; }
-        .flash.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        .flash.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+{% extends "base.html" %}
+{% block title %}ストレージ{% endblock %}
+{% block head %}
+<style>
+.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
+.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.page-header-title{margin:0;font-size:1.6em;font-weight:700}
+.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
+.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
+.header-btn:hover{background:#e8f0fe}
+.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
+.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
+.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
+.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
+.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
+.data-table{width:100%;border-collapse:collapse;margin-top:8px}
+.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
+.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
+.data-table tr:hover td{background:#f8fafc}
+.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
+.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
+.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
+.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
+.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-primary:hover{background:#1a4f8a}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
+.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
+.search-bar{margin-bottom:20px}
+.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
+@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-inner">
+    <div><h1 class="page-header-title">ストレージ</h1></div>
+  </div>
+</div>
 
-        /* 現在の設定 */
-        .current-path {
-            background: #fff3e0;
-            border: 1px solid #ffcc02;
-            border-radius: 6px;
-            padding: 10px 14px;
-            font-size: 13px;
-            margin-bottom: 16px;
-        }
-        .current-path strong { color: #e65100; }
-
-        /* フォルダツリーセクション */
-        .folder-section {
-            border: 1.5px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 20px;
-        }
-        .folder-section-title {
-            font-size: 14px; font-weight: 600; color: #444; margin-bottom: 12px;
-        }
-        .btn-load {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 8px 16px; border-radius: 6px;
-            font-size: 13px; font-weight: 600;
-            background: #e8eaf6; color: #1a237e;
-            border: 1.5px solid #9fa8da; cursor: pointer;
-            transition: all 0.2s; margin-bottom: 12px;
-        }
-        .btn-load:hover { background: #c5cae9; }
-        .btn-load:disabled { background: #f5f5f5; color: #bbb; border-color: #e0e0e0; cursor: not-allowed; }
-
-        /* パンくず */
-        .breadcrumb-nav {
-            display: flex; align-items: center; gap: 4px;
-            font-size: 13px; color: #888; margin-bottom: 10px; flex-wrap: wrap;
-        }
-        .breadcrumb-nav .crumb {
-            color: #1a237e; cursor: pointer; text-decoration: underline;
-        }
-        .breadcrumb-nav .crumb:hover { color: #283593; }
-        .breadcrumb-nav .sep { color: #bbb; }
-        .breadcrumb-nav .current-crumb { color: #555; font-weight: 600; }
-
-        /* フォルダツリー */
-        .folder-tree-container {
-            border: 1px solid #e0e0e0; border-radius: 6px;
-            min-height: 80px; max-height: 260px; overflow-y: auto;
-            background: #fafafa; margin-bottom: 12px;
-        }
-        .folder-item {
-            display: flex; align-items: center; gap: 6px;
-            padding: 8px 12px; cursor: pointer;
-            border-bottom: 1px solid #f0f0f0;
-            transition: background 0.15s; font-size: 14px;
-        }
-        .folder-item:last-child { border-bottom: none; }
-        .folder-item:hover { background: #e8eaf6; }
-        .folder-item.selected { background: #c5cae9; font-weight: 600; }
-        .folder-item .folder-icon { font-size: 16px; flex-shrink: 0; }
-        .folder-item .folder-name { flex: 1; color: #1a237e; }
-        .folder-item .btn-enter {
-            font-size: 11px; color: #888; background: #f0f0f0;
-            border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer;
-        }
-        .folder-item .btn-enter:hover { background: #e0e0e0; }
-        .folder-empty { padding: 20px; text-align: center; color: #aaa; font-size: 13px; }
-        .folder-loading { padding: 20px; text-align: center; color: #888; font-size: 13px; }
-
-        /* 選択済み表示 */
-        .selected-path-display {
-            background: #e8f5e9; border: 1px solid #a5d6a7;
-            border-radius: 6px; padding: 10px 14px;
-            font-size: 13px; color: #2e7d32; margin-bottom: 12px;
-            display: none;
-        }
-        .selected-path-display.show { display: block; }
-
-        /* フォルダ作成 */
-        .create-folder-area {
-            border-top: 1px solid #e0e0e0; padding-top: 14px; margin-top: 4px;
-        }
-        .create-folder-title { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 8px; }
-        .create-folder-row {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-        }
-        .create-folder-input {
-            flex: 1; min-width: 160px;
-            padding: 8px 12px;
-            border: 1.5px solid #ddd; border-radius: 6px;
-            font-size: 14px; color: #333;
-        }
-        .create-folder-input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
-        .btn-create-folder {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 8px 16px; border-radius: 6px;
-            font-size: 13px; font-weight: 600;
-            background: #e8f5e9; color: #2e7d32;
-            border: 1.5px solid #a5d6a7; cursor: pointer;
-            white-space: nowrap;
-        }
-        .btn-create-folder:hover { background: #c8e6c9; }
-        .btn-create-folder:disabled { background: #f5f5f5; color: #bbb; border-color: #e0e0e0; cursor: not-allowed; }
-        .create-folder-msg { font-size: 12px; margin-top: 6px; width: 100%; }
-        .create-folder-msg.success { color: #2e7d32; }
-        .create-folder-msg.error { color: #c62828; }
-        .create-folder-hint { font-size: 12px; color: #999; margin-top: 4px; }
-
-        /* ボタン */
-        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
-        .btn {
-            padding: 10px 24px; border: none; border-radius: 6px;
-            font-size: 15px; font-weight: bold; cursor: pointer;
-            text-decoration: none; display: inline-block;
-        }
-        .btn-primary { background: #1a237e; color: #fff; }
-        .btn-primary:hover { background: #283593; }
-        .btn-secondary { background: #f0f0f0; color: #333; }
-        .btn-secondary:hover { background: #e0e0e0; }
-
-        /* 手入力 */
-        .hint {
-            background: #f8f9fa; border-left: 3px solid #1a237e;
-            padding: 12px 16px; border-radius: 0 6px 6px 0;
-            font-size: 13px; color: #555; margin-bottom: 20px;
-        }
-        .hint code { background: #e8eaf6; padding: 1px 5px; border-radius: 3px; font-family: monospace; }
-        input[type="text"] {
-            width: 100%; padding: 10px 14px;
-            border: 1px solid #ccc; border-radius: 6px; font-size: 15px;
-            font-family: monospace; margin-bottom: 16px;
-        }
-        input[type="text"]:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 2px rgba(26,35,126,0.15); }
-    </style>
-</head>
-<body>
 <div class="container">
     <div class="card">
         <h2>📂 ストレージフォルダ設定</h2>
@@ -385,5 +268,4 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
-</body>
-</html>
+{% endblock %}

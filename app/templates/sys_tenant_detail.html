@@ -1,208 +1,78 @@
 {% extends "base.html" %}
-{% block title %}テナント詳細情報{% endblock %}
-{% block content %}
+{% block title %}テナント詳細{% endblock %}
+{% block head %}
 <style>
-  .tenant-card {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  
-  .tenant-info-row {
-    display: block;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
-  }
-  
-  .tenant-info-row:last-of-type {
-    border-bottom: none;
-  }
-  
-  .tenant-info-label {
-    font-weight: 600;
-    display: inline-block;
-    width: 120px;
-    color: #374151;
-  }
-  
-  .tenant-info-value {
-    display: inline;
-  }
-  
-  .tenant-name {
-    font-weight: bold;
-  }
-  
-  .tenant-slug code {
-    background: #f5f5f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.9em;
-  }
-  
-  .tenant-date {
-    color: #666;
-  }
-  
-  .tenant-actions {
-    padding-top: 12px;
-    margin-top: 8px;
-    border-top: 1px solid #e5e7eb;
-    white-space: nowrap;
-  }
-  
-  .btn.small {
-    display: inline-block;
-    margin: 4px 4px 4px 0;
-    font-size: 0.9em;
-    padding: 8px 12px;
-  }
-  
-  .btn.delete {
-    background: #d32f2f;
-  }
-  
-  .tenant-actions form {
-    display: inline-block;
-  }
+.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
+.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.page-header-title{margin:0;font-size:1.6em;font-weight:700}
+.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
+.header-btn:hover{background:#e8f0fe}
+.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
+.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
+.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
+.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
+.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
+.data-table{width:100%;border-collapse:collapse;margin-top:8px}
+.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
+.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
+.data-table tr:hover td{background:#f8fafc}
+.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
+.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
+.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
+.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
+.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-primary:hover{background:#1a4f8a}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-danger:hover{background:#dc2626}
+.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
+.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
+.search-bar{margin-bottom:20px}
+.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
+@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
 </style>
-
-<div style="margin-bottom:20px">
-  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.name if tenant else 'テナント名' }}</div>
-  <h1 style="margin-top:12px">テナント詳細情報</h1>
-</div>
-
-<div class="tenant-card">
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">テナントID:</span>
-    <span class="tenant-info-value">{{ tenant.id }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">名称:</span>
-    <span class="tenant-info-value tenant-name">{{ tenant['name'] }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">Slug:</span>
-    <span class="tenant-info-value tenant-slug"><code>{{ tenant.slug }}</code></span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">有効/無効:</span>
-    <span class="tenant-info-value">
-      {% if tenant.active == 1 %}
-        <span style="color:#2e7d32">✓ 有効</span>
-      {% else %}
-        <span style="color:#d32f2f">× 無効</span>
-      {% endif %}
-    </span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">郵便番号:</span>
-    <span class="tenant-info-value">{{ tenant['postal_code'] }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">住所:</span>
-    <span class="tenant-info-value">{{ tenant['address'] }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">電話番号:</span>
-    <span class="tenant-info-value">{{ tenant['phone'] }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">e-mailアドレス:</span>
-    <span class="tenant-info-value">{{ tenant['email'] }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">OpenAI APIキー:</span>
-    <span class="tenant-info-value">{{ ('*' * 20 + tenant['openai_api_key'][-8:]) if tenant['openai_api_key'] else '未設定' }}</span>
-  </div>
-  
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">作成日時:</span>
-    <span class="tenant-info-value tenant-date">{{ tenant.created_at }}</span>
-  </div>
-  
-  {% if tenant.updated_at %}
-  <div class="tenant-info-row">
-    <span class="tenant-info-label">更新日時:</span>
-    <span class="tenant-info-value tenant-date">{{ tenant.updated_at }}</span>
-  </div>
-  {% endif %}
-  
-  <div class="tenant-actions">
-    <a class="btn small" href="{{ url_for('system_admin.tenant_edit', tid=tenant.id) }}">編集</a>
-    <button class="btn small delete" type="button" 
-            data-tenant-id="{{ tenant.id }}" data-tenant-name="{{ tenant['name'] }}" 
-            onclick="showDeleteModal(this.getAttribute('data-tenant-id'), this.getAttribute('data-tenant-name'))">削除</button>
-  </div>
-  
-  <div class="tenant-actions" style="border-top:none; padding-top:8px">
-    <a class="btn small" href="{{ url_for('system_admin.tenant_admins', tid=tenant.id) }}">テナント管理者管理</a>
-    <a class="btn small" href="{{ url_for('system_admin.tenant_stores', tid=tenant.id) }}">店舗管理</a>
-  </div>
-  
-  <div class="tenant-actions" style="border-top:none; padding-top:8px">
-    <a class="btn small" href="{{ url_for('system_admin.tenant_apps', tid=tenant.id) }}">利用可能アプリ一覧</a>
-    <a class="btn small sub" href="{{ url_for('system_admin.tenants') }}">戻る</a>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-inner">
+    <div>
+      <h1 class="page-header-title">テナント詳細</h1>
+      {% if tenant %}<p style="margin:4px 0 0;font-size:0.95em;opacity:0.85">{{ tenant.名称 }}</p>{% endif %}
+    </div>
+    <div class="page-header-actions">
+      <a href="{{ url_for('system_admin.tenant_edit', tid=tenant.id) }}" class="header-btn">編集</a>
+      <a href="{{ url_for('system_admin.tenants') }}" class="header-btn-outline">テナント一覧に戻る</a>
+    </div>
   </div>
 </div>
-
-<!-- 削除確認モーダル -->
-<div id="deleteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:8px;max-width:500px;width:90%;">
-    <h2 style="color:#d32f2f;margin-top:0">⚠️ 警告</h2>
-    <p style="margin-bottom:20px;line-height:1.6">
-      <strong id="tenantName"></strong> を削除すると、以下の関連データも全て削除されます：
-    </p>
-    <ul style="margin-bottom:20px;line-height:1.8;color:#666">
-      <li>テナントに紐づく全ての店舗</li>
-      <li>テナントに紐づく全ての管理者</li>
-      <li>テナントに紐づく全ての従業員</li>
-      <li>テナントに紐づく全てのアプリ設定</li>
-    </ul>
-    <p style="margin-bottom:20px;color:#d32f2f;font-weight:bold">
-      この操作は取り消せません。
-    </p>
-    <p style="margin-bottom:10px">
-      削除を実行するには、ログイン時のパスワードを入力してください：
-    </p>
-    <form id="deleteForm" method="post" action="">
-      <input type="password" name="password" placeholder="パスワード" required 
-             style="width:100%;padding:10px;margin-bottom:20px;border:1px solid #ddd;border-radius:4px;font-size:16px">
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button type="button" class="btn sub" onclick="hideDeleteModal()">キャンセル</button>
-        <button type="submit" class="btn" style="background:#d32f2f">削除する</button>
-      </div>
-    </form>
+<div class="card" style="margin-bottom:24px">
+  <h2 style="margin-top:0;font-size:1.05em;color:#374151;border-bottom:1px solid #f0f0f0;padding-bottom:12px">基本情報</h2>
+  <div class="info-grid">
+    <div class="info-label">テナントID</div><div class="info-value">{{ tenant.id }}</div>
+    <div class="info-label">名称</div><div class="info-value"><strong>{{ tenant.名称 }}</strong></div>
+    <div class="info-label">Slug</div><div class="info-value"><code>{{ tenant.slug }}</code></div>
+    <div class="info-label">状態</div><div class="info-value">{% if tenant.有効 == 1 %}<span class="badge-active">有効</span>{% else %}<span class="badge-inactive">無効</span>{% endif %}</div>
+    <div class="info-label">郵便番号</div><div class="info-value">{{ tenant.postal_code or '-' }}</div>
+    <div class="info-label">住所</div><div class="info-value">{{ tenant.address or '-' }}</div>
+    <div class="info-label">電話番号</div><div class="info-value">{{ tenant.phone or '-' }}</div>
+    <div class="info-label">メールアドレス</div><div class="info-value">{{ tenant.email or '-' }}</div>
+    <div class="info-label">OpenAI APIキー</div><div class="info-value">{{ ('*' * 20 + tenant.openai_api_key[-8:]) if tenant.openai_api_key else '未設定' }}</div>
+    <div class="info-label">作成日時</div><div class="info-value">{{ tenant.created_at }}</div>
   </div>
 </div>
-
-<script>
-function showDeleteModal(tenantId, tenantName) {
-  document.getElementById('tenantName').textContent = tenantName;
-  document.getElementById('deleteForm').action = '/system_admin/tenants/' + tenantId + '/delete';
-  document.getElementById('deleteModal').style.display = 'block';
-}
-
-function hideDeleteModal() {
-  document.getElementById('deleteModal').style.display = 'none';
-  document.getElementById('deleteForm').reset();
-}
-
-// モーダル外をクリックしたら閉じる
-document.getElementById('deleteModal').addEventListener('click', function(e) {
-  if (e.target === this) {
-    hideDeleteModal();
-  }
-});
-</script>
+<div class="card">
+  <h2 style="margin-top:0;font-size:1.05em;color:#374151;border-bottom:1px solid #f0f0f0;padding-bottom:12px">管理メニュー</h2>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a class="btn-primary" href="{{ url_for('system_admin.tenant_admins', tid=tenant.id) }}">テナント管理者管理</a>
+    <a class="btn-secondary" href="{{ url_for('system_admin.tenant_stores', tid=tenant.id) }}">店舗管理</a>
+    <a class="btn-secondary" href="{{ url_for('system_admin.tenant_apps', tid=tenant.id) }}">利用可能アプリ一覧</a>
+  </div>
+</div>
 {% endblock %}

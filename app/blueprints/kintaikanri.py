@@ -69,19 +69,15 @@ def index():
 # 勤怠管理
 # ─────────────────────────────────────────────
 @bp.route('/attendance', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def attendance():
+    """管理者向け：全スタッフの勤怠一覧を表示する"""
     tenant_id = session.get('tenant_id')
-    user_id = session.get('user_id')
-    user_name = session.get('user_name', '')
-    role = session.get('role', '')
-    staff_type = 'employee' if role == ROLES['EMPLOYEE'] else 'admin'
     db = SessionLocal()
     try:
-        unread_count = _get_unread_count(tenant_id, user_name)
         today = today_jst()
 
-        # 今月の勤怠一覧
+        # 月パラメータ処理
         month_str = request.args.get('month', today.strftime('%Y-%m'))
         try:
             year_m, mon_m = map(int, month_str.split('-'))
@@ -93,191 +89,110 @@ def attendance():
         month_start = date(year_m, mon_m, 1)
         month_end = date(year_m, mon_m, last_day)
 
-        records = db.query(TAttendance).filter(
+        # 前月・翌月の計算
+        if mon_m == 1:
+            prev_month = f'{year_m - 1}-12'
+        else:
+            prev_month = f'{year_m}-{mon_m - 1:02d}'
+        if mon_m == 12:
+            next_month = f'{year_m + 1}-01'
+        else:
+            next_month = f'{year_m}-{mon_m + 1:02d}'
+
+        # スタッフ絞り込みフィルター
+        staff_filter = request.args.get('staff_filter', '')
+
+        # テナント内の全勤怠レコードを取得
+        query = db.query(TAttendance).filter(
             and_(TAttendance.tenant_id == tenant_id,
-                 TAttendance.staff_id == user_id,
-                 TAttendance.staff_type == staff_type,
                  TAttendance.work_date >= month_start,
                  TAttendance.work_date <= month_end)
-        ).order_by(TAttendance.work_date.asc()).all()
+        )
+        if staff_filter and '_' in staff_filter:
+            parts = staff_filter.split('_', 1)
+            filter_type = parts[0]
+            try:
+                filter_id = int(parts[1])
+                query = query.filter(
+                    and_(TAttendance.staff_type == filter_type,
+                         TAttendance.staff_id == filter_id)
+                )
+            except (ValueError, IndexError):
+                pass
+        all_records = query.order_by(
+            TAttendance.staff_type.asc(),
+            TAttendance.staff_id.asc(),
+            TAttendance.work_date.asc()
+        ).all()
 
-        # 今日の勤怠：未退勤のレコードを優先（再出勤対応）
-        today_record = db.query(TAttendance).filter(
-            and_(TAttendance.tenant_id == tenant_id,
-                 TAttendance.staff_id == user_id,
-                 TAttendance.staff_type == staff_type,
-                 TAttendance.work_date == today,
-                 TAttendance.clock_out == None)
-        ).order_by(TAttendance.id.desc()).first()
-        # 未退勤レコードがなければ最新レコードを取得（退勤済み状態の表示用）
-        if not today_record:
-            today_record = db.query(TAttendance).filter(
-                and_(TAttendance.tenant_id == tenant_id,
-                     TAttendance.staff_id == user_id,
-                     TAttendance.staff_type == staff_type,
-                     TAttendance.work_date == today)
-            ).order_by(TAttendance.id.desc()).first()
+        # スタッフ別にグループ化
+        staff_map = {}
+        for r in all_records:
+            key = (r.staff_type, r.staff_id)
+            if key not in staff_map:
+                staff_map[key] = {
+                    'staff_type': r.staff_type,
+                    'staff_id': r.staff_id,
+                    'name': r.staff_name or f'スタッフ{r.staff_id}',
+                    'records': [],
+                    'work_days': 0,
+                    'total_minutes': 0,
+                    'is_working_now': False,
+                }
+            staff_map[key]['records'].append(r)
 
-        if request.method == 'POST':
-            action = request.form.get('action')
-
-            if action == 'clock_in':
-                if today_record and today_record.clock_in and not today_record.clock_out:
-                    flash('本日はすでに出勤中です', 'warning')
-                else:
-                    now = now_jst()
-                    if today_record and today_record.clock_out:
-                        # 再出勤：新しいレコードを作成
-                        new_rec = TAttendance(
-                            tenant_id=tenant_id,
-                            staff_id=user_id,
-                            staff_type=staff_type,
-                            staff_name=user_name,
-                            work_date=today,
-                            clock_in=now
-                        )
-                        db.add(new_rec)
-                    elif today_record:
-                        today_record.clock_in = now
-                        today_record.updated_at = now
+        # 各スタッフの集計
+        currently_working = 0
+        total_work_days = 0
+        total_work_minutes_all = 0
+        for key, s in staff_map.items():
+            work_days = 0
+            total_mins = 0
+            is_working = False
+            for r in s['records']:
+                if r.clock_in:
+                    work_days += 1
+                    if r.clock_out:
+                        diff = (r.clock_out - r.clock_in).total_seconds() / 60
+                        total_mins += max(0, diff - (r.break_minutes or 0))
                     else:
-                        new_rec = TAttendance(
-                            tenant_id=tenant_id,
-                            staff_id=user_id,
-                            staff_type=staff_type,
-                            staff_name=user_name,
-                            work_date=today,
-                            clock_in=now
-                        )
-                        db.add(new_rec)
-                    db.commit()
-                    flash(f'出勤を記録しました（{now.strftime("%H:%M")}）', 'success')
-                return redirect(url_for('kintaikanri.attendance'))
+                        is_working = True
+            s['work_days'] = work_days
+            s['total_minutes'] = int(total_mins)
+            s['total_hours'] = int(total_mins) // 60
+            s['total_minutes_rem'] = int(total_mins) % 60
+            s['is_working_now'] = is_working
+            if is_working:
+                currently_working += 1
+            total_work_days += work_days
+            total_work_minutes_all += int(total_mins)
 
-            elif action == 'clock_out':
-                if not today_record or not today_record.clock_in:
-                    flash('出勤記録がありません', 'error')
-                elif today_record.clock_out:
-                    flash('本日はすでに退勤済です', 'warning')
-                else:
-                    now = now_jst()
-                    today_record.clock_out = now
-                    today_record.updated_at = now
-                    # 休憩中のまま退勤した場合は休憩終了も記録
-                    if today_record.break_start and not today_record.break_end:
-                        today_record.break_end = now
-                        mins = int((now - today_record.break_start).total_seconds() / 60)
-                        today_record.break_minutes = (today_record.break_minutes or 0) + mins
-                    db.commit()
-                    flash(f'退勤を記録しました（{now.strftime("%H:%M")}）', 'success')
-                return redirect(url_for('kintaikanri.attendance'))
+        staff_data = list(staff_map.values())
 
-            elif action == 'break_start':
-                if not today_record or not today_record.clock_in:
-                    flash('出勤記録がありません', 'error')
-                elif today_record.clock_out:
-                    flash('すでに退勤済です', 'warning')
-                elif today_record.break_start and not today_record.break_end:
-                    flash('すでに休憩中です', 'warning')
-                else:
-                    now = now_jst()
-                    today_record.break_start = now
-                    today_record.break_end = None
-                    today_record.updated_at = now
-                    db.commit()
-                    flash(f'休憩を開始しました（{now.strftime("%H:%M")}）', 'success')
-                return redirect(url_for('kintaikanri.attendance'))
+        # スタッフ絞り込みドロップダウン用：ユニークなスタッフ一覧を取得
+        all_staff_keys = db.query(
+            TAttendance.staff_type,
+            TAttendance.staff_id,
+            TAttendance.staff_name
+        ).filter(
+            TAttendance.tenant_id == tenant_id
+        ).distinct().all()
+        all_staff = [{'staff_type': r.staff_type, 'staff_id': r.staff_id, 'staff_name': r.staff_name or f'スタッフ{r.staff_id}'}
+                     for r in all_staff_keys]
 
-            elif action == 'break_end':
-                if not today_record or not today_record.break_start:
-                    flash('休憩開始記録がありません', 'error')
-                elif today_record.break_end:
-                    flash('すでに休憩終了済です', 'warning')
-                else:
-                    now = now_jst()
-                    today_record.break_end = now
-                    mins = int((now - today_record.break_start).total_seconds() / 60)
-                    today_record.break_minutes = (today_record.break_minutes or 0) + mins
-                    today_record.updated_at = now
-                    db.commit()
-                    flash(f'休憩を終了しました（{mins}分）', 'success')
-                return redirect(url_for('kintaikanri.attendance'))
-
-            elif action == 'save_record':
-                rec_id = request.form.get('record_id')
-                work_date_str = request.form.get('work_date', '')
-                clock_in_str = request.form.get('clock_in', '')
-                clock_out_str = request.form.get('clock_out', '')
-                break_min = int(request.form.get('break_minutes', 60))
-                note = request.form.get('note', '').strip()
-                status = request.form.get('status', 'normal')
-
-                try:
-                    work_date = datetime.strptime(work_date_str, '%Y-%m-%d').date()
-                    clock_in = datetime.strptime(clock_in_str, '%Y-%m-%dT%H:%M') if clock_in_str else None
-                    clock_out = datetime.strptime(clock_out_str, '%Y-%m-%dT%H:%M') if clock_out_str else None
-                except Exception:
-                    flash('日時の形式が正しくありません', 'error')
-                    return redirect(url_for('kintaikanri.attendance', month=month_str))
-
-                if rec_id:
-                    rec = db.query(TAttendance).filter(
-                        and_(TAttendance.id == int(rec_id),
-                             TAttendance.staff_id == user_id)
-                    ).first()
-                    if rec:
-                        rec.work_date = work_date
-                        rec.clock_in = clock_in
-                        rec.clock_out = clock_out
-                        rec.break_minutes = break_min
-                        rec.note = note
-                        rec.status = status
-                        rec.updated_at = now_jst()
-                        db.commit()
-                        flash('勤怠記録を更新しました', 'success')
-                else:
-                    new_rec = TAttendance(
-                        tenant_id=tenant_id,
-                        staff_id=user_id,
-                        staff_type=staff_type,
-                        staff_name=user_name,
-                        work_date=work_date,
-                        clock_in=clock_in,
-                        clock_out=clock_out,
-                        break_minutes=break_min,
-                        note=note,
-                        status=status
-                    )
-                    db.add(new_rec)
-                    db.commit()
-                    flash('勤怠記録を追加しました', 'success')
-                return redirect(url_for('kintaikanri.attendance', month=month_str))
-
-        # 月間集計
-        total_work_minutes = 0
-        for r in records:
-            if r.clock_in and r.clock_out:
-                diff = (r.clock_out - r.clock_in).total_seconds() / 60
-                total_work_minutes += max(0, diff - r.break_minutes)
-
-        # GPS設定をテナント設定から取得
-        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-        gps_enabled = getattr(tenant_obj, 'gps_enabled', 0) or 0
-        gps_interval_minutes = getattr(tenant_obj, 'gps_interval_minutes', 10) or 10
-        gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
-
-        return render_template('staff_mypage_attendance.html',
-                               records=records,
-                               today_record=today_record,
-                               today=today,
+        return render_template('kintaikanri_attendance.html',
+                               staff_data=staff_data,
+                               all_staff=all_staff,
+                               staff_filter=staff_filter,
                                month_str=month_str,
                                year_m=year_m,
                                mon_m=mon_m,
-                               total_work_minutes=total_work_minutes,
-                               unread_count=unread_count,
-                               gps_enabled=gps_enabled,
-                               gps_interval_minutes=gps_interval_minutes,
-                               gps_continuous=gps_continuous)
+                               prev_month=prev_month,
+                               next_month=next_month,
+                               total_work_days=total_work_days,
+                               total_work_hours=total_work_minutes_all // 60,
+                               total_work_minutes_remainder=total_work_minutes_all % 60,
+                               currently_working=currently_working)
     finally:
         db.close()
 

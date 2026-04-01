@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% block title %}勤怠管理 - スタッフ勤怠一覧{% endblock %}
+{% block content %}
+<style>
+  .kintai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .kintai-header h1 {
+    margin: 0;
+    font-size: 1.4em;
+    color: #1a1a2e;
+  }
+  .kintai-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .kintai-nav a {
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    border: 1px solid #ddd;
+    background: #fff;
+    color: #333;
+  }
+  .kintai-nav a.active, .kintai-nav a:hover {
+    background: #4f46e5;
+    color: #fff;
+    border-color: #4f46e5;
+  }
+  .filter-bar {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .filter-bar label {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 0;
+  }
+  .filter-bar select, .filter-bar input[type="month"] {
+    width: auto;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9em;
+  }
+  .filter-bar button {
+    padding: 7px 16px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+  }
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .summary-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .summary-card .label {
+    font-size: 0.8em;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .summary-card .value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #1a1a2e;
+  }
+  .summary-card .sub {
+    font-size: 0.85em;
+    color: #555;
+  }
+  .staff-section {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .staff-section-header {
+    background: #f1f0ff;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .staff-section-header .staff-name {
+    font-weight: 700;
+    color: #4f46e5;
+    font-size: 1em;
+  }
+  .staff-section-header .staff-summary {
+    font-size: 0.85em;
+    color: #555;
+    display: flex;
+    gap: 16px;
+  }
+  .attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88em;
+  }
+  .attendance-table th {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .attendance-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #333;
+  }
+  .attendance-table tr:last-child td {
+    border-bottom: none;
+  }
+  .attendance-table tr:hover td {
+    background: #fafafa;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+  .status-normal { background: #e6f4ea; color: #185a2b; }
+  .status-late { background: #fff4e5; color: #8a4b11; }
+  .status-early { background: #fef3c7; color: #92400e; }
+  .status-absent { background: #fde7e9; color: #8a1f2d; }
+  .status-holiday { background: #e0e7ff; color: #3730a3; }
+  .working-now {
+    background: #ecfdf5;
+    color: #065f46;
+    font-weight: 600;
+  }
+  .no-data {
+    text-align: center;
+    padding: 32px;
+    color: #aaa;
+    font-size: 0.95em;
+  }
+  .map-link {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #4f46e5;
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.82em;
+  }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .month-nav a {
+    padding: 6px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #333;
+    font-size: 0.9em;
+  }
+  .month-nav a:hover {
+    background: #f0f0f0;
+  }
+  .month-nav .current-month {
+    font-weight: 700;
+    font-size: 1em;
+    color: #1a1a2e;
+    min-width: 100px;
+    text-align: center;
+  }
+  @media (max-width: 600px) {
+    .attendance-table th:nth-child(5),
+    .attendance-table td:nth-child(5),
+    .attendance-table th:nth-child(6),
+    .attendance-table td:nth-child(6) {
+      display: none;
+    }
+  }
+</style>
+
+<div class="kintai-header">
+  <h1>📋 勤怠管理</h1>
+  <div class="kintai-nav">
+    <a href="{{ url_for('kintaikanri.attendance') }}" class="active">勤怠一覧</a>
+    <a href="{{ url_for('kintaikanri.attendance_map') }}">📍 GPS位置確認</a>
+    <a href="{{ url_for('tenant_admin.tenant_apps') }}">← アプリ一覧</a>
+  </div>
+</div>
+
+<!-- 月ナビゲーション -->
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+  <div class="month-nav">
+    <a href="{{ url_for('kintaikanri.attendance', month=prev_month) }}">← 前月</a>
+    <span class="current-month">{{ year_m }}年{{ mon_m }}月</span>
+    <a href="{{ url_for('kintaikanri.attendance', month=next_month) }}">翌月 →</a>
+  </div>
+  <!-- スタッフ絞り込み -->
+  <form method="get" action="{{ url_for('kintaikanri.attendance') }}" style="display:flex;gap:8px;align-items:center">
+    <input type="hidden" name="month" value="{{ month_str }}">
+    <select name="staff_filter" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.9em">
+      <option value="">全スタッフ</option>
+      {% for s in all_staff %}
+      <option value="{{ s.staff_type }}_{{ s.staff_id }}" {% if staff_filter == s.staff_type ~ '_' ~ s.staff_id %}selected{% endif %}>
+        {{ s.staff_name }}（{{ '従業員' if s.staff_type == 'employee' else '管理者' }}）
+      </option>
+      {% endfor %}
+    </select>
+    <button type="submit" style="padding:7px 14px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9em">絞り込む</button>
+  </form>
+</div>
+
+<!-- 月間サマリー -->
+<div class="summary-cards">
+  <div class="summary-card">
+    <div class="label">対象スタッフ数</div>
+    <div class="value">{{ staff_data | length }}</div>
+    <div class="sub">名</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">総出勤日数</div>
+    <div class="value">{{ total_work_days }}</div>
+    <div class="sub">日</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">総実働時間</div>
+    <div class="value">{{ total_work_hours }}h</div>
+    <div class="sub">{{ total_work_minutes_remainder }}m</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">現在出勤中</div>
+    <div class="value" style="color:#059669">{{ currently_working }}</div>
+    <div class="sub">名</div>
+  </div>
+</div>
+
+<!-- スタッフ別勤怠一覧 -->
+{% if staff_data %}
+  {% for staff in staff_data %}
+  <div class="staff-section">
+    <div class="staff-section-header" onclick="toggleSection('staff_{{ loop.index }}')">
+      <div>
+        <span class="staff-name">{{ staff.name }}</span>
+        <span style="font-size:0.8em;color:#888;margin-left:8px">{{ '従業員' if staff.staff_type == 'employee' else '管理者' }}</span>
+        {% if staff.is_working_now %}
+        <span style="background:#ecfdf5;color:#065f46;font-size:0.78em;padding:2px 8px;border-radius:10px;margin-left:6px;font-weight:600">出勤中</span>
+        {% endif %}
+      </div>
+      <div class="staff-summary">
+        <span>出勤 <strong>{{ staff.work_days }}</strong>日</span>
+        <span>実働 <strong>{{ staff.total_hours }}h{{ staff.total_minutes_rem }}m</strong></span>
+        <span style="color:#888">▼</span>
+      </div>
+    </div>
+    <div id="staff_{{ loop.index }}">
+      {% if staff.records %}
+      <table class="attendance-table">
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>出勤</th>
+            <th>退勤</th>
+            <th>実働</th>
+            <th>休憩</th>
+            <th>状態</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in staff.records %}
+          <tr {% if r.clock_in and not r.clock_out %}class="working-now"{% endif %}>
+            <td>{{ r.work_date.strftime('%m/%d') }}（{{ ['月','火','水','木','金','土','日'][r.work_date.weekday()] }}）</td>
+            <td>{{ r.clock_in.strftime('%H:%M') if r.clock_in else '-' }}</td>
+            <td>{{ r.clock_out.strftime('%H:%M') if r.clock_out else ('出勤中' if r.clock_in else '-') }}</td>
+            <td>
+              {% if r.clock_in and r.clock_out %}
+                {% set mins = ((r.clock_out - r.clock_in).total_seconds() / 60 - (r.break_minutes or 0)) | int %}
+                {% if mins > 0 %}{{ (mins // 60) }}h{{ (mins % 60) }}m{% else %}-{% endif %}
+              {% else %}-{% endif %}
+            </td>
+            <td>{{ r.break_minutes or 0 }}分</td>
+            <td>
+              <span class="status-badge status-{{ r.status or 'normal' }}">
+                {% if r.status == 'late' %}遅刻
+                {% elif r.status == 'early' %}早退
+                {% elif r.status == 'absent' %}欠勤
+                {% elif r.status == 'holiday' %}休日
+                {% else %}通常{% endif %}
+              </span>
+            </td>
+            <td style="color:#888;font-size:0.85em">{{ r.note or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="no-data">この月の勤怠記録はありません</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="card" style="text-align:center;padding:40px;color:#aaa">
+  <p style="font-size:1.1em">この月の勤怠記録はありません</p>
+</div>
+{% endif %}
+
+<script>
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  }
+}
+</script>
+{% endblock %}

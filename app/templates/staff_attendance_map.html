@@ -1,7 +1,6 @@
-{% extends "staff_mypage_base.html" %}
-{% block page_title %}スタッフ位置確認{% endblock %}
-{% block topbar_title %}スタッフ位置確認{% endblock %}
-
+{% extends "base.html" %}
+{% block title %}GPS位置確認{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
 <!-- Leaflet.js CDN -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -179,18 +178,20 @@
 </style>
 
 <!-- ページヘッダー -->
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-    <div style="display:flex; align-items:center; gap:10px;">
-        <h5 style="margin:0; font-weight:700; color:#1a237e;">📍 スタッフ位置確認</h5>
-        <span class="auto-refresh-badge {% if gps_realtime_enabled %}visible{% endif %}" id="autoRefreshBadge">🔄 自動更新中</span>
-    </div>
-    <div style="display:flex; align-items:center; gap:8px;">
-        <button class="btn-realtime {% if gps_realtime_enabled %}active{% endif %}" id="realtimeBtn" onclick="toggleRealtimeMode()">
-            <span class="rt-dot"></span>
-            <span id="realtimeBtnText">{% if gps_realtime_enabled %}リアルタイム ON{% else %}リアルタイム追跡{% endif %}</span>
-        </button>
-        <a href="{{ url_for('tenant_admin.gps_settings') }}" style="font-size:13px; color:#1a237e; text-decoration:none; background:#e8eaf6; padding:6px 14px; border-radius:7px; font-weight:600;">⚙️ GPS設定</a>
-    </div>
+<div style="background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;border-radius:16px;padding:1.5rem 2rem;margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <div style="font-size:0.8rem;opacity:0.75;margin-bottom:0.2rem;letter-spacing:0.05em;">勤怠管理</div>
+    <h1 style="margin:0;font-size:1.6rem;font-weight:700;color:#fff;">📍 GPS位置確認</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+    <span class="auto-refresh-badge {% if gps_realtime_enabled %}visible{% endif %}" id="autoRefreshBadge" style="font-size:0.75rem;background:rgba(255,255,255,0.2);color:#fff;border-radius:10px;padding:3px 10px;font-weight:600;{% if not gps_realtime_enabled %}display:none;{% endif %}">🔄 自動更新中</span>
+    <button class="btn-realtime {% if gps_realtime_enabled %}active{% endif %}" id="realtimeBtn" onclick="toggleRealtimeMode()">
+        <span class="rt-dot"></span>
+        <span id="realtimeBtnText">{% if gps_realtime_enabled %}リアルタイム ON{% else %}リアルタイム追跡{% endif %}</span>
+    </button>
+    <a href="{{ url_for('tenant_admin.gps_settings') }}" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:0.45rem 1rem;border-radius:8px;text-decoration:none;font-size:0.875rem;">⚙️ GPS設定</a>
+    <a href="{{ url_for('kintaikanri.attendance') }}" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:0.45rem 1rem;border-radius:8px;text-decoration:none;font-size:0.875rem;">← 勤怠管理へ</a>
+  </div>
 </div>
 
 <!-- フィルターバー -->

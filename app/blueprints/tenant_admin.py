@@ -1920,7 +1920,7 @@ AVAILABLE_APPS = [
         'display_name': '顧問先管理システム',
         'scope': 'tenant',
         'description': '顧問先・クライアント管理システム',
-        'url': '/clients/home'
+        'url': '/tenant_admin/'
     },
     {
         'name': 'attendance',

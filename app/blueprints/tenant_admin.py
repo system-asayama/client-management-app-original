@@ -1257,6 +1257,11 @@ def tenant_admin_delete(admin_id):
             flash('テナント管理者が見つかりません', 'error')
             return redirect(url_for('tenant_admin.tenant_admins'))
         
+        # 外部キー制約のため、関連レコードを先に削除
+        db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.admin_id == admin_id
+        ).delete(synchronize_session=False)
+        
         db.delete(admin)
         db.commit()
         flash('テナント管理者を削除しました', 'success')

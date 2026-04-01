@@ -12,7 +12,7 @@
   {% if apps and apps|length > 0 %}
     <div style="margin-top:20px">
       {% for app in apps %}
-      <a href="{% if app.name == 'client-management' %}/clients/{% elif app.url %}{{ app.url }}{% else %}#{% endif %}" style="text-decoration:none;color:inherit">
+      <a href="{{ app.url if app.url else '#' }}" style="text-decoration:none;color:inherit">
         <div class="card" style="margin-bottom:16px;cursor:pointer">
           <h3 style="color:#6B46C1;margin-bottom:8px">{{ app.display_name }}</h3>
           <p style="color:#666;margin:0">{{ app.description or '利用可能なアプリの一覧を表示' }}</p>

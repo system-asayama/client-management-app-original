@@ -1919,14 +1919,15 @@ AVAILABLE_APPS = [
         'name': 'client-management',
         'display_name': '顧問先管理システム',
         'scope': 'tenant',
-        'description': '顧問先・クライアント管理システム'
+        'description': '顧問先・クライアント管理システム',
+        'url': '/clients/home'
     },
     {
         'name': 'attendance',
         'display_name': '勤怠管理システム',
         'scope': 'tenant',
         'description': 'スタッフの勤怠・GPS追跡管理システム',
-        'url': '/kintaikanri/'
+        'url': '/kintaikanri/attendance'
     }
 ]
 

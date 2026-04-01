@@ -1238,10 +1238,13 @@ def tenant_admin_edit(admin_id):
         db.close()
 
 
-@bp.route('/tenant_admins/<int:admin_id>/delete', methods=['POST'])
+@bp.route('/tenant_admins/<int:admin_id>/delete', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def tenant_admin_delete(admin_id):
     """テナント管理者削除"""
+    from flask import request as flask_request
+    if flask_request.method == 'GET':
+        return redirect(url_for('tenant_admin.tenant_admins'))
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     

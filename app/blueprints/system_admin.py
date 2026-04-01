@@ -1684,6 +1684,68 @@ def toggle_manage_permission(admin_id):
         db.close()
 
 
+@bp.route('/system_admins/<int:admin_id>/toggle_all_tenants_permission', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def toggle_all_tenants_permission(admin_id):
+    """全テナント管理権限の付与・剥奪（オーナーのみ）"""
+    if not is_owner():
+        flash('オーナーのみがこの操作を実行できます', 'error')
+        return redirect(url_for('system_admin.system_admins'))
+    if admin_id == session.get('user_id'):
+        flash('自分自身の権限は変更できません', 'error')
+        return redirect(url_for('system_admin.system_admins'))
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            and_(TKanrisha.id == admin_id, TKanrisha.role == ROLES["SYSTEM_ADMIN"])
+        ).first()
+        if not admin:
+            flash('システム管理者が見つかりません', 'error')
+            return redirect(url_for('system_admin.system_admins'))
+        if admin.is_owner == 1:
+            flash('オーナーの権限は変更できません', 'error')
+            return redirect(url_for('system_admin.system_admins'))
+        current_value = getattr(admin, 'can_manage_all_tenants', 0)
+        admin.can_manage_all_tenants = 1 if current_value == 0 else 0
+        db.commit()
+        status = '付与' if admin.can_manage_all_tenants == 1 else '剥奪'
+        flash(f'{admin.name} の全テナント管理権限を{status}しました', 'success')
+        return redirect(url_for('system_admin.system_admins'))
+    finally:
+        db.close()
+
+
+@bp.route('/system_admins/<int:admin_id>/toggle_distribute_apps_permission', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def toggle_distribute_apps_permission(admin_id):
+    """アプリ配布権限の付与・剥奪（オーナーのみ）"""
+    if not is_owner():
+        flash('オーナーのみがこの操作を実行できます', 'error')
+        return redirect(url_for('system_admin.system_admins'))
+    if admin_id == session.get('user_id'):
+        flash('自分自身の権限は変更できません', 'error')
+        return redirect(url_for('system_admin.system_admins'))
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            and_(TKanrisha.id == admin_id, TKanrisha.role == ROLES["SYSTEM_ADMIN"])
+        ).first()
+        if not admin:
+            flash('システム管理者が見つかりません', 'error')
+            return redirect(url_for('system_admin.system_admins'))
+        if admin.is_owner == 1:
+            flash('オーナーの権限は変更できません', 'error')
+            return redirect(url_for('system_admin.system_admins'))
+        current_value = getattr(admin, 'can_distribute_apps', 0)
+        admin.can_distribute_apps = 1 if current_value == 0 else 0
+        db.commit()
+        status = '付与' if admin.can_distribute_apps == 1 else '剥奪'
+        flash(f'{admin.name} のアプリ配布権限を{status}しました', 'success')
+        return redirect(url_for('system_admin.system_admins'))
+    finally:
+        db.close()
+
+
 @bp.route('/system_admins/<int:admin_id>/toggle_active', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def toggle_active(admin_id):

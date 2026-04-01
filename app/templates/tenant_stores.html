@@ -1,237 +1,224 @@
 {% extends "base.html" %}
 {% block title %}店舗一覧{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
 <style>
-  .store-table-wrapper {
-    width: 100%;
-    overflow-x: auto;
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
-  
-  .store-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85em;
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
   }
-  
-  .store-table thead tr {
-    background: #f5f5f5;
-    border-bottom: 2px solid #ddd;
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .action-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
   }
-  
-  .store-table th {
-    padding: 8px;
-    text-align: left;
-    white-space: nowrap;
+  .btn-primary:hover { background: #1a4f8a; }
+
+  .search-box { margin-bottom: 1.5rem; }
+  .search-box input {
+    width: 100%; max-width: 400px;
+    padding: 0.6rem 1rem; border: 1px solid #e5e7eb;
+    border-radius: 8px; font-size: 0.875rem; outline: none;
+    transition: border-color 0.15s;
   }
-  
-  .store-table tbody tr {
-    border-bottom: 1px solid #eee;
+  .search-box input:focus { border-color: #2563a8; }
+
+  .section-title {
+    font-size: 0.8rem; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;
   }
-  
-  .store-table td {
-    padding: 8px;
-    white-space: nowrap;
+
+  .store-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
-  
-  .store-table td.store-name {
-    font-weight: bold;
+  .store-icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #dbeafe; display: flex; align-items: center;
+    justify-content: center; font-size: 1.25rem; flex-shrink: 0;
   }
-  
-  .store-table td.store-slug code {
-    background: #f5f5f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.9em;
+  .store-info { flex: 1; min-width: 0; }
+  .store-name-text { font-size: 1rem; font-weight: 600; color: #111827; text-decoration: none; }
+  .store-name-text:hover { color: #2563a8; }
+  .store-sub { font-size: 0.8rem; color: #6b7280; margin-top: 0.15rem; }
+  .store-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+  .badge-active { background: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
+
+  .store-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .store-actions a, .store-actions button {
+    padding: 0.35rem 0.85rem; border-radius: 6px;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    text-decoration: none; border: 1px solid transparent;
+    transition: opacity 0.15s;
   }
-  
-  .store-table td.store-date {
-    color: #666;
+  .store-actions a:hover, .store-actions button:hover { opacity: 0.8; }
+  .btn-detail { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+  .btn-edit { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .btn-delete { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.9rem; }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+  /* 削除モーダル */
+  .modal-overlay { display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000; }
+  .modal-box {
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:#fff;padding:2rem;border-radius:16px;max-width:480px;width:90%;
   }
-  
-  .store-table td.store-actions {
-    white-space: nowrap;
+  .modal-box h2 { color:#b91c1c;margin-top:0;font-size:1.2rem; }
+  .modal-box ul { color:#6b7280;line-height:1.8;margin-bottom:1rem; }
+  .modal-box .warning-text { color:#b91c1c;font-weight:600;margin-bottom:1rem; }
+  .modal-box input[type=password] {
+    width:100%;padding:0.6rem 1rem;border:1px solid #e5e7eb;
+    border-radius:8px;font-size:0.875rem;margin-bottom:1.25rem;outline:none;
   }
-  
-  .store-table .btn.small {
-    font-size: 0.9em;
-    padding: 4px 8px;
+  .modal-box input[type=password]:focus { border-color:#2563a8; }
+  .modal-footer { display:flex;gap:0.75rem;justify-content:flex-end; }
+  .btn-cancel {
+    background:#f9fafb;color:#374151;border:1px solid #e5e7eb;
+    padding:0.5rem 1.25rem;border-radius:8px;font-size:0.875rem;cursor:pointer;
   }
-  
-  .store-table .btn.delete {
-    background: #d32f2f;
-  }
-  
-  /* スマホ用カード型レイアウト */
-  @media (max-width: 768px) {
-    .store-table-wrapper {
-      overflow-x: visible;
-    }
-    
-    .store-table thead {
-      display: none;
-    }
-    
-    .store-table tbody {
-      display: block;
-    }
-    
-    .store-table tbody tr {
-      display: block;
-      margin-bottom: 16px;
-      padding: 16px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-    }
-    
-    .store-table td {
-      display: block;
-      padding: 8px 0;
-      white-space: normal;
-      border: none;
-    }
-    
-    .store-table td::before {
-      content: attr(data-label);
-      font-weight: 600;
-      display: inline-block;
-      width: 100px;
-      color: #374151;
-    }
-    
-    .store-table td.store-actions {
-      padding-top: 12px;
-      margin-top: 8px;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    .store-table td.store-actions::before {
-      display: none;
-    }
-    
-    .store-table .btn.small {
-      display: inline-block;
-      margin: 4px 4px 4px 0;
-      font-size: 0.9em;
-      padding: 8px 12px;
-    }
-    
-    .store-table td.store-actions form {
-      display: inline-block;
-    }
+  .btn-danger {
+    background:#b91c1c;color:#fff;border:none;
+    padding:0.5rem 1.25rem;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;
   }
 </style>
 
-<div style="margin-bottom:20px">
-  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
-  <h1 style="margin-top:12px">店舗一覧</h1>
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+    <h1>🏢 拠点管理</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.jimusho_dashboard') }}">← ダッシュボードへ</a>
+  </div>
 </div>
 
-<div style="margin-bottom:20px">
-  <a class="btn" href="{{ url_for('tenant_admin.store_new') }}">新規作成</a>
-  <a class="btn sub" href="{{ url_for('tenant_admin.dashboard') }}">戻る</a>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- アクションバー -->
+<div class="action-bar">
+  <a class="btn-primary" href="{{ url_for('tenant_admin.store_new') }}">＋ 新規作成</a>
 </div>
 
 {% if stores %}
-<div style="margin-bottom:20px">
-  <input type="text" id="searchInput" placeholder="店舗名またはSlugで検索..." 
-         style="width:100%;max-width:500px;padding:12px;border:1px solid #ddd;border-radius:4px;font-size:16px">
+<!-- 検索 -->
+<div class="search-box">
+  <input type="text" id="searchInput" placeholder="店舗名またはSlugで検索...">
 </div>
 {% endif %}
 
+<!-- 店舗一覧 -->
+<div class="section-title">拠点一覧（{{ stores|length if stores else 0 }}件）</div>
+
 {% if stores %}
-<div class="store-table-wrapper">
-  <table class="store-table">
-    <thead>
-      <tr>
-        <th>店舗ID</th>
-        <th>名称</th>
-        <th>Slug</th>
-        <th>有効</th>
-        <th>作成日時</th>
-        <th>更新日時</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for store in stores %}
-      <tr>
-        <td data-label="店舗ID: ">{{ store.id }}</td>
-        <td data-label="名称: " class="store-name">
-          <a href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">{{ store['名称'] }}</a>
-        </td>
-        <td data-label="Slug: " class="store-slug"><code>{{ store.slug }}</code></td>
-        <td data-label="有効: ">
-          {% if store.active == 1 %}
-            <span style="color:#2e7d32">✓ 有効</span>
-          {% else %}
-            <span style="color:#d32f2f">× 無効</span>
-          {% endif %}
-        </td>
-        <td data-label="作成日時: " class="store-date">{{ store.created_at }}</td>
-        <td data-label="更新日時: " class="store-date">{{ store.updated_at }}</td>
-        <td class="store-actions">
-          <a class="btn small" href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">詳細</a>
-          <a class="btn small" href="{{ url_for('tenant_admin.store_edit', store_id=store.id) }}">編集</a>
-          <button class="btn small delete" type="button" 
-                  onclick="showDeleteModal({{ store.id }}, '{{ store['名称'] }}')">削除</button>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  {% for store in stores %}
+  <div class="store-card store-row" data-name="{{ store['名称'] }}" data-slug="{{ store.slug }}">
+    <div class="store-icon">🏢</div>
+    <div class="store-info">
+      <a class="store-name-text" href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">{{ store['名称'] }}</a>
+      <div class="store-sub">
+        <code style="background:#f3f4f6;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.75rem;">{{ store.slug }}</code>
+        &nbsp;·&nbsp; 作成: {{ store.created_at.strftime('%Y-%m-%d') if store.created_at else '-' }}
+      </div>
+    </div>
+    <div class="store-meta">
+      {% if store.active == 1 %}
+        <span class="badge-active">✓ 有効</span>
+      {% else %}
+        <span class="badge-inactive">× 無効</span>
+      {% endif %}
+    </div>
+    <div class="store-actions">
+      <a class="btn-detail" href="{{ url_for('tenant_admin.store_detail', store_id=store.id) }}">詳細</a>
+      <a class="btn-edit" href="{{ url_for('tenant_admin.store_edit', store_id=store.id) }}">編集</a>
+      <button class="btn-delete" type="button" onclick="showDeleteModal({{ store.id }}, '{{ store['名称'] }}')">削除</button>
+    </div>
+  </div>
+  {% endfor %}
 {% else %}
-<p style="color:#666">店舗が登録されていません。</p>
+  <div class="empty-state">
+    <div class="empty-icon">🏢</div>
+    <div>拠点が登録されていません。</div>
+    <div style="margin-top:1rem">
+      <a class="btn-primary" href="{{ url_for('tenant_admin.store_new') }}">最初の拠点を作成</a>
+    </div>
+  </div>
 {% endif %}
 
 <!-- 削除確認モーダル -->
-<div id="deleteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:8px;max-width:500px;width:90%;">
-    <h2 style="color:#d32f2f;margin-top:0">⚠️ 警告</h2>
-    <p style="margin-bottom:20px;line-height:1.6">
-      <strong id="storeName"></strong> を削除すると、以下の関連データも全て削除されます：
-    </p>
-    <ul style="margin-bottom:20px;line-height:1.8;color:#666">
-      <li>店舗に紐づく全ての管理者の紐付け</li>
-      <li>店舗に紐づく全ての従業員の紐付け</li>
-      <li>店舗に紐づく全てのアプリ設定</li>
+<div id="deleteModal" class="modal-overlay">
+  <div class="modal-box">
+    <h2>⚠️ 削除の確認</h2>
+    <p><strong id="storeName"></strong> を削除すると、以下の関連データも全て削除されます：</p>
+    <ul>
+      <li>拠点に紐づく全ての管理者の紐付け</li>
+      <li>拠点に紐づく全ての従業員の紐付け</li>
+      <li>拠点に紐づく全てのアプリ設定</li>
     </ul>
-    <p style="margin-bottom:20px;color:#d32f2f;font-weight:bold">
-      この操作は取り消せません。
-    </p>
-    <p style="margin-bottom:10px">
-      削除を実行するには、ログイン時のパスワードを入力してください：
-    </p>
+    <p class="warning-text">この操作は取り消せません。</p>
+    <p style="margin-bottom:0.5rem;font-size:0.875rem;">削除を実行するには、ログイン時のパスワードを入力してください：</p>
     <form id="deleteForm" method="post" action="">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-      <input type="password" name="password" placeholder="パスワード" required 
-             style="width:100%;padding:10px;margin-bottom:20px;border:1px solid #ddd;border-radius:4px;font-size:16px">
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button type="button" class="btn sub" onclick="hideDeleteModal()">キャンセル</button>
-        <button type="submit" class="btn" style="background:#d32f2f">削除する</button>
+      <input type="password" name="password" placeholder="パスワード" required>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="hideDeleteModal()">キャンセル</button>
+        <button type="submit" class="btn-danger">削除する</button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
-// 検索機能
+// 検索
 const searchInput = document.getElementById('searchInput');
 if (searchInput) {
-  searchInput.addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('.store-table tbody tr');
-    
-    rows.forEach(function(row) {
-      const storeName = row.querySelector('.store-name').textContent.toLowerCase();
-      const storeSlug = row.querySelector('.store-slug').textContent.toLowerCase();
-      
-      if (storeName.includes(searchTerm) || storeSlug.includes(searchTerm)) {
-        row.style.display = '';
-      } else {
-        row.style.display = 'none';
-      }
+  searchInput.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('.store-row').forEach(function(row) {
+      const match = row.dataset.name.toLowerCase().includes(q) || row.dataset.slug.toLowerCase().includes(q);
+      row.style.display = match ? '' : 'none';
     });
   });
 }
@@ -241,17 +228,12 @@ function showDeleteModal(storeId, storeName) {
   document.getElementById('deleteForm').action = '/tenant_admin/stores/' + storeId + '/delete';
   document.getElementById('deleteModal').style.display = 'block';
 }
-
 function hideDeleteModal() {
   document.getElementById('deleteModal').style.display = 'none';
   document.getElementById('deleteForm').reset();
 }
-
-// モーダル外をクリックしたら閉じる
 document.getElementById('deleteModal').addEventListener('click', function(e) {
-  if (e.target === this) {
-    hideDeleteModal();
-  }
+  if (e.target === this) hideDeleteModal();
 });
 </script>
 {% endblock %}

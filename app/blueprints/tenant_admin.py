@@ -195,10 +195,23 @@ def dashboard():
                 if app_setting:
                     tenant_apps.append(app)
 
+        # ロール別マイページURL
+        role = session.get('role', '')
+        if role == 'system_admin':
+            mypage_url = url_for('system_admin.mypage')
+        elif role in ('tenant_admin', 'owner'):
+            mypage_url = url_for('tenant_admin.mypage')
+        elif role == 'admin':
+            mypage_url = url_for('admin.mypage')
+        elif role == 'employee':
+            mypage_url = url_for('employee.mypage')
+        else:
+            mypage_url = url_for('tenant_admin.mypage')
         return render_template('tenant_admin_dashboard.html',
                              tenant_id=tenant_id,
                              tenant_name=tenant_name,
-                             tenant_apps=tenant_apps)
+                             tenant_apps=tenant_apps,
+                             mypage_url=mypage_url)
     finally:
         db.close()
 

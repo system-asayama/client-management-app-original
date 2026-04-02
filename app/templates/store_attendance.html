@@ -199,8 +199,8 @@
 <div class="stats-row">
   <div class="stat-card">
     <div class="stat-label">対象スタッフ数</div>
-    <div class="stat-value">{{ staff_data | length }}</div>
-    <div class="stat-sub">名</div>
+    <div class="stat-value">{{ target_staff_count if target_staff_count is defined else (staff_data | length) }}</div>
+    <div class="stat-sub">店舗管理者 {{ target_admin_count if target_admin_count is defined else '-' }} / 従業員 {{ target_employee_count if target_employee_count is defined else '-' }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">総出勤日数</div>

@@ -352,6 +352,33 @@ def attendance(store_id):
             for r in all_staff_keys
         ]
 
+        # 店舗に所属する全スタッフ数（店舗管理者＋従業員）を集計
+        try:
+            target_admin_count = db.query(TKanrisha).join(
+                TKanrishaTenpo, TKanrisha.id == TKanrishaTenpo.admin_id
+            ).filter(
+                and_(
+                    TKanrisha.tenant_id == tenant_id,
+                    TKanrishaTenpo.store_id == store_id,
+                    TKanrisha.active == 1
+                )
+            ).count()
+        except Exception:
+            target_admin_count = 0
+        try:
+            target_employee_count = db.query(TJugyoin).join(
+                TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
+            ).filter(
+                and_(
+                    TJugyoin.tenant_id == tenant_id,
+                    TJugyoinTenpo.store_id == store_id,
+                    TJugyoin.active == 1
+                )
+            ).count()
+        except Exception:
+            target_employee_count = 0
+        target_staff_count = target_admin_count + target_employee_count
+
         return render_template(
             'store_attendance.html',
             store=store,
@@ -369,6 +396,9 @@ def attendance(store_id):
             total_work_hours=total_work_minutes_all // 60,
             total_work_minutes_remainder=total_work_minutes_all % 60,
             currently_working=currently_working,
+            target_staff_count=target_staff_count,
+            target_admin_count=target_admin_count,
+            target_employee_count=target_employee_count,
         )
     finally:
         db.close()

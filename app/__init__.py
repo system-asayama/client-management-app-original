@@ -12,6 +12,7 @@ try:
     from . import models_company  # noqa: F401
     from . import models_client_users  # noqa: F401
     from . import models_homepage  # noqa: F401
+    from . import models_voucher  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -335,6 +336,14 @@ def create_app() -> Flask:
         print("✅ homepage_builder blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ homepage_builder blueprint 登録エラー: {e}")
+
+    # 証桮データ化アプリ blueprint登録
+    try:
+        from .blueprints.voucher_store import bp as voucher_store_bp
+        app.register_blueprint(voucher_store_bp)
+        print("✅ voucher_store blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ voucher_store blueprint 登録エラー: {e}")
 
     # エラーハンドラ
     @app.errorhandler(404)

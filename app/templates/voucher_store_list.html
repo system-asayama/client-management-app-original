@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}証憑一覧 - 証憑データ化アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .vc-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .vc-header .sub { font-size: 0.78rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .vc-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .vc-header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .vc-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none;
+    white-space: nowrap;
+  }
+  .vc-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .vc-btn-primary { background: #2563a8; color: #fff; }
+  .vc-btn-success { background: #16a34a; color: #fff; }
+  .vc-btn-warning { background: #d97706; color: #fff; }
+  .vc-btn-danger { background: #dc2626; color: #fff; }
+  .vc-btn-outline { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
+
+  .summary-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .summary-card {
+    flex: 1; min-width: 120px; background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 10px; padding: 0.9rem 1rem; text-align: center;
+  }
+  .summary-card .val { font-size: 1.5rem; font-weight: 700; color: #1e3a5f; }
+  .summary-card .lbl { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
+
+  .voucher-card {
+    background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px;
+    padding: 1rem; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .voucher-card:hover { border-color: #2563a8; box-shadow: 0 2px 8px rgba(37,99,168,0.1); }
+  .voucher-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+  .voucher-company { font-size: 0.95rem; font-weight: 700; color: #1e3a5f; }
+  .voucher-amount { font-size: 1.1rem; font-weight: 700; color: #16a34a; white-space: nowrap; }
+  .voucher-meta { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .voucher-date { font-size: 0.82rem; color: #6b7280; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-completed { background: #d1fae5; color: #065f46; }
+  .badge-processing { background: #dbeafe; color: #1e40af; }
+  .voucher-actions { display: flex; gap: 0.4rem; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 0.75rem; }
+
+  .filter-bar {
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+  }
+  .filter-bar select, .filter-bar input {
+    padding: 0.4rem 0.6rem; border: 1.5px solid #d1d5db; border-radius: 6px;
+    font-size: 0.85rem; background: #fff; flex: 1; min-width: 100px;
+  }
+</style>
+
+<div class="vc-header">
+  <div class="sub">証憑データ化アプリ</div>
+  <h1>🧾 証憑一覧</h1>
+  <div class="vc-header-actions">
+    <a href="{{ url_for('voucher_store.upload') }}" class="vc-btn vc-btn-white">📸 証憑をアップロード</a>
+    <a href="{{ url_for('voucher_store.export_csv') }}" class="vc-btn vc-btn-white">⬇️ CSVエクスポート</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- サマリー -->
+{% set total_amount = vouchers | selectattr('金額') | map(attribute='金額') | sum %}
+{% set pending_count = vouchers | selectattr('ステータス', 'equalto', 'pending') | list | length %}
+{% set completed_count = vouchers | selectattr('ステータス', 'equalto', 'completed') | list | length %}
+<div class="summary-row">
+  <div class="summary-card">
+    <div class="val">{{ vouchers | length }}</div>
+    <div class="lbl">総件数</div>
+  </div>
+  <div class="summary-card">
+    <div class="val" style="font-size:1.2rem;">¥{{ "{:,.0f}".format(total_amount) }}</div>
+    <div class="lbl">合計金額</div>
+  </div>
+  <div class="summary-card">
+    <div class="val" style="color:#92400e;">{{ pending_count }}</div>
+    <div class="lbl">未処理</div>
+  </div>
+  <div class="summary-card">
+    <div class="val" style="color:#065f46;">{{ completed_count }}</div>
+    <div class="lbl">完了</div>
+  </div>
+</div>
+
+<!-- フィルター -->
+<div class="filter-bar">
+  <select id="statusFilter" onchange="filterVouchers()">
+    <option value="">すべてのステータス</option>
+    <option value="pending">未処理</option>
+    <option value="processing">処理中</option>
+    <option value="completed">完了</option>
+  </select>
+  <input type="text" id="searchInput" placeholder="会社名・摘要で検索..." oninput="filterVouchers()">
+</div>
+
+<!-- 証憑カード一覧 -->
+<div id="voucherList">
+{% if vouchers %}
+  {% for v in vouchers %}
+  <div class="voucher-card" data-status="{{ v.ステータス }}" data-search="{{ (v.会社名 or '') + ' ' + (v.摘要 or '') }}">
+    <div class="voucher-card-top">
+      <div>
+        <div class="voucher-company">{{ v.会社名 or '（会社名不明）' }}</div>
+        <div class="voucher-meta">
+          <span class="voucher-date">📅 {{ v.日付 or '日付不明' }}</span>
+          {% if v.ステータス == 'pending' %}
+            <span class="badge badge-pending">未処理</span>
+          {% elif v.ステータス == 'completed' %}
+            <span class="badge badge-completed">完了</span>
+          {% elif v.ステータス == 'processing' %}
+            <span class="badge badge-processing">処理中</span>
+          {% endif %}
+        </div>
+        {% if v.摘要 %}
+        <div style="font-size:0.82rem; color:#6b7280; margin-top:2px;">{{ v.摘要[:50] }}{% if v.摘要|length > 50 %}…{% endif %}</div>
+        {% endif %}
+      </div>
+      <div class="voucher-amount">
+        {% if v.金額 %}¥{{ "{:,.0f}".format(v.金額) }}{% else %}-{% endif %}
+      </div>
+    </div>
+    <div class="voucher-actions">
+      <a href="{{ url_for('voucher_store.detail', voucher_id=v.id) }}" class="vc-btn vc-btn-outline" style="font-size:0.8rem; padding:4px 10px;">🔍 詳細</a>
+      <a href="{{ url_for('voucher_store.edit', voucher_id=v.id) }}" class="vc-btn vc-btn-primary" style="font-size:0.8rem; padding:4px 10px;">✏️ 編集</a>
+      <form method="post" action="{{ url_for('voucher_store.delete', voucher_id=v.id) }}" style="display:inline;" onsubmit="return confirm('この証憑を削除しますか？')">
+        <button type="submit" class="vc-btn vc-btn-danger" style="font-size:0.8rem; padding:4px 10px;">🗑️</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <div class="icon">🧾</div>
+    <div>証憑がまだありません</div>
+    <div style="margin-top:1rem;">
+      <a href="{{ url_for('voucher_store.upload') }}" class="vc-btn vc-btn-primary">📸 最初の証憑をアップロード</a>
+    </div>
+  </div>
+{% endif %}
+</div>
+
+<script>
+function filterVouchers() {
+  const status = document.getElementById('statusFilter').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('.voucher-card').forEach(card => {
+    const matchStatus = !status || card.dataset.status === status;
+    const matchSearch = !search || card.dataset.search.toLowerCase().includes(search);
+    card.style.display = (matchStatus && matchSearch) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

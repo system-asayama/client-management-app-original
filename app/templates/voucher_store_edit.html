@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}証憑編集 - 証憑データ化アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .vc-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+  }
+  .vc-header .sub { font-size: 0.78rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .vc-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .vc-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; white-space: nowrap;
+  }
+  .vc-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+
+  .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .form-card h2 { font-size: 0.95rem; font-weight: 700; color: #1e3a5f; margin: 0 0 1rem 0; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1.5px solid #d1d5db;
+    border-radius: 8px; font-size: 0.9rem; color: #1f2937; background: #fff; box-sizing: border-box;
+  }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    outline: none; border-color: #2563a8;
+  }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .btn-save {
+    width: 100%; background: #2563a8; color: #fff; border: none; border-radius: 10px;
+    padding: 0.9rem; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 0.5rem;
+  }
+  .btn-save:hover { background: #1a4f8a; }
+</style>
+
+<div class="vc-header">
+  <div>
+    <div class="sub">証憑データ化アプリ</div>
+    <h1>✏️ 証憑編集 #{{ voucher.id }}</h1>
+  </div>
+  <a href="{{ url_for('voucher_store.detail', voucher_id=voucher.id) }}" class="vc-btn vc-btn-white">← 詳細に戻る</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="post">
+  <div class="form-card">
+    <h2>🏢 取引先情報</h2>
+    <div class="form-group">
+      <label>会社名</label>
+      <input type="text" name="company_name" value="{{ voucher.会社名 or '' }}" placeholder="例：株式会社〇〇">
+    </div>
+    <div class="form-group">
+      <label>電話番号</label>
+      <input type="text" name="phone" value="{{ voucher.電話番号 or '' }}" placeholder="例：03-1234-5678">
+    </div>
+    <div class="form-group">
+      <label>住所</label>
+      <input type="text" name="address" value="{{ voucher.住所 or '' }}" placeholder="例：東京都千代田区〇〇">
+    </div>
+    <div class="form-group">
+      <label>インボイス番号</label>
+      <input type="text" name="invoice_number" value="{{ voucher.インボイス番号 or '' }}" placeholder="例：T1234567890123">
+    </div>
+    <div class="form-group">
+      <label>法人番号（13桁）</label>
+      <input type="text" name="corporate_number" value="{{ voucher.法人番号 or '' }}" placeholder="例：1234567890123">
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h2>💰 金額・日付</h2>
+    <div class="form-group">
+      <label>金額（円）</label>
+      <input type="number" name="amount" value="{{ voucher.金額 or '' }}" placeholder="例：10000" step="1" min="0">
+    </div>
+    <div class="form-group">
+      <label>日付</label>
+      <input type="date" name="date" value="{{ voucher.日付 or '' }}">
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h2>📝 その他</h2>
+    <div class="form-group">
+      <label>摘要</label>
+      <textarea name="description" placeholder="摘要・メモを入力">{{ voucher.摘要 or '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>ステータス</label>
+      <select name="status">
+        <option value="pending" {% if voucher.ステータス == 'pending' %}selected{% endif %}>未処理</option>
+        <option value="processing" {% if voucher.ステータス == 'processing' %}selected{% endif %}>処理中</option>
+        <option value="completed" {% if voucher.ステータス == 'completed' %}selected{% endif %}>完了</option>
+      </select>
+    </div>
+  </div>
+
+  <button type="submit" class="btn-save">💾 保存する</button>
+</form>
+{% endblock %}

@@ -2246,6 +2246,14 @@ AVAILABLE_APPS = [
         'description': 'テナント単位でホームページを作成・編集・公開できるアプリ',
         'url': '/homepage',
         'icon': '🌐'
+    },
+    {
+        'name': 'voucher-digitization',
+        'display_name': '証桮データ化アプリ',
+        'scope': 'store',
+        'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する店舗単位アプリ',
+        'url': '/voucher',
+        'icon': '🧾'
     }
 ]
 

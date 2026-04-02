@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}証憑詳細 - 証憑データ化アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .vc-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+  }
+  .vc-header .sub { font-size: 0.78rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .vc-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .vc-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; white-space: nowrap;
+  }
+  .vc-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .vc-btn-primary { background: #2563a8; color: #fff; }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+  @media (min-width: 768px) { .detail-grid { grid-template-columns: 1fr 1fr; } }
+
+  .detail-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem;
+  }
+  .detail-card h2 { font-size: 0.95rem; font-weight: 700; color: #1e3a5f; margin: 0 0 1rem 0; }
+  .detail-row { margin-bottom: 0.9rem; }
+  .detail-row:last-child { margin-bottom: 0; }
+  .detail-label { font-size: 0.78rem; color: #6b7280; margin-bottom: 0.2rem; }
+  .detail-value { font-size: 0.95rem; color: #1f2937; font-weight: 500; }
+  .detail-value.large { font-size: 1.5rem; font-weight: 700; color: #16a34a; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600;
+  }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-completed { background: #d1fae5; color: #065f46; }
+  .badge-processing { background: #dbeafe; color: #1e40af; }
+
+  .image-preview { max-width: 100%; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .ocr-text {
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 0.75rem; font-size: 0.82rem; color: #374151; max-height: 200px; overflow-y: auto;
+    white-space: pre-wrap; font-family: monospace;
+  }
+</style>
+
+<div class="vc-header">
+  <div>
+    <div class="sub">証憑データ化アプリ</div>
+    <h1>🧾 証憑詳細 #{{ voucher.id }}</h1>
+  </div>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <a href="{{ url_for('voucher_store.edit', voucher_id=voucher.id) }}" class="vc-btn vc-btn-white">✏️ 編集</a>
+    <a href="{{ url_for('voucher_store.index') }}" class="vc-btn vc-btn-white">← 一覧に戻る</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<div class="detail-grid">
+  <!-- 左列：抽出データ -->
+  <div>
+    <div class="detail-card">
+      <h2>📊 抽出データ</h2>
+      <div class="detail-row">
+        <div class="detail-label">会社名</div>
+        <div class="detail-value">{{ voucher.会社名 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">日付</div>
+        <div class="detail-value">{{ voucher.日付 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">金額</div>
+        <div class="detail-value large">
+          {% if voucher.金額 %}¥{{ "{:,.0f}".format(voucher.金額) }}{% else %}（不明）{% endif %}
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">電話番号</div>
+        <div class="detail-value">{{ voucher.電話番号 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">住所</div>
+        <div class="detail-value">{{ voucher.住所 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">郵便番号</div>
+        <div class="detail-value">{{ voucher.郵便番号 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">インボイス番号</div>
+        <div class="detail-value">{{ voucher.インボイス番号 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">法人番号</div>
+        <div class="detail-value">{{ voucher.法人番号 or '（不明）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">摘要</div>
+        <div class="detail-value">{{ voucher.摘要 or '（なし）' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">ステータス</div>
+        <div class="detail-value">
+          {% if voucher.ステータス == 'pending' %}
+            <span class="badge badge-pending">未処理</span>
+          {% elif voucher.ステータス == 'completed' %}
+            <span class="badge badge-completed">完了</span>
+          {% elif voucher.ステータス == 'processing' %}
+            <span class="badge badge-processing">処理中</span>
+          {% else %}
+            <span class="badge">{{ voucher.ステータス }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-card" style="margin-top:1rem;">
+      <h2>📝 OCR生データ</h2>
+      <div class="ocr-text">{{ voucher.OCR結果_生データ or '（なし）' }}</div>
+    </div>
+  </div>
+
+  <!-- 右列：画像プレビュー -->
+  <div>
+    <div class="detail-card">
+      <h2>🖼️ 証憑画像</h2>
+      {% if voucher.画像パス %}
+        <img src="/{{ voucher.画像パス }}" alt="証憑画像" class="image-preview">
+      {% else %}
+        <div style="text-align:center; color:#9ca3af; padding:2rem;">画像がありません</div>
+      {% endif %}
+    </div>
+
+    <div class="detail-card" style="margin-top:1rem;">
+      <h2>ℹ️ メタ情報</h2>
+      <div class="detail-row">
+        <div class="detail-label">証憑ID</div>
+        <div class="detail-value">{{ voucher.id }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">アップロード日時</div>
+        <div class="detail-value">{{ voucher.created_at }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">更新日時</div>
+        <div class="detail-value">{{ voucher.updated_at }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -58,13 +58,22 @@ def jimusho_dashboard():
             except Exception:
                 s_clients = 0
             try:
-                s_employees = db.query(TJugyoin).join(
+                s_kanrisha = db.query(TKanrisha).join(
+                    TKanrishaTenpo, TKanrisha.id == TKanrishaTenpo.admin_id
+                ).filter(
+                    and_(TKanrisha.tenant_id == tenant_id, TKanrishaTenpo.store_id == store.id, TKanrisha.active == 1)
+                ).count()
+            except Exception:
+                s_kanrisha = 0
+            try:
+                s_jugyoin = db.query(TJugyoin).join(
                     TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
                 ).filter(
                     and_(TJugyoin.tenant_id == tenant_id, TJugyoinTenpo.store_id == store.id, TJugyoin.active == 1)
                 ).count()
             except Exception:
-                s_employees = 0
+                s_jugyoin = 0
+            s_employees = s_kanrisha + s_jugyoin
             try:
                 s_working = db.query(TAttendance).filter(
                     and_(

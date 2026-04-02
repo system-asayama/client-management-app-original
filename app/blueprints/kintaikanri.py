@@ -177,8 +177,20 @@ def attendance():
         ).filter(
             TAttendance.tenant_id == tenant_id
         ).distinct().all()
-        all_staff = [{'staff_type': r.staff_type, 'staff_id': r.staff_id, 'staff_name': r.staff_name or f'スタッフ{r.staff_id}'}
-                     for r in all_staff_keys]
+        # 管理者のrole情報を引き当てるマップを構築
+        admin_role_map = {a.id: getattr(a, 'role', 'admin') for a in db.query(TKanrisha).filter(
+            TKanrisha.tenant_id == tenant_id
+        ).all()}
+        all_staff = []
+        for r in all_staff_keys:
+            role = admin_role_map.get(r.staff_id, 'admin') if r.staff_type == 'admin' else 'employee'
+            all_staff.append({'staff_type': r.staff_type, 'staff_id': r.staff_id, 'staff_name': r.staff_name or f'スタッフ{r.staff_id}', 'role': role})
+        # staff_dataにもrole情報を付加
+        for s in staff_data:
+            if s['staff_type'] == 'admin':
+                s['role'] = admin_role_map.get(s['staff_id'], 'admin')
+            else:
+                s['role'] = 'employee'
 
         return render_template('kintaikanri_attendance.html',
                                staff_data=staff_data,
@@ -326,8 +338,8 @@ def attendance_map():
             and_(TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1)
         ).all()
 
-        staff_list = [{'id': a.id, 'name': a.name, 'type': 'admin'} for a in admins]
-        staff_list += [{'id': e.id, 'name': e.name, 'type': 'employee'} for e in employees]
+        staff_list = [{'id': a.id, 'name': a.name, 'type': 'admin', 'role': getattr(a, 'role', 'admin')} for a in admins]
+        staff_list += [{'id': e.id, 'name': e.name, 'type': 'employee', 'role': 'employee'} for e in employees]
 
         # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
         staff_id_set = {(s['id'], s['type']) for s in staff_list}

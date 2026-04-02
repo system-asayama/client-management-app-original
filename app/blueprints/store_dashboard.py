@@ -343,14 +343,25 @@ def attendance(store_id):
                 TAttendance.store_id == store_id
             )
         ).distinct().all()
-        all_staff = [
-            {
+        # 管理者のrole情報を引き当てるマップを構築
+        admin_role_map = {a.id: getattr(a, 'role', 'admin') for a in db.query(TKanrisha).filter(
+            TKanrisha.tenant_id == tenant_id
+        ).all()}
+        all_staff = []
+        for r in all_staff_keys:
+            role = admin_role_map.get(r.staff_id, 'admin') if r.staff_type == 'admin' else 'employee'
+            all_staff.append({
                 'staff_type': r.staff_type,
                 'staff_id': r.staff_id,
-                'staff_name': r.staff_name or f'スタッフ{r.staff_id}'
-            }
-            for r in all_staff_keys
-        ]
+                'staff_name': r.staff_name or f'スタッフ{r.staff_id}',
+                'role': role
+            })
+        # staff_dataにもrole情報を付加
+        for s in staff_data:
+            if s['staff_type'] == 'admin':
+                s['role'] = admin_role_map.get(s['staff_id'], 'admin')
+            else:
+                s['role'] = 'employee'
 
         # 店舗に所属する全スタッフ数（店舗管理者＋従業員）を集計
         try:

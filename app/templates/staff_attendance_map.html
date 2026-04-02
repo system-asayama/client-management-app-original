@@ -203,7 +203,7 @@
         <option value="">全員</option>
         {% for s in staff_list %}
         <option value="{{ s.id }}" {% if selected_staff_id == s.id|string %}selected{% endif %}>
-            {{ s.name }}（{{ 'スタッフ' if s.type == 'employee' else '管理者' }}）
+            {{ s.name }}（{% if s.type == 'employee' %}従業員{% elif s.get('role') == 'tenant_admin' %}テナント管理者{% else %}店舗管理者{% endif %}）
         </option>
         {% endfor %}
     </select>

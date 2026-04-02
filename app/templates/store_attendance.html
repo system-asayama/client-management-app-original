@@ -232,7 +232,7 @@
       <option value="">全スタッフ</option>
       {% for s in all_staff %}
       <option value="{{ s.staff_type }}_{{ s.staff_id }}" {% if staff_filter == s.staff_type ~ '_' ~ s.staff_id %}selected{% endif %}>
-        {{ s.staff_name }}（{{ '従業員' if s.staff_type == 'employee' else '管理者' }}）
+        {{ s.staff_name }}（{% if s.staff_type == 'employee' %}従業員{% elif s.get('role') == 'tenant_admin' %}テナント管理者{% else %}店舗管理者{% endif %}）
       </option>
       {% endfor %}
     </select>
@@ -248,7 +248,7 @@
     <div class="staff-section-header" onclick="toggleSection('staff_{{ loop.index }}')">
       <div>
         <span class="staff-name">{{ staff.name }}</span>
-        <span style="font-size:0.78rem;color:#6b7280;margin-left:0.5rem">{{ '従業員' if staff.staff_type == 'employee' else '管理者' }}</span>
+        <span style="font-size:0.78rem;color:#6b7280;margin-left:0.5rem">{% if staff.staff_type == 'employee' %}従業員{% elif staff.get('role') == 'tenant_admin' %}テナント管理者{% else %}店舗管理者{% endif %}</span>
         {% if staff.is_working_now %}<span class="badge-working">出勤中</span>{% endif %}
       </div>
       <div class="staff-summary">

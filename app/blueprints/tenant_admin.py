@@ -2195,10 +2195,19 @@ def employee_new():
 AVAILABLE_APPS = [
     {
         'name': 'client-management',
+        'display_name': '顧問先管理アプリ',
+        'scope': 'store',
+        'description': '顧問先・クライアント管理システム（店舗単位）',
+        'url': '/tenant_admin/jimusho',
+        'icon': '📋'
+    },
+    {
+        'name': 'client-management-tenant',
         'display_name': '事務所運営アプリ',
         'scope': 'tenant',
-        'description': '顧問先・クライアント管理システム',
-        'url': '/tenant_admin/jimusho'
+        'description': '顧問先・クライアント管理システム（事務所全体）',
+        'url': '/tenant_admin/jimusho',
+        'icon': '🏢'
     }
 ]
 
@@ -3303,7 +3312,14 @@ def store_apps(store_id):
                 enabled = app_setting.enabled if app_setting else 1
                 
                 if enabled:
-                    enabled_apps.append(app)
+                    # store_idをURLに付与したコピーを作成
+                    app_copy = dict(app)
+                    base_url = app.get('url', '')
+                    if '?' in base_url:
+                        app_copy['url'] = f"{base_url}&store_id={store_id}"
+                    else:
+                        app_copy['url'] = f"{base_url}?store_id={store_id}"
+                    enabled_apps.append(app_copy)
         
         apps = enabled_apps
         

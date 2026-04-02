@@ -137,6 +137,9 @@
     <div class="office-title">{{ tenant_name if tenant_name else 'テナント名' }}</div>
     <h1>🏢 テナント管理者ダッシュボード</h1>
   </div>
+  <div class="header-actions">
+    <a href="{{ mypage_url }}">&#128100; マイページ</a>
+  </div>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}

@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from app.db import SessionLocal
 from app.models_clients import TClient, TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality, TFilingOfficeTaxOffice, TFilingOfficePrefecture, TFilingOfficeMunicipality
 from flask import jsonify
-from app.models_login import TTenant, TKanrisha
+from app.models_login import TTenant, TKanrisha, TTenpo
 from app.utils.decorators import require_roles, ROLES
 from sqlalchemy import and_
 from datetime import date, datetime
@@ -84,13 +84,66 @@ def clients():
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_admin.dashboard'))
-    
+
     db = SessionLocal()
     try:
-        clients = db.query(TClient).filter(TClient.tenant_id == tenant_id).order_by(TClient.id.desc()).all()
+        # 店舗フィルターパラメータ
+        store_filter = request.args.get('store_filter', '')
+        query = db.query(TClient).filter(TClient.tenant_id == tenant_id)
+        if store_filter == 'unassigned':
+            query = query.filter(TClient.store_id == None)
+        elif store_filter and store_filter.isdigit():
+            query = query.filter(TClient.store_id == int(store_filter))
+        clients = query.order_by(TClient.id.desc()).all()
         profession = _get_profession(tenant_id)
+        # 店舗一覧を取得
+        stores = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id,
+            TTenpo.有効 == 1
+        ).order_by(TTenpo.id).all()
         return render_template('clients.html', clients=clients, profession=profession,
-                               profession_label=PROFESSION_LABELS.get(profession, ''))
+                               profession_label=PROFESSION_LABELS.get(profession, ''),
+                               stores=stores, store_filter=store_filter)
+    finally:
+        db.close()
+
+
+@bp.route('/assign_store', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def assign_store():
+    """顧問先に店舗を割り当てる（単体または一括）"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': '認証エラー'}), 401
+    db = SessionLocal()
+    try:
+        store_id_raw = request.form.get('store_id', '')
+        store_id = int(store_id_raw) if store_id_raw and store_id_raw.isdigit() else None
+        # 店舗の存在確認（store_idが指定された場合）
+        if store_id:
+            store = db.query(TTenpo).filter(
+                and_(TTenpo.id == store_id, TTenpo.tenant_id == tenant_id)
+            ).first()
+            if not store:
+                flash('店舗が見つかりません', 'error')
+                return redirect(url_for('clients.clients'))
+        # 小数の顧問先IDの場合
+        client_ids_raw = request.form.getlist('client_ids')
+        if client_ids_raw:
+            client_ids = [int(x) for x in client_ids_raw if x.isdigit()]
+            if client_ids:
+                db.query(TClient).filter(
+                    and_(TClient.id.in_(client_ids), TClient.tenant_id == tenant_id)
+                ).update({'store_id': store_id}, synchronize_session=False)
+                db.commit()
+                flash(f'{len(client_ids)}件の顧問先に店舗を割り当てました', 'success')
+        else:
+            flash('顧問先が選択されていません', 'warning')
+        return redirect(url_for('clients.clients', store_filter='unassigned'))
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return redirect(url_for('clients.clients'))
     finally:
         db.close()
 
@@ -234,6 +287,12 @@ def edit_client(client_id):
             client.industry = request.form.get('industry') or None
             client.fiscal_year_end = request.form.get('fiscal_year_end') or None
             client.contract_start_date = request.form.get('contract_start_date') or None
+            # 店舗割り当て
+            store_id_raw = request.form.get('store_id', '')
+            if store_id_raw == 'none' or store_id_raw == '':
+                client.store_id = None
+            elif store_id_raw.isdigit():
+                client.store_id = int(store_id_raw)
 
             if profession == 'tax':
                 client.tax_accountant_code = request.form.get('tax_accountant_code') or None
@@ -256,8 +315,14 @@ def edit_client(client_id):
             flash('顧問先情報を更新しました', 'success')
             return redirect(url_for('clients.client_info', client_id=client_id))
 
+        # 店舗一覧を取得
+        stores = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id,
+            TTenpo.有効 == 1
+        ).order_by(TTenpo.id).all()
         return render_template('edit_client.html', client=client, profession=profession,
-                               profession_label=PROFESSION_LABELS.get(profession, ''))
+                               profession_label=PROFESSION_LABELS.get(profession, ''),
+                               stores=stores)
     finally:
         db.close()
 

@@ -42,7 +42,20 @@
   }
   .btn-add-header:hover { opacity: 0.85; }
 
-  .search-box { margin-bottom: 1.5rem; }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    margin-bottom: 1.25rem; align-items: center;
+  }
+  .filter-bar a {
+    padding: 0.4rem 1rem; border-radius: 99px; font-size: 0.8rem; font-weight: 600;
+    text-decoration: none; border: 1.5px solid #e5e7eb; color: #374151;
+    background: #fff; transition: all 0.12s;
+  }
+  .filter-bar a:hover { border-color: #2563a8; color: #2563a8; }
+  .filter-bar a.active { background: #2563a8; color: #fff; border-color: #2563a8; }
+  .filter-bar a.active-warn { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+
+  .search-box { margin-bottom: 1.25rem; }
   .search-box input {
     width: 100%;
     padding: 0.65rem 1rem; border: 1px solid #e5e7eb;
@@ -67,23 +80,46 @@
   .badge-sr         { background: #fef3c7; color: #92400e; }
   .badge-none       { background: #f3f4f6; color: #6b7280; }
 
+  /* 一括割り当てバー */
+  .assign-bar {
+    background: #fffbeb; border: 1.5px solid #f59e0b;
+    border-radius: 10px; padding: 0.85rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+  }
+  .assign-bar label { font-size: 0.875rem; font-weight: 600; color: #92400e; }
+  .assign-bar select {
+    padding: 0.4rem 0.75rem; border: 1.5px solid #f59e0b;
+    border-radius: 6px; font-size: 0.875rem; background: #fff;
+  }
+  .assign-bar button {
+    padding: 0.4rem 1.1rem; border-radius: 6px;
+    background: #f59e0b; color: #fff; border: none;
+    font-size: 0.875rem; font-weight: 700; cursor: pointer;
+  }
+  .assign-bar button:hover { background: #d97706; }
+  .assign-bar .select-all-btn {
+    font-size: 0.8rem; color: #92400e; text-decoration: underline;
+    cursor: pointer; background: none; border: none; padding: 0;
+  }
+  .assign-count { font-size: 0.8rem; color: #92400e; }
+
   .client-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
-  .client-card {
+  .client-row {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     padding: 1rem 1.25rem;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 1rem; text-decoration: none; color: inherit;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    display: flex; align-items: center;
+    gap: 0.75rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .client-card:hover {
-    border-color: #2563a8;
-    box-shadow: 0 4px 16px rgba(37,99,168,0.1);
-    transform: translateY(-1px);
-  }
+  .client-row:hover { border-color: #2563a8; box-shadow: 0 4px 16px rgba(37,99,168,0.08); }
+  .client-row.selected { border-color: #f59e0b; background: #fffbeb; }
 
+  .client-row .row-check { flex-shrink: 0; }
+  .client-row .row-link { flex: 1; min-width: 0; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 1rem; }
   .client-card-left { flex: 1; min-width: 0; }
   .client-card-name {
     font-size: 0.975rem; font-weight: 700; color: #111827;
@@ -100,6 +136,8 @@
   .tag-type-ind  { background: #f3e8ff; color: #6b21a8; }
   .tag-email     { background: #f3f4f6; color: #4b5563; }
   .tag-phone     { background: #f3f4f6; color: #4b5563; }
+  .tag-store     { background: #dcfce7; color: #166534; }
+  .tag-unassigned { background: #fef3c7; color: #92400e; }
 
   .client-card-right { color: #d1d5db; font-size: 1.25rem; flex-shrink: 0; }
 
@@ -133,10 +171,38 @@
 {% endif %}
 {% endwith %}
 
+<!-- 店舗フィルター -->
+{% if stores %}
+<div class="filter-bar">
+  <a href="{{ url_for('clients.clients') }}" class="{{ 'active' if not store_filter else '' }}">すべて</a>
+  <a href="{{ url_for('clients.clients', store_filter='unassigned') }}" class="{{ 'active-warn' if store_filter == 'unassigned' else '' }}">⚠️ 未割り当て</a>
+  {% for s in stores %}
+  <a href="{{ url_for('clients.clients', store_filter=s.id) }}" class="{{ 'active' if store_filter == (s.id|string) else '' }}">🏢 {{ s.名称 }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- 検索 -->
 <div class="search-box">
   <input type="text" id="searchInput" placeholder="顧問先名・メール・電話番号で検索..." oninput="filterClients()">
 </div>
+
+<!-- 一括割り当てバー（未割り当てフィルター時のみ表示） -->
+{% if store_filter == 'unassigned' and stores %}
+<form method="POST" action="{{ url_for('clients.assign_store') }}" id="assignForm">
+  <div class="assign-bar">
+    <label>⚠️ 未割り当て顧問先を一括割り当て：</label>
+    <select name="store_id" required>
+      <option value="">店舗を選択...</option>
+      {% for s in stores %}
+      <option value="{{ s.id }}">{{ s.名称 }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" class="select-all-btn" onclick="toggleSelectAll()">全選択 / 解除</button>
+    <span class="assign-count" id="assignCount">0件選択中</span>
+    <button type="submit" onclick="return confirmAssign()">割り当て実行</button>
+  </div>
+{% endif %}
 
 <!-- 一覧 -->
 <div class="section-title">
@@ -147,36 +213,53 @@
   {% else %}<span class="profession-badge badge-none">士業未設定</span>
   {% endif %}
   &nbsp;{{ clients | length }}件
+  {% if store_filter == 'unassigned' %}<span style="color:#f59e0b; font-size:0.8rem;">（店舗未割り当て）</span>{% endif %}
 </div>
 
 {% if clients %}
 <div class="client-list" id="clientList">
   {% for c in clients %}
-  <a href="{{ url_for('clients.client_info', client_id=c.id) }}" class="client-card"
-     data-name="{{ c.name | lower }}" data-email="{{ (c.email or '') | lower }}" data-phone="{{ c.phone or '' }}">
-    <div class="client-card-left">
-      <div class="client-card-name">{{ c.name }}</div>
-      <div class="client-card-meta">
-        {% if c.type %}
-        <span class="meta-tag {% if c.type == '法人' %}tag-type-corp{% else %}tag-type-ind{% endif %}">{{ c.type }}</span>
-        {% endif %}
-        {% if c.email %}
-        <span class="meta-tag tag-email">✉ {{ c.email }}</span>
-        {% endif %}
-        {% if c.phone %}
-        <span class="meta-tag tag-phone">📞 {{ c.phone }}</span>
-        {% endif %}
-        {% if profession == 'tax' and c.tax_accountant_code %}
-        <span class="meta-tag" style="background:#e0e7ff;color:#3730a3;">{{ c.tax_accountant_code }}</span>
-        {% elif profession == 'legal' and c.case_type %}
-        <span class="meta-tag" style="background:#fce7f3;color:#9d174d;">{{ c.case_type }}</span>
-        {% elif profession == 'sr' and c.employee_count %}
-        <span class="meta-tag" style="background:#fef3c7;color:#92400e;">{{ c.employee_count }}名</span>
-        {% endif %}
-      </div>
+  <div class="client-row" id="row-{{ c.id }}"
+       data-name="{{ c.name | lower }}" data-email="{{ (c.email or '') | lower }}" data-phone="{{ c.phone or '' }}">
+    {% if store_filter == 'unassigned' and stores %}
+    <div class="row-check">
+      <input type="checkbox" name="client_ids" value="{{ c.id }}" form="assignForm"
+             onchange="updateCount()" style="width:18px;height:18px;cursor:pointer;"
+             onclick="toggleRowSelect(this)">
     </div>
-    <div class="client-card-right">›</div>
-  </a>
+    {% endif %}
+    <a href="{{ url_for('clients.client_info', client_id=c.id) }}" class="row-link">
+      <div class="client-card-left">
+        <div class="client-card-name">{{ c.name }}</div>
+        <div class="client-card-meta">
+          {% if c.type %}
+          <span class="meta-tag {% if c.type == '法人' %}tag-type-corp{% else %}tag-type-ind{% endif %}">{{ c.type }}</span>
+          {% endif %}
+          {% if c.email %}
+          <span class="meta-tag tag-email">✉ {{ c.email }}</span>
+          {% endif %}
+          {% if c.phone %}
+          <span class="meta-tag tag-phone">📞 {{ c.phone }}</span>
+          {% endif %}
+          {% if profession == 'tax' and c.tax_accountant_code %}
+          <span class="meta-tag" style="background:#e0e7ff;color:#3730a3;">{{ c.tax_accountant_code }}</span>
+          {% elif profession == 'legal' and c.case_type %}
+          <span class="meta-tag" style="background:#fce7f3;color:#9d174d;">{{ c.case_type }}</span>
+          {% elif profession == 'sr' and c.employee_count %}
+          <span class="meta-tag" style="background:#fef3c7;color:#92400e;">{{ c.employee_count }}名</span>
+          {% endif %}
+          {% if not store_filter %}
+            {% if c.store_id %}
+            <span class="meta-tag tag-store">🏢 店舗{{ c.store_id }}</span>
+            {% else %}
+            <span class="meta-tag tag-unassigned">⚠️ 未割り当て</span>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+      <div class="client-card-right">›</div>
+    </a>
+  </div>
   {% endfor %}
 </div>
 
@@ -186,31 +269,78 @@
 
 {% else %}
 <div class="empty-state">
-  <div class="empty-icon">👥</div>
-  <div>顧問先がまだ登録されていません</div>
+  <div class="empty-icon">{% if store_filter == 'unassigned' %}✅{% else %}👥{% endif %}</div>
+  <div>{% if store_filter == 'unassigned' %}店舗未割り当ての顧問先はありません{% else %}顧問先がまだ登録されていません{% endif %}</div>
+  {% if not store_filter %}
   <div style="margin-top:1rem">
     <a href="{{ url_for('clients.add_client') }}" class="btn-primary">＋ 最初の顧問先を追加</a>
   </div>
+  {% endif %}
 </div>
+{% endif %}
+
+{% if store_filter == 'unassigned' and stores %}
+</form>
 {% endif %}
 
 <script>
 function filterClients() {
   const q = document.getElementById('searchInput').value.toLowerCase();
-  const cards = document.querySelectorAll('#clientList .client-card');
+  const rows = document.querySelectorAll('#clientList .client-row');
   let visible = 0;
-  cards.forEach(card => {
-    const name = card.dataset.name || '';
-    const email = card.dataset.email || '';
-    const phone = card.dataset.phone || '';
+  rows.forEach(row => {
+    const name = row.dataset.name || '';
+    const email = row.dataset.email || '';
+    const phone = row.dataset.phone || '';
     if (!q || name.includes(q) || email.includes(q) || phone.includes(q)) {
-      card.style.display = '';
+      row.style.display = '';
       visible++;
     } else {
-      card.style.display = 'none';
+      row.style.display = 'none';
     }
   });
   document.getElementById('noResult').style.display = (visible === 0 && q) ? '' : 'none';
+}
+
+function toggleRowSelect(checkbox) {
+  const row = checkbox.closest('.client-row');
+  if (checkbox.checked) {
+    row.classList.add('selected');
+  } else {
+    row.classList.remove('selected');
+  }
+  updateCount();
+}
+
+function updateCount() {
+  const checked = document.querySelectorAll('#assignForm input[name="client_ids"]:checked').length;
+  const el = document.getElementById('assignCount');
+  if (el) el.textContent = checked + '件選択中';
+}
+
+function toggleSelectAll() {
+  const checkboxes = document.querySelectorAll('#assignForm input[name="client_ids"]');
+  const allChecked = Array.from(checkboxes).every(c => c.checked);
+  checkboxes.forEach(c => {
+    c.checked = !allChecked;
+    const row = c.closest('.client-row');
+    if (row) row.classList.toggle('selected', !allChecked);
+  });
+  updateCount();
+}
+
+function confirmAssign() {
+  const checked = document.querySelectorAll('#assignForm input[name="client_ids"]:checked').length;
+  const store = document.querySelector('#assignForm select[name="store_id"]');
+  if (!store || !store.value) {
+    alert('割り当て先の店舗を選択してください。');
+    return false;
+  }
+  if (checked === 0) {
+    alert('割り当てる顧問先を選択してください。');
+    return false;
+  }
+  return confirm(checked + '件の顧問先を「' + store.options[store.selectedIndex].text + '」に割り当てますか？');
 }
 </script>
 {% endblock %}

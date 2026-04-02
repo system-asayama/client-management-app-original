@@ -273,6 +273,19 @@
       </div>
       {% endif %}
 
+      {% if stores %}
+      <div class="section-title">店舗割り当て</div>
+      <div class="form-row">
+        <label>所属店舗</label>
+        <select name="store_id">
+          <option value="none" {% if not client.store_id %}selected{% endif %}>未割り当て</option>
+          {% for s in stores %}
+          <option value="{{ s.id }}" {% if client.store_id == s.id %}selected{% endif %}>{{ s.名称 }}</option>
+          {% endfor %}
+        </select>
+        <small>顧問先が所属する店舗を選択してください。「未割り当て」にすると店舗別管理から除外されます。</small>
+      </div>
+      {% endif %}
       <div class="section-title">メモ</div>
       <div class="form-row">
         <textarea name="notes" rows="3">{{ client.notes or '' }}</textarea>

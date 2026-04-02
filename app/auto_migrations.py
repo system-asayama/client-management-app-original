@@ -494,6 +494,50 @@ def run_auto_migrations():
         else:
             logger.info("- T_管理者.can_distribute_apps カラムは既に存在します（スキップ）")
 
+        # T_顧問先テーブルに store_id カラムを追加（店舗ベースアーキテクチャ対応）
+        if not column_exists(session, 'T_顧問先', 'store_id'):
+            logger.info("T_顧問先テーブルに store_id カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_顧問先"
+                    ADD COLUMN store_id INTEGER NULL
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_顧問先".store_id IS '担当店舗ID（T_店舗.id）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_顧問先`
+                    ADD COLUMN `store_id` INT NULL
+                    COMMENT '担当店舗ID（T_店舗.id）'
+                """))
+            session.commit()
+            logger.info("✓ T_顧問先.store_id カラムを追加しました")
+        else:
+            logger.info("- T_顧問先.store_id カラムは既に存在します（スキップ）")
+
+        # T_勤怠テーブルに store_id カラムを追加（店舗ベースアーキテクチャ対応）
+        if not column_exists(session, 'T_勤怠', 'store_id'):
+            logger.info("T_勤怠テーブルに store_id カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_勤怠"
+                    ADD COLUMN store_id INTEGER NULL
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_勤怠".store_id IS '店舗ID（T_店舗.id）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_勤怠`
+                    ADD COLUMN `store_id` INT NULL
+                    COMMENT '店舗ID（T_店舗.id）'
+                """))
+            session.commit()
+            logger.info("✓ T_勤怠.store_id カラムを追加しました")
+        else:
+            logger.info("- T_勤怠.store_id カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

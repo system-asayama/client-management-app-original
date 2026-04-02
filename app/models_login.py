@@ -203,6 +203,7 @@ class TAttendance(Base):
     break_minutes = Column(Integer, default=0, comment='休憩時間（分）')
     note = Column(Text, nullable=True, comment='備考')
     status = Column(String(20), default='normal', comment='normal=通常, late=遅刻, early=早退, absent=欠勤, holiday=休日')
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True, comment='店舗ID（店舗ベースアーキテクチャ対応）')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

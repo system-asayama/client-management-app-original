@@ -111,6 +111,7 @@
 {% endif %}
 
 <form method="POST">
+  {% if store_id %}<input type="hidden" name="store_id" value="{{ store_id }}">{% endif %}
   <div class="form-card">
     <div class="section-title">基本情報</div>
     <div class="form-grid">
@@ -272,7 +273,11 @@
 
   <div>
     <button type="submit" class="btn-submit">＋ 顧問先を追加</button>
+    {% if store_id %}
+    <a href="{{ url_for('store_dashboard.clients', store_id=store_id) }}" class="btn-cancel">← キャンセル</a>
+    {% else %}
     <a href="{{ url_for('clients.clients') }}" class="btn-cancel">← キャンセル</a>
+    {% endif %}
   </div>
 </form>
 {% endblock %}

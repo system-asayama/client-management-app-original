@@ -25,7 +25,7 @@ PROFESSION_LABELS = {
 @bp.route('/jimusho')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def jimusho_dashboard():
-    """士業事務所運営アプリ トップページ"""
+    """士業事務所運営アプリ トップページ（全店舗集計ビュー）"""
     from datetime import datetime, timezone, timedelta
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
@@ -35,7 +35,58 @@ def jimusho_dashboard():
         tenant_name = tenant.名称 if tenant else None
         profession = getattr(tenant, 'profession', None) or '' if tenant else ''
         profession_label = PROFESSION_LABELS.get(profession, '士業事務所')
-        # 顧問先統計
+
+        jst = timezone(timedelta(hours=9))
+        today = datetime.now(jst).date()
+
+        # 店舗一覧を取得（店舗ベースアーキテクチャ）
+        try:
+            stores = db.query(TTenpo).filter(
+                TTenpo.tenant_id == tenant_id,
+                TTenpo.有効 == 1
+            ).order_by(TTenpo.id).all()
+        except Exception:
+            stores = []
+
+        # 店舗別集計データを構築
+        stores_summary = []
+        for store in stores:
+            try:
+                s_clients = db.query(TClient).filter(
+                    and_(TClient.tenant_id == tenant_id, TClient.store_id == store.id)
+                ).count()
+            except Exception:
+                s_clients = 0
+            try:
+                s_employees = db.query(TJugyoin).join(
+                    TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
+                ).filter(
+                    and_(TJugyoin.tenant_id == tenant_id, TJugyoinTenpo.store_id == store.id, TJugyoin.active == 1)
+                ).count()
+            except Exception:
+                s_employees = 0
+            try:
+                s_working = db.query(TAttendance).filter(
+                    and_(
+                        TAttendance.tenant_id == tenant_id,
+                        TAttendance.store_id == store.id,
+                        TAttendance.work_date == today,
+                        TAttendance.clock_in != None,
+                        TAttendance.clock_out == None
+                    )
+                ).count()
+            except Exception:
+                s_working = 0
+            stores_summary.append({
+                'id': store.id,
+                '名称': store.名称,
+                'slug': getattr(store, 'slug', None),
+                'client_count': s_clients,
+                'employee_count': s_employees,
+                'working_now': s_working,
+            })
+
+        # 全顧問先統計
         try:
             all_clients = db.query(TClient).filter(TClient.tenant_id == tenant_id).all()
             client_count = len(all_clients)
@@ -43,6 +94,15 @@ def jimusho_dashboard():
             ind_count = sum(1 for c in all_clients if c.type == '個人')
         except Exception:
             client_count = corp_count = ind_count = 0
+
+        # 店舗に未割り当ての顧問先数
+        try:
+            unassigned_clients = db.query(TClient).filter(
+                and_(TClient.tenant_id == tenant_id, TClient.store_id == None)
+            ).count()
+        except Exception:
+            unassigned_clients = 0
+
         # 従業員統計
         try:
             employee_count = db.query(TJugyoin).filter(
@@ -51,10 +111,9 @@ def jimusho_dashboard():
             ).count()
         except Exception:
             employee_count = 0
-        # 今日の出勤中スタッフ数
+
+        # 今日の出勤中スタッフ数（全テナント）
         try:
-            jst = timezone(timedelta(hours=9))
-            today = datetime.now(jst).date()
             working_now = db.query(TAttendance).filter(
                 and_(
                     TAttendance.tenant_id == tenant_id,
@@ -65,6 +124,7 @@ def jimusho_dashboard():
             ).count()
         except Exception:
             working_now = 0
+
         return render_template('jimusho_dashboard.html',
                                tenant_id=tenant_id,
                                tenant_name=tenant_name,
@@ -74,7 +134,9 @@ def jimusho_dashboard():
                                corp_count=corp_count,
                                ind_count=ind_count,
                                employee_count=employee_count,
-                               working_now=working_now)
+                               working_now=working_now,
+                               stores_summary=stores_summary,
+                               unassigned_clients=unassigned_clients)
     finally:
         db.close()
 

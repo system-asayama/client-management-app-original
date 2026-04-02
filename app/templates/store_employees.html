@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}{{ store.名称 }} - スタッフ一覧{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .subtitle { font-size: 0.8rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .breadcrumb {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .breadcrumb a { color: #6b7280; text-decoration: none; }
+  .breadcrumb a:hover { color: #2563a8; }
+  .card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .staff-table { width: 100%; border-collapse: collapse; }
+  .staff-table th {
+    background: #f9fafb;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  .staff-table td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 0.875rem;
+    color: #374151;
+  }
+  .staff-table tr:last-child td { border-bottom: none; }
+  .staff-table tr:hover td { background: #f9fafb; }
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .badge-active   { background: #dcfce7; color: #15803d; }
+  .badge-inactive { background: #fee2e2; color: #b91c1c; }
+  .badge-admin    { background: #dbeafe; color: #1d4ed8; }
+  .badge-employee { background: #ede9fe; color: #6d28d9; }
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #9ca3af;
+    font-size: 0.875rem;
+  }
+</style>
+
+<!-- パンくずリスト -->
+<div class="breadcrumb">
+  <a href="{{ url_for('tenant_admin.jimusho_dashboard') }}">🏢 事務所トップ</a>
+  <span>›</span>
+  <a href="{{ url_for('store_dashboard.dashboard', store_id=store.id) }}">{{ store.名称 }}</a>
+  <span>›</span>
+  <span>スタッフ一覧</span>
+</div>
+
+<!-- ページヘッダー -->
+<div class="page-header">
+  <div>
+    <div class="subtitle">{{ store.名称 }} / スタッフ管理</div>
+    <h1>👥 スタッフ一覧</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('store_dashboard.dashboard', store_id=store.id) }}">← 店舗トップ</a>
+    <a href="{{ url_for('tenant_admin.select_store_for_admins', store_id=store.id) }}">管理者管理</a>
+    <a href="{{ url_for('tenant_admin.select_store_for_employees', store_id=store.id) }}">従業員管理</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- 管理者一覧 -->
+<div class="card">
+  <div class="card-title">🔑 管理者（{{ admins|length }}名）</div>
+  {% if admins %}
+  <div style="overflow-x:auto;">
+    <table class="staff-table">
+      <thead>
+        <tr>
+          <th>名前</th>
+          <th>ログインID</th>
+          <th>メール</th>
+          <th>役職</th>
+          <th>ステータス</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in admins %}
+        <tr>
+          <td><strong>{{ a.name }}</strong></td>
+          <td><code style="font-size:0.8rem;color:#6b7280;">{{ a.login_id }}</code></td>
+          <td>{{ a.email or '' }}</td>
+          <td>{{ a.position or '' }}</td>
+          <td>
+            {% if a.active == 1 %}
+              <span class="badge badge-active">有効</span>
+            {% else %}
+              <span class="badge badge-inactive">無効</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">この店舗に管理者が登録されていません。</div>
+  {% endif %}
+</div>
+
+<!-- 従業員一覧 -->
+<div class="card">
+  <div class="card-title">👤 従業員（{{ employees|length }}名）</div>
+  {% if employees %}
+  <div style="overflow-x:auto;">
+    <table class="staff-table">
+      <thead>
+        <tr>
+          <th>名前</th>
+          <th>ログインID</th>
+          <th>メール</th>
+          <th>役職</th>
+          <th>ステータス</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in employees %}
+        <tr>
+          <td><strong>{{ e.name }}</strong></td>
+          <td><code style="font-size:0.8rem;color:#6b7280;">{{ e.login_id }}</code></td>
+          <td>{{ e.email or '' }}</td>
+          <td>{{ e.position or '' }}</td>
+          <td>
+            {% if e.active == 1 %}
+              <span class="badge badge-active">有効</span>
+            {% else %}
+              <span class="badge badge-inactive">無効</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">この店舗に従業員が登録されていません。</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}{{ store.名称 }} - 顧問先一覧{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+  }
+  .page-header .subtitle {
+    font-size: 0.8rem;
+    opacity: 0.75;
+    margin-bottom: 0.2rem;
+  }
+  .page-header .header-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .breadcrumb {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .breadcrumb a { color: #6b7280; text-decoration: none; }
+  .breadcrumb a:hover { color: #2563a8; }
+  .card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: #2563a8; color: #fff; }
+  .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+  .clients-table { width: 100%; border-collapse: collapse; }
+  .clients-table th {
+    background: #f9fafb;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  .clients-table td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 0.875rem;
+    color: #374151;
+  }
+  .clients-table tr:last-child td { border-bottom: none; }
+  .clients-table tr:hover td { background: #f9fafb; }
+  .client-name-link {
+    color: #2563a8;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .client-name-link:hover { text-decoration: underline; }
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .badge-corp { background: #dbeafe; color: #1d4ed8; }
+  .badge-ind  { background: #dcfce7; color: #15803d; }
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #9ca3af;
+  }
+  .empty-state .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+  .empty-state p { font-size: 0.9rem; }
+</style>
+
+<!-- パンくずリスト -->
+<div class="breadcrumb">
+  <a href="{{ url_for('tenant_admin.jimusho_dashboard') }}">🏢 事務所トップ</a>
+  <span>›</span>
+  <a href="{{ url_for('store_dashboard.dashboard', store_id=store.id) }}">{{ store.名称 }}</a>
+  <span>›</span>
+  <span>顧問先一覧</span>
+</div>
+
+<!-- ページヘッダー -->
+<div class="page-header">
+  <div>
+    <div class="subtitle">{{ store.名称 }} / 顧問先管理</div>
+    <h1>📋 顧問先一覧</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('store_dashboard.dashboard', store_id=store.id) }}">← 店舗トップ</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<div class="card">
+  <div class="action-bar">
+    <span style="font-size:0.875rem;color:#6b7280;">全 <strong>{{ clients|length }}</strong> 件</span>
+    <a class="btn btn-primary" href="{{ url_for('clients.add_client') }}?store_id={{ store.id }}">＋ 顧問先を追加</a>
+  </div>
+
+  {% if clients %}
+  <div style="overflow-x:auto;">
+    <table class="clients-table">
+      <thead>
+        <tr>
+          <th>区分</th>
+          <th>顧問先名</th>
+          <th>電話番号</th>
+          <th>メール</th>
+          <th>業種</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td>
+            {% if c.type == '法人' %}
+              <span class="badge badge-corp">法人</span>
+            {% else %}
+              <span class="badge badge-ind">個人</span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="client-name-link" href="{{ url_for('clients.client_info', client_id=c.id) }}">{{ c.name }}</a>
+          </td>
+          <td>{{ c.phone or '' }}</td>
+          <td>{{ c.email or '' }}</td>
+          <td>{{ c.industry or '' }}</td>
+          <td>
+            <a class="btn btn-secondary" href="{{ url_for('clients.edit_client', client_id=c.id) }}" style="padding:0.3rem 0.75rem;font-size:0.8rem;">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <p>この店舗にはまだ顧問先が登録されていません。</p>
+    <a class="btn btn-primary" href="{{ url_for('clients.add_client') }}?store_id={{ store.id }}" style="margin-top:1rem;">顧問先を追加する</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

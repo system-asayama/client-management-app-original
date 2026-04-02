@@ -18,6 +18,7 @@ class TClient(Base):
     phone = Column(String(50))
     notes = Column(Text)
     storage_folder_path = Column(String(500))  # ストレージ内の保存先フォルダパス（例: /clients/株式会社A）
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)  # 担当店舗ID（店舗ベースアーキテクチャ対応）
 
     # 士業共通追加情報
     address = Column(String(500), nullable=True)          # 住所・所在地

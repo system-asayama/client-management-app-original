@@ -214,6 +214,53 @@
   </div>
 </div>
 
+<!-- 店舗別集計 -->
+{% if stores_summary %}
+<div class="section-title">🏢 店舗別サマリー</div>
+<div style="overflow-x:auto; margin-bottom:2rem;">
+  <table style="width:100%; border-collapse:collapse; font-size:0.875rem; background:#fff; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
+    <thead>
+      <tr style="background:#1a3a5c; color:#fff;">
+        <th style="padding:0.75rem 1rem; text-align:left;">店舗名</th>
+        <th style="padding:0.75rem 1rem; text-align:center;">顧問先数</th>
+        <th style="padding:0.75rem 1rem; text-align:center;">スタッフ数</th>
+        <th style="padding:0.75rem 1rem; text-align:center;">本日出勤中</th>
+        <th style="padding:0.75rem 1rem; text-align:center;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stores_summary %}
+      <tr style="border-top:1px solid #e5e7eb; {% if loop.index is odd %}background:#f9fafb;{% endif %}">
+        <td style="padding:0.75rem 1rem; font-weight:600; color:#1a3a5c;">{{ s['名称'] }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center;">{{ s['client_count'] }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center;">{{ s['employee_count'] }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center;">
+          {% if s['working_now'] > 0 %}
+          <span style="background:#dcfce7; color:#166534; padding:0.2rem 0.6rem; border-radius:99px; font-weight:700;">{{ s['working_now'] }}名</span>
+          {% else %}
+          <span style="color:#9ca3af;">0名</span>
+          {% endif %}
+        </td>
+        <td style="padding:0.75rem 1rem; text-align:center;">
+          <a href="{{ url_for('store_dashboard.dashboard', store_id=s['id']) }}" style="background:#2563a8; color:#fff; padding:0.3rem 0.75rem; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:600;">詳細</a>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if unassigned_clients and unassigned_clients > 0 %}
+      <tr style="border-top:1px solid #e5e7eb; background:#fffbeb;">
+        <td style="padding:0.75rem 1rem; color:#92400e; font-weight:600;">⚠️ 店舗未割り当て</td>
+        <td style="padding:0.75rem 1rem; text-align:center; color:#92400e;">{{ unassigned_clients }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center; color:#9ca3af;">-</td>
+        <td style="padding:0.75rem 1rem; text-align:center; color:#9ca3af;">-</td>
+        <td style="padding:0.75rem 1rem; text-align:center;">
+          <a href="{{ url_for('clients.clients') }}" style="background:#f59e0b; color:#fff; padding:0.3rem 0.75rem; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:600;">一覧</a>
+        </td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 <!-- メインアプリ -->
 <div class="section-title">業務アプリ</div>
 <div class="app-grid">

@@ -105,18 +105,27 @@ def add_client():
         return redirect(url_for('tenant_admin.dashboard'))
     
     profession = _get_profession(tenant_id)
-    
+
+    # store_idはURLパラメータまたはPOSTデータから取得
+    store_id_param = request.args.get('store_id') or request.form.get('store_id')
+    store_id = int(store_id_param) if store_id_param and str(store_id_param).isdigit() else None
+
     if request.method == 'POST':
         client_type = request.form.get('type')
         name = request.form.get('name')
         email = request.form.get('email')
         phone = request.form.get('phone')
         notes = request.form.get('notes')
+        # POST時のstore_idも再取得（フォームにハイドンフィールドとして含まれる）
+        post_store_id = request.form.get('store_id')
+        if post_store_id and str(post_store_id).isdigit():
+            store_id = int(post_store_id)
         
         db = SessionLocal()
         try:
             new_client = TClient(
                 tenant_id=tenant_id,
+                store_id=store_id,
                 type=client_type,
                 name=name,
                 email=email,
@@ -149,6 +158,9 @@ def add_client():
             db.add(new_client)
             db.commit()
             flash('顧問先を追加しました', 'success')
+            # store_idがあれば店舗別顧問先一覧にリダイレクト
+            if store_id:
+                return redirect(url_for('store_dashboard.clients', store_id=store_id))
             return redirect(url_for('clients.clients'))
         except Exception as e:
             db.rollback()
@@ -157,7 +169,8 @@ def add_client():
             db.close()
     
     return render_template('add_client.html', profession=profession,
-                           profession_label=PROFESSION_LABELS.get(profession, ''))
+                           profession_label=PROFESSION_LABELS.get(profession, ''),
+                           store_id=store_id)
 
 
 @bp.route('/<int:client_id>')

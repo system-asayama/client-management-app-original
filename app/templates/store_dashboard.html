@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}{{ store.名称 }} - 店舗ダッシュボード{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .store-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .store-header .store-title {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    margin-bottom: 0.25rem;
+    letter-spacing: 0.05em;
+  }
+  .store-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+  }
+  .store-header .header-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .store-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .store-header .header-actions a:hover {
+    background: rgba(255,255,255,0.25);
+  }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+  }
+  .stat-card.working {
+    border-color: #2563a8;
+    background: #eff6ff;
+  }
+  .stat-card .stat-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.08em;
+  }
+  .stat-card .stat-value {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+  .stat-card.working .stat-value {
+    color: #2563a8;
+  }
+  .stat-card .stat-sub {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+  .section-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+  }
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .app-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: box-shadow 0.15s, border-color 0.15s;
+    position: relative;
+  }
+  .app-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    border-color: #2563a8;
+  }
+  .app-card .app-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .app-card .app-icon.blue   { background: #dbeafe; }
+  .app-card .app-icon.green  { background: #dcfce7; }
+  .app-card .app-icon.purple { background: #ede9fe; }
+  .app-card .app-icon.amber  { background: #fef3c7; }
+  .app-card .app-body { flex: 1; min-width: 0; }
+  .app-card .app-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 0.25rem;
+  }
+  .app-card .app-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+    line-height: 1.4;
+  }
+  .mgmt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .mgmt-link {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    text-decoration: none;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.12s;
+  }
+  .mgmt-link:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+  .breadcrumb {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .breadcrumb a { color: #6b7280; text-decoration: none; }
+  .breadcrumb a:hover { color: #2563a8; }
+</style>
+
+<!-- パンくずリスト -->
+<div class="breadcrumb">
+  <a href="{{ url_for('tenant_admin.jimusho_dashboard') }}">🏢 事務所トップ</a>
+  <span>›</span>
+  <a href="{{ url_for('tenant_admin.stores') }}">拠点一覧</a>
+  <span>›</span>
+  <span>{{ store.名称 }}</span>
+</div>
+
+<!-- 店舗ヘッダー -->
+<div class="store-header">
+  <div>
+    <div class="store-title">{{ profession_label }}事務所 / 店舗ダッシュボード</div>
+    <h1>{{ store.名称 }}</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.jimusho_dashboard') }}">事務所トップ</a>
+    <a href="{{ url_for('tenant_admin.mypage') }}">マイページ</a>
+    <a href="{{ url_for('auth.logout') }}">ログアウト</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- サマリー統計 -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-label">顧問先数</div>
+    <div class="stat-value">{{ client_count }}</div>
+    <div class="stat-sub">法人 {{ corp_count }} / 個人 {{ ind_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">スタッフ数</div>
+    <div class="stat-value">{{ employee_count + admin_count }}</div>
+    <div class="stat-sub">管理者 {{ admin_count }} / 従業員 {{ employee_count }}</div>
+  </div>
+  <div class="stat-card working">
+    <div class="stat-label">本日出勤中</div>
+    <div class="stat-value">{{ working_now }}</div>
+    <div class="stat-sub">名</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">今月の出勤記録</div>
+    <div class="stat-value">{{ month_attendance_count }}</div>
+    <div class="stat-sub">件</div>
+  </div>
+</div>
+
+<!-- メインアプリ -->
+<div class="section-title">業務アプリ</div>
+<div class="app-grid">
+  <a class="app-card" href="{{ url_for('store_dashboard.clients', store_id=store_id) }}">
+    <div class="app-icon blue">📋</div>
+    <div class="app-body">
+      <div class="app-name">顧問先管理</div>
+      <div class="app-desc">この店舗の顧問先・クライアント情報管理</div>
+    </div>
+  </a>
+  <a class="app-card" href="{{ url_for('store_dashboard.employees', store_id=store_id) }}">
+    <div class="app-icon green">👥</div>
+    <div class="app-body">
+      <div class="app-name">スタッフ管理</div>
+      <div class="app-desc">この店舗のスタッフ一覧・管理者・従業員</div>
+    </div>
+  </a>
+  <a class="app-card" href="{{ url_for('store_dashboard.attendance', store_id=store_id) }}">
+    <div class="app-icon purple">🕐</div>
+    <div class="app-body">
+      <div class="app-name">勤怠管理</div>
+      <div class="app-desc">この店舗のスタッフ出退勤記録・月次集計</div>
+    </div>
+  </a>
+</div>
+
+<!-- 管理・設定 -->
+<div class="section-title">店舗管理</div>
+<div class="mgmt-grid">
+  <a class="mgmt-link" href="{{ url_for('tenant_admin.store_detail', store_id=store_id) }}">⚙️ 店舗情報</a>
+  <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_admins', store_id=store_id) }}">🔑 管理者管理</a>
+  <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_employees', store_id=store_id) }}">👤 従業員管理</a>
+  <a class="mgmt-link" href="{{ url_for('kintaikanri.attendance') }}">📊 全社勤怠（テナント全体）</a>
+</div>
+{% endblock %}

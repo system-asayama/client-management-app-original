@@ -12,7 +12,7 @@ import hmac
 import hashlib
 
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TAttendance, TAttendanceLocation
+from app.models_login import TKanrisha, TJugyoin, TTenant, TAttendance, TAttendanceLocation, TJugyoinTenpo, TKanrishaTenpo
 
 bp = Blueprint('mobile_api', __name__, url_prefix='/api/mobile')
 
@@ -276,6 +276,21 @@ def clock_in():
         if s:
             staff_name = s.name
 
+         # スタッフの所属店舗を自動取得（店舗ベースアーキテクチャ対応）
+        store_id = None
+        try:
+            if staff_info['staff_type'] == 'employee':
+                tenpo_link = db.query(TJugyoinTenpo).filter(
+                    TJugyoinTenpo.employee_id == staff_info['staff_id']
+                ).first()
+            else:
+                tenpo_link = db.query(TKanrishaTenpo).filter(
+                    TKanrishaTenpo.admin_id == staff_info['staff_id']
+                ).first()
+            if tenpo_link:
+                store_id = tenpo_link.store_id
+        except Exception:
+            store_id = None
         # 常に新しいレコードを作成（退勤後の再出勤対応）
         rec = TAttendance(
             tenant_id=staff_info['tenant_id'],
@@ -284,9 +299,9 @@ def clock_in():
             staff_name=staff_name,
             work_date=today,
             clock_in=now,
+            store_id=store_id,
         )
         db.add(rec)
-
         db.commit()
         db.refresh(rec)
         return jsonify({'ok': True, 'attendance_id': rec.id, 'clock_in': now.strftime('%H:%M')})

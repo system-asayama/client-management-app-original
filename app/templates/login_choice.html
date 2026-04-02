@@ -1,73 +1,139 @@
 {% extends "base.html" %}
-{% block head %}
-<style>
-.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
-.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.page-header-title{margin:0;font-size:1.6em;font-weight:700}
-.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
-.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn:hover{background:#e8f0fe}
-.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
-.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
-.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
-.data-table{width:100%;border-collapse:collapse;margin-top:8px}
-.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
-.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
-.data-table tr:hover td{background:#f8fafc}
-.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
-.form-group{margin-bottom:20px}
-.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
-.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
-.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-primary:hover{background:#1a4f8a}
-.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-secondary:hover{background:#e2e8f0}
-.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-danger:hover{background:#dc2626}
-.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
-.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
-.search-bar{margin-bottom:20px}
-.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
-@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
-</style>
-{% endblock %}
+{% block title %}ログイン方法選択{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div class="page-header-inner">
-    <div><h1 class="page-header-title">ログイン方法選択</h1></div>
+<style>
+  .login-page {
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .login-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2.5rem 2.5rem 2rem;
+    margin-bottom: 2rem;
+    width: 100%;
+    max-width: 860px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  .login-header .app-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .login-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+    color: #fff;
+  }
+  .login-header p {
+    font-size: 0.95rem;
+    opacity: 0.8;
+    margin: 0;
+  }
+  .login-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    width: 100%;
+    max-width: 860px;
+  }
+  .login-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1.75rem 1.5rem;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .login-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 4px;
+    background: var(--role-color, #2563a8);
+  }
+  .login-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 28px rgba(37,99,168,0.13);
+    border-color: #93c5fd;
+  }
+  .login-card-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.25rem;
+  }
+  .login-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a3a5c;
+  }
+  .login-card-desc {
+    font-size: 0.83rem;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+  .login-card-arrow {
+    margin-top: auto;
+    font-size: 0.8rem;
+    color: var(--role-color, #2563a8);
+    font-weight: 600;
+  }
+  @media (max-width: 600px) {
+    .login-grid { grid-template-columns: 1fr 1fr; }
+    .login-header { padding: 1.75rem 1.25rem 1.5rem; }
+    .login-header h1 { font-size: 1.4rem; }
+  }
+</style>
+
+<div class="login-page">
+  <div class="login-header">
+    <div class="app-icon">🏢</div>
+    <h1>ログイン方法を選択</h1>
+    <p>ご自身のロールを選択してログインしてください</p>
   </div>
-</div>
 
-<h2>ログイン選択</h2>
-
-<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
-  <a class="card" href="{{ url_for('auth.system_admin_login') }}" style="text-decoration:none">
-    <h3>システム管理者</h3>
-    <p class="small" style="color:#666">全テナント横断の最高権限</p>
-  </a>
-  <a class="card" href="{{ url_for('app_manager.login') }}" style="text-decoration:none">
-    <h3>アプリ管理者</h3>
-    <p class="small" style="color:#666">アプリ配布・管理グループの管理者</p>
-  </a>
-  <a class="card" href="{{ url_for('auth.tenant_admin_login') }}" style="text-decoration:none">
-    <h3>テナント管理者</h3>
-    <p class="small" style="color:#666">テナント単位の管理者</p>
-  </a>
-  <a class="card" href="{{ url_for('auth.admin_login') }}" style="text-decoration:none">
-    <h3>管理者</h3>
-    <p class="small" style="color:#666">店舗/拠点などの管理者</p>
-  </a>
-  <a class="card" href="{{ url_for('auth.employee_login') }}" style="text-decoration:none">
-    <h3>従業員</h3>
-    <p class="small" style="color:#666">一般従業員</p>
-  </a>
+  <div class="login-grid">
+    <a class="login-card" href="{{ url_for('auth.system_admin_login') }}" style="--role-color:#dc2626">
+      <div class="login-card-icon">🔐</div>
+      <div class="login-card-title">システム管理者</div>
+      <div class="login-card-desc">全テナント横断の最高権限</div>
+      <div class="login-card-arrow">ログイン →</div>
+    </a>
+    <a class="login-card" href="{{ url_for('app_manager.login') }}" style="--role-color:#7c3aed">
+      <div class="login-card-icon">📦</div>
+      <div class="login-card-title">アプリ管理者</div>
+      <div class="login-card-desc">アプリ配布・管理グループの管理者</div>
+      <div class="login-card-arrow">ログイン →</div>
+    </a>
+    <a class="login-card" href="{{ url_for('auth.tenant_admin_login') }}" style="--role-color:#2563a8">
+      <div class="login-card-icon">🏛️</div>
+      <div class="login-card-title">テナント管理者</div>
+      <div class="login-card-desc">テナント単位の管理者</div>
+      <div class="login-card-arrow">ログイン →</div>
+    </a>
+    <a class="login-card" href="{{ url_for('auth.admin_login') }}" style="--role-color:#059669">
+      <div class="login-card-icon">🏪</div>
+      <div class="login-card-title">管理者</div>
+      <div class="login-card-desc">店舗・拠点などの管理者</div>
+      <div class="login-card-arrow">ログイン →</div>
+    </a>
+    <a class="login-card" href="{{ url_for('auth.employee_login') }}" style="--role-color:#d97706">
+      <div class="login-card-icon">👤</div>
+      <div class="login-card-title">従業員</div>
+      <div class="login-card-desc">一般従業員</div>
+      <div class="login-card-arrow">ログイン →</div>
+    </a>
+  </div>
 </div>
 {% endblock %}

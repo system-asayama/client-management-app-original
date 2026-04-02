@@ -103,14 +103,22 @@ def jimusho_dashboard():
         except Exception:
             unassigned_clients = 0
 
-        # 従業員統計
+        # スタッフ統計（管理者＋従業員の合計）
         try:
-            employee_count = db.query(TJugyoin).filter(
+            kanrisha_count = db.query(TKanrisha).filter(
+                TKanrisha.tenant_id == tenant_id,
+                TKanrisha.active == 1
+            ).count()
+        except Exception:
+            kanrisha_count = 0
+        try:
+            jugyoin_count = db.query(TJugyoin).filter(
                 TJugyoin.tenant_id == tenant_id,
                 TJugyoin.active == 1
             ).count()
         except Exception:
-            employee_count = 0
+            jugyoin_count = 0
+        employee_count = kanrisha_count + jugyoin_count
 
         # 今日の出勤中スタッフ数（全テナント）
         try:

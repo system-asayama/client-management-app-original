@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block header %}{% endblock %}
-{% block head %}
+{% block title %}店舗管理者一覧{% endblock %}
+{% block content %}
 <style>
 .office-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;border-radius:16px;padding:2rem 2rem 1.5rem;margin-bottom:2rem;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem}
 .office-header .office-title{font-size:0.85rem;opacity:0.75;margin-bottom:0.25rem;letter-spacing:0.05em}
@@ -9,11 +10,6 @@
 .office-header .header-actions a{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:0.45rem 1rem;border-radius:8px;text-decoration:none;font-size:0.875rem;transition:background 0.15s}
 .office-header .header-actions a:hover{background:rgba(255,255,255,0.25)}
 @media(max-width:768px){.office-header{padding:1.25rem 1.25rem 1rem;border-radius:12px}}
-</style>
-{% endblock %}
-{% block title %}店舗管理者一覧{% endblock %}
-{% block content %}
-<style>
 .btn-success{background:#059669;color:#fff;border:none}
 .btn-success:hover{background:#047857}
 .btn-warning-sm{background:#f59e0b;color:#fff;border:none}

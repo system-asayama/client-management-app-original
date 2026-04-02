@@ -1,5 +1,5 @@
 {%- extends "base.html" -%}
-{%- block title -%}管理者ログイン{%- endblock -%}
+{%- block title -%}アプリ管理者ログイン{%- endblock -%}
 {%- block content -%}
 <style>
   .login-wrap {
@@ -19,7 +19,7 @@
     padding: 2rem 2rem 1.75rem;
     text-align: center;
     color: #fff;
-    border-top: 5px solid #059669;
+    border-top: 5px solid #7c3aed;
   }
   .login-card-header .role-icon {
     font-size: 2.2rem;
@@ -60,8 +60,8 @@
   }
   .login-form-group input:focus {
     outline: none;
-    border-color: #059669;
-    box-shadow: 0 0 0 3px #05966922;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px #7c3aed22;
   }
   .login-error {
     background: #fef2f2;
@@ -74,7 +74,7 @@
   }
   .login-btn {
     width: 100%;
-    background: #059669;
+    background: #7c3aed;
     color: #fff;
     border: none;
     padding: 0.75rem;
@@ -105,15 +105,15 @@
     color: #9ca3af;
     text-align: center;
   }
-  .login-extra a { color: #059669; text-decoration: none; }
+  .login-extra a { color: #7c3aed; text-decoration: none; }
   .login-extra a:hover { text-decoration: underline; }
 </style>
 
 <div class="login-wrap">
   <div class="login-box">
     <div class="login-card-header">
-      <div class="role-icon">🏪</div>
-      <h1>管理者ログイン</h1>
+      <div class="role-icon">📦</div>
+      <h1>アプリ管理者ログイン</h1>
     </div>
     <div class="login-card-body">
       {%- if error -%}

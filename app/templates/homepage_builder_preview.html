@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ site.site_name }} - プレビュー</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family={{ site.font_family | replace(' ', '+') }}:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: {{ site.primary_color }};
+      --secondary: {{ site.secondary_color }};
+      --font: '{{ site.font_family }}', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); color: #1f2937; background: #fff; }
+
+    /* プレビューバー */
+    .preview-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      background: #1a3a5c; color: #fff; padding: 10px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .preview-bar a {
+      background: rgba(255,255,255,0.15); color: #fff; text-decoration: none;
+      padding: 6px 14px; border-radius: 6px; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .preview-bar a:hover { background: rgba(255,255,255,0.25); }
+    body { padding-top: 48px; }
+
+    /* ナビゲーション */
+    nav {
+      background: var(--primary); color: #fff;
+      padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;
+    }
+    nav .logo { font-size: 1.2rem; font-weight: 700; }
+    nav .logo img { height: 40px; vertical-align: middle; margin-right: 8px; }
+
+    /* ヒーローセクション */
+    .section-hero {
+      background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+      color: #fff; padding: 5rem 2rem; text-align: center;
+    }
+    .section-hero h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
+    .section-hero .subtitle { font-size: 1.2rem; opacity: 0.9; margin-bottom: 2rem; }
+    .section-hero .body-text { font-size: 1rem; opacity: 0.85; max-width: 600px; margin: 0 auto 2rem; }
+    .section-hero img { max-width: 100%; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+
+    /* 共通セクション */
+    .section-block { padding: 4rem 2rem; }
+    .section-block.bg-light { background: #f9fafb; }
+    .section-block .container { max-width: 900px; margin: 0 auto; }
+    .section-block h2 { font-size: 1.8rem; font-weight: 700; color: var(--primary); margin-bottom: 1rem; text-align: center; }
+    .section-block .subtitle { font-size: 1rem; color: #6b7280; text-align: center; margin-bottom: 2rem; }
+    .section-block .body-text { font-size: 1rem; color: #374151; line-height: 1.8; white-space: pre-wrap; }
+    .section-block img { max-width: 100%; border-radius: 12px; margin: 1.5rem auto; display: block; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    /* ボタン */
+    .btn-primary {
+      display: inline-block; background: var(--primary); color: #fff;
+      padding: 0.75rem 2rem; border-radius: 8px; text-decoration: none;
+      font-weight: 700; font-size: 1rem; margin-top: 1.5rem;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    /* お問い合わせ */
+    .section-contact { background: var(--primary); color: #fff; padding: 4rem 2rem; text-align: center; }
+    .section-contact h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 1rem; }
+    .section-contact .body-text { opacity: 0.9; margin-bottom: 2rem; line-height: 1.8; }
+    .section-contact .btn-contact {
+      display: inline-block; background: #fff; color: var(--primary);
+      padding: 0.75rem 2rem; border-radius: 8px; text-decoration: none;
+      font-weight: 700; font-size: 1rem;
+    }
+
+    /* フッター */
+    .section-footer { background: var(--secondary); color: rgba(255,255,255,0.8); padding: 2rem; text-align: center; font-size: 0.875rem; }
+
+    /* レスポンシブ */
+    @media (max-width: 640px) {
+      .section-hero h1 { font-size: 1.8rem; }
+      .section-block h2 { font-size: 1.4rem; }
+      nav { flex-direction: column; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- プレビューバー -->
+<div class="preview-bar">
+  <span>👁️ プレビューモード — 実際の表示イメージです</span>
+  <div style="display:flex; gap:8px;">
+    <a href="{{ url_for('homepage_builder.export_html') }}">⬇️ HTMLエクスポート</a>
+    <a href="{{ url_for('homepage_builder.index') }}">← 編集に戻る</a>
+  </div>
+</div>
+
+<!-- ナビゲーション -->
+<nav>
+  <div class="logo">
+    {% if site.logo_url %}
+    <img src="{{ site.logo_url }}" alt="{{ site.site_name }}">
+    {% endif %}
+    {{ site.site_name }}
+  </div>
+</nav>
+
+<!-- セクション描画 -->
+{% for section in sections %}
+  {% if section.section_type == 'hero' %}
+  <section class="section-hero" id="hero">
+    {% if section.image_url %}
+    <img src="{{ section.image_url }}" alt="{{ section.title }}">
+    {% endif %}
+    {% if section.title %}<h1>{{ section.title }}</h1>{% endif %}
+    {% if section.subtitle %}<div class="subtitle">{{ section.subtitle }}</div>{% endif %}
+    {% if section.body %}<div class="body-text">{{ section.body }}</div>{% endif %}
+    {% if section.button_text %}
+    <a href="{{ section.button_url or '#' }}" class="btn-primary">{{ section.button_text }}</a>
+    {% endif %}
+  </section>
+
+  {% elif section.section_type == 'contact' %}
+  <section class="section-contact" id="contact">
+    <div class="container">
+      {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+      {% if section.subtitle %}<div class="subtitle" style="color:rgba(255,255,255,0.85);">{{ section.subtitle }}</div>{% endif %}
+      {% if section.body %}<div class="body-text">{{ section.body }}</div>{% endif %}
+      {% if section.button_text %}
+      <a href="{{ section.button_url or '#' }}" class="btn-contact">{{ section.button_text }}</a>
+      {% endif %}
+    </div>
+  </section>
+
+  {% elif section.section_type == 'footer' %}
+  <footer class="section-footer">
+    {% if section.body %}{{ section.body }}{% else %}© {{ site.site_name }}{% endif %}
+  </footer>
+
+  {% else %}
+  {# about / services / features / staff / news / faq / custom #}
+  <section class="section-block {% if loop.index % 2 == 0 %}bg-light{% endif %}" id="{{ section.section_type }}-{{ section.id }}">
+    <div class="container">
+      {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+      {% if section.subtitle %}<div class="subtitle">{{ section.subtitle }}</div>{% endif %}
+      {% if section.image_url %}
+      <img src="{{ section.image_url }}" alt="{{ section.title }}">
+      {% endif %}
+      {% if section.body %}<div class="body-text">{{ section.body }}</div>{% endif %}
+      {% if section.button_text %}
+      <div style="text-align:center;">
+        <a href="{{ section.button_url or '#' }}" class="btn-primary">{{ section.button_text }}</a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+{% endfor %}
+
+</body>
+</html>

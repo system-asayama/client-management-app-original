@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}サイト設定 - ホームページ制作アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .hp-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem; display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 1rem;
+  }
+  .hp-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; }
+  .hp-header .sub { font-size: 0.8rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .hp-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none;
+  }
+  .hp-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .form-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .form-card h2 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 1rem 0; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1.5px solid #d1d5db;
+    border-radius: 8px; font-size: 0.9rem; color: #1f2937; background: #fff;
+    box-sizing: border-box;
+  }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #2563a8; }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .form-group .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.25rem; }
+  .color-preview { display: inline-block; width: 32px; height: 32px; border-radius: 6px; border: 2px solid #e5e7eb; vertical-align: middle; margin-left: 8px; }
+  .submit-row { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem; }
+  .btn-save { background: #2563a8; color: #fff; border: none; border-radius: 8px; padding: 0.65rem 1.5rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+  .btn-save:hover { background: #1a4f8a; }
+  .btn-cancel { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; border-radius: 8px; padding: 0.65rem 1.5rem; font-size: 0.95rem; font-weight: 600; text-decoration: none; }
+</style>
+
+<div class="hp-header">
+  <div>
+    <div class="sub">ホームページ制作アプリ</div>
+    <h1>⚙️ サイト設定</h1>
+  </div>
+  <a href="{{ url_for('homepage_builder.index') }}" class="hp-btn hp-btn-white">← 戻る</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="post">
+  <div class="form-card">
+    <h2>🌐 基本情報</h2>
+    <div class="form-group">
+      <label>サイト名 <span style="color:#dc2626;">*</span></label>
+      <input type="text" name="site_name" value="{{ site.site_name }}" required maxlength="255" placeholder="例：税理士法人〇〇事務所">
+    </div>
+    <div class="form-group">
+      <label>キャッチコピー</label>
+      <input type="text" name="site_tagline" value="{{ site.site_tagline or '' }}" maxlength="500" placeholder="例：あなたのビジネスを全力でサポートします">
+    </div>
+    <div class="form-group">
+      <label>サイト説明文</label>
+      <textarea name="site_description" placeholder="サイトの概要説明（SEOにも活用されます）">{{ site.site_description or '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>ロゴ画像URL</label>
+      <input type="url" name="logo_url" value="{{ site.logo_url or '' }}" placeholder="https://example.com/logo.png">
+      <div class="hint">ロゴ画像のURLを入力してください。空欄の場合はサイト名がテキストで表示されます。</div>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h2>🎨 デザイン設定</h2>
+    <div class="form-group">
+      <label>メインカラー</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="color" name="primary_color" value="{{ site.primary_color }}" style="width:60px; height:40px; padding:2px; cursor:pointer;">
+        <input type="text" name="primary_color_text" value="{{ site.primary_color }}" maxlength="20" style="width:120px;"
+               oninput="document.querySelector('[name=primary_color]').value=this.value">
+      </div>
+      <div class="hint">ヘッダー・ボタンなどのメインカラー</div>
+    </div>
+    <div class="form-group">
+      <label>サブカラー</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="color" name="secondary_color" value="{{ site.secondary_color }}" style="width:60px; height:40px; padding:2px; cursor:pointer;">
+        <input type="text" name="secondary_color_text" value="{{ site.secondary_color }}" maxlength="20" style="width:120px;"
+               oninput="document.querySelector('[name=secondary_color]').value=this.value">
+      </div>
+      <div class="hint">グラデーションなどに使用するサブカラー</div>
+    </div>
+    <div class="form-group">
+      <label>フォント</label>
+      <select name="font_family">
+        {% for font in ['Noto Sans JP', 'Noto Serif JP', 'M PLUS 1p', 'Zen Kaku Gothic New', 'BIZ UDPGothic'] %}
+        <option value="{{ font }}" {% if site.font_family == font %}selected{% endif %}>{{ font }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="submit-row">
+    <button type="submit" class="btn-save">💾 設定を保存</button>
+    <a href="{{ url_for('homepage_builder.index') }}" class="btn-cancel">キャンセル</a>
+  </div>
+</form>
+
+<script>
+// カラーピッカーとテキスト入力を同期
+document.querySelector('[name=primary_color]').addEventListener('input', function() {
+  document.querySelector('[name=primary_color_text]').value = this.value;
+});
+document.querySelector('[name=secondary_color]').addEventListener('input', function() {
+  document.querySelector('[name=secondary_color_text]').value = this.value;
+});
+// フォーム送信時にテキスト入力の値をカラーピッカーに反映
+document.querySelector('form').addEventListener('submit', function() {
+  document.querySelector('[name=primary_color]').value = document.querySelector('[name=primary_color_text]').value;
+  document.querySelector('[name=secondary_color]').value = document.querySelector('[name=secondary_color_text]').value;
+});
+</script>
+{% endblock %}

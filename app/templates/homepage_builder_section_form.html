@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} - ホームページ制作アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .hp-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem; display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 1rem;
+  }
+  .hp-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; }
+  .hp-header .sub { font-size: 0.8rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .hp-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none;
+  }
+  .hp-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .form-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .form-card h2 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 1rem 0; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+  .form-group input[type=text], .form-group input[type=url], .form-group textarea, .form-group select {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1.5px solid #d1d5db;
+    border-radius: 8px; font-size: 0.9rem; color: #1f2937; background: #fff;
+    box-sizing: border-box;
+  }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    outline: none; border-color: #2563a8;
+  }
+  .form-group textarea { resize: vertical; min-height: 100px; }
+  .form-group .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.25rem; }
+  .section-type-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.5rem;
+  }
+  .section-type-btn {
+    padding: 8px 16px; border-radius: 8px; border: 2px solid #d1d5db;
+    background: #fff; cursor: pointer; font-size: 0.85rem; color: #374151;
+    transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .section-type-btn:hover { border-color: #2563a8; color: #2563a8; }
+  .section-type-btn.active { border-color: #2563a8; background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; }
+  .checkbox-row input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
+  .submit-row { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.5rem; }
+  .btn-save { background: #2563a8; color: #fff; border: none; border-radius: 8px; padding: 0.65rem 1.5rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+  .btn-save:hover { background: #1a4f8a; }
+  .btn-cancel { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; border-radius: 8px; padding: 0.65rem 1.5rem; font-size: 0.95rem; font-weight: 600; text-decoration: none; }
+</style>
+
+<div class="hp-header">
+  <div>
+    <div class="sub">ホームページ制作アプリ</div>
+    <h1>{{ page_title }}</h1>
+  </div>
+  <a href="{{ url_for('homepage_builder.index') }}" class="hp-btn hp-btn-white">← 戻る</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="post" action="{{ form_action }}">
+  <!-- セクション種別選択（新規追加時のみ） -->
+  {% if not section %}
+  <div class="form-card">
+    <h2>📂 セクション種別を選択</h2>
+    <div class="section-type-grid">
+      {% for st in section_types %}
+      <button type="button" class="section-type-btn {% if selected_type == st.key %}active{% endif %}"
+              onclick="selectType('{{ st.key }}', this)">
+        {{ st.icon }} {{ st.label }}
+      </button>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="section_type" id="section_type_input" value="{{ selected_type }}">
+  </div>
+  {% endif %}
+
+  <div class="form-card">
+    <h2>✏️ コンテンツ編集</h2>
+    <div class="form-group">
+      <label>タイトル</label>
+      <input type="text" name="title" value="{{ section.title if section else '' }}" maxlength="500"
+             placeholder="セクションのタイトルを入力">
+    </div>
+    <div class="form-group">
+      <label>サブタイトル</label>
+      <input type="text" name="subtitle" value="{{ section.subtitle if section else '' }}" maxlength="500"
+             placeholder="サブタイトル（任意）">
+    </div>
+    <div class="form-group">
+      <label>本文・説明文</label>
+      <textarea name="body" placeholder="本文・説明文を入力してください">{{ section.body if section else '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>画像URL</label>
+      <input type="url" name="image_url" value="{{ section.image_url if section else '' }}"
+             placeholder="https://example.com/image.jpg">
+      <div class="hint">セクションに表示する画像のURLを入力してください。</div>
+    </div>
+    <div class="form-group">
+      <label>ボタンテキスト</label>
+      <input type="text" name="button_text" value="{{ section.button_text if section else '' }}" maxlength="100"
+             placeholder="例：詳しく見る、お問い合わせ">
+    </div>
+    <div class="form-group">
+      <label>ボタンリンク先</label>
+      <input type="text" name="button_url" value="{{ section.button_url if section else '' }}" maxlength="500"
+             placeholder="例：#contact、https://example.com">
+    </div>
+    {% if section %}
+    <div class="form-group">
+      <div class="checkbox-row">
+        <input type="checkbox" name="visible" id="visible_check" {% if section.visible %}checked{% endif %}>
+        <label for="visible_check" style="margin:0; font-weight:600; cursor:pointer;">このセクションを表示する</label>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="submit-row">
+    <button type="submit" class="btn-save">💾 保存する</button>
+    <a href="{{ url_for('homepage_builder.index') }}" class="btn-cancel">キャンセル</a>
+  </div>
+</form>
+
+<script>
+function selectType(key, btn) {
+  document.querySelectorAll('.section-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('section_type_input').value = key;
+}
+</script>
+{% endblock %}

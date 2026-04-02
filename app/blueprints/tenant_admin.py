@@ -2238,6 +2238,14 @@ AVAILABLE_APPS = [
         'description': '顧問先・クライアント管理システム（事務所全体）',
         'url': '/tenant_admin/jimusho',
         'icon': '🏢'
+    },
+    {
+        'name': 'homepage-builder',
+        'display_name': 'ホームページ制作アプリ',
+        'scope': 'tenant',
+        'description': 'テナント単位でホームページを作成・編集・公開できるアプリ',
+        'url': '/homepage',
+        'icon': '🌐'
     }
 ]
 

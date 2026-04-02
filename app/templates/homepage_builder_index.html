@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}ホームページ制作アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .hp-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .hp-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; }
+  .hp-header .sub { font-size: 0.8rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .hp-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none;
+  }
+  .hp-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .hp-btn-white:hover { background: rgba(255,255,255,0.25); }
+  .hp-btn-primary { background: #2563a8; color: #fff; }
+  .hp-btn-primary:hover { background: #1a4f8a; }
+  .hp-btn-success { background: #16a34a; color: #fff; }
+  .hp-btn-success:hover { background: #15803d; }
+  .hp-btn-danger { background: #dc2626; color: #fff; }
+  .hp-btn-danger:hover { background: #b91c1c; }
+  .hp-btn-gray { background: #6b7280; color: #fff; }
+  .hp-btn-gray:hover { background: #4b5563; }
+
+  .site-info-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .site-info-card .site-name { font-size: 1.1rem; font-weight: 700; color: #1a3a5c; }
+  .site-info-card .site-meta { font-size: 0.85rem; color: #6b7280; margin-top: 0.2rem; }
+  .color-dot {
+    display: inline-block; width: 14px; height: 14px;
+    border-radius: 50%; border: 2px solid rgba(0,0,0,0.1);
+    vertical-align: middle; margin-right: 4px;
+  }
+
+  .section-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 2rem; }
+  .section-card {
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .section-card:hover { border-color: #2563a8; box-shadow: 0 2px 8px rgba(37,99,168,0.1); }
+  .section-card.hidden-section { opacity: 0.5; background: #f9fafb; }
+  .drag-handle {
+    cursor: grab; color: #9ca3af; font-size: 1.2rem; flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .drag-handle:active { cursor: grabbing; }
+  .section-icon { font-size: 1.5rem; flex-shrink: 0; }
+  .section-info { flex: 1; min-width: 0; }
+  .section-type-label { font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .section-title { font-size: 0.95rem; font-weight: 600; color: #1f2937; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .section-body-preview { font-size: 0.8rem; color: #9ca3af; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .section-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+
+  .visibility-toggle {
+    background: none; border: 1.5px solid #d1d5db; border-radius: 6px;
+    padding: 4px 10px; font-size: 0.8rem; cursor: pointer; color: #374151;
+    transition: all 0.15s;
+  }
+  .visibility-toggle:hover { border-color: #2563a8; color: #2563a8; }
+  .visibility-toggle.is-hidden { border-color: #f59e0b; color: #d97706; }
+
+  .add-section-bar {
+    background: #f0f7ff;
+    border: 2px dashed #93c5fd;
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .add-section-bar .section-type-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 0.75rem;
+  }
+  .add-section-btn {
+    background: #fff; border: 1.5px solid #bfdbfe;
+    border-radius: 8px; padding: 6px 14px;
+    font-size: 0.82rem; color: #1d4ed8; text-decoration: none;
+    transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .add-section-btn:hover { background: #dbeafe; border-color: #2563a8; }
+
+  .empty-state {
+    text-align: center; padding: 3rem; color: #9ca3af; font-size: 0.95rem;
+  }
+</style>
+
+<!-- ページヘッダー -->
+<div class="hp-header">
+  <div>
+    <div class="sub">ホームページ制作アプリ</div>
+    <h1>🌐 {{ site.site_name }}</h1>
+  </div>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <a href="{{ url_for('homepage_builder.preview') }}" class="hp-btn hp-btn-white" target="_blank">👁️ プレビュー</a>
+    <a href="{{ url_for('homepage_builder.export_html') }}" class="hp-btn hp-btn-success">⬇️ HTMLエクスポート</a>
+    <a href="{{ url_for('homepage_builder.settings') }}" class="hp-btn hp-btn-white">⚙️ サイト設定</a>
+    <a href="{{ url_for('tenant_admin.dashboard') }}" class="hp-btn hp-btn-white">← ダッシュボードへ</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- サイト情報カード -->
+<div class="site-info-card">
+  <div>
+    <div class="site-name">{{ site.site_name }}</div>
+    <div class="site-meta">
+      {% if site.site_tagline %}<span>{{ site.site_tagline }}</span> &nbsp;·&nbsp; {% endif %}
+      <span class="color-dot" style="background:{{ site.primary_color }};"></span>{{ site.primary_color }}
+      &nbsp;·&nbsp; フォント: {{ site.font_family }}
+      &nbsp;·&nbsp; セクション数: {{ sections | length }}件
+    </div>
+  </div>
+  <a href="{{ url_for('homepage_builder.settings') }}" class="hp-btn hp-btn-gray">⚙️ サイト設定を編集</a>
+</div>
+
+<!-- セクション一覧 -->
+<div style="font-size:1rem; font-weight:700; color:#1a3a5c; margin-bottom:0.75rem;">📄 セクション一覧</div>
+
+{% if sections %}
+<div class="section-list" id="sectionList">
+  {% for section in sections %}
+  <div class="section-card {% if not section.visible %}hidden-section{% endif %}" data-id="{{ section.id }}">
+    <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
+    <div class="section-icon">{{ section_type_map.get(section.section_type, {}).get('icon', '📄') }}</div>
+    <div class="section-info">
+      <div class="section-type-label">{{ section_type_map.get(section.section_type, {}).get('label', section.section_type) }}</div>
+      <div class="section-title">{{ section.title or '（タイトルなし）' }}</div>
+      {% if section.body %}
+      <div class="section-body-preview">{{ section.body[:60] }}{% if section.body|length > 60 %}…{% endif %}</div>
+      {% endif %}
+    </div>
+    <div class="section-actions">
+      <button class="visibility-toggle {% if not section.visible %}is-hidden{% endif %}"
+              onclick="toggleVisibility({{ section.id }}, this)"
+              title="{{ '表示する' if not section.visible else '非表示にする' }}">
+        {{ '🙈 非表示' if not section.visible else '👁️ 表示中' }}
+      </button>
+      <a href="{{ url_for('homepage_builder.section_edit', section_id=section.id) }}" class="hp-btn hp-btn-primary" style="padding:4px 12px; font-size:0.82rem;">✏️ 編集</a>
+      <form method="post" action="{{ url_for('homepage_builder.section_delete', section_id=section.id) }}" style="display:inline;" onsubmit="return confirm('このセクションを削除しますか？')">
+        <button type="submit" class="hp-btn hp-btn-danger" style="padding:4px 12px; font-size:0.82rem;">🗑️ 削除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div style="font-size:3rem; margin-bottom:1rem;">📄</div>
+  <div>セクションがまだありません。下のボタンから追加してください。</div>
+</div>
+{% endif %}
+
+<!-- セクション追加 -->
+<div class="add-section-bar">
+  <div style="font-weight:600; color:#1d4ed8;">＋ セクションを追加</div>
+  <div class="section-type-grid">
+    {% for st in section_types %}
+    <a href="{{ url_for('homepage_builder.section_add', type=st.key) }}" class="add-section-btn">
+      {{ st.icon }} {{ st.label }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+// 表示/非表示トグル
+async function toggleVisibility(sectionId, btn) {
+  const res = await fetch(`/homepage/section/${sectionId}/toggle`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ok) {
+    const card = btn.closest('.section-card');
+    if (data.visible) {
+      card.classList.remove('hidden-section');
+      btn.textContent = '👁️ 表示中';
+      btn.classList.remove('is-hidden');
+    } else {
+      card.classList.add('hidden-section');
+      btn.textContent = '🙈 非表示';
+      btn.classList.add('is-hidden');
+    }
+  }
+}
+
+// ドラッグ＆ドロップで並び替え（シンプル実装）
+(function() {
+  const list = document.getElementById('sectionList');
+  if (!list) return;
+  let dragging = null;
+
+  list.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      dragging = handle.closest('.section-card');
+      dragging.style.opacity = '0.5';
+    });
+  });
+
+  list.addEventListener('dragover', e => e.preventDefault());
+
+  document.addEventListener('mouseup', async () => {
+    if (!dragging) return;
+    dragging.style.opacity = '';
+    dragging = null;
+    // 並び順を送信
+    const cards = list.querySelectorAll('.section-card');
+    const order = Array.from(cards).map((c, i) => ({
+      id: parseInt(c.dataset.id), sort_order: i + 1
+    }));
+    await fetch('/homepage/section/reorder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({order})
+    });
+  });
+
+  // シンプルなドラッグ実装
+  list.querySelectorAll('.section-card').forEach(card => {
+    card.setAttribute('draggable', 'true');
+    card.addEventListener('dragstart', e => {
+      dragging = card;
+      card.style.opacity = '0.5';
+    });
+    card.addEventListener('dragend', async () => {
+      card.style.opacity = '';
+      const cards = list.querySelectorAll('.section-card');
+      const order = Array.from(cards).map((c, i) => ({
+        id: parseInt(c.dataset.id), sort_order: i + 1
+      }));
+      await fetch('/homepage/section/reorder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({order})
+      });
+    });
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (dragging && dragging !== card) {
+        const rect = card.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) {
+          list.insertBefore(dragging, card);
+        } else {
+          list.insertBefore(dragging, card.nextSibling);
+        }
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

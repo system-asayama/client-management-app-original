@@ -100,6 +100,7 @@ def available_apps():
             # 店舗情報を取得
             store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
             
+            user_role_inner = session.get('role')
             for app in AVAILABLE_APPS:
                 if app['scope'] == 'store':
                     app_setting = db.query(TTenpoAppSetting).filter(
@@ -111,11 +112,20 @@ def available_apps():
                     enabled = app_setting.enabled if app_setting else 1
                     
                     if enabled:
-                        enabled_apps.append(app)
+                        # ロール別にURLを動的に設定
+                        app_copy = dict(app)
+                        if app_copy['name'] == 'client-management':
+                            if user_role_inner in (ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"]):
+                                # テナント管理者・システム管理者は全店舗集計ビューへ
+                                app_copy['url'] = '/tenant_admin/jimusho'
+                            else:
+                                # 店舗管理者は自分の担当店舗ダッシュボードへ
+                                app_copy['url'] = f'/store/{store_id}/dashboard'
+                        enabled_apps.append(app_copy)
         finally:
             db.close()
     
-    # マイページURLを取得
+    # マイペーURLを取得
     user_role = session.get('role')
     if user_role == ROLES["SYSTEM_ADMIN"]:
         mypage_url = url_for('system_admin.mypage')

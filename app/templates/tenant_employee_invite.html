@@ -1,81 +1,67 @@
 {% extends "base.html" %}
-{% block head %}
-<style>
-.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
-.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.page-header-title{margin:0;font-size:1.6em;font-weight:700}
-.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
-.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn:hover{background:#e8f0fe}
-.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
-.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
-.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
-.data-table{width:100%;border-collapse:collapse;margin-top:8px}
-.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
-.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
-.data-table tr:hover td{background:#f8fafc}
-.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
-.form-group{margin-bottom:20px}
-.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
-.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
-.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-primary:hover{background:#1a4f8a}
-.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-secondary:hover{background:#e2e8f0}
-.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-danger:hover{background:#dc2626}
-.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
-.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
-.search-bar{margin-bottom:20px}
-.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
-@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
-</style>
-{% endblock %}
-{% block title %}従業員を追加{% endblock %}
+{% block header %}{% endblock %}
+{% block title %}従業員招待{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div class="page-header-inner">
-    <div><h1 class="page-header-title">従業員招待</h1></div>
-    <div class="page-header-actions">
-      <a href="{{ url_for('tenant_admin.employees') }}" class="header-btn-outline">従業員一覧に戻る</a>
-    </div>
+<style>
+.office-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;border-radius:16px;padding:2rem 2rem 1.5rem;margin-bottom:2rem;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem}
+.office-header .office-title{font-size:0.85rem;opacity:0.75;margin-bottom:0.25rem;letter-spacing:0.05em}
+.office-header h1{font-size:1.75rem;font-weight:700;margin:0;color:#fff}
+.office-header .header-actions{display:flex;gap:0.75rem;flex-wrap:wrap}
+.office-header .header-actions a{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:0.45rem 1rem;border-radius:8px;text-decoration:none;font-size:0.875rem;transition:background 0.15s}
+.office-header .header-actions a:hover{background:rgba(255,255,255,0.25)}
+@media(max-width:768px){.office-header{padding:1.25rem 1.25rem 1rem;border-radius:12px}}
+
+.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:28px;max-width:640px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.form-section-title{font-size:0.95rem;font-weight:700;color:#374151;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0}
+.form-desc{font-size:0.9rem;color:#4b5563;margin:0 0 20px;line-height:1.6}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151;font-size:0.9rem}
+.form-group input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:0.95em;box-sizing:border-box;transition:border-color 0.15s,box-shadow 0.15s}
+.form-group input:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
+.form-group small{display:block;margin-top:5px;color:#6b7280;font-size:0.82em}
+.notice-box{padding:14px 16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin:20px 0}
+.notice-box p{margin:0;color:#92400e;font-size:0.875rem;line-height:1.5}
+.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em;transition:background 0.15s}
+.btn-primary:hover{background:#1a4f8a}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 22px;border-radius:8px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em;transition:background 0.15s}
+.btn-secondary:hover{background:#e2e8f0}
+</style>
+
+<div class="office-header">
+  <div>
+    <div class="office-title">従業員管理</div>
+    <h1>📨 従業員招待</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.employees') }}">← 従業員一覧に戻る</a>
   </div>
 </div>
 
+<div class="form-card">
+  <div class="form-section-title">既存従業員を店舗に追加</div>
+  <p class="form-desc">同一テナント内の既存の従業員のログインIDと氏名を入力して、現在選択中の店舗に追加します。</p>
 
-<div class="card" style="max-width:600px">
-  <p>同一テナント内の既存の従業員のログインIDと氏名を入力して、現在選択中の店舗に追加します。</p>
-  
-  <form method="post" style="margin-top:20px">
+  <form method="post">
     <div class="form-group">
-      <label for="login_id">ログインID <span style="color:red">*</span></label>
+      <label for="login_id">ログインID <span style="color:#ef4444">*</span></label>
       <input type="text" id="login_id" name="login_id" required placeholder="例: employee-1">
-      <small style="color:#666">追加したい従業員のログインIDを入力してください。</small>
+      <small>追加したい従業員のログインIDを入力してください。</small>
     </div>
-    
+
     <div class="form-group">
-      <label for="name">氏名 <span style="color:red">*</span></label>
+      <label for="name">氏名 <span style="color:#ef4444">*</span></label>
       <input type="text" id="name" name="name" required placeholder="例: 山田太郎">
-      <small style="color:#666">追加したい従業員の氏名を入力してください。</small>
+      <small>追加したい従業員の氏名を入力してください。</small>
     </div>
-    
-    <div style="padding:16px;background:#fff4e5;border-radius:8px;margin-top:20px">
-      <p style="margin:0;color:#8a4b11">
-        <strong>注意:</strong> ログインIDと氏名が完全に一致し、同一テナント内の従業員のみ追加できます。
-      </p>
+
+    <div class="notice-box">
+      <p><strong>⚠️ 注意:</strong> ログインIDと氏名が完全に一致し、同一テナント内の従業員のみ追加できます。</p>
     </div>
-    
-    <div class="actions" style="margin-top:20px">
-      <button type="submit" class="btn">追加する</button>
-      <a class="btn sub" href="{{ url_for('tenant_admin.employees') }}">キャンセル</a>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">✅ 追加する</button>
+      <a href="{{ url_for('tenant_admin.employees') }}" class="btn-secondary">キャンセル</a>
     </div>
   </form>
 </div>

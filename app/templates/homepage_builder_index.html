@@ -58,25 +58,35 @@
     background: #fff;
     border: 1.5px solid #e5e7eb;
     border-radius: 10px;
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1rem;
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.6rem;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
   .section-card:hover { border-color: #2563a8; box-shadow: 0 2px 8px rgba(37,99,168,0.1); }
   .section-card.hidden-section { opacity: 0.5; background: #f9fafb; }
+  .section-card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
   .drag-handle {
     cursor: grab; color: #9ca3af; font-size: 1.2rem; flex-shrink: 0;
-    padding: 0 4px;
+    padding: 0 2px;
   }
   .drag-handle:active { cursor: grabbing; }
-  .section-icon { font-size: 1.5rem; flex-shrink: 0; }
+  .section-icon { font-size: 1.3rem; flex-shrink: 0; }
   .section-info { flex: 1; min-width: 0; }
-  .section-type-label { font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-  .section-title { font-size: 0.95rem; font-weight: 600; color: #1f2937; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .section-body-preview { font-size: 0.8rem; color: #9ca3af; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .section-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+  .section-type-label { font-size: 0.72rem; color: #6b7280; font-weight: 600; letter-spacing: 0.03em; }
+  .section-title { font-size: 0.9rem; font-weight: 600; color: #1f2937; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .section-body-preview { font-size: 0.78rem; color: #9ca3af; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .section-actions { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+  .section-actions .visibility-toggle { flex: 1; min-width: 80px; text-align: center; }
+  .section-actions .hp-btn { flex: 1; min-width: 60px; text-align: center; justify-content: center; }
+  .section-actions form { flex: 1; min-width: 60px; }
+  .section-actions form .hp-btn { width: 100%; }
 
   .visibility-toggle {
     background: none; border: 1.5px solid #d1d5db; border-radius: 6px;
@@ -153,24 +163,28 @@
 <div class="section-list" id="sectionList">
   {% for section in sections %}
   <div class="section-card {% if not section.visible %}hidden-section{% endif %}" data-id="{{ section.id }}">
-    <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
-    <div class="section-icon">{{ section_type_map.get(section.section_type, {}).get('icon', '📄') }}</div>
-    <div class="section-info">
-      <div class="section-type-label">{{ section_type_map.get(section.section_type, {}).get('label', section.section_type) }}</div>
-      <div class="section-title">{{ section.title or '（タイトルなし）' }}</div>
-      {% if section.body %}
-      <div class="section-body-preview">{{ section.body[:60] }}{% if section.body|length > 60 %}…{% endif %}</div>
-      {% endif %}
+    <!-- 上段：ドラッグハンドル + アイコン + セクション情報 -->
+    <div class="section-card-top">
+      <div class="drag-handle" title="ドラッグして並び替え">⠿⠿</div>
+      <div class="section-icon">{{ section_type_map.get(section.section_type, {}).get('icon', '📄') }}</div>
+      <div class="section-info">
+        <div class="section-type-label">{{ section_type_map.get(section.section_type, {}).get('label', section.section_type) }}</div>
+        <div class="section-title">{{ section.title or '（タイトルなし）' }}</div>
+        {% if section.body %}
+        <div class="section-body-preview">{{ section.body[:50] }}{% if section.body|length > 50 %}…{% endif %}</div>
+        {% endif %}
+      </div>
     </div>
+    <!-- 下段：ボタン行 -->
     <div class="section-actions">
       <button class="visibility-toggle {% if not section.visible %}is-hidden{% endif %}"
               onclick="toggleVisibility({{ section.id }}, this)"
               title="{{ '表示する' if not section.visible else '非表示にする' }}">
         {{ '🙈 非表示' if not section.visible else '👁️ 表示中' }}
       </button>
-      <a href="{{ url_for('homepage_builder.section_edit', section_id=section.id) }}" class="hp-btn hp-btn-primary" style="padding:4px 12px; font-size:0.82rem;">✏️ 編集</a>
-      <form method="post" action="{{ url_for('homepage_builder.section_delete', section_id=section.id) }}" style="display:inline;" onsubmit="return confirm('このセクションを削除しますか？')">
-        <button type="submit" class="hp-btn hp-btn-danger" style="padding:4px 12px; font-size:0.82rem;">🗑️ 削除</button>
+      <a href="{{ url_for('homepage_builder.section_edit', section_id=section.id) }}" class="hp-btn hp-btn-primary">✏️ 編集</a>
+      <form method="post" action="{{ url_for('homepage_builder.section_delete', section_id=section.id) }}" onsubmit="return confirm('このセクションを削除しますか？')">
+        <button type="submit" class="hp-btn hp-btn-danger">🗑️ 削除</button>
       </form>
     </div>
   </div>

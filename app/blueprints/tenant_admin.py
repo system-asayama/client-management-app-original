@@ -195,23 +195,32 @@ def dashboard():
                 if app_setting:
                     tenant_apps.append(app)
 
-        # ロール別マイページURL
+        # ロール別マイページURL・ラベル
         role = session.get('role', '')
         if role == 'system_admin':
             mypage_url = url_for('system_admin.mypage')
-        elif role in ('tenant_admin', 'owner'):
+            mypage_label = 'システム管理者マイページ'
+        elif role == 'owner':
             mypage_url = url_for('tenant_admin.mypage')
+            mypage_label = 'オーナーマイページ'
+        elif role == 'tenant_admin':
+            mypage_url = url_for('tenant_admin.mypage')
+            mypage_label = 'テナント管理者マイページ'
         elif role == 'admin':
             mypage_url = url_for('admin.mypage')
+            mypage_label = '店舗管理者マイページ'
         elif role == 'employee':
             mypage_url = url_for('employee.mypage')
+            mypage_label = '従業員マイページ'
         else:
             mypage_url = url_for('tenant_admin.mypage')
+            mypage_label = 'マイページ'
         return render_template('tenant_admin_dashboard.html',
                              tenant_id=tenant_id,
                              tenant_name=tenant_name,
                              tenant_apps=tenant_apps,
-                             mypage_url=mypage_url)
+                             mypage_url=mypage_url,
+                             mypage_label=mypage_label)
     finally:
         db.close()
 

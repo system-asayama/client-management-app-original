@@ -138,7 +138,7 @@
     <h1>🏢 テナント管理者ダッシュボード</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ mypage_url }}">&#128100; マイページ</a>
+    <a href="{{ mypage_url }}">&#128100; {{ mypage_label or 'マイページ' }}</a>
   </div>
 </div>
 
@@ -211,7 +211,7 @@
 
 <!-- フッターボタン -->
 <div class="footer-actions">
-  <a class="btn-mypage" href="{{ mypage_url }}">👤 マイページ</a>
-  <a class="btn-logout" href="{{ url_for('auth.logout') }}">🚪 ログアウト</a>
+  <a class="btn-mypage" href="{{ mypage_url }}">&#128100; {{ mypage_label or 'マイページ' }}</a>
+  <a class="btn-logout" href="{{ url_for('auth.logout') }}">&#128682; ログアウト</a>
 </div>
 {% endblock %}

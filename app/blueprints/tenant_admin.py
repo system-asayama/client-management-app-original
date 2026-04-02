@@ -3239,6 +3239,9 @@ def employee_delete(employee_id):
             flash('従業員が見つかりません', 'error')
             return redirect(url_for('tenant_admin.employees'))
         
+        # 中間テーブル（T_従業員_店舗）の関連レコードを先に削除
+        db.query(TJugyoinTenpo).filter(TJugyoinTenpo.employee_id == employee_id).delete(synchronize_session=False)
+        
         db.delete(employee)
         db.commit()
         

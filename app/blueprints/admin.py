@@ -20,7 +20,7 @@ AVAILABLE_APPS = [
         'display_name': '事務所運営アプリ',
         'scope': 'store',
         'description': '顧問先・クライアント管理システム',
-        'url': '/jimusho'
+        'url': '/tenant_admin/jimusho'
     }
 ]
 

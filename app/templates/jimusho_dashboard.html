@@ -203,8 +203,18 @@
     <div class="stat-sub">法人 {{ corp_count }} / 個人 {{ ind_count }}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-label">スタッフ数</div>
-    <div class="stat-value">{{ employee_count }}</div>
+    <div class="stat-label">テナント管理者</div>
+    <div class="stat-value">{{ tenant_admin_count }}</div>
+    <div class="stat-sub">事務所全体管理</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">店舗管理者</div>
+    <div class="stat-value">{{ store_admin_count }}</div>
+    <div class="stat-sub">店舗担当管理者</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">従業員</div>
+    <div class="stat-value">{{ jugyoin_count }}</div>
     <div class="stat-sub">有効アカウント</div>
   </div>
   <div class="stat-card working">
@@ -223,7 +233,8 @@
       <tr style="background:#1a3a5c; color:#fff;">
         <th style="padding:0.75rem 1rem; text-align:left;">店舗名</th>
         <th style="padding:0.75rem 1rem; text-align:center;">顧問先数</th>
-        <th style="padding:0.75rem 1rem; text-align:center;">スタッフ数</th>
+        <th style="padding:0.75rem 1rem; text-align:center;">店舗管理者</th>
+        <th style="padding:0.75rem 1rem; text-align:center;">従業員</th>
         <th style="padding:0.75rem 1rem; text-align:center;">本日出勤中</th>
         <th style="padding:0.75rem 1rem; text-align:center;">操作</th>
       </tr>
@@ -233,7 +244,8 @@
       <tr style="border-top:1px solid #e5e7eb; {% if loop.index is odd %}background:#f9fafb;{% endif %}">
         <td style="padding:0.75rem 1rem; font-weight:600; color:#1a3a5c;">{{ s['名称'] }}</td>
         <td style="padding:0.75rem 1rem; text-align:center;">{{ s['client_count'] }}</td>
-        <td style="padding:0.75rem 1rem; text-align:center;">{{ s['employee_count'] }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center;">{{ s['store_admin_count'] }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center;">{{ s['jugyoin_count'] }}</td>
         <td style="padding:0.75rem 1rem; text-align:center;">
           {% if s['working_now'] > 0 %}
           <span style="background:#dcfce7; color:#166534; padding:0.2rem 0.6rem; border-radius:99px; font-weight:700;">{{ s['working_now'] }}名</span>
@@ -250,6 +262,7 @@
       <tr style="border-top:1px solid #e5e7eb; background:#fffbeb;">
         <td style="padding:0.75rem 1rem; color:#92400e; font-weight:600;">⚠️ 店舗未割り当て</td>
         <td style="padding:0.75rem 1rem; text-align:center; color:#92400e;">{{ unassigned_clients }}</td>
+        <td style="padding:0.75rem 1rem; text-align:center; color:#9ca3af;">-</td>
         <td style="padding:0.75rem 1rem; text-align:center; color:#9ca3af;">-</td>
         <td style="padding:0.75rem 1rem; text-align:center; color:#9ca3af;">-</td>
         <td style="padding:0.75rem 1rem; text-align:center;">

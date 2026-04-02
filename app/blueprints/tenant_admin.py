@@ -58,13 +58,13 @@ def jimusho_dashboard():
             except Exception:
                 s_clients = 0
             try:
-                s_kanrisha = db.query(TKanrisha).join(
+                s_store_admin = db.query(TKanrisha).join(
                     TKanrishaTenpo, TKanrisha.id == TKanrishaTenpo.admin_id
                 ).filter(
                     and_(TKanrisha.tenant_id == tenant_id, TKanrishaTenpo.store_id == store.id, TKanrisha.active == 1)
                 ).count()
             except Exception:
-                s_kanrisha = 0
+                s_store_admin = 0
             try:
                 s_jugyoin = db.query(TJugyoin).join(
                     TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
@@ -73,7 +73,6 @@ def jimusho_dashboard():
                 ).count()
             except Exception:
                 s_jugyoin = 0
-            s_employees = s_kanrisha + s_jugyoin
             try:
                 s_working = db.query(TAttendance).filter(
                     and_(
@@ -91,7 +90,9 @@ def jimusho_dashboard():
                 '名称': store.名称,
                 'slug': getattr(store, 'slug', None),
                 'client_count': s_clients,
-                'employee_count': s_employees,
+                'store_admin_count': s_store_admin,
+                'jugyoin_count': s_jugyoin,
+                'employee_count': s_store_admin + s_jugyoin,
                 'working_now': s_working,
             })
 
@@ -112,14 +113,23 @@ def jimusho_dashboard():
         except Exception:
             unassigned_clients = 0
 
-        # スタッフ統計（管理者＋従業員の合計）
+        # スタッフ統計（テナント管理者・店舗管理者・従業員を別々に集計）
         try:
-            kanrisha_count = db.query(TKanrisha).filter(
+            tenant_admin_count = db.query(TKanrisha).filter(
                 TKanrisha.tenant_id == tenant_id,
-                TKanrisha.active == 1
+                TKanrisha.active == 1,
+                TKanrisha.role == 'tenant_admin'
             ).count()
         except Exception:
-            kanrisha_count = 0
+            tenant_admin_count = 0
+        try:
+            store_admin_count = db.query(TKanrisha).filter(
+                TKanrisha.tenant_id == tenant_id,
+                TKanrisha.active == 1,
+                TKanrisha.role == 'admin'
+            ).count()
+        except Exception:
+            store_admin_count = 0
         try:
             jugyoin_count = db.query(TJugyoin).filter(
                 TJugyoin.tenant_id == tenant_id,
@@ -127,7 +137,7 @@ def jimusho_dashboard():
             ).count()
         except Exception:
             jugyoin_count = 0
-        employee_count = kanrisha_count + jugyoin_count
+        employee_count = tenant_admin_count + store_admin_count + jugyoin_count
 
         # 今日の出勤中スタッフ数（全テナント）
         try:
@@ -151,6 +161,9 @@ def jimusho_dashboard():
                                corp_count=corp_count,
                                ind_count=ind_count,
                                employee_count=employee_count,
+                               tenant_admin_count=tenant_admin_count,
+                               store_admin_count=store_admin_count,
+                               jugyoin_count=jugyoin_count,
                                working_now=working_now,
                                stores_summary=stores_summary,
                                unassigned_clients=unassigned_clients)

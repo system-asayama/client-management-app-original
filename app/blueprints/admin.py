@@ -56,7 +56,21 @@ def dashboard():
         finally:
             db.close()
     
-    return render_template('admin_dashboard.html', tenant_id=tenant_id, apps=enabled_apps, tenant=tenant, store=store)
+    # ロール別マイページURL・ラベル
+    role = session.get('role', '')
+    if role == 'system_admin':
+        mypage_url = url_for('system_admin.mypage')
+        mypage_label = 'システム管理者マイページ'
+    elif role == 'owner':
+        mypage_url = url_for('tenant_admin.mypage')
+        mypage_label = 'オーナーマイページ'
+    elif role == 'tenant_admin':
+        mypage_url = url_for('tenant_admin.mypage')
+        mypage_label = 'テナント管理者マイページ'
+    else:
+        mypage_url = url_for('admin.mypage')
+        mypage_label = '店舗管理者マイページ'
+    return render_template('admin_dashboard.html', tenant_id=tenant_id, apps=enabled_apps, tenant=tenant, store=store, mypage_url=mypage_url, mypage_label=mypage_label)
 
 
 @bp.route('/available_apps')

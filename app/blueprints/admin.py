@@ -20,7 +20,16 @@ AVAILABLE_APPS = [
         'display_name': '事務所運営アプリ',
         'scope': 'store',
         'description': '顧問先・クライアント管理システム',
-        'url': '/tenant_admin/jimusho'
+        'url': '/tenant_admin/jimusho',
+        'icon': '📋'
+    },
+    {
+        'name': 'voucher-digitization',
+        'display_name': '証桮データ化アプリ',
+        'scope': 'store',
+        'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する',
+        'url': '/voucher',
+        'icon': '🧾'
     }
 ]
 
@@ -121,6 +130,9 @@ def available_apps():
                             else:
                                 # 店舗管理者は自分の担当店舗ダッシュボードへ
                                 app_copy['url'] = f'/store/{store_id}/dashboard'
+                        elif app_copy['name'] == 'voucher-digitization':
+                            # 証憑データ化アプリは店舗IDを含むURLへ
+                            app_copy['url'] = f'/voucher?store_id={store_id}'
                         enabled_apps.append(app_copy)
         finally:
             db.close()

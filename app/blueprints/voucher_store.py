@@ -27,9 +27,11 @@ def allowed_file(filename):
 
 def get_session_info():
     """セッションからテナントID・店舗ID・ユーザーIDを取得"""
+    # store_id（新システム）とtenpo_id（旧システム）の両方に対応
+    tenpo_id = session.get('store_id') or session.get('tenpo_id')
     return {
         'tenant_id': session.get('tenant_id'),
-        'tenpo_id': session.get('tenpo_id'),
+        'tenpo_id': tenpo_id,
         'user_id': session.get('user_id'),
         'role': session.get('role'),
     }

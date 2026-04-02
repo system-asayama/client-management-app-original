@@ -15,7 +15,13 @@ bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 # 利用可能なアプリの定義
 AVAILABLE_APPS = [
-    # 現在利用可能なアプリはありません
+    {
+        'name': 'client-management',
+        'display_name': '事務所運営アプリ',
+        'scope': 'store',
+        'description': '顧問先・クライアント管理システム',
+        'url': '/jimusho'
+    }
 ]
 
 

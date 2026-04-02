@@ -1,194 +1,165 @@
 {% extends "base.html" %}
-{% block head %}
-<style>
-.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
-.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.page-header-title{margin:0;font-size:1.6em;font-weight:700}
-.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
-.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn:hover{background:#e8f0fe}
-.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
-.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
-.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
-.data-table{width:100%;border-collapse:collapse;margin-top:8px}
-.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
-.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
-.data-table tr:hover td{background:#f8fafc}
-.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
-.form-group{margin-bottom:20px}
-.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
-.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
-.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-primary:hover{background:#1a4f8a}
-.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-secondary:hover{background:#e2e8f0}
-.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-danger:hover{background:#dc2626}
-.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
-.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
-.search-bar{margin-bottom:20px}
-.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
-@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
-</style>
-{% endblock %}
 {% block title %}従業員一覧{% endblock %}
 {% block content %}
 <style>
-  .employee-table-wrapper {
-    width: 100%;
-    overflow-x: auto;
+  /* ── 共通ヘッダー ── */
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
-  
-  .employee-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85em;
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .office-header .store-title { font-size: 0.9rem; opacity: 0.85; margin-bottom: 0.3rem; font-weight: 600; }
+  .office-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
   }
-  
-  .employee-table thead tr {
-    background: #f5f5f5;
-    border-bottom: 2px solid #ddd;
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  /* ── ツールバー ── */
+  .toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600;
+    text-decoration: none; cursor: pointer; display: inline-block;
+    transition: background 0.15s;
   }
-  
-  .employee-table th {
-    padding: 8px;
-    text-align: left;
+  .btn-primary:hover { background: #1a4f8a; }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500;
+    text-decoration: none; cursor: pointer; display: inline-block;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  /* ── 検索バー ── */
+  .search-wrap { margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .search-wrap input {
+    padding: 0.55rem 1rem; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.9rem; width: 100%; max-width: 360px;
+  }
+  .search-wrap input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.1); }
+  #searchResult { font-size: 0.82rem; color: #6b7280; }
+
+  /* ── テーブル ── */
+  .table-card {
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    margin-bottom: 1.5rem;
+  }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    background: #f8fafc; padding: 0.75rem 1rem;
+    text-align: left; font-size: 0.8rem; font-weight: 700;
+    color: #374151; border-bottom: 2px solid #e5e7eb;
     white-space: nowrap;
   }
-  
-  .employee-table tbody tr {
-    border-bottom: 1px solid #eee;
+  .data-table td {
+    padding: 0.75rem 1rem; font-size: 0.875rem;
+    border-bottom: 1px solid #f3f4f6; color: #374151;
+    vertical-align: middle;
   }
-  
-  .employee-table td {
-    padding: 8px;
-    white-space: nowrap;
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: #f8fafc; }
+
+  /* バッジ */
+  .badge-active { background: #dcfce7; color: #166534; padding: 2px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+  .badge-inactive { background: #f1f5f9; color: #64748b; padding: 2px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+
+  /* アクションボタン（小） */
+  .btn-sm {
+    padding: 0.3rem 0.7rem; border-radius: 6px;
+    font-size: 0.78rem; font-weight: 600; cursor: pointer;
+    text-decoration: none; display: inline-block; border: none;
+    transition: opacity 0.15s;
   }
-  
-  .employee-table td[data-label="所属店舗: "] {
-    white-space: normal;
+  .btn-sm:hover { opacity: 0.85; }
+  .btn-sm-edit { background: #eff6ff; color: #1d4ed8; }
+  .btn-sm-delete { background: #fef2f2; color: #dc2626; }
+  .btn-sm-disable { background: #fff7ed; color: #c2410c; }
+  .btn-sm-enable { background: #f0fdf4; color: #15803d; }
+
+  /* 空状態 */
+  .empty-state {
+    text-align: center; padding: 3rem 1.5rem;
+    color: #9ca3af; background: #f9fafb;
+    border-radius: 14px; border: 1px dashed #d1d5db;
+    margin-bottom: 1.5rem;
   }
-  
-  .employee-table .btn.small {
-    font-size: 0.9em;
-    padding: 4px 8px;
-  }
-  
-  /* スマホ用カード型レイアウト */
+
+  /* レスポンシブ */
   @media (max-width: 768px) {
-    .employee-table-wrapper {
-      overflow-x: visible;
+    .data-table thead { display: none; }
+    .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+    .data-table tr {
+      margin-bottom: 1rem; padding: 1rem;
+      background: #f9fafb; border: 1px solid #e5e7eb;
+      border-radius: 10px;
     }
-    
-    .employee-table thead {
-      display: none;
-    }
-    
-    .employee-table tbody {
-      display: block;
-    }
-    
-    .employee-table tbody tr {
-      display: block;
-      margin-bottom: 16px;
-      padding: 16px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-    }
-    
-    .employee-table td {
-      display: block;
-      padding: 8px 0;
-      white-space: normal;
-      border: none;
-    }
-    
-    .employee-table td::before {
+    .data-table td { padding: 0.4rem 0; border: none; }
+    .data-table td::before {
       content: attr(data-label);
-      font-weight: 600;
-      display: inline-block;
-      width: 100px;
-      color: #374151;
+      font-weight: 600; font-size: 0.75rem; color: #6b7280;
+      display: inline-block; width: 90px;
     }
-    
-    .employee-table td.employee-actions {
-      padding-top: 12px;
-      margin-top: 8px;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    .employee-table td.employee-actions::before {
-      display: none;
-    }
-    
-    .employee-table .btn.small {
-      display: inline-block;
-      margin: 4px 4px 4px 0;
-      font-size: 0.9em;
-      padding: 8px 12px;
-    }
-    
-    .employee-table td.employee-actions form {
-      display: inline-block;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] {
-      position: relative;
-    }
-    
-    .employee-table td[data-label="所属店舗: "]::before {
-      display: inline-block;
-      position: absolute;
-      left: 0;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] span {
-      margin-left: 100px;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] span:first-child {
-      display: inline !important;
-    }
-    
-    .employee-table td[data-label="所属店舗: "] span:not(:first-child) {
-      display: block;
-    }
+    .data-table td.td-actions::before { display: none; }
+    .data-table td.td-actions { padding-top: 0.75rem; margin-top: 0.5rem; border-top: 1px solid #e5e7eb; }
   }
 </style>
 
-<div style="margin-bottom:20px">
-  <div style="font-size:1.2em;font-weight:bold;color:#666">{{ tenant.名称 if tenant else 'テナント名' }}</div>
-  {% if store %}
-  <div style="font-size:1.1em;font-weight:bold;color:#888;margin-top:4px">{{ store.名称 }}</div>
-  {% endif %}
-  <h1 style="margin-top:12px">従業員一覧</h1>
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    {% if tenant %}<div class="office-title">{{ tenant.名称 }}</div>{% endif %}
+    {% if store %}<div class="store-title">{{ store.名称 }}</div>{% endif %}
+    <h1>👤 従業員一覧</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('admin.dashboard') }}">← ダッシュボード</a>
+  </div>
 </div>
 
-<div style="margin-bottom:20px">
-  <a class="btn" href="{{ url_for('admin.employee_new') }}">新規作成</a>
-  <a class="btn" href="{{ url_for('admin.employee_invite') }}">従業員を招待</a>
-  <a class="btn sub" href="{{ url_for('admin.dashboard') }}">戻る</a>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for category, message in messages %}
+  <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
+
+<!-- ツールバー -->
+<div class="toolbar">
+  <a class="btn-primary" href="{{ url_for('admin.employee_new') }}">＋ 新規作成</a>
+  <a class="btn-secondary" href="{{ url_for('admin.employee_invite') }}">📧 従業員を招待</a>
 </div>
 
-<!-- 検索フィールド -->
 {% if employees %}
-<div style="margin-bottom:20px">
-  <input type="text" id="searchInput" placeholder="ログインIDまたは氏名で検索..." 
-         style="width:100%;max-width:400px;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:16px">
-  <span id="searchResult" style="margin-left:10px;color:#666"></span>
+<!-- 検索バー -->
+<div class="search-wrap">
+  <input type="text" id="searchInput" placeholder="ログインIDまたは氏名で検索...">
+  <span id="searchResult"></span>
 </div>
 
-<div class="employee-table-wrapper">
-  <table class="employee-table">
+<!-- テーブル -->
+<div class="table-card">
+  <table class="data-table">
     <thead>
       <tr>
         <th>ID</th>
@@ -196,49 +167,47 @@
         <th>氏名</th>
         <th>メールアドレス</th>
         <th>所属店舗</th>
-        <th>有効</th>
+        <th>ステータス</th>
         <th>作成日時</th>
-        <th>更新日時</th>
         <th>操作</th>
       </tr>
     </thead>
     <tbody>
       {% for e in employees %}
-      <tr class="employee-row" 
-          data-login-id="{{ e.login_id }}" 
+      <tr class="employee-row"
+          data-login-id="{{ e.login_id }}"
           data-name="{{ e.name }}">
-        <td data-label="ID: ">{{ e.id }}</td>
-        <td data-label="ログインID: "><code>{{ e.login_id }}</code></td>
-        <td data-label="氏名: "><strong>{{ e.name }}</strong></td>
-        <td data-label="メールアドレス: ">{{ e.email if e.email else '-' }}</td>
-        <td data-label="所属店舗: " style="color:#666">
+        <td data-label="ID">{{ e.id }}</td>
+        <td data-label="ログインID"><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:0.82rem;">{{ e.login_id }}</code></td>
+        <td data-label="氏名"><strong>{{ e.name }}</strong></td>
+        <td data-label="メール">{{ e.email if e.email else '-' }}</td>
+        <td data-label="所属店舗">
           {% if e.stores %}
-            {% for store in e.stores %}
-              <span style="display:block">{{ store.name }}</span>
+            {% for s in e.stores %}
+              <span style="display:block;font-size:0.82rem;color:#374151;">{{ s.name }}</span>
             {% endfor %}
           {% else %}
-            <span>未設定</span>
+            <span style="color:#9ca3af;font-size:0.82rem;">未設定</span>
           {% endif %}
         </td>
-        <td data-label="有効: ">
+        <td data-label="ステータス">
           {% if e.active %}
-            <span style="color:#4caf50;font-weight:bold">✓ 有効</span>
+            <span class="badge-active">✓ 有効</span>
           {% else %}
-            <span style="color:#999">無効</span>
+            <span class="badge-inactive">無効</span>
           {% endif %}
         </td>
-        <td data-label="作成日時: " style="color:#666">{{ e.created_at }}</td>
-        <td data-label="更新日時: " style="color:#666">{{ e.updated_at if e.updated_at else '-' }}</td>
-        <td class="employee-actions">
-          <a class="btn small" href="{{ url_for('admin.employee_edit', employee_id=e.id) }}">編集</a>
+        <td data-label="作成日時" style="color:#6b7280;font-size:0.82rem;">{{ e.created_at }}</td>
+        <td class="td-actions">
+          <a class="btn-sm btn-sm-edit" href="{{ url_for('admin.employee_edit', employee_id=e.id) }}">編集</a>
           <form method="post" action="{{ url_for('admin.employee_delete', employee_id=e.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
-            <button class="btn small" type="submit" style="background:#d32f2f">削除</button>
+            <button class="btn-sm btn-sm-delete" type="submit">削除</button>
           </form>
           <form method="post" action="{{ url_for('admin.employee_toggle_active', employee_id=e.id) }}" style="display:inline">
             {% if e.active %}
-              <button type="submit" class="btn small" style="background:#ff9800;color:white">無効化</button>
+              <button type="submit" class="btn-sm btn-sm-disable">無効化</button>
             {% else %}
-              <button type="submit" class="btn small" style="background:#4caf50;color:white">有効化</button>
+              <button type="submit" class="btn-sm btn-sm-enable">有効化</button>
             {% endif %}
           </form>
         </td>
@@ -248,45 +217,27 @@
   </table>
 </div>
 {% else %}
-<p style="color:#666">従業員が登録されていません。</p>
+<div class="empty-state">
+  <p>従業員が登録されていません。</p>
+</div>
 {% endif %}
 
 <script>
-// 検索機能
 document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('searchInput');
   const searchResult = document.getElementById('searchResult');
-  const employeeRows = document.querySelectorAll('.employee-row');
-  
+  const rows = document.querySelectorAll('.employee-row');
   if (!searchInput) return;
-  
   function performSearch() {
-    const query = searchInput.value.toLowerCase().trim();
-    let visibleCount = 0;
-    
-    // 行を検索
-    employeeRows.forEach(function(row) {
-      const loginId = row.dataset.loginId.toLowerCase();
-      const name = row.dataset.name.toLowerCase();
-      
-      if (query === '' || loginId.includes(query) || name.includes(query)) {
-        row.style.display = '';
-        visibleCount++;
-      } else {
-        row.style.display = 'none';
-      }
+    const q = searchInput.value.toLowerCase().trim();
+    let count = 0;
+    rows.forEach(function(row) {
+      const match = !q || row.dataset.loginId.toLowerCase().includes(q) || row.dataset.name.toLowerCase().includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) count++;
     });
-    
-    // 検索結果を表示
-    if (query === '') {
-      searchResult.textContent = '';
-    } else {
-      const totalCount = employeeRows.length;
-      searchResult.textContent = visibleCount + ' / ' + totalCount + ' 件表示中';
-    }
+    searchResult.textContent = q ? count + ' / ' + rows.length + ' 件表示中' : '';
   }
-  
-  // 入力イベントをリスン
   searchInput.addEventListener('input', performSearch);
   searchInput.addEventListener('keyup', performSearch);
 });

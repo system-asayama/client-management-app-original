@@ -138,8 +138,8 @@ def _call_openai_vision_with_system(image_path: str, api_key: str, prompt: str, 
             {'role': 'system', 'content': system_message},
             {'role': 'user', 'content': content}
         ],
-        'max_tokens': max_tokens,
-        'response_format': {'type': 'json_object'}
+        'max_tokens': max_tokens
+        # response_formatは指定しない（自由形式の方が数値精度が高い）
     }
     for attempt in range(3):
         response = requests.post(
@@ -149,7 +149,7 @@ def _call_openai_vision_with_system(image_path: str, api_key: str, prompt: str, 
         response.raise_for_status()
         resp_json = response.json()
         choice = resp_json.get('choices', [{}])[0]
-        raw_content = choice.get('message', {}).get('content')
+        raw_content = choice.get('message', {}).get('content', '')
         finish_reason = choice.get('finish_reason', '')
         print(f'[OCR] Vision応答: finish_reason={finish_reason}, 入力トークン={resp_json.get("usage", {}).get("prompt_tokens")}, 出力トークン={resp_json.get("usage", {}).get("completion_tokens")}')
         if not raw_content:
@@ -157,9 +157,20 @@ def _call_openai_vision_with_system(image_path: str, api_key: str, prompt: str, 
                 time.sleep(2)
                 continue
             return {'transactions': []}
+        # 自由形式レスポンスからJSONを抽出（コードブロックや説明文を除去）
+        # まず```json ... ```ブロックを探す
+        json_match = re.search(r'```(?:json)?\s*([\s\S]+?)```', raw_content)
+        if json_match:
+            raw_content = json_match.group(1).strip()
+        else:
+            # 最初の{}または[]を探す
+            brace_match = re.search(r'(\{[\s\S]+\}|\[[\s\S]+\])', raw_content)
+            if brace_match:
+                raw_content = brace_match.group(1).strip()
         try:
             return json.loads(raw_content)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f'[OCR] JSONパースエラー: {e}, attempt={attempt+1}')
             if attempt < 2:
                 time.sleep(2)
                 continue

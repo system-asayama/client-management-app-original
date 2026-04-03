@@ -186,8 +186,31 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str) -> 
     OpenAI GPT-4o Vision APIを使用して通帳画像からデータを抜出する。
     PDFは全ページをチャンク処理してマージ。
     """
-    prompt_header = """この画像は銀行通帳または通帳明細書です。
-以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
+    prompt_header = """この画像は日本の銀行通帳または通帳明細書です。
+画像を直接見て、列の位置を視覚的に判断してJSON形式で情報を抜出してください。不明な場偈はnullにしてください。
+
+【通帳の列構造】
+左から順に: 「年月日」 | 「記号」 | 「お払戈し金額（出金）」 | 「お預り金額／お利息（入金）」 | 「差引残高」 | 「備考」
+
+【列の判定ルール】
+① 「記号」列（100、900などの数字）は取引種別コード。入金・出金に絶対に含めない。
+② 「お払戈し金額」列（左側の金額列）に数値がある場合 → withdrawal（出金）に記入、depositはnull
+③ 「お預り金額」列（右側の金額列）に数値がある場偈 → deposit（入金）に記入、withdrawalはnull
+④ 1行に入金と出金の両方があることはない。必ずどちらか一方はnull。
+⑤ 「*」の付いた金額は正規の金額（「*」は除去して数値のみ返す）
+
+【残高の判定ルール】
+① 「差引残高」列の数値のみをbalanceに入れる
+② 「*」「,」は除去して数値のみ返す
+③ 残高の直後に備考欄の数字（980、181、960、217など）が続く場偈は残高に含めず、noteに記載
+④ 「手1」「手2」などの手数記号は除去
+
+【日付の変換ルール】
+① "08-03-16" → 2008年3月16日 → "2008-03-16"
+② 2桁年: "00"-"29" → 2000-2029年、"30"-"99" → 1930-1999年
+③ 平成: H1=1989年、H2=1990年...H31=2019年、令和: R1=2019年、R2=2020年...
+④ 必ずYYYY-MM-DD形式で返す
+
 {
   "bank_name": "銀行名・金融機関名",
   "branch_name": "支店名",
@@ -198,34 +221,46 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str) -> 
   "period_end": "明細期間終了日（YYYY-MM-DD形式）",
   "transactions": [
     {
-      "date": "取引日付（YYYY-MM-DD形式）",
-      "description": "摘要・取引内容",
-      "deposit": "入金額（数値のみ、nullも可）",
-      "withdrawal": "出金額（数値のみ、nullも可）",
-      "balance": "残高（数値のみ、nullも可）",
-      "note": "備考（nullも可）"
+      "date": "取引日付（YYYY-MM-DD形式、西暦変換済み）",
+      "description": "摘要・取引内容（摘要列のみ）",
+      "deposit": "入金額（お預り金額列の値のみ、数値のみ、出金の場偈はnull）",
+      "withdrawal": "出金額（お払戈し金額列の値のみ、数値のみ、入金の場偈はnull）",
+      "balance": "差引残高（数値のみ、備考欄の手数記号を含めない）",
+      "note": "備考（手数記号など）"
     }
   ],
   "raw_text": "画像内の全テキスト（改行区切り）"
 }
-transactionsは画像に記載されている全ての明細行を抜出してください。
+transactionsは画像に記載されている全ての明細行を抜出してください。一行も欠かさないようにしてください。
 JSONのみを返してください。説明文は不要です。"""
 
-    prompt_transactions = """この画像は銀行通帳または通帳明細書の続きのページです。
-明細行のみを抜出してください。以下のJSON形式で返してください。
+    prompt_transactions = """この画像は日本の銀行通帳の続きのページです。
+画像を直接見て、列の位置を視覚的に判断して明細行のみを抜出してください。
+
+【列の判定ルール】
+① 「記号」列（100、900など）は取引種別コード。入金・出金に絶対に含めない。
+② 「お払戈し金額」列（左側の金額列）に数値がある場偈 → withdrawal（出金）、depositはnull
+③ 「お預り金額」列（右側の金額列）に数値がある場偈 → deposit（入金）、withdrawalはnull
+④ 1行に入金と出金の両方はありえない。必ずどちらか一方はnull。
+⑤ 「*」の付いた金額は正規の金額（「*」は除去）
+
+【残高】差引残高列の数値のみ。備考欄の数字は含めない。
+【日付】"08-03-16" → "2008-03-16"（2桁年は西暦変換）
+
 {
   "transactions": [
     {
       "date": "取引日付（YYYY-MM-DD形式）",
-      "description": "摘要・取引内容",
-      "deposit": "入金額（数値のみ、nullも可）",
-      "withdrawal": "出金額（数値のみ、nullも可）",
-      "balance": "残高（数値のみ、nullも可）",
-      "note": "備考（nullも可）"
+      "description": "摘要・取引内容（摘要列のみ）",
+      "deposit": "入金額（お預り金額列の値のみ、数値のみ、出金の場偈はnull）",
+      "withdrawal": "出金額（お払戈し金額列の値のみ、数値のみ、入金の場偈はnull）",
+      "balance": "差引残高（数値のみ、備考欄の手数記号を含めない）",
+      "note": "備考（手数記号など）"
     }
   ],
   "raw_text": "このページの全テキスト"
 }
+transactionsは画像の全明細行を抜出してください。一行も欠かさないようにしてください。
 JSONのみを返してください。説明文は不要です。"""
 
     def to_float(val):
@@ -518,118 +553,24 @@ def process_bank_statement_image(image_path: str, api_key: str = None, google_vi
     """通帳画像を処理して情報を抜出する（通帳モード）。
     
     処理方式（優先順）:
-    1. Google Vision API（文字認識）+ GPT-4o（構造化）: 最高精度
-    2. GPT-4o Vision単体: 標準精度
-    3. エラー時: 空データを返す
+    1. GPT-4o Vision直接（画像を直接渡す）: 最高精度（列構造を視覚的に判断）
+    2. エラー時: 空データを返す
     """
     empty = {'bank_name': None, 'branch_name': None, 'account_type': None,
              'account_number': None, 'account_holder': None,
              'period_start': None, 'period_end': None, 'transactions': [], 'raw_text': ''}
     
-    if not api_key and not google_vision_api_key:
+    if not api_key:
         return empty
     
-    # 方式1: Google Vision + GPT-4o（最高精度）
-    if google_vision_api_key and api_key:
-        try:
-            print(f"[OCR] Google Vision APIで文字認識中: {image_path}")
-            ocr_text = extract_text_with_google_vision_api_key(image_path, google_vision_api_key)
-            print(f"[OCR] Google Vision成功: {len(ocr_text)}文字")
-            print(f"[OCR] OCRテキスト先頭200文字: {repr(ocr_text[:200])}")
-            
-            prompt_template = """以下は日本の銀行通帳または通帳明細書からOCRで読み取ったテキストです。
-以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
-
-【通帳の列構造】
-左から順に: 「年月日」 | 「記号」 | 「お払戈し金額（出金）」 | 「お預り金額／お利息（入金）」 | 「差引残高」 | 「備考」
-
-【列の判定ルール】
-① 「記号」列（100、900などの数字）は取引種別コード。入金・出金に絶対に含めない。
-② 「お払戈し金額」列（左側の金額）に数値がある場合 → withdrawal（出金）に記入、depositはnull
-③ 「お預り金額」列（右側の金額）に数値がある場合 → deposit（入金）に記入、withdrawalはnull
-④ 1行に入金と出金の両方があることはない。必ずどちらか一方はnull。
-
-【残高の判定ルール】
-① 「差引残高」列の数値のみをbalanceに入れる
-② 「*」「,」は除去して数値のみ返す
-③ 残高の直後に「980」「181」「960」「217」などの3桁数字が続く場合、それは備考欄の手数記号であり残高に含めない
-  例: "*30,812,649980*" → balance=30812649、noteに980を記載
-④ 最後に「手1」「手2」などの手数記号が付く場合は除去
-
-【日付の変換ルール】
-① "08-03-16" → 2008年3月16日 → "2008-03-16"
-② 2桁年: "00"-"29" → 2000-2029年、"30"-"99" → 1930-1999年
-③ 平成: H1=1989年、H2=1990年...H31=2019年、令和: R1=2019年、R2=2020年...
-④ 必ずYYYY-MM-DD形式で返す
-
-【摘要の判定ルール】
-- 摘要列に記載された文字列をそのまま description に入れる
-- 備考欄（最右列）の内容は note に入れる
-- 摘要と備考を混同しないこと
-
-{{
-  "bank_name": "銀行名・金融機関名",
-  "branch_name": "支店名",
-  "account_type": "口座種別（普通・当座・定期など）",
-  "account_number": "口座番号",
-  "account_holder": "口座名義",
-  "period_start": "明細期間開始日（YYYY-MM-DD形式）",
-  "period_end": "明細期間終了日（YYYY-MM-DD形式）",
-  "transactions": [
-    {{
-      "date": "取引日付（YYYY-MM-DD形式）",
-      "description": "摘要・取引内容",
-      "deposit": "入金額（お預り金額列の値のみ、数値のみ、出金の場合はnull）",
-      "withdrawal": "出金額（お払戈し金額列の値のみ、数値のみ、入金の場合はnull）",
-      "balance": "差引残高（数値のみ、備考欄の手数記号を含めない）",
-      "note": "備考（手数記号など）"
-    }}
-  ]
-}}
-transactionsは全ての明細行を抜出してください。一行も欠かさないようにしてください。
-JSONのみを返してください。説明文は不要です。
-
-OCRテキスト:
-{OCR_TEXT}"""
-            
-            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=16000)
-            
-            import re
-            def to_float(val):
-                if val is None:
-                    return None
-                try:
-                    s = str(val)
-                    # 「*」「¥」「円」「,」を除去
-                    s = s.replace('*', '').replace(',', '').replace('¥', '').replace('円', '')
-                    # 残高の最後に付く手数記号（手1、手2、手3など）を除去
-                    s = re.sub(r'手\d+$', '', s.strip())
-                    s = s.strip()
-                    if not s:
-                        return None
-                    return float(s)
-                except (ValueError, TypeError):
-                    return None
-            
-            for t in data.get('transactions', []):
-                t['deposit'] = to_float(t.get('deposit'))
-                t['withdrawal'] = to_float(t.get('withdrawal'))
-                t['balance'] = to_float(t.get('balance'))
-            
-            if not data.get('raw_text'):
-                data['raw_text'] = ocr_text
-            
-            print(f"[OCR] 構造化完了: {len(data.get('transactions', []))}件の取引")
-            return data
-        except Exception as e:
-            print(f"[OCR] Google Vision + GPT-4oエラー: {e}、GPT-4o Visionにフォールバック")
-    
-    # 方式2: GPT-4o Vision単体
-    if api_key:
-        try:
-            return extract_bank_statement_with_openai_vision(image_path, api_key)
-        except Exception as e:
-            print(f"通帳OCRエラー: {e}")
+    # GPT-4o Vision直接（画像を直接渡して列構造を視覚的に判断）
+    try:
+        print(f"[OCR] GPT-4o Vision直接処理開始: {image_path}")
+        result = extract_bank_statement_with_openai_vision(image_path, api_key)
+        print(f"[OCR] GPT-4o Vision完了: {len(result.get('transactions', []))}件の取引")
+        return result
+    except Exception as e:
+        print(f"[OCR] GPT-4o Visionエラー: {e}")
     
     return empty
 

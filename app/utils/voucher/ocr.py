@@ -42,8 +42,8 @@ def _pdf_to_images(pdf_path: str, dpi: int = 72) -> list:
         return []
 
 
-def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_tokens: int = 4000) -> dict:
-    """指定された画像ページリスト（最大4枚）をOpenAI Vision APIに送信する"""
+def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_tokens: int = 8000) -> dict:
+    """指定された画像ページリストをOpenAI Vision APIに送信する"""
     import requests
     content = [{'type': 'text', 'text': prompt}]
     for p in image_paths:
@@ -67,7 +67,22 @@ def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_
         headers=headers, json=payload, timeout=120
     )
     response.raise_for_status()
-    return json.loads(response.json()['choices'][0]['message']['content'])
+    raw_content = response.json()['choices'][0]['message']['content']
+    try:
+        return json.loads(raw_content)
+    except json.JSONDecodeError:
+        # JSONが途中で切れている場合、transactionsリストを安全に抽出する
+        import re
+        transactions = []
+        # transactionsの各要素を個別に抽出
+        for m in re.finditer(r'\{[^{}]+\}', raw_content):
+            try:
+                obj = json.loads(m.group())
+                if any(k in obj for k in ('date', 'store_name', 'amount', 'deposit', 'withdrawal')):
+                    transactions.append(obj)
+            except Exception:
+                pass
+        return {'transactions': transactions, 'raw_text': raw_content[:500]}
 
 
 def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: int = 2000) -> dict:
@@ -217,12 +232,12 @@ JSONのみを返してください。説明文は不要です。"""
         all_transactions = []
         base_data = None
         raw_texts = []
-        CHUNK = 3
+        CHUNK = 2
 
         for chunk_start in range(0, len(image_paths), CHUNK):
             chunk = image_paths[chunk_start:chunk_start + CHUNK]
             if chunk_start == 0:
-                data = _call_openai_vision_pages(chunk, api_key, prompt_header, max_tokens=4000)
+                data = _call_openai_vision_pages(chunk, api_key, prompt_header, max_tokens=8000)
                 base_data = data
                 raw_texts.append(data.get('raw_text', ''))
                 for t in data.get('transactions', []):
@@ -231,7 +246,7 @@ JSONのみを返してください。説明文は不要です。"""
                     t['balance'] = to_float(t.get('balance'))
                     all_transactions.append(t)
             else:
-                data = _call_openai_vision_pages(chunk, api_key, prompt_transactions, max_tokens=4000)
+                data = _call_openai_vision_pages(chunk, api_key, prompt_transactions, max_tokens=8000)
                 raw_texts.append(data.get('raw_text', ''))
                 for t in data.get('transactions', []):
                     t['deposit'] = to_float(t.get('deposit'))
@@ -322,19 +337,19 @@ JSONのみを返してください。説明文は不要です。"""
         all_transactions = []
         base_data = None
         raw_texts = []
-        CHUNK = 3
+        CHUNK = 2
 
         for chunk_start in range(0, len(image_paths), CHUNK):
             chunk = image_paths[chunk_start:chunk_start + CHUNK]
             if chunk_start == 0:
-                data = _call_openai_vision_pages(chunk, api_key, prompt_header, max_tokens=4000)
+                data = _call_openai_vision_pages(chunk, api_key, prompt_header, max_tokens=8000)
                 base_data = data
                 raw_texts.append(data.get('raw_text', ''))
                 for t in data.get('transactions', []):
                     t['amount'] = to_float(t.get('amount'))
                     all_transactions.append(t)
             else:
-                data = _call_openai_vision_pages(chunk, api_key, prompt_transactions, max_tokens=4000)
+                data = _call_openai_vision_pages(chunk, api_key, prompt_transactions, max_tokens=8000)
                 raw_texts.append(data.get('raw_text', ''))
                 for t in data.get('transactions', []):
                     t['amount'] = to_float(t.get('amount'))

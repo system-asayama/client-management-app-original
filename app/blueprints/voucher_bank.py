@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 証憑データ化アプリ - 通帳モード Blueprint
-通帳画像のアップロード、OCR処理（バックグラウンド）、一覧表示、CSV/Excel出力
+通帳画像のアップロード、OCR処理、一覧表示、CSV/Excel出力
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 import os
 import io
 import csv
-import threading
 from datetime import datetime
 from app.db import SessionLocal
 from app.models_voucher import TBankStatement, TBankTransaction
@@ -60,92 +59,6 @@ def get_openai_api_key(tenant_id, tenpo_id):
     return None
 
 
-def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
-    """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
-    import traceback
-    print(f'[OCR] 通帳明細 stmt_id={stmt_id} 開始 filepath={filepath}')
-    db = SessionLocal()
-    try:
-        # ファイル存在確認
-        if not os.path.exists(filepath):
-            print(f'[OCR] エラー: ファイルが存在しません: {filepath}')
-            stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
-            if stmt:
-                stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'エラー: ファイルが見つかりません ({filepath})'
-                db.commit()
-            return
-
-        stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
-        if not stmt:
-            return
-        stmt.ステータス = 'processing'
-        db.commit()
-
-        print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR開始')
-        ocr_result = process_bank_statement_image(filepath, api_key=api_key)
-        print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR完了 transactions={len(ocr_result.get("transactions", []))} error={ocr_result.get("_error")}')
-
-        # OCR内部エラーの確認
-        if ocr_result.get('_error'):
-            err_msg = ocr_result['_error']
-            print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR内部エラー: {err_msg}')
-            stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
-            if stmt:
-                stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'OCRエラー: {err_msg}'
-                db.commit()
-            return
-
-        stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
-        if not stmt:
-            return
-
-        stmt.OCR結果_生データ = ocr_result.get('raw_text', '')
-        stmt.銀行名 = ocr_result.get('bank_name')
-        stmt.支店名 = ocr_result.get('branch_name')
-        stmt.口座種別 = ocr_result.get('account_type')
-        stmt.口座番号 = ocr_result.get('account_number')
-        stmt.口座名義 = ocr_result.get('account_holder')
-        stmt.期間_開始 = ocr_result.get('period_start')
-        stmt.期間_終了 = ocr_result.get('period_end')
-        stmt.ステータス = 'completed'
-        db.flush()
-
-        db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
-
-        for i, t in enumerate(ocr_result.get('transactions', []), 1):
-            row = TBankTransaction(
-                statement_id=stmt_id,
-                tenant_id=tenant_id,
-                日付=t.get('date'),
-                摘要=t.get('description'),
-                入金=t.get('deposit'),
-                出金=t.get('withdrawal'),
-                残高=t.get('balance'),
-                備考=t.get('note'),
-                行番号=i,
-            )
-            db.add(row)
-
-        db.commit()
-
-    except Exception as e:
-        err_detail = traceback.format_exc()
-        print(f'[OCR] 通帳明細 stmt_id={stmt_id} エラー: {e}\n{err_detail}')
-        try:
-            stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
-            if stmt:
-                stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'OCRエラー: {str(e)}\n{err_detail[:500]}'
-                db.commit()
-        except Exception as e2:
-            print(f'[OCR] エラー保存失敗: {e2}')
-    finally:
-        db.close()
-        print(f'[OCR] 通帳明細 stmt_id={stmt_id} スレッド終了')
-
-
 # ============================================================
 # 通帳明細一覧
 # ============================================================
@@ -174,7 +87,7 @@ def index():
 
 
 # ============================================================
-# 通帳アップロード（即時リダイレクト、OCRはバックグラウンド）
+# 通帳アップロード
 # ============================================================
 @bp.route('/upload', methods=['GET', 'POST'])
 @require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
@@ -205,6 +118,10 @@ def upload():
         filepath = save_uploaded_file(file, upload_dir)
 
         openai_api_key = get_openai_api_key(tenant_id, tenpo_id)
+        if not openai_api_key:
+            flash('OpenAI APIキーが未設定のため、OCR処理をスキップしました。', 'warning')
+
+        ocr_result = process_bank_statement_image(filepath, api_key=openai_api_key)
 
         db = SessionLocal()
         try:
@@ -213,51 +130,44 @@ def upload():
                 tenpo_id=tenpo_id,
                 uploaded_by=user_id,
                 画像パス=filepath,
-                ステータス='pending' if not openai_api_key else 'processing',
+                OCR結果_生データ=ocr_result.get('raw_text', ''),
+                銀行名=ocr_result.get('bank_name'),
+                支店名=ocr_result.get('branch_name'),
+                口座種別=ocr_result.get('account_type'),
+                口座番号=ocr_result.get('account_number'),
+                口座名義=ocr_result.get('account_holder'),
+                期間_開始=ocr_result.get('period_start'),
+                期間_終了=ocr_result.get('period_end'),
+                ステータス='completed' if openai_api_key else 'pending',
             )
             db.add(stmt)
+            db.flush()
+
+            for i, t in enumerate(ocr_result.get('transactions', []), 1):
+                row = TBankTransaction(
+                    statement_id=stmt.id,
+                    tenant_id=tenant_id,
+                    日付=t.get('date'),
+                    摘要=t.get('description'),
+                    入金=t.get('deposit'),
+                    出金=t.get('withdrawal'),
+                    残高=t.get('balance'),
+                    備考=t.get('note'),
+                    行番号=i,
+                )
+                db.add(row)
+
             db.commit()
             stmt_id = stmt.id
         finally:
             db.close()
 
-        if not openai_api_key:
-            flash('OpenAI APIキーが未設定のため、OCR処理をスキップしました。', 'warning')
-        else:
-            t = threading.Thread(
-                target=_run_ocr_background,
-                args=(stmt_id, filepath, openai_api_key, tenant_id),
-                daemon=True
-            )
-            t.start()
-            flash('通帳をアップロードしました。OCR処理をバックグラウンドで実行中です...', 'success')
-
+        flash(f'通帳をアップロードしました。{len(ocr_result.get("transactions", []))}件の明細を抽出しました。', 'success')
         return redirect(url_for('voucher_bank.detail', stmt_id=stmt_id))
 
     except Exception as e:
         flash(f'エラーが発生しました: {str(e)}', 'error')
         return redirect(request.url)
-
-
-# ============================================================
-# OCRステータス確認API（詳細画面の自動リロード用）
-# ============================================================
-@bp.route('/<int:stmt_id>/status')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
-def status(stmt_id):
-    info = get_session_info()
-    tenant_id = info['tenant_id']
-    db = SessionLocal()
-    try:
-        stmt = db.query(TBankStatement).filter(
-            TBankStatement.id == stmt_id,
-            TBankStatement.tenant_id == tenant_id
-        ).first()
-        if not stmt:
-            return jsonify({'status': 'error'})
-        return jsonify({'status': stmt.ステータス or 'pending'})
-    finally:
-        db.close()
 
 
 # ============================================================
@@ -314,6 +224,7 @@ def export_csv(stmt_id):
     output = io.StringIO()
     writer = csv.writer(output)
 
+    # ヘッダー情報
     writer.writerow(['銀行名', stmt.銀行名 or ''])
     writer.writerow(['支店名', stmt.支店名 or ''])
     writer.writerow(['口座種別', stmt.口座種別 or ''])
@@ -376,12 +287,14 @@ def export_excel(stmt_id):
     ws = wb.active
     ws.title = '通帳明細'
 
+    # スタイル定義
     header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
     header_font = Font(color='FFFFFF', bold=True)
     info_fill = PatternFill(start_color='EFF6FF', end_color='EFF6FF', fill_type='solid')
     thin = Side(style='thin', color='D1D5DB')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
+    # 口座情報ヘッダー
     info_rows = [
         ('銀行名', stmt.銀行名 or ''),
         ('支店名', stmt.支店名 or ''),
@@ -395,6 +308,7 @@ def export_excel(stmt_id):
         ws.cell(r, 1, label).font = Font(bold=True)
         ws.cell(r, 2, value)
 
+    # 明細ヘッダー
     header_row = len(info_rows) + 2
     headers = ['日付', '摘要', '入金', '出金', '残高', '備考']
     for c, h in enumerate(headers, 1):
@@ -404,6 +318,7 @@ def export_excel(stmt_id):
         cell.alignment = Alignment(horizontal='center')
         cell.border = border
 
+    # 明細データ
     for i, t in enumerate(transactions):
         row = header_row + 1 + i
         values = [
@@ -421,6 +336,7 @@ def export_excel(stmt_id):
                 cell.alignment = Alignment(horizontal='right')
                 cell.number_format = '#,##0'
 
+    # 列幅調整
     ws.column_dimensions['A'].width = 14
     ws.column_dimensions['B'].width = 40
     ws.column_dimensions['C'].width = 14

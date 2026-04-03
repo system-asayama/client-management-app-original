@@ -36,25 +36,6 @@
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .deposit { color: #16a34a; font-weight: 600; }
   .withdrawal { color: #dc2626; font-weight: 600; }
-
-  /* 処理中バナー */
-  .processing-banner {
-    background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
-    color: #fff; border-radius: 12px; padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem; display: flex; align-items: center; gap: 1rem;
-  }
-  .processing-banner .spinner {
-    width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.3);
-    border-top-color: #fff; border-radius: 50%; animation: spin 0.9s linear infinite; flex-shrink: 0;
-  }
-  .processing-banner .msg { font-size: 0.95rem; font-weight: 600; }
-  .processing-banner .sub-msg { font-size: 0.8rem; opacity: 0.8; margin-top: 0.2rem; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .error-banner {
-    background: #fee2e2; border: 1px solid #fca5a5; border-radius: 12px;
-    padding: 1rem 1.25rem; margin-bottom: 1.25rem; color: #991b1b;
-  }
 </style>
 
 <div class="vc-header">
@@ -62,10 +43,8 @@
   <h1>{{ stmt.銀行名 or '通帳明細' }}{% if stmt.支店名 %} {{ stmt.支店名 }}{% endif %}</h1>
   <div class="vc-header-actions">
     <a href="{{ url_for('voucher_bank.index') }}" class="vc-btn vc-btn-white">← 一覧に戻る</a>
-    {% if stmt.ステータス == 'completed' %}
     <a href="{{ url_for('voucher_bank.export_csv', stmt_id=stmt.id) }}" class="vc-btn vc-btn-success">⬇ CSV</a>
     <a href="{{ url_for('voucher_bank.export_excel', stmt_id=stmt.id) }}" class="vc-btn vc-btn-success">⬇ Excel</a>
-    {% endif %}
   </div>
 </div>
 
@@ -74,21 +53,6 @@
     <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' if cat == 'warning' else 'danger' }} mb-3">{{ msg }}</div>
   {% endfor %}
 {% endwith %}
-
-<!-- 処理中バナー -->
-{% if stmt.ステータス in ('pending', 'processing') %}
-<div class="processing-banner" id="processing-banner">
-  <div class="spinner"></div>
-  <div>
-    <div class="msg">🔄 OCR処理を実行中です...</div>
-    <div class="sub-msg">PDFのページ数によっては数分かかる場合があります。このページは自動的に更新されます。</div>
-  </div>
-</div>
-{% elif stmt.ステータス == 'error' %}
-<div class="error-banner">
-  ⚠️ OCR処理中にエラーが発生しました。再度アップロードするか、管理者にお問い合わせください。
-</div>
-{% endif %}
 
 <!-- 口座情報 -->
 <div class="info-card">
@@ -106,12 +70,7 @@
 <!-- 明細一覧 -->
 <div class="info-card">
   <h2>📋 明細一覧（{{ transactions|length }}件）</h2>
-  {% if stmt.ステータス in ('pending', 'processing') %}
-  <div style="text-align:center;padding:2rem;color:#6b7280;">
-    <div style="font-size:2rem;margin-bottom:0.5rem;">⏳</div>
-    OCR処理が完了するとここに明細が表示されます
-  </div>
-  {% elif transactions %}
+  {% if transactions %}
   <div class="table-wrap">
     <table>
       <thead>
@@ -142,34 +101,4 @@
   <div style="text-align:center;padding:2rem;color:#9ca3af;">明細データがありません</div>
   {% endif %}
 </div>
-
-{% if stmt.ステータス in ('pending', 'processing') %}
-<script>
-(function() {
-  var statusUrl = "{{ url_for('voucher_bank.status', stmt_id=stmt.id) }}";
-  var intervalMs = 5000; // 5秒ごとにポーリング
-  var maxRetries = 120;  // 最大10分間ポーリング
-  var retries = 0;
-
-  function checkStatus() {
-    if (retries >= maxRetries) return;
-    retries++;
-    fetch(statusUrl)
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (data.status === 'completed' || data.status === 'error') {
-          window.location.reload();
-        } else {
-          setTimeout(checkStatus, intervalMs);
-        }
-      })
-      .catch(function() {
-        setTimeout(checkStatus, intervalMs);
-      });
-  }
-
-  setTimeout(checkStatus, intervalMs);
-})();
-</script>
-{% endif %}
 {% endblock %}

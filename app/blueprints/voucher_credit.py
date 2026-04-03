@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 証憑データ化アプリ - クレジット明細モード Blueprint
-クレジット明細画像のアップロード、OCR処理（バックグラウンド）、一覧表示、CSV/Excel出力
+クレジット明細画像のアップロード、OCR処理、一覧表示、CSV/Excel出力
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 import os
 import io
 import csv
-import threading
 from datetime import datetime
 from app.db import SessionLocal
 from app.models_voucher import TCreditStatement, TCreditTransaction
@@ -60,95 +59,6 @@ def get_openai_api_key(tenant_id, tenpo_id):
     return None
 
 
-def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
-    """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
-    import traceback
-    print(f'[OCR] クレジット明細 stmt_id={stmt_id} 開始 filepath={filepath}')
-    db = SessionLocal()
-    try:
-        # ファイル存在確認
-        if not os.path.exists(filepath):
-            print(f'[OCR] エラー: ファイルが存在しません: {filepath}')
-            stmt = db.query(TCreditStatement).filter(TCreditStatement.id == stmt_id).first()
-            if stmt:
-                stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'エラー: ファイルが見つかりません ({filepath})'
-                db.commit()
-            return
-
-        # ステータスを「処理中」に更新
-        stmt = db.query(TCreditStatement).filter(TCreditStatement.id == stmt_id).first()
-        if not stmt:
-            return
-        stmt.ステータス = 'processing'
-        db.commit()
-
-        # OCR実行（時間がかかる処理）
-        print(f'[OCR] クレジット明細 stmt_id={stmt_id} OCR開始')
-        ocr_result = process_credit_statement_image(filepath, api_key=api_key)
-        print(f'[OCR] クレジット明細 stmt_id={stmt_id} OCR完了 transactions={len(ocr_result.get("transactions", []))} error={ocr_result.get("_error")}')
-
-        # OCR内部エラーの確認
-        if ocr_result.get('_error'):
-            err_msg = ocr_result['_error']
-            print(f'[OCR] クレジット明細 stmt_id={stmt_id} OCR内部エラー: {err_msg}')
-            stmt = db.query(TCreditStatement).filter(TCreditStatement.id == stmt_id).first()
-            if stmt:
-                stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'OCRエラー: {err_msg}'
-                db.commit()
-            return
-
-        # 結果をDBに保存
-        stmt = db.query(TCreditStatement).filter(TCreditStatement.id == stmt_id).first()
-        if not stmt:
-            return
-
-        stmt.OCR結果_生データ = ocr_result.get('raw_text', '')
-        stmt.カード会社名 = ocr_result.get('card_company')
-        stmt.カード名 = ocr_result.get('card_name')
-        stmt.会員名 = ocr_result.get('member_name')
-        stmt.明細年月 = ocr_result.get('statement_month')
-        stmt.支払日 = ocr_result.get('payment_date')
-        stmt.利用総額 = ocr_result.get('total_amount')
-        stmt.ステータス = 'completed'
-        db.flush()
-
-        # 既存の明細を削除して再登録
-        db.query(TCreditTransaction).filter(TCreditTransaction.statement_id == stmt_id).delete()
-
-        for i, t in enumerate(ocr_result.get('transactions', []), 1):
-            row = TCreditTransaction(
-                statement_id=stmt_id,
-                tenant_id=tenant_id,
-                利用日=t.get('date'),
-                利用店名=t.get('store_name'),
-                利用者=t.get('user_name'),
-                利用金額=t.get('amount'),
-                分割回数=t.get('installment'),
-                備考=t.get('note'),
-                行番号=i,
-            )
-            db.add(row)
-
-        db.commit()
-
-    except Exception as e:
-        err_detail = traceback.format_exc()
-        print(f'[OCR] クレジット明細 stmt_id={stmt_id} エラー: {e}\n{err_detail}')
-        try:
-            stmt = db.query(TCreditStatement).filter(TCreditStatement.id == stmt_id).first()
-            if stmt:
-                stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'OCRエラー: {str(e)}\n{err_detail[:500]}'
-                db.commit()
-        except Exception as e2:
-            print(f'[OCR] エラー保存失敗: {e2}')
-    finally:
-        db.close()
-        print(f'[OCR] クレジット明細 stmt_id={stmt_id} スレッド終了')
-
-
 # ============================================================
 # クレジット明細一覧
 # ============================================================
@@ -177,7 +87,7 @@ def index():
 
 
 # ============================================================
-# クレジット明細アップロード（即時リダイレクト、OCRはバックグラウンド）
+# クレジット明細アップロード
 # ============================================================
 @bp.route('/upload', methods=['GET', 'POST'])
 @require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
@@ -208,8 +118,11 @@ def upload():
         filepath = save_uploaded_file(file, upload_dir)
 
         openai_api_key = get_openai_api_key(tenant_id, tenpo_id)
+        if not openai_api_key:
+            flash('OpenAI APIキーが未設定のため、OCR処理をスキップしました。', 'warning')
 
-        # DBに「待機中」として即座に保存
+        ocr_result = process_credit_statement_image(filepath, api_key=openai_api_key)
+
         db = SessionLocal()
         try:
             stmt = TCreditStatement(
@@ -217,52 +130,45 @@ def upload():
                 tenpo_id=tenpo_id,
                 uploaded_by=user_id,
                 画像パス=filepath,
-                ステータス='pending' if not openai_api_key else 'processing',
+                OCR結果_生データ=ocr_result.get('raw_text', ''),
+                カード会社名=ocr_result.get('card_company'),
+                カード名=ocr_result.get('card_name'),
+                会員名=ocr_result.get('member_name'),
+                明細年月=ocr_result.get('statement_month'),
+                支払日=ocr_result.get('payment_date'),
+                利用総額=ocr_result.get('total_amount'),
+                ステータス='completed' if openai_api_key else 'pending',
             )
             db.add(stmt)
+            db.flush()
+
+            for i, t in enumerate(ocr_result.get('transactions', []), 1):
+                row = TCreditTransaction(
+                    statement_id=stmt.id,
+                    tenant_id=tenant_id,
+                    利用日=t.get('date'),
+                    利用店名=t.get('store_name'),
+                    利用者=t.get('user_name'),
+                    利用金額=t.get('amount'),
+                    分割回数=t.get('installment'),
+                    備考=t.get('note'),
+                    行番号=i,
+                )
+                db.add(row)
+
             db.commit()
             stmt_id = stmt.id
         finally:
             db.close()
 
-        if not openai_api_key:
-            flash('OpenAI APIキーが未設定のため、OCR処理をスキップしました。', 'warning')
-        else:
-            # バックグラウンドスレッドでOCR処理を開始
-            t = threading.Thread(
-                target=_run_ocr_background,
-                args=(stmt_id, filepath, openai_api_key, tenant_id),
-                daemon=True
-            )
-            t.start()
-            flash('クレジット明細をアップロードしました。OCR処理をバックグラウンドで実行中です...', 'success')
-
+        if ocr_result.get('_error'):
+            flash(f'OCRエラー: {ocr_result["_error"]}', 'warning')
+        flash(f'クレジット明細をアップロードしました。{len(ocr_result.get("transactions", []))}件の明細を抗出しました。', 'success')
         return redirect(url_for('voucher_credit.detail', stmt_id=stmt_id))
 
     except Exception as e:
         flash(f'エラーが発生しました: {str(e)}', 'error')
         return redirect(request.url)
-
-
-# ============================================================
-# OCRステータス確認API（詳細画面の自動リロード用）
-# ============================================================
-@bp.route('/<int:stmt_id>/status')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
-def status(stmt_id):
-    info = get_session_info()
-    tenant_id = info['tenant_id']
-    db = SessionLocal()
-    try:
-        stmt = db.query(TCreditStatement).filter(
-            TCreditStatement.id == stmt_id,
-            TCreditStatement.tenant_id == tenant_id
-        ).first()
-        if not stmt:
-            return jsonify({'status': 'error'})
-        return jsonify({'status': stmt.ステータス or 'pending'})
-    finally:
-        db.close()
 
 
 # ============================================================

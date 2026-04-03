@@ -18,7 +18,7 @@ def _encode_image_to_base64(image_path: str) -> str:
         return base64.b64encode(f.read()).decode('utf-8')
 
 
-def _pdf_to_images(pdf_path: str, dpi: int = 72) -> list:
+def _pdf_to_images(pdf_path: str, dpi: int = 200) -> list:
     """PDFを全ページJPG画像リストに変換する（PyMuPDF使用）。画像ファイルはそのまま返す。"""
     ext = os.path.splitext(pdf_path)[1].lower()
     if ext != '.pdf':
@@ -192,9 +192,22 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str) -> 
 【通帳の列構造】
 左から順に: 「年月日」 | 「記号」 | 「お払戈し金額（出金）」 | 「お預り金額／お利息（入金）」 | 「差引残高」 | 「備考」
 
+【摘要の読み取りルール】
+- 摘要列（金額列の左側または右側に記載された文字列）をそのまま description に入れる
+- 手書き文字は慣用句や文脈を考慮して正確に読む：
+  ・「カード」「カード″」「カード。」は「カード」と読む
+  ・「デントウ」「デントウ―」は「デントウ」（電灯）と読む
+  ・「オカヤマケン」は「オカヤマケンコクミンケンコ」の略記の可能性あり
+  ・「″」「。」「’」は「」（同上）を意味する略記符号
+  ・「アプライド」は店名（アプライド）
+  ・「ソフトバンク」は「ソフトバンクモバイル」
+  ・「ヤマオカ」は人名（ヤマオカ トモヨ）
+- 備考欄（最右列）の内容は note に入れる（descriptionに入れない）
+- 摘要列と備考列を混同しないこと
+
 【列の判定ルール】
 ① 「記号」列（100、900などの数字）は取引種別コード。入金・出金に絶対に含めない。
-② 「お払戈し金額」列（左側の金額列）に数値がある場合 → withdrawal（出金）に記入、depositはnull
+② 「お払戈し金額」列（左側の金額列）に数値がある場偈 → withdrawal（出金）に記入、depositはnull
 ③ 「お預り金額」列（右側の金額列）に数値がある場偈 → deposit（入金）に記入、withdrawalはnull
 ④ 1行に入金と出金の両方があることはない。必ずどちらか一方はnull。
 ⑤ 「*」の付いた金額は正規の金額（「*」は除去して数値のみ返す）

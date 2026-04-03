@@ -2,6 +2,7 @@
 """
 OCR処理とデータ抽出ユーティリティ
 OpenAI Vision API（GPT-4o）統合版
+PDFは全ページをチャンク処理してマージ
 """
 
 import re
@@ -17,18 +18,18 @@ def _encode_image_to_base64(image_path: str) -> str:
         return base64.b64encode(f.read()).decode('utf-8')
 
 
-def _pdf_to_images(pdf_path: str) -> list:
-    """ファイルがPDFの場合、画像リストに変換する。画像の場合はそのまま返す。"""
+def _pdf_to_images(pdf_path: str, dpi: int = 120) -> list:
+    """PDFを全ページJPG画像リストに変換する。画像ファイルはそのまま返す。"""
     ext = os.path.splitext(pdf_path)[1].lower()
     if ext != '.pdf':
         return [pdf_path]
     try:
         from pdf2image import convert_from_path
-        images = convert_from_path(pdf_path, dpi=150)
+        images = convert_from_path(pdf_path, dpi=dpi)
         tmp_paths = []
         for i, img in enumerate(images):
             tmp_path = pdf_path + f'_page{i+1}.jpg'
-            img.save(tmp_path, 'JPEG', quality=85)
+            img.save(tmp_path, 'JPEG', quality=80)
             tmp_paths.append(tmp_path)
         return tmp_paths
     except Exception as e:
@@ -36,41 +37,16 @@ def _pdf_to_images(pdf_path: str) -> list:
         return []
 
 
-def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: int = 2000) -> dict:
-    """共通のOpenAI Vision API呼び出し。PDFは自動変換。"""
+def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_tokens: int = 4000) -> dict:
+    """指定された画像ページリスト（最大4枚）をOpenAI Vision APIに送信する"""
     import requests
-    # PDFの場合は画像に変換
-    ext = os.path.splitext(image_path)[1].lower()
-    if ext == '.pdf':
-        image_paths = _pdf_to_images(image_path)
-        if not image_paths:
-            raise ValueError('PDFを画像に変換できませんでした')
-        # 最初のページだけでなく、全ページを送信（最大4ページまで）
-        content = [{'type': 'text', 'text': prompt}]
-        for p in image_paths[:4]:
-            img_data = _encode_image_to_base64(p)
-            content.append({'type': 'image_url', 'image_url': {
-                'url': f'data:image/jpeg;base64,{img_data}',
-                'detail': 'high'
-            }})
-        # 一時ファイルを削除
-        for p in image_paths:
-            try:
-                os.remove(p)
-            except Exception:
-                pass
-    else:
-        mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-                    '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
-        mime_type = mime_map.get(ext, 'image/jpeg')
-        image_data = _encode_image_to_base64(image_path)
-        content = [
-            {'type': 'text', 'text': prompt},
-            {'type': 'image_url', 'image_url': {
-                'url': f'data:{mime_type};base64,{image_data}',
-                'detail': 'high'
-            }}
-        ]
+    content = [{'type': 'text', 'text': prompt}]
+    for p in image_paths:
+        img_data = _encode_image_to_base64(p)
+        content.append({'type': 'image_url', 'image_url': {
+            'url': f'data:image/jpeg;base64,{img_data}',
+            'detail': 'high'
+        }})
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
@@ -89,12 +65,54 @@ def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: 
     return json.loads(response.json()['choices'][0]['message']['content'])
 
 
+def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: int = 2000) -> dict:
+    """単一ファイル（画像またはPDF1ページ目）のVision API呼び出し（レシート用）"""
+    import requests
+    ext = os.path.splitext(image_path)[1].lower()
+    if ext == '.pdf':
+        image_paths = _pdf_to_images(image_path)
+        if not image_paths:
+            raise ValueError('PDFを画像に変換できませんでした')
+        result = _call_openai_vision_pages(image_paths[:4], api_key, prompt, max_tokens)
+        for p in image_paths:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+        return result
+    else:
+        mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                    '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
+        mime_type = mime_map.get(ext, 'image/jpeg')
+        image_data = _encode_image_to_base64(image_path)
+        content = [
+            {'type': 'text', 'text': prompt},
+            {'type': 'image_url', 'image_url': {
+                'url': f'data:{mime_type};base64,{image_data}',
+                'detail': 'high'
+            }}
+        ]
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            'model': 'gpt-4o',
+            'messages': [{'role': 'user', 'content': content}],
+            'max_tokens': max_tokens,
+            'response_format': {'type': 'json_object'}
+        }
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers, json=payload, timeout=120
+        )
+        response.raise_for_status()
+        return json.loads(response.json()['choices'][0]['message']['content'])
+
+
 def extract_text_with_openai_vision(image_path: str, api_key: str) -> Dict:
     """
     OpenAI GPT-4o Vision APIを使用して証桯画像からデータを抜出する。
-    テキスト抜出だけでなく、構造化データとして直接返す。
-    Returns:
-        抜出された情報の辞書
     """
     prompt = """この画像は領収書・請求書・レシートなどの証桯書類です。
 以下の情報をJSON形式で抜出してください。不明な場合はnullにしてください。
@@ -124,8 +142,9 @@ JSONのみを返してください。説明文は不要です。"""
 def extract_bank_statement_with_openai_vision(image_path: str, api_key: str) -> Dict:
     """
     OpenAI GPT-4o Vision APIを使用して通帳画像からデータを抜出する。
+    PDFは全ページをチャンク処理してマージ。
     """
-    prompt = """この画像は銀行通帳または通帳明細書です。
+    prompt_header = """この画像は銀行通帳または通帳明細書です。
 以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
 {
   "bank_name": "銀行名・金融機関名",
@@ -150,6 +169,23 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str) -> 
 transactionsは画像に記載されている全ての明細行を抜出してください。
 JSONのみを返してください。説明文は不要です。"""
 
+    prompt_transactions = """この画像は銀行通帳または通帳明細書の続きのページです。
+明細行のみを抜出してください。以下のJSON形式で返してください。
+{
+  "transactions": [
+    {
+      "date": "取引日付（YYYY-MM-DD形式）",
+      "description": "摘要・取引内容",
+      "deposit": "入金額（数値のみ、nullも可）",
+      "withdrawal": "出金額（数値のみ、nullも可）",
+      "balance": "残高（数値のみ、nullも可）",
+      "note": "備考（nullも可）"
+    }
+  ],
+  "raw_text": "このページの全テキスト"
+}
+JSONのみを返してください。説明文は不要です。"""
+
     def to_float(val):
         if val is None:
             return None
@@ -158,22 +194,67 @@ JSONのみを返してください。説明文は不要です。"""
         except (ValueError, TypeError):
             return None
 
-    data = _call_openai_vision(image_path, api_key, prompt, max_tokens=4000)
-    for t in data.get('transactions', []):
-        t['deposit'] = to_float(t.get('deposit'))
-        t['withdrawal'] = to_float(t.get('withdrawal'))
-        t['balance'] = to_float(t.get('balance'))
-    return data
+    ext = os.path.splitext(image_path)[1].lower()
+    if ext != '.pdf':
+        data = _call_openai_vision(image_path, api_key, prompt_header, max_tokens=4000)
+        for t in data.get('transactions', []):
+            t['deposit'] = to_float(t.get('deposit'))
+            t['withdrawal'] = to_float(t.get('withdrawal'))
+            t['balance'] = to_float(t.get('balance'))
+        return data
+
+    # PDF: 全ページをチャンク処理（4ページずつ）
+    image_paths = _pdf_to_images(image_path)
+    if not image_paths:
+        raise ValueError('PDFを画像に変換できませんでした')
+
+    try:
+        all_transactions = []
+        base_data = None
+        raw_texts = []
+        CHUNK = 4
+
+        for chunk_start in range(0, len(image_paths), CHUNK):
+            chunk = image_paths[chunk_start:chunk_start + CHUNK]
+            if chunk_start == 0:
+                data = _call_openai_vision_pages(chunk, api_key, prompt_header, max_tokens=4000)
+                base_data = data
+                raw_texts.append(data.get('raw_text', ''))
+                for t in data.get('transactions', []):
+                    t['deposit'] = to_float(t.get('deposit'))
+                    t['withdrawal'] = to_float(t.get('withdrawal'))
+                    t['balance'] = to_float(t.get('balance'))
+                    all_transactions.append(t)
+            else:
+                data = _call_openai_vision_pages(chunk, api_key, prompt_transactions, max_tokens=4000)
+                raw_texts.append(data.get('raw_text', ''))
+                for t in data.get('transactions', []):
+                    t['deposit'] = to_float(t.get('deposit'))
+                    t['withdrawal'] = to_float(t.get('withdrawal'))
+                    t['balance'] = to_float(t.get('balance'))
+                    all_transactions.append(t)
+
+        result = base_data or {}
+        result['transactions'] = all_transactions
+        result['raw_text'] = '\n'.join(raw_texts)
+        return result
+    finally:
+        for p in image_paths:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
 
 
 def extract_credit_statement_with_openai_vision(image_path: str, api_key: str) -> Dict:
     """
     OpenAI GPT-4o Vision APIを使用してクレジット明細画像からデータを抜出する。
+    PDFは全ページをチャンク処理してマージ。
     """
-    prompt = """この画像はクレジットカードの利用明細書です。
+    prompt_header = """この画像はクレジットカードの利用明細書です。
 以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
 {
-  "card_company": "カード会社名（例: JCB, VISA, 楽天カードなど）",
+  "card_company": "カード会社名（例: American Express, JCB, VISA, 楽天カードなど）",
   "card_name": "カード名・品名",
   "member_name": "会員名義",
   "statement_month": "明細年月（YYYY-MM形式）",
@@ -194,6 +275,23 @@ def extract_credit_statement_with_openai_vision(image_path: str, api_key: str) -
 transactionsは画像に記載されている全ての利用明細行を抜出してください。
 JSONのみを返してください。説明文は不要です。"""
 
+    prompt_transactions = """この画像はクレジットカード利用明細書の続きのページです。
+利用明細行のみを抜出してください。以下のJSON形式で返してください。
+{
+  "transactions": [
+    {
+      "date": "利用日（YYYY-MM-DD形式）",
+      "store_name": "利用店名・内容",
+      "user_name": "利用者名（nullも可）",
+      "amount": "利用金額（数値のみ）",
+      "installment": "分割回数・支払方法（nullも可）",
+      "note": "備考（nullも可）"
+    }
+  ],
+  "raw_text": "このページの全テキスト"
+}
+JSONのみを返してください。説明文は不要です。"""
+
     def to_float(val):
         if val is None:
             return None
@@ -202,11 +300,52 @@ JSONのみを返してください。説明文は不要です。"""
         except (ValueError, TypeError):
             return None
 
-    data = _call_openai_vision(image_path, api_key, prompt, max_tokens=4000)
-    data['total_amount'] = to_float(data.get('total_amount'))
-    for t in data.get('transactions', []):
-        t['amount'] = to_float(t.get('amount'))
-    return data
+    ext = os.path.splitext(image_path)[1].lower()
+    if ext != '.pdf':
+        data = _call_openai_vision(image_path, api_key, prompt_header, max_tokens=4000)
+        data['total_amount'] = to_float(data.get('total_amount'))
+        for t in data.get('transactions', []):
+            t['amount'] = to_float(t.get('amount'))
+        return data
+
+    # PDF: 全ページをチャンク処理（4ページずつ）
+    image_paths = _pdf_to_images(image_path)
+    if not image_paths:
+        raise ValueError('PDFを画像に変換できませんでした')
+
+    try:
+        all_transactions = []
+        base_data = None
+        raw_texts = []
+        CHUNK = 4
+
+        for chunk_start in range(0, len(image_paths), CHUNK):
+            chunk = image_paths[chunk_start:chunk_start + CHUNK]
+            if chunk_start == 0:
+                data = _call_openai_vision_pages(chunk, api_key, prompt_header, max_tokens=4000)
+                base_data = data
+                raw_texts.append(data.get('raw_text', ''))
+                for t in data.get('transactions', []):
+                    t['amount'] = to_float(t.get('amount'))
+                    all_transactions.append(t)
+            else:
+                data = _call_openai_vision_pages(chunk, api_key, prompt_transactions, max_tokens=4000)
+                raw_texts.append(data.get('raw_text', ''))
+                for t in data.get('transactions', []):
+                    t['amount'] = to_float(t.get('amount'))
+                    all_transactions.append(t)
+
+        result = base_data or {}
+        result['total_amount'] = to_float(result.get('total_amount'))
+        result['transactions'] = all_transactions
+        result['raw_text'] = '\n'.join(raw_texts)
+        return result
+    finally:
+        for p in image_paths:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
 
 
 def process_bank_statement_image(image_path: str, api_key: str = None) -> Dict:
@@ -242,13 +381,6 @@ def process_receipt_image(image_path: str, api_key: str = None) -> Dict:
     レシート画像を処理して情報を抽出する。
     api_keyが指定されている場合はOpenAI Vision APIを使用。
     指定がない場合は手動入力モード（空データ）を返す。
-
-    Args:
-        image_path: 画像ファイルのパス
-        api_key: OpenAI APIキー（省略可）
-
-    Returns:
-        抽出された情報の辞書
     """
     empty_result = {
         'full_text': '',
@@ -291,13 +423,6 @@ def process_receipt_image(image_path: str, api_key: str = None) -> Dict:
 def save_uploaded_file(file, upload_folder: str = 'uploads') -> str:
     """
     アップロードされたファイルを保存する。
-
-    Args:
-        file: アップロードされたファイルオブジェクト
-        upload_folder: 保存先フォルダ
-
-    Returns:
-        保存されたファイルのパス
     """
     os.makedirs(upload_folder, exist_ok=True)
 

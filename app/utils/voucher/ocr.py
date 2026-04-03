@@ -19,18 +19,23 @@ def _encode_image_to_base64(image_path: str) -> str:
 
 
 def _pdf_to_images(pdf_path: str, dpi: int = 72) -> list:
-    """PDFを全ページJPG画像リストに変換する。画像ファイルはそのまま返す。"""
+    """PDFを全ページJPG画像リストに変換する（PyMuPDF使用）。画像ファイルはそのまま返す。"""
     ext = os.path.splitext(pdf_path)[1].lower()
     if ext != '.pdf':
         return [pdf_path]
     try:
-        from pdf2image import convert_from_path
-        images = convert_from_path(pdf_path, dpi=dpi)
+        import fitz  # PyMuPDF
+        doc = fitz.open(pdf_path)
         tmp_paths = []
-        for i, img in enumerate(images):
+        scale = dpi / 72.0
+        mat = fitz.Matrix(scale, scale)
+        for i in range(len(doc)):
+            page = doc[i]
+            pix = page.get_pixmap(matrix=mat)
             tmp_path = pdf_path + f'_page{i+1}.jpg'
-            img.save(tmp_path, 'JPEG', quality=80)
+            pix.save(tmp_path)
             tmp_paths.append(tmp_path)
+        doc.close()
         return tmp_paths
     except Exception as e:
         print(f'PDF変換エラー: {e}')

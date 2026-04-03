@@ -19,6 +19,8 @@
   .vc-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
   .vc-btn-success { background: #16a34a; color: #fff; }
   .vc-btn-outline { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
+  .vc-btn-warning { background: #f59e0b; color: #fff; }
+  .vc-btn-danger { background: #dc2626; color: #fff; }
 
   .info-card {
     background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;
@@ -31,7 +33,7 @@
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th { background: #14532d; color: #fff; padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; white-space: nowrap; }
-  td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f3f4f6; }
+  td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #f3f4f6; }
   tr:hover td { background: #f0fdf4; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .deposit { color: #16a34a; font-weight: 600; }
@@ -55,6 +57,41 @@
     background: #fee2e2; border: 1px solid #fca5a5; border-radius: 12px;
     padding: 1rem 1.25rem; margin-bottom: 1.25rem; color: #991b1b;
   }
+
+  /* 手動修正モード */
+  .edit-mode-banner {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff; border-radius: 10px; padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem; font-size: 0.85rem; font-weight: 600;
+    display: none; align-items: center; gap: 0.5rem;
+  }
+  .edit-mode-banner.active { display: flex; }
+
+  /* 編集可能セル */
+  td.editable input {
+    width: 100%; border: 1px solid #d1d5db; border-radius: 4px;
+    padding: 0.2rem 0.35rem; font-size: 0.82rem; background: #fffbeb;
+    box-sizing: border-box;
+  }
+  td.editable input:focus { outline: none; border-color: #f59e0b; background: #fef3c7; }
+  td.editable input.num-input { text-align: right; }
+
+  .row-actions { display: none; gap: 0.25rem; }
+  .edit-active .row-actions { display: flex; }
+  .row-btn {
+    padding: 0.15rem 0.4rem; border-radius: 4px; border: none; cursor: pointer;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .row-btn-del { background: #fee2e2; color: #dc2626; }
+  .row-btn-add { background: #dcfce7; color: #16a34a; }
+
+  .save-bar {
+    position: sticky; bottom: 0; background: #fff; border-top: 2px solid #f59e0b;
+    padding: 0.75rem 1rem; display: none; gap: 0.75rem; align-items: center;
+    z-index: 100; border-radius: 0 0 12px 12px;
+  }
+  .save-bar.active { display: flex; }
+  .save-bar .save-msg { flex: 1; font-size: 0.82rem; color: #374151; }
 </style>
 
 <div class="vc-header">
@@ -63,6 +100,7 @@
   <div class="vc-header-actions">
     <a href="{{ url_for('voucher_bank.index') }}" class="vc-btn vc-btn-white">← 一覧に戻る</a>
     {% if stmt.ステータス == 'completed' %}
+    <button type="button" onclick="toggleEditMode()" id="editBtn" class="vc-btn vc-btn-warning">✏️ 手動修正</button>
     <a href="{{ url_for('voucher_bank.export_csv', stmt_id=stmt.id) }}" class="vc-btn vc-btn-success">⬇ CSV</a>
     <a href="{{ url_for('voucher_bank.export_excel', stmt_id=stmt.id) }}" class="vc-btn vc-btn-success">⬇ Excel</a>
     {% endif %}
@@ -104,8 +142,19 @@
 </div>
 
 <!-- 明細一覧 -->
-<div class="info-card">
-  <h2>📋 明細一覧（{{ transactions|length }}件）</h2>
+<div class="info-card" id="transactionCard">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h2 style="margin:0;">📋 明細一覧（<span id="rowCount">{{ transactions|length }}</span>件）</h2>
+    {% if stmt.ステータス == 'completed' and transactions %}
+    <button type="button" onclick="addRow()" id="addRowBtn" class="vc-btn vc-btn-outline" style="display:none;font-size:0.8rem;">+ 行を追加</button>
+    {% endif %}
+  </div>
+
+  <!-- 編集モードバナー -->
+  <div class="edit-mode-banner" id="editBanner">
+    ✏️ 手動修正モード — セルをクリックして編集できます。完了後「保存」を押してください。
+  </div>
+
   {% if stmt.ステータス in ('pending', 'processing') %}
   <div style="text-align:center;padding:2rem;color:#6b7280;">
     <div style="font-size:2rem;margin-bottom:0.5rem;">⏳</div>
@@ -113,7 +162,7 @@
   </div>
   {% elif transactions %}
   <div class="table-wrap">
-    <table>
+    <table id="txTable">
       <thead>
         <tr>
           <th>日付</th>
@@ -122,22 +171,32 @@
           <th class="num">出金</th>
           <th class="num">残高</th>
           <th>備考</th>
+          <th class="row-actions" id="actionsHeader">操作</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="txBody">
         {% for t in transactions %}
-        <tr>
-          <td style="white-space:nowrap;">{{ t.日付 or '—' }}</td>
-          <td>{{ t.摘要 or '—' }}</td>
-          <td class="num deposit">{% if t.入金 is not none %}{{ '{:,.0f}'.format(t.入金) }}{% else %}—{% endif %}</td>
-          <td class="num withdrawal">{% if t.出金 is not none %}{{ '{:,.0f}'.format(t.出金) }}{% else %}—{% endif %}</td>
-          <td class="num">{% if t.残高 is not none %}{{ '{:,.0f}'.format(t.残高) }}{% else %}—{% endif %}</td>
-          <td>{{ t.備考 or '' }}</td>
+        <tr data-row="{{ loop.index0 }}">
+          <td class="editable"><span class="display-val" style="white-space:nowrap;">{{ t.日付 or '—' }}</span><input type="text" class="edit-val" value="{{ t.日付 or '' }}" placeholder="YYYY-MM-DD" style="display:none;"></td>
+          <td class="editable"><span class="display-val">{{ t.摘要 or '—' }}</span><input type="text" class="edit-val" value="{{ t.摘要 or '' }}" placeholder="摘要" style="display:none;"></td>
+          <td class="editable num"><span class="display-val deposit">{% if t.入金 is not none %}{{ '{:,.0f}'.format(t.入金) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.入金 | int if t.入金 is not none else '' }}" placeholder="" style="display:none;"></td>
+          <td class="editable num"><span class="display-val withdrawal">{% if t.出金 is not none %}{{ '{:,.0f}'.format(t.出金) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.出金 | int if t.出金 is not none else '' }}" placeholder="" style="display:none;"></td>
+          <td class="editable num"><span class="display-val">{% if t.残高 is not none %}{{ '{:,.0f}'.format(t.残高) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.残高 | int if t.残高 is not none else '' }}" placeholder="" style="display:none;"></td>
+          <td class="editable"><span class="display-val">{{ t.備考 or '' }}</span><input type="text" class="edit-val" value="{{ t.備考 or '' }}" placeholder="備考" style="display:none;"></td>
+          <td class="row-actions"><button class="row-btn row-btn-del" onclick="deleteRow(this)">削除</button></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  <!-- 保存バー -->
+  <div class="save-bar" id="saveBar">
+    <span class="save-msg">変更を保存しますか？</span>
+    <button type="button" onclick="saveChanges()" class="vc-btn vc-btn-success" id="saveBtn">💾 保存</button>
+    <button type="button" onclick="cancelEdit()" class="vc-btn vc-btn-outline">キャンセル</button>
+  </div>
+
   {% else %}
   <div style="text-align:center;padding:2rem;color:#9ca3af;">明細データがありません</div>
   {% endif %}
@@ -147,8 +206,8 @@
 <script>
 (function() {
   var statusUrl = "{{ url_for('voucher_bank.status', stmt_id=stmt.id) }}";
-  var intervalMs = 5000; // 5秒ごとにポーリング
-  var maxRetries = 120;  // 最大10分間ポーリング
+  var intervalMs = 5000;
+  var maxRetries = 120;
   var retries = 0;
 
   function checkStatus() {
@@ -170,6 +229,147 @@
 
   setTimeout(checkStatus, intervalMs);
 })();
+</script>
+{% endif %}
+
+{% if stmt.ステータス == 'completed' and transactions %}
+<script>
+var isEditMode = false;
+var updateUrl = "{{ url_for('voucher_bank.update_transactions', stmt_id=stmt.id) }}";
+
+function toggleEditMode() {
+  if (isEditMode) {
+    cancelEdit();
+  } else {
+    startEdit();
+  }
+}
+
+function startEdit() {
+  isEditMode = true;
+  document.getElementById('editBtn').textContent = '✕ 修正を中止';
+  document.getElementById('editBtn').style.background = '#6b7280';
+  document.getElementById('editBanner').classList.add('active');
+  document.getElementById('saveBar').classList.add('active');
+  document.getElementById('addRowBtn').style.display = 'inline-flex';
+  document.getElementById('actionsHeader').style.display = 'table-cell';
+  document.querySelectorAll('.row-actions').forEach(function(el) { el.style.display = 'flex'; });
+  document.querySelectorAll('.display-val').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.edit-val').forEach(function(el) { el.style.display = ''; });
+  document.getElementById('transactionCard').classList.add('edit-active');
+}
+
+function cancelEdit() {
+  isEditMode = false;
+  document.getElementById('editBtn').textContent = '✏️ 手動修正';
+  document.getElementById('editBtn').style.background = '';
+  document.getElementById('editBanner').classList.remove('active');
+  document.getElementById('saveBar').classList.remove('active');
+  document.getElementById('addRowBtn').style.display = 'none';
+  document.getElementById('actionsHeader').style.display = 'none';
+  document.querySelectorAll('.row-actions').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.display-val').forEach(function(el) { el.style.display = ''; });
+  document.querySelectorAll('.edit-val').forEach(function(el) { el.style.display = 'none'; });
+  document.getElementById('transactionCard').classList.remove('edit-active');
+}
+
+function deleteRow(btn) {
+  var row = btn.closest('tr');
+  row.remove();
+  updateRowCount();
+}
+
+function addRow() {
+  var tbody = document.getElementById('txBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="YYYY-MM-DD"></td>'
+    + '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="摘要"></td>'
+    + '<td class="editable num"><span class="display-val deposit" style="display:none;"></span><input type="text" class="edit-val num-input" value="" placeholder=""></td>'
+    + '<td class="editable num"><span class="display-val withdrawal" style="display:none;"></span><input type="text" class="edit-val num-input" value="" placeholder=""></td>'
+    + '<td class="editable num"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val num-input" value="" placeholder=""></td>'
+    + '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="備考"></td>'
+    + '<td class="row-actions" style="display:flex;"><button class="row-btn row-btn-del" onclick="deleteRow(this)">削除</button></td>';
+  tbody.appendChild(tr);
+  updateRowCount();
+}
+
+function updateRowCount() {
+  var count = document.getElementById('txBody').querySelectorAll('tr').length;
+  document.getElementById('rowCount').textContent = count;
+}
+
+function saveChanges() {
+  var rows = document.getElementById('txBody').querySelectorAll('tr');
+  var transactions = [];
+  rows.forEach(function(row) {
+    var inputs = row.querySelectorAll('.edit-val');
+    transactions.push({
+      date: inputs[0] ? inputs[0].value.trim() : '',
+      description: inputs[1] ? inputs[1].value.trim() : '',
+      deposit: inputs[2] ? inputs[2].value.replace(/,/g, '').trim() : '',
+      withdrawal: inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '',
+      balance: inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '',
+      note: inputs[5] ? inputs[5].value.trim() : ''
+    });
+  });
+
+  var saveBtn = document.getElementById('saveBtn');
+  saveBtn.textContent = '保存中...';
+  saveBtn.disabled = true;
+
+  fetch(updateUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transactions: transactions })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      // 表示値を更新してビューモードに戻る
+      var rows2 = document.getElementById('txBody').querySelectorAll('tr');
+      rows2.forEach(function(row, idx) {
+        var inputs = row.querySelectorAll('.edit-val');
+        var displays = row.querySelectorAll('.display-val');
+        var vals = [
+          inputs[0] ? inputs[0].value.trim() : '',
+          inputs[1] ? inputs[1].value.trim() : '',
+          inputs[2] ? inputs[2].value.replace(/,/g, '').trim() : '',
+          inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '',
+          inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '',
+          inputs[5] ? inputs[5].value.trim() : ''
+        ];
+        // 数値フォーマット
+        function fmtNum(v) {
+          var n = parseFloat(v);
+          if (isNaN(n)) return '—';
+          return n.toLocaleString('ja-JP', {maximumFractionDigits: 0});
+        }
+        if (displays[0]) displays[0].textContent = vals[0] || '—';
+        if (displays[1]) displays[1].textContent = vals[1] || '—';
+        if (displays[2]) displays[2].textContent = vals[2] ? fmtNum(vals[2]) : '—';
+        if (displays[3]) displays[3].textContent = vals[3] ? fmtNum(vals[3]) : '—';
+        if (displays[4]) displays[4].textContent = vals[4] ? fmtNum(vals[4]) : '—';
+        if (displays[5]) displays[5].textContent = vals[5] || '';
+      });
+      cancelEdit();
+      // 成功通知
+      var banner = document.createElement('div');
+      banner.className = 'alert alert-success mb-3';
+      banner.textContent = '✅ ' + data.count + '件の明細を保存しました。';
+      document.getElementById('transactionCard').insertAdjacentElement('beforebegin', banner);
+      setTimeout(function() { banner.remove(); }, 4000);
+    } else {
+      alert('保存に失敗しました: ' + (data.error || '不明なエラー'));
+    }
+  })
+  .catch(function(e) {
+    alert('通信エラーが発生しました: ' + e);
+  })
+  .finally(function() {
+    saveBtn.textContent = '💾 保存';
+    saveBtn.disabled = false;
+  });
+}
 </script>
 {% endif %}
 {% endblock %}

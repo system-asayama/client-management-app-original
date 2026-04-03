@@ -10,7 +10,7 @@ import csv
 import threading
 from datetime import datetime
 from app.db import SessionLocal
-from app.models_voucher import TBankStatement, TBankTransaction
+from app.models_voucher import TBankStatement, TBankTransaction, TBankColumnTemplate
 from app.models_login import TTenpo, TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from app.utils.voucher.ocr import process_bank_statement_image, save_uploaded_file
@@ -91,7 +91,7 @@ def get_api_keys(tenant_id, tenpo_id):
     return result
 
 
-def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None):
+def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None, column_def=None):
     """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
     db = SessionLocal()
     try:
@@ -101,7 +101,7 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
         stmt.ステータス = 'processing'
         db.commit()
 
-        ocr_result = process_bank_statement_image(filepath, api_key=api_key, google_vision_api_key=google_vision_api_key)
+        ocr_result = process_bank_statement_image(filepath, api_key=api_key, google_vision_api_key=google_vision_api_key, column_def=column_def)
 
         stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
         if not stmt:
@@ -183,7 +183,18 @@ def index():
 @require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
 def upload():
     if request.method == 'GET':
-        return render_template('voucher_bank_upload.html')
+        info = get_session_info()
+        tenant_id = info['tenant_id']
+        templates = []
+        if tenant_id:
+            db = SessionLocal()
+            try:
+                templates = db.query(TBankColumnTemplate).filter(
+                    TBankColumnTemplate.tenant_id == tenant_id
+                ).order_by(TBankColumnTemplate.is_default.desc(), TBankColumnTemplate.id.desc()).all()
+            finally:
+                db.close()
+        return render_template('voucher_bank_upload.html', templates=templates)
 
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -227,13 +238,56 @@ def upload():
         finally:
             db.close()
 
+        # 列定義を収集
+        column_def = None
+        col1_role = request.form.get('col1_role', '')
+        if col1_role:  # 列定義が送信された場合
+            column_def = {
+                'columns': [
+                    {
+                        'index': i,
+                        'name': request.form.get(f'col{i}_name', ''),
+                        'type': request.form.get(f'col{i}_role', 'ignore'),  # ocr.py側は'type'を参照
+                        'note': request.form.get(f'col{i}_note', '')
+                    }
+                    for i in range(1, 7)
+                ],
+                'note': request.form.get('col_note', '')
+            }
+            # テンプレート保存
+            if request.form.get('save_template') and request.form.get('template_name'):
+                db2 = SessionLocal()
+                try:
+                    if request.form.get('set_default'):
+                        db2.query(TBankColumnTemplate).filter(
+                            TBankColumnTemplate.tenant_id == tenant_id
+                        ).update({'is_default': False})
+                    tmpl = TBankColumnTemplate(
+                        tenant_id=tenant_id,
+                        テンプレート名=request.form.get('template_name'),
+                        列1_役割=request.form.get('col1_role'), 列1_名称=request.form.get('col1_name'),
+                        列2_役割=request.form.get('col2_role'), 列2_名称=request.form.get('col2_name'),
+                        列3_役割=request.form.get('col3_role'), 列3_名称=request.form.get('col3_name'),
+                        列4_役割=request.form.get('col4_role'), 列4_名称=request.form.get('col4_name'),
+                        列5_役割=request.form.get('col5_role'), 列5_名称=request.form.get('col5_name'),
+                        列6_役割=request.form.get('col6_role'), 列6_名称=request.form.get('col6_name'),
+                        補足指示=request.form.get('col_note'),
+                        is_default=bool(request.form.get('set_default'))
+                    )
+                    db2.add(tmpl)
+                    db2.commit()
+                except Exception:
+                    pass
+                finally:
+                    db2.close()
+
         if not has_any_key:
             flash('APIキーが未設定のため、OCR処理をスキップしました。設定画面からOpenAIまたはGoogle Cloud Vision APIキーを設定してください。', 'warning')
         else:
             t = threading.Thread(
                 target=_run_ocr_background,
                 args=(stmt_id, filepath, openai_api_key, tenant_id),
-                kwargs={'google_vision_api_key': google_vision_api_key},
+                kwargs={'google_vision_api_key': google_vision_api_key, 'column_def': column_def},
                 daemon=True
             )
             t.start()
@@ -443,3 +497,61 @@ def export_excel(stmt_id):
     return send_file(output,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True, download_name=filename)
+
+
+# ============================================================
+# 手動修正 API（明細行の一括更新）
+# ============================================================
+@bp.route('/<int:stmt_id>/update_transactions', methods=['POST'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def update_transactions(stmt_id):
+    """明細テーブルの手動修正を受け取りDBを更新する"""
+    info = get_session_info()
+    tenant_id = info['tenant_id']
+
+    db = SessionLocal()
+    try:
+        stmt = db.query(TBankStatement).filter(
+            TBankStatement.id == stmt_id,
+            TBankStatement.tenant_id == tenant_id
+        ).first()
+        if not stmt:
+            return jsonify({'success': False, 'error': '明細が見つかりません'}), 404
+
+        data = request.get_json()
+        if not data or 'transactions' not in data:
+            return jsonify({'success': False, 'error': 'データが不正です'}), 400
+
+        # 既存の明細を全削除して再登録
+        db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
+
+        for i, t in enumerate(data['transactions'], 1):
+            def to_float_or_none(v):
+                if v is None or str(v).strip() == '':
+                    return None
+                try:
+                    return float(str(v).replace(',', '').replace('¥', '').replace('円', '').strip())
+                except (ValueError, TypeError):
+                    return None
+
+            row = TBankTransaction(
+                statement_id=stmt_id,
+                tenant_id=tenant_id,
+                日付=t.get('date') or None,
+                摘要=t.get('description') or None,
+                入金=to_float_or_none(t.get('deposit')),
+                出金=to_float_or_none(t.get('withdrawal')),
+                残高=to_float_or_none(t.get('balance')),
+                備考=t.get('note') or None,
+                行番号=i,
+            )
+            db.add(row)
+
+        db.commit()
+        return jsonify({'success': True, 'count': len(data['transactions'])})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()

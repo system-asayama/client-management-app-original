@@ -79,6 +79,75 @@
       <img id="previewImg" src="" alt="プレビュー">
       <div id="fileName" style="font-size:0.82rem;color:#374151;margin-top:0.5rem;"></div>
     </div>
+
+    <!-- 列定義設定 -->
+    <div style="margin-top:1.5rem;border:1px solid #bbf7d0;border-radius:10px;padding:1rem;background:#f0fdf4;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+        <strong style="color:#14532d;font-size:0.95rem;">📋 通帳の列構造を指定（精度向上）</strong>
+        <button type="button" onclick="toggleColumnDef()" id="toggleBtn" style="font-size:0.8rem;color:#16a34a;background:none;border:none;cursor:pointer;">▼ 開く</button>
+      </div>
+      <div id="columnDefSection" style="display:none;">
+        <p style="font-size:0.82rem;color:#374151;margin-bottom:1rem;">通帳の列の順番と役割を指定するとOCR精度が向上します。</p>
+
+        {% if templates %}
+        <div style="margin-bottom:1rem;">
+          <label style="font-size:0.85rem;font-weight:600;color:#374151;">保存済みテンプレートを使用：</label>
+          <select id="templateSelect" onchange="loadTemplate()" style="width:100%;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;margin-top:0.3rem;">
+            <option value="">-- テンプレートを選択 --</option>
+            {% for t in templates %}
+            <option value="{{ t.id }}"
+              data-col1-role="{{ t.列1_役割 or '' }}" data-col1-name="{{ t.列1_名称 or '' }}"
+              data-col2-role="{{ t.列2_役割 or '' }}" data-col2-name="{{ t.列2_名称 or '' }}"
+              data-col3-role="{{ t.列3_役割 or '' }}" data-col3-name="{{ t.列3_名称 or '' }}"
+              data-col4-role="{{ t.列4_役割 or '' }}" data-col4-name="{{ t.列4_名称 or '' }}"
+              data-col5-role="{{ t.列5_役割 or '' }}" data-col5-name="{{ t.列5_名称 or '' }}"
+              data-col6-role="{{ t.列6_役割 or '' }}" data-col6-name="{{ t.列6_名称 or '' }}"
+              data-note="{{ t.補足指示 or '' }}"
+              {% if t.is_default %}selected{% endif %}>{{ t.テンプレート名 }}{% if t.銀行名 %}（{{ t.銀行名 }}）{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div style="display:grid;gap:0.5rem;">
+          {% for i in range(1, 7) %}
+          <div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:0.5rem;align-items:center;">
+            <span style="font-size:0.82rem;color:#6b7280;font-weight:600;">列{{ i }}</span>
+            <input type="text" name="col{{ i }}_name" id="col{{ i }}_name" placeholder="列名（例：年月日）"
+              value="{% if i==1 %}年月日{% elif i==2 %}記号{% elif i==3 %}お払戻し金額（出金）{% elif i==4 %}お預り金額（入金）{% elif i==5 %}差引残高{% else %}備考{% endif %}"
+              style="padding:0.35rem 0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">
+            <select name="col{{ i }}_role" id="col{{ i }}_role" style="padding:0.35rem 0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">
+              <option value="date" {% if i==1 %}selected{% endif %}>年月日</option>
+              <option value="code" {% if i==2 %}selected{% endif %}>記号（金額でない）</option>
+              <option value="withdrawal" {% if i==3 %}selected{% endif %}>出金</option>
+              <option value="deposit" {% if i==4 %}selected{% endif %}>入金</option>
+              <option value="balance" {% if i==5 %}selected{% endif %}>残高</option>
+              <option value="note" {% if i==6 %}selected{% endif %}>備考</option>
+              <option value="ignore">無視</option>
+            </select>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div style="margin-top:0.75rem;">
+          <label style="font-size:0.82rem;font-weight:600;color:#374151;">補足指示（任意）：</label>
+          <textarea name="col_note" id="col_note" rows="2" placeholder="例：*は金額の修飾記号です。記号列（100,900など）は取引コードで金額ではありません。"
+            style="width:100%;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;margin-top:0.3rem;resize:vertical;">*は金額の修飾記号です。記号列（100,900など）は取引コードで金額ではありません。</textarea>
+        </div>
+
+        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:center;">
+          <input type="text" name="template_name" id="template_name" placeholder="テンプレート名（例：岡山銀行通帳）"
+            style="flex:1;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">
+          <label style="font-size:0.82rem;color:#374151;white-space:nowrap;">
+            <input type="checkbox" name="save_template" value="1"> この設定を保存
+          </label>
+          <label style="font-size:0.82rem;color:#374151;white-space:nowrap;">
+            <input type="checkbox" name="set_default" value="1"> デフォルト
+          </label>
+        </div>
+      </div>
+    </div>
+
     <div style="margin-top:1.25rem;">
       <button type="submit" class="vc-btn vc-btn-success" style="width:100%;justify-content:center;padding:0.75rem;">
         🚀 アップロードしてOCR処理
@@ -88,6 +157,42 @@
 </div>
 
 <script>
+function toggleColumnDef() {
+  const sec = document.getElementById('columnDefSection');
+  const btn = document.getElementById('toggleBtn');
+  if (sec.style.display === 'none') {
+    sec.style.display = 'block';
+    btn.textContent = '▲ 閉じる';
+  } else {
+    sec.style.display = 'none';
+    btn.textContent = '▼ 開く';
+  }
+}
+
+function loadTemplate() {
+  const sel = document.getElementById('templateSelect');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) return;
+  for (let i = 1; i <= 6; i++) {
+    const roleEl = document.getElementById('col' + i + '_role');
+    const nameEl = document.getElementById('col' + i + '_name');
+    if (roleEl) roleEl.value = opt.getAttribute('data-col' + i + '-role') || '';
+    if (nameEl) nameEl.value = opt.getAttribute('data-col' + i + '-name') || '';
+  }
+  const noteEl = document.getElementById('col_note');
+  if (noteEl) noteEl.value = opt.getAttribute('data-note') || '';
+}
+
+// デフォルトテンプレートがあれば自動展開
+window.addEventListener('DOMContentLoaded', function() {
+  const sel = document.getElementById('templateSelect');
+  if (sel && sel.value) {
+    document.getElementById('columnDefSection').style.display = 'block';
+    document.getElementById('toggleBtn').textContent = '▲ 閉じる';
+    loadTemplate();
+  }
+});
+
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const previewArea = document.getElementById('previewArea');

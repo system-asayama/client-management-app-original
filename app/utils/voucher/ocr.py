@@ -138,7 +138,8 @@ def _call_openai_vision_with_system(image_path: str, api_key: str, prompt: str, 
             {'role': 'system', 'content': system_message},
             {'role': 'user', 'content': content}
         ],
-        'max_tokens': max_tokens
+        'max_tokens': max_tokens,
+        'temperature': 0  # 安定した出力のためtemperature=0
         # response_formatは指定しない（自由形式の方が数値精度が高い）
     }
     for attempt in range(3):
@@ -255,34 +256,54 @@ JSONのみを返してください。説明文は不要です。"""
     return data
 
 
-def extract_bank_statement_with_openai_vision(image_path: str, api_key: str) -> Dict:
+def extract_bank_statement_with_openai_vision(image_path: str, api_key: str, column_def: dict = None) -> Dict:
     """
     OpenAI GPT-4o Vision APIを使用して通帳画像からデータを抜出する。
     PDFは全ページをチャンク処理してマージ。
     """
-    prompt_header = """この画像は日本の銀行通帳です。画像を極めて注意深く見て、各セルの値を正確に読み取り、JSON形式で返してください。
+    # 列定義をプロンプトに組み込む
+    if column_def and column_def.get('columns'):
+        col_lines = []
+        for i, col in enumerate(column_def['columns'], 1):
+            col_name = col.get('name', '')
+            col_type = col.get('type', '')
+            col_note = col.get('note', '')
+            line = f'  列{i}: {col_name}'
+            if col_note:
+                line += f'（{col_note}）'
+            col_lines.append(line)
+        col_structure = '\n'.join(col_lines)
+        col_rules = []
+        for i, col in enumerate(column_def['columns'], 1):
+            col_type = col.get('type', '')
+            col_name = col.get('name', '')
+            if col_type == 'code':
+                col_rules.append(f'列{i}（{col_name}）は取引コードであり金額ではない。deposit/withdrawalに入れない。')
+            elif col_type == 'withdrawal':
+                col_rules.append(f'列{i}（{col_name}）に数値がある → withdrawal（出金）に記入、depositはnull')
+            elif col_type == 'deposit':
+                col_rules.append(f'列{i}（{col_name}）に数値がある → deposit（入金）に記入、withdrawalはnull')
+        col_rules_str = '\n'.join(col_rules) if col_rules else '  列の位置（左右）で入金・出金を判断する。'
+    else:
+        col_structure = '  列１: 年月日（日付）\n  列２: 記号（100・900などの数字コード ← これは金額ではない）\n  列３: お払戻し金額（出金額）← 左側の金額列\n  列４: お預り金額/お利息（入金額）← 右側の金額列\n  列５: 差引残高\n  列６: 備考（手数記号など）'
+        col_rules_str = '  列の位置（左右）で入金・出金を判断する。\n  記号列（100・900など）は取引コードであり金額ではない。'
+
+    prompt_header = f"""この画像は日本の銀行通帳です。画像を極めて注意深く見て、各セルの値を正確に読み取り、JSON形式で返してください。
 
 【列構造】通帳は左から以下の列で構成されています：
-  列1: 年月日（日付）
-  列2: 記号（100・900などの数字コード ← これは金額ではない）
-  列3: お払戻し金額（出金額）← 左側の金額列
-  列4: お預り金額/お利息（入金額）← 右側の金額列
-  列5: 差引残高
-  列6: 備考（手数記号など）
+{col_structure}
 
 【最重要ルール - 必ず守ること】
-1. 各セルの値は画像上の「列の位置（左右）」で判断する。列3（出金・左側）と列4（入金・右側）を絶対に混同しない。
-   - 数値が列3（左側）にある → withdrawal（出金）に記入、depositはnull
-   - 数値が列4（右側）にある → deposit（入金）に記入、withdrawalはnull
-2. 記号列（100・900など）は取引コードであり、金額ではない。deposit/withdrawalに入れない。
-3. 1行に入金と出金が同時に存在することはない。必ずどちらか一方のみ。
-4. 「*」は金額の修飾記号。「*98,800」→ 98800、「*3,413,114」→ 3413114（数値のみ、桁数を変えない）
-5. 残高は差引残高列の値のみ。直後の備考数字（980・960・186・217など）は残高に含めない。
-6. 金額・残高の桁数は必ず正確に読む。カンマの位置を確認して桁数を間違えないこと。
+1. 各列の役割に従って値を読み取る（列定義を厳守）：
+{col_rules_str}
+2. 1行に入金と出金が同時に存在することはない。必ずどちらか一方のみ。
+3. 「*」は金額の修飾記号。「*98,800」→ 98800、「*3,413,114」→ 3413114（数値のみ、桁数を変えない）
+4. 残高は差引残高列の値のみ。直後の備考数字（980・960・186・217など）は残高に含めない。
+5. 金額・残高の桁数は必ず正確に読む。カンマの位置を確認して桁数を間違えないこと。
    - 「*98,800」は98800（5桁）。988000（6桁）ではない。
    - 「*3,413,114」は3413114（7桁）。34131140（8桁）ではない。
    - 「*30,000,000」は30000000（8桁）。
-7. 日付は画像の各行の日付列を正確に読む。前の行の日付を引き継がない。
+6. 日付は画像の各行の日付列を正確に読む。前の行の日付を引き継がない。
 
 【摘要の読み取り】
 - 印字（活字）部分 → description
@@ -682,7 +703,7 @@ def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str,
     return {}
 
 
-def process_bank_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None) -> Dict:
+def process_bank_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None, column_def: dict = None) -> Dict:
     """通帳画像を処理して情報を抜出する（通帳モード）。
     
     処理方式（優先順）:
@@ -699,7 +720,7 @@ def process_bank_statement_image(image_path: str, api_key: str = None, google_vi
     # GPT-4o Vision直接（画像を直接渡して列構造を視覚的に判断）
     try:
         print(f"[OCR] GPT-4o Vision直接処理開始: {image_path}")
-        result = extract_bank_statement_with_openai_vision(image_path, api_key)
+        result = extract_bank_statement_with_openai_vision(image_path, api_key, column_def=column_def)
         print(f"[OCR] GPT-4o Vision完了: {len(result.get('transactions', []))}件の取引")
         return result
     except Exception as e:

@@ -11,6 +11,7 @@ import csv
 from datetime import datetime
 from app.db import SessionLocal
 from app.models_voucher import TVoucher, TCompany
+from app.models_login import TTenpo
 from app.utils.decorators import require_roles, ROLES
 from app.utils.voucher.ocr import process_receipt_image, save_uploaded_file
 from app.utils.voucher.nta_api import NTAInvoiceAPI
@@ -101,8 +102,23 @@ def upload():
         upload_dir = os.path.join('uploads', 'vouchers', str(tenant_id))
         filepath = save_uploaded_file(file, upload_dir)
 
-        # OCR処理
-        ocr_result = process_receipt_image(filepath)
+        # 店舗のOpenAI APIキーを取得
+        openai_api_key = None
+        if tenpo_id:
+            db_tmp = SessionLocal()
+            try:
+                tenpo = db_tmp.query(TTenpo).filter(TTenpo.id == tenpo_id).first()
+                if tenpo and hasattr(tenpo, 'openai_api_key'):
+                    openai_api_key = tenpo.openai_api_key
+            except Exception:
+                pass
+            finally:
+                db_tmp.close()
+
+        # OCR処理（OpenAI Vision API使用）
+        if not openai_api_key:
+            flash('店舗のOpenAI APIキーが未設定のため、OCR処理をスキップしました。店舗設定からOpenAI APIキーを登録してください。', 'warning')
+        ocr_result = process_receipt_image(filepath, api_key=openai_api_key)
 
         # 電話番号・住所から法人番号検索（NTA API）
         company_id = None
@@ -178,6 +194,7 @@ def upload():
                 日付=ocr_result.get('date'),
                 インボイス番号=ocr_result.get('invoice_number'),
                 法人番号=corporate_number,
+                摘要=ocr_result.get('summary'),
                 ステータス='pending',
             )
             db.add(voucher)

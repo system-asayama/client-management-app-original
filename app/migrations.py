@@ -119,6 +119,11 @@ def run_migrations():
             ("T_店舗", "google_api_key", "TEXT NULL"),
             ("T_店舗", "anthropic_api_key", "TEXT NULL"),
             ("T_店舗", "ai_model", "VARCHAR(50) DEFAULT 'gemini-1.5-flash'"),
+            # T_アプリ管理者グループテーブルにAPIキーカラムを追加
+            ("T_アプリ管理者グループ", "openai_api_key", "TEXT NULL"),
+            ("T_アプリ管理者グループ", "google_vision_api_key", "TEXT NULL"),
+            ("T_アプリ管理者グループ", "google_api_key", "TEXT NULL"),
+            ("T_アプリ管理者グループ", "anthropic_api_key", "TEXT NULL"),
         ]
         
         added_count = 0

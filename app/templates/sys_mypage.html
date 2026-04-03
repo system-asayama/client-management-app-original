@@ -185,12 +185,36 @@
       <label>メールアドレス</label>
       <input type="email" name="email" value="{{ user.email or '' }}" placeholder="example@example.com">
     </div>
-    <div class="form-group">
-      <label>OpenAI APIキー</label>
-      <input type="text" name="openai_api_key" value="{{ user.openai_api_key or '' }}" placeholder="sk-...">
-      <small>AIチャット機能で使用するAPIキー（任意）</small>
-    </div>
     <button type="submit" class="btn-action primary">プロフィールを更新</button>
+  </form>
+</div>
+
+<div class="section-card">
+  <p class="section-title">APIキー設定</p>
+  <p style="color:#666; font-size:0.9em; margin-bottom:16px">証憑データ化処理に使用するAPIキーを設定してください。テナント・店舗側の設定が優先されますが、未設定の場合はここの設定がフォールバックとして使用されます。</p>
+  <form method="POST">
+    <input type="hidden" name="action" value="update_api_keys">
+    <div class="form-group">
+      <label>🔍 Google Cloud Vision APIキー（OCR用）★ 推奨</label>
+      <input type="password" name="google_vision_api_key" value="{{ user.google_vision_api_key or '' }}" placeholder="AIza...">
+      <small>日本語（漢字）の認識精度99%以上。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">Google Cloud Console</a>で取得</small>
+    </div>
+    <div class="form-group">
+      <label>OpenAI APIキー（GPT-4o / GPT-4o-mini用）</label>
+      <input type="password" name="openai_api_key" value="{{ user.openai_api_key or '' }}" placeholder="sk-...">
+      <small><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>で取得</small>
+    </div>
+    <div class="form-group">
+      <label>Google APIキー（Gemini用）</label>
+      <input type="password" name="google_api_key" value="{{ user.google_api_key or '' }}" placeholder="AIza...">
+      <small><a href="https://ai.google.dev/" target="_blank">Google AI Studio</a>で取得</small>
+    </div>
+    <div class="form-group">
+      <label>Anthropic APIキー（Claude用・将来対応）</label>
+      <input type="password" name="anthropic_api_key" value="{{ user.anthropic_api_key or '' }}" placeholder="sk-ant-...">
+      <small><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
+    </div>
+    <button type="submit" class="btn-action primary">APIキーを保存</button>
   </form>
 </div>
 

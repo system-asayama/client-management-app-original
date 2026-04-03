@@ -142,6 +142,33 @@
     <button type="submit" class="btn">パスワードを変更</button>
   </form>
 
+  <h2 style="margin-top:30px">APIキー設定（テナント共通）</h2>
+  <p style="color:#666; margin-top:5px">証憑データ化処理に使用するAPIキーを設定してください。店舗側の設定が優先されますが、未設定の場合はここの設定が使用されます。</p>
+  <form method="POST" action="{{ url_for('tenant_admin.mypage') }}" style="margin-top:20px">
+    <input type="hidden" name="action" value="update_api_keys">
+    <div style="margin-bottom:15px">
+      <label for="google_vision_api_key" style="display:block; margin-bottom:5px">🔍 Google Cloud Vision APIキー（OCR用）★ 推奨</label>
+      <input type="password" id="google_vision_api_key" name="google_vision_api_key" value="{{ tenant_api.google_vision_api_key if tenant_api else '' }}" placeholder="AIza..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      <small style="color:#666; display:block; margin-top:5px">日本語（漢字）の認識精度99%以上。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">Google Cloud Console</a>で取得</small>
+    </div>
+    <div style="margin-bottom:15px">
+      <label for="openai_api_key" style="display:block; margin-bottom:5px">OpenAI APIキー（GPT-4o / GPT-4o-mini用）</label>
+      <input type="password" id="openai_api_key" name="openai_api_key" value="{{ tenant_api.openai_api_key if tenant_api else '' }}" placeholder="sk-..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      <small style="color:#666; display:block; margin-top:5px"><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>で取得</small>
+    </div>
+    <div style="margin-bottom:15px">
+      <label for="google_api_key" style="display:block; margin-bottom:5px">Google APIキー（Gemini用）</label>
+      <input type="password" id="google_api_key" name="google_api_key" value="{{ tenant_api.google_api_key if tenant_api else '' }}" placeholder="AIza..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      <small style="color:#666; display:block; margin-top:5px"><a href="https://ai.google.dev/" target="_blank">Google AI Studio</a>で取得</small>
+    </div>
+    <div style="margin-bottom:15px">
+      <label for="anthropic_api_key" style="display:block; margin-bottom:5px">Anthropic APIキー（Claude用・将来対応）</label>
+      <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ tenant_api.anthropic_api_key if tenant_api else '' }}" placeholder="sk-ant-..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      <small style="color:#666; display:block; margin-top:5px"><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
+    </div>
+    <button type="submit" class="btn">APIキーを保存</button>
+  </form>
+
   <h2 style="margin-top:30px">テナント選択</h2>
   <p style="margin-top:10px; color:#666">ダッシュボードや各種管理機能にアクセスするには、テナントを選択してください。</p>
   

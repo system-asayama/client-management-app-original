@@ -263,8 +263,47 @@ def mypage():
                 
                 flash('パスワードを変更しました', 'success')
                 return redirect(url_for('admin.mypage'))
+            
+            elif action == 'update_api_keys':
+                # APIキー更新（店舗単位）
+                store_id = session.get('store_id')
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                
+                if store_id:
+                    store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+                    if store_obj:
+                        store_obj.openai_api_key = openai_api_key
+                        if hasattr(store_obj, 'google_vision_api_key'):
+                            store_obj.google_vision_api_key = google_vision_api_key
+                        if hasattr(store_obj, 'google_api_key'):
+                            store_obj.google_api_key = google_api_key
+                        if hasattr(store_obj, 'anthropic_api_key'):
+                            store_obj.anthropic_api_key = anthropic_api_key
+                        db.commit()
+                        flash('APIキー設定を更新しました', 'success')
+                    else:
+                        flash('店舗情報が見つかりません。まず店舗を選択してください', 'error')
+                else:
+                    flash('店舗が選択されていません。まず店舗を選択してください', 'error')
+                return redirect(url_for('admin.mypage'))
         
-        return render_template('admin_mypage.html', user=user, tenant_name=tenant_name, stores=stores, store_list=store_list, tenant_list=tenant_list)
+        # 店舗のAPIキーを取得
+        store_id = session.get('store_id')
+        store_api = None
+        if store_id:
+            store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+            if store_obj:
+                store_api = {
+                    'openai_api_key': getattr(store_obj, 'openai_api_key', None) or '',
+                    'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None) or '',
+                    'google_api_key': getattr(store_obj, 'google_api_key', None) or '',
+                    'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None) or '',
+                }
+        
+        return render_template('admin_mypage.html', user=user, tenant_name=tenant_name, stores=stores, store_list=store_list, tenant_list=tenant_list, store_api=store_api)
     finally:
         db.close()
 

@@ -149,7 +149,7 @@ def dashboard():
         db.close()
 
 
-@bp.route('/mypage')
+@bp.route('/mypage', methods=['GET', 'POST'])
 @require_roles('app_manager')
 def mypage():
     """アプリ管理者マイページ"""
@@ -196,11 +196,45 @@ def mypage():
                 'tenant_name': tenant.名称 if tenant else ''
             })
         
+        # アプリ管理者グループのAPIキーを取得
+        group_api = None
+        if group:
+            group_api = {
+                'openai_api_key': getattr(group, 'openai_api_key', None) or '',
+                'google_vision_api_key': getattr(group, 'google_vision_api_key', None) or '',
+                'google_api_key': getattr(group, 'google_api_key', None) or '',
+                'anthropic_api_key': getattr(group, 'anthropic_api_key', None) or '',
+            }
+        
+        # POSTリクエスト（APIキー更新）
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                
+                if group:
+                    group.openai_api_key = openai_api_key
+                    if hasattr(group, 'google_vision_api_key'):
+                        group.google_vision_api_key = google_vision_api_key
+                    if hasattr(group, 'google_api_key'):
+                        group.google_api_key = google_api_key
+                    if hasattr(group, 'anthropic_api_key'):
+                        group.anthropic_api_key = anthropic_api_key
+                    db.commit()
+                    flash('APIキー設定を更新しました', 'success')
+                else:
+                    flash('グループ情報が見つかりません', 'error')
+                return redirect(url_for('app_manager.mypage'))
+        
         return render_template(
             'app_manager_mypage.html',
             user=user,
             tenant_list=tenant_list,
-            store_list=store_list
+            store_list=store_list,
+            group_api=group_api
         )
     finally:
         db.close()

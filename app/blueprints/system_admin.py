@@ -132,7 +132,10 @@ def mypage():
             'email': admin.email,
             'is_owner': admin.is_owner,
             'can_manage_admins': admin.can_manage_admins,
-            'openai_api_key': admin.openai_api_key if hasattr(admin, 'openai_api_key') else None,
+            'openai_api_key': getattr(admin, 'openai_api_key', None),
+            'google_vision_api_key': getattr(admin, 'google_vision_api_key', None),
+            'google_api_key': getattr(admin, 'google_api_key', None),
+            'anthropic_api_key': getattr(admin, 'anthropic_api_key', None),
             'role': ROLES["SYSTEM_ADMIN"],
             'created_at': admin.created_at,
             'updated_at': admin.updated_at
@@ -193,6 +196,26 @@ def mypage():
                 db.commit()
                 
                 flash('プロフィール情報を更新しました', 'success')
+                return redirect(url_for('system_admin.mypage'))
+            
+            elif action == 'update_api_keys':
+                # APIキー更新
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                
+                if hasattr(admin, 'openai_api_key'):
+                    admin.openai_api_key = openai_api_key
+                if hasattr(admin, 'google_vision_api_key'):
+                    admin.google_vision_api_key = google_vision_api_key
+                if hasattr(admin, 'google_api_key'):
+                    admin.google_api_key = google_api_key
+                if hasattr(admin, 'anthropic_api_key'):
+                    admin.anthropic_api_key = anthropic_api_key
+                db.commit()
+                
+                flash('APIキー設定を更新しました', 'success')
                 return redirect(url_for('system_admin.mypage'))
             
             elif action == 'change_password':

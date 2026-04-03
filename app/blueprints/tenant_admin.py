@@ -366,8 +366,45 @@ def mypage():
                 
                 flash('パスワードを変更しました', 'success')
                 return redirect(url_for('tenant_admin.mypage'))
+            
+            elif action == 'update_api_keys':
+                # APIキー更新（テナント単位）
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                
+                if tenant_id:
+                    tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+                    if tenant_obj:
+                        tenant_obj.openai_api_key = openai_api_key
+                        if hasattr(tenant_obj, 'google_vision_api_key'):
+                            tenant_obj.google_vision_api_key = google_vision_api_key
+                        if hasattr(tenant_obj, 'google_api_key'):
+                            tenant_obj.google_api_key = google_api_key
+                        if hasattr(tenant_obj, 'anthropic_api_key'):
+                            tenant_obj.anthropic_api_key = anthropic_api_key
+                        db.commit()
+                        flash('APIキー設定を更新しました', 'success')
+                    else:
+                        flash('テナント情報が見つかりません。まずテナントを選択してください', 'error')
+                else:
+                    flash('テナントが選択されていません。まずテナントを選択してください', 'error')
+                return redirect(url_for('tenant_admin.mypage'))
         
-        return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list)
+        # テナントのAPIキーを取得
+        tenant_api = None
+        if tenant_id:
+            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+            if tenant_obj:
+                tenant_api = {
+                    'openai_api_key': getattr(tenant_obj, 'openai_api_key', None) or '',
+                    'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
+                    'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
+                    'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
+                }
+        
+        return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list, tenant_api=tenant_api)
     finally:
         db.close()
 

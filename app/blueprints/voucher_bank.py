@@ -62,15 +62,29 @@ def get_openai_api_key(tenant_id, tenpo_id):
 
 def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
     """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
+    import traceback
+    print(f'[OCR] 通帳明細 stmt_id={stmt_id} 開始 filepath={filepath}')
     db = SessionLocal()
     try:
+        # ファイル存在確認
+        if not os.path.exists(filepath):
+            print(f'[OCR] エラー: ファイルが存在しません: {filepath}')
+            stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
+            if stmt:
+                stmt.ステータス = 'error'
+                stmt.OCR結果_生データ = f'エラー: ファイルが見つかりません ({filepath})'
+                db.commit()
+            return
+
         stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
         if not stmt:
             return
         stmt.ステータス = 'processing'
         db.commit()
 
+        print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR開始')
         ocr_result = process_bank_statement_image(filepath, api_key=api_key)
+        print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR完了 transactions={len(ocr_result.get("transactions", []))}')
 
         stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
         if not stmt:
@@ -106,16 +120,19 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
         db.commit()
 
     except Exception as e:
+        err_detail = traceback.format_exc()
+        print(f'[OCR] 通帳明細 stmt_id={stmt_id} エラー: {e}\n{err_detail}')
         try:
             stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
             if stmt:
                 stmt.ステータス = 'error'
-                stmt.OCR結果_生データ = f'OCRエラー: {str(e)}'
+                stmt.OCR結果_生データ = f'OCRエラー: {str(e)}\n{err_detail[:500]}'
                 db.commit()
-        except Exception:
-            pass
+        except Exception as e2:
+            print(f'[OCR] エラー保存失敗: {e2}')
     finally:
         db.close()
+        print(f'[OCR] 通帳明細 stmt_id={stmt_id} スレッド終了')
 
 
 # ============================================================

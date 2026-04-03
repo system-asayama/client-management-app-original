@@ -50,16 +50,16 @@ def _enhance_image(image_path: str) -> str:
         enhancer = ImageEnhance.Brightness(img)
         img = enhancer.enhance(1.05)
 
-        img.save(image_path, 'JPEG', quality=95)
+        img.save(image_path, 'JPEG', quality=85)
     except Exception as e:
         print(f'画像前処理エラー（スキップ）: {e}')
     return image_path
 
 
-def _pdf_to_images(pdf_path: str, dpi: int = 200) -> list:
+def _pdf_to_images(pdf_path: str, dpi: int = 150) -> list:
     """
     PDFを全ページJPG画像リストに変換する（PyMuPDF使用）。
-    DPI=200で漢字の細部まで鮮明に変換。
+    DPI=150で漢字の細部まで鮮明に変換しつつファイルサイズを抑える。
     画像ファイルはそのまま返す。
     """
     ext = os.path.splitext(pdf_path)[1].lower()
@@ -75,7 +75,7 @@ def _pdf_to_images(pdf_path: str, dpi: int = 200) -> list:
             page = doc[i]
             pix = page.get_pixmap(matrix=mat)
             tmp_path = pdf_path + f'_page{i+1}.jpg'
-            pix.save(tmp_path)
+            pix.save(tmp_path, jpg_quality=85)
             # 画像前処理（シャープ化・コントラスト強化）
             _enhance_image(tmp_path)
             tmp_paths.append(tmp_path)
@@ -586,12 +586,14 @@ def save_uploaded_file(file, upload_folder: str = 'uploads') -> str:
     """
     アップロードされたファイルを保存する。
     """
-    import uuid
-    from werkzeug.utils import secure_filename
-
     os.makedirs(upload_folder, exist_ok=True)
-    ext = os.path.splitext(file.filename)[1].lower()
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-    filepath = os.path.join(upload_folder, unique_name)
+    filename = file.filename
+    filepath = os.path.join(upload_folder, filename)
+    base, ext = os.path.splitext(filename)
+    counter = 1
+    while os.path.exists(filepath):
+        filename = f"{base}_{counter}{ext}"
+        filepath = os.path.join(upload_folder, filename)
+        counter += 1
     file.save(filepath)
     return filepath

@@ -150,6 +150,14 @@
   {% endif %}
 </div>
 
+<!-- OCR生データ（デバッグ用） -->
+{% if stmt.OCR結果_生データ and stmt.ステータス in ('completed', 'error') %}
+<div class="info-card" style="border-color:#e5e7eb;">
+  <h2 style="color:#6b7280;">📝 OCR生データ（参考）</h2>
+  <pre style="font-size:0.75rem;color:#6b7280;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;background:#f9fafb;padding:0.75rem;border-radius:8px;border:1px solid #e5e7eb;">{{ stmt.OCR結果_生データ }}</pre>
+</div>
+{% endif %}
+
 {% if stmt.ステータス in ('pending', 'processing') %}
 <script>
 (function() {

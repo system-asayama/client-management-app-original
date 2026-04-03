@@ -319,7 +319,7 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str, col
 - "08-03-16" → "2008-03-16"（2桁年: 00-29→2000年代、30-99→1900年代）
 - 平成: H1=1989, 令和: R1=2019
 
-{
+{{
   "bank_name": "銀行名",
   "branch_name": "支店名",
   "account_type": "口座種別",
@@ -328,16 +328,16 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str, col
   "period_start": "YYYY-MM-DD",
   "period_end": "YYYY-MM-DD",
   "transactions": [
-    {
+    {{
       "date": "YYYY-MM-DD",
       "description": "摘要（印字部分のみ）",
       "deposit": 入金額の数値またはnull,
       "withdrawal": 出金額の数値またはnull,
       "balance": 残高の数値,
       "note": "手書き部分・備考"
-    }
+    }}
   ]
-}
+}}
 全ての明細行を一行も欠かさず抜出してください。JSONのみを返してください。"""
 
     prompt_transactions = """この画像は日本の銀行通帳の続きのページです。

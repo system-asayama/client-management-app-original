@@ -508,6 +508,9 @@ def me_edit():
             phone = request.form.get('phone', '').strip()
             email = request.form.get('email', '').strip()
             openai_api_key = request.form.get('openai_api_key', '').strip()
+            google_vision_api_key = request.form.get('google_vision_api_key', '').strip()
+            google_api_key = request.form.get('google_api_key', '').strip()
+            anthropic_api_key = request.form.get('anthropic_api_key', '').strip()
             profession = request.form.get('profession', '').strip() or None
             active = int(request.form.get('active', '1'))
             
@@ -530,6 +533,9 @@ def me_edit():
                         tenant_obj.電話番号 = phone if phone else None
                         tenant_obj.email = email if email else None
                         tenant_obj.openai_api_key = openai_api_key if openai_api_key else None
+                        tenant_obj.google_vision_api_key = google_vision_api_key if google_vision_api_key else None
+                        tenant_obj.google_api_key = google_api_key if google_api_key else None
+                        tenant_obj.anthropic_api_key = anthropic_api_key if anthropic_api_key else None
                         tenant_obj.profession = profession
                         tenant_obj.有効 = active
                         db.commit()
@@ -551,6 +557,9 @@ def me_edit():
             'phone': tenant_obj.電話番号 or '',
             'email': tenant_obj.email or '',
             'openai_api_key': tenant_obj.openai_api_key or '',
+            'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
+            'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
+            'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
             'profession': getattr(tenant_obj, 'profession', None) or '',
             'active': tenant_obj.有効,
             'created_at': tenant_obj.created_at
@@ -757,6 +766,9 @@ def store_edit(store_id):
             phone = request.form.get('phone', '').strip()
             email = request.form.get('email', '').strip()
             openai_api_key = request.form.get('openai_api_key', '').strip()
+            google_vision_api_key = request.form.get('google_vision_api_key', '').strip()
+            google_api_key = request.form.get('google_api_key', '').strip()
+            anthropic_api_key = request.form.get('anthropic_api_key', '').strip()
             active = int(request.form.get('active', 1))
             
             if not name or not slug:
@@ -784,6 +796,9 @@ def store_edit(store_id):
                         store_obj.電話番号 = phone or None
                         store_obj.email = email or None
                         store_obj.openai_api_key = openai_api_key or None
+                        store_obj.google_vision_api_key = google_vision_api_key or None
+                        store_obj.google_api_key = google_api_key or None
+                        store_obj.anthropic_api_key = anthropic_api_key or None
                         store_obj.有効 = active
                         db.commit()
                         flash('店舗情報を更新しました', 'success')
@@ -810,6 +825,9 @@ def store_edit(store_id):
             '電話番号': store_obj.電話番号,
             'email': store_obj.email,
             'openai_api_key': store_obj.openai_api_key,
+            'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None),
+            'google_api_key': getattr(store_obj, 'google_api_key', None),
+            'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None),
             '有効': store_obj.有効,
             'active': store_obj.有効
         }

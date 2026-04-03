@@ -151,8 +151,20 @@
 
     <div class="form-row">
       <label>OpenAI APIキー</label>
-      <input type="text" name="openai_api_key" value="{{ tenant['openai_api_key'] if tenant else '' }}" placeholder="sk-...">
-      <div class="hint">テナント内の全店舗で使用されるOpenAI APIキーを設定します</div>
+      <input type="password" name="openai_api_key" value="{{ tenant['openai_api_key'] if tenant else '' }}" placeholder="sk-..." autocomplete="off">
+      <div class="hint">通帳・クレジット明細OCRのJSON構造化に使用します。Google Cloud Vision APIと併用すると認識精度が向上します。</div>
+    </div>
+
+    <div class="form-row">
+      <label>Google Cloud Vision APIキー（OCR用）</label>
+      <input type="password" name="google_vision_api_key" value="{{ tenant['google_vision_api_key'] if tenant else '' }}" placeholder="AIza..." autocomplete="off">
+      <div class="hint">日本語漢字の文字認識精度が高いGoogle Cloud Vision APIキーです。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">取得方法はこちら↗</a>。OpenAI APIキーと併用すると最高精度でOCR処理します。</div>
+    </div>
+
+    <div class="form-row">
+      <label>Google Gemini APIキー（将来対応）</label>
+      <input type="password" name="google_api_key" value="{{ tenant['google_api_key'] if tenant else '' }}" placeholder="AIza..." autocomplete="off">
+      <div class="hint">Google Geminiモデルを使用する場合に設定します。<a href="https://aistudio.google.com/app/apikey" target="_blank">取得方法はこちら↗</a></div>
     </div>
 
     <div class="form-row">

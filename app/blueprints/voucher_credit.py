@@ -35,32 +35,54 @@ def get_session_info():
 
 
 def get_openai_api_key(tenant_id, tenpo_id):
-    """店舗 → テナント → システム管理者の順でAPIキーを取得"""
+    """店舗 → テナント → システム管理者の順でOpenAI APIキーを取得"""
+    keys = get_api_keys(tenant_id, tenpo_id)
+    return keys.get('openai_api_key')
+
+
+def get_api_keys(tenant_id, tenpo_id):
+    """店舗 → テナント → システム管理者の順で各種 APIキーを取得"""
     db = SessionLocal()
+    result = {'openai_api_key': None, 'google_vision_api_key': None, 'google_api_key': None, 'anthropic_api_key': None}
     try:
         if tenpo_id:
             tenpo = db.query(TTenpo).filter(TTenpo.id == tenpo_id).first()
-            if tenpo and getattr(tenpo, 'openai_api_key', None):
-                return tenpo.openai_api_key
+            if tenpo:
+                if getattr(tenpo, 'openai_api_key', None):
+                    result['openai_api_key'] = tenpo.openai_api_key
+                if getattr(tenpo, 'google_vision_api_key', None):
+                    result['google_vision_api_key'] = tenpo.google_vision_api_key
+                if getattr(tenpo, 'google_api_key', None):
+                    result['google_api_key'] = tenpo.google_api_key
+                if getattr(tenpo, 'anthropic_api_key', None):
+                    result['anthropic_api_key'] = tenpo.anthropic_api_key
         if tenant_id:
             tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-            if tenant and getattr(tenant, 'openai_api_key', None):
-                return tenant.openai_api_key
-        sys_admin = db.query(TKanrisha).filter(
-            TKanrisha.role == 'system_admin',
-            TKanrisha.openai_api_key != None,
-            TKanrisha.openai_api_key != ''
-        ).first()
-        if sys_admin:
-            return sys_admin.openai_api_key
+            if tenant:
+                if not result['openai_api_key'] and getattr(tenant, 'openai_api_key', None):
+                    result['openai_api_key'] = tenant.openai_api_key
+                if not result['google_vision_api_key'] and getattr(tenant, 'google_vision_api_key', None):
+                    result['google_vision_api_key'] = tenant.google_vision_api_key
+                if not result['google_api_key'] and getattr(tenant, 'google_api_key', None):
+                    result['google_api_key'] = tenant.google_api_key
+                if not result['anthropic_api_key'] and getattr(tenant, 'anthropic_api_key', None):
+                    result['anthropic_api_key'] = tenant.anthropic_api_key
+        if not result['openai_api_key']:
+            sys_admin = db.query(TKanrisha).filter(
+                TKanrisha.role == 'system_admin',
+                TKanrisha.openai_api_key != None,
+                TKanrisha.openai_api_key != ''
+            ).first()
+            if sys_admin:
+                result['openai_api_key'] = sys_admin.openai_api_key
     except Exception:
         pass
     finally:
         db.close()
-    return None
+    return result
 
 
-def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
+def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None):
     """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
     db = SessionLocal()
     try:
@@ -72,7 +94,7 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
         db.commit()
 
         # OCR実行（時間がかかる処理）
-        ocr_result = process_credit_statement_image(filepath, api_key=api_key)
+        ocr_result = process_credit_statement_image(filepath, api_key=api_key, google_vision_api_key=google_vision_api_key)
 
         # 結果をDBに保存
         stmt = db.query(TCreditStatement).filter(TCreditStatement.id == stmt_id).first()
@@ -179,7 +201,10 @@ def upload():
         upload_dir = os.path.join('uploads', 'credit', str(tenant_id))
         filepath = save_uploaded_file(file, upload_dir)
 
-        openai_api_key = get_openai_api_key(tenant_id, tenpo_id)
+        api_keys = get_api_keys(tenant_id, tenpo_id)
+        openai_api_key = api_keys.get('openai_api_key')
+        google_vision_api_key = api_keys.get('google_vision_api_key')
+        has_any_key = openai_api_key or google_vision_api_key
 
         # DBに「待機中」として即座に保存
         db = SessionLocal()
@@ -189,7 +214,7 @@ def upload():
                 tenpo_id=tenpo_id,
                 uploaded_by=user_id,
                 画像パス=filepath,
-                ステータス='pending' if not openai_api_key else 'processing',
+                ステータス='pending' if not has_any_key else 'processing',
             )
             db.add(stmt)
             db.commit()
@@ -197,17 +222,19 @@ def upload():
         finally:
             db.close()
 
-        if not openai_api_key:
-            flash('OpenAI APIキーが未設定のため、OCR処理をスキップしました。', 'warning')
+        if not has_any_key:
+            flash('APIキーが未設定のため、OCR処理をスキップしました。設定画面からOpenAIまたはGoogle Cloud Vision APIキーを設定してください。', 'warning')
         else:
             # バックグラウンドスレッドでOCR処理を開始
             t = threading.Thread(
                 target=_run_ocr_background,
                 args=(stmt_id, filepath, openai_api_key, tenant_id),
+                kwargs={'google_vision_api_key': google_vision_api_key},
                 daemon=True
             )
             t.start()
-            flash('クレジット明細をアップロードしました。OCR処理をバックグラウンドで実行中です...', 'success')
+            key_info = 'Google Cloud Vision API + GPT-4o' if google_vision_api_key and openai_api_key else ('Google Cloud Vision API' if google_vision_api_key else 'GPT-4o')
+            flash(f'クレジット明細をアップロードしました。OCR処理（{key_info}）をバックグラウンドで実行中です...', 'success')
 
         return redirect(url_for('voucher_credit.detail', stmt_id=stmt_id))
 

@@ -89,8 +89,14 @@
 
     <div style="margin-bottom:16px">
       <label style="display:block;margin-bottom:4px">OpenAI APIキー</label>
-      <input type="password" name="openai_api_key" value="{{ store.openai_api_key or '' }}" placeholder="sk-..." style="width:100%;padding:8px">
-      <p style="font-size:12px;color:#666;margin-top:4px">この店舗配下のアプリに適用されます。未設定の場合はテナント設定のキーが使用されます。</p>
+      <input type="password" name="openai_api_key" value="{{ store.openai_api_key or '' }}" placeholder="sk-..." style="width:100%;padding:8px" autocomplete="off">
+      <p style="font-size:12px;color:#666;margin-top:4px">通帳・クレジット明細OCRのJSON構造化に使用します。未設定の場合はテナント設定のキーが使用されます。</p>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="display:block;margin-bottom:4px">Google Cloud Vision APIキー（OCR用）</label>
+      <input type="password" name="google_vision_api_key" value="{{ store.google_vision_api_key or '' }}" placeholder="AIza..." style="width:100%;padding:8px" autocomplete="off">
+      <p style="font-size:12px;color:#666;margin-top:4px">日本語漢字の文字認識精度が高いGoogle Cloud Vision APIキーです。OpenAI APIキーと併用すると最高精度でOCR処理します。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">取得方法↗</a>。未設定の場合はテナント設定のキーが使用されます。</p>
     </div>
 
     <div style="margin-bottom:16px">

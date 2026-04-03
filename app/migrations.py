@@ -109,6 +109,16 @@ def run_migrations():
             # T_管理者_店舗テーブルにオーナーと管理権限カラムを追加
             ("T_管理者_店舗", "is_owner", "INTEGER DEFAULT 0"),
             ("T_管理者_店舗", "can_manage_admins", "INTEGER DEFAULT 0"),
+            # T_テナントテーブルに設定カラムを追加
+            ("T_テナント", "google_vision_api_key", "TEXT NULL"),
+            ("T_テナント", "google_api_key", "TEXT NULL"),
+            ("T_テナント", "anthropic_api_key", "TEXT NULL"),
+            ("T_テナント", "ai_model", "VARCHAR(50) DEFAULT 'gemini-1.5-flash'"),
+            # T_店舗テーブルにも追加
+            ("T_店舗", "google_vision_api_key", "TEXT NULL"),
+            ("T_店舗", "google_api_key", "TEXT NULL"),
+            ("T_店舗", "anthropic_api_key", "TEXT NULL"),
+            ("T_店舗", "ai_model", "VARCHAR(50) DEFAULT 'gemini-1.5-flash'"),
         ]
         
         added_count = 0

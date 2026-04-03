@@ -303,6 +303,9 @@ def store_info():
             '電話番号': store_obj.電話番号 if hasattr(store_obj, '電話番号') else None,
             'email': store_obj.email if hasattr(store_obj, 'email') else None,
             'openai_api_key': store_obj.openai_api_key if hasattr(store_obj, 'openai_api_key') else None,
+            'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None),
+            'google_api_key': getattr(store_obj, 'google_api_key', None),
+            'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None),
             '有効': store_obj.有効 if hasattr(store_obj, '有効') else 1,
             'created_at': store_obj.created_at,
             'updated_at': store_obj.updated_at if hasattr(store_obj, 'updated_at') else None
@@ -341,6 +344,9 @@ def store_detail(store_id):
             '電話番号': store_obj.電話番号 if hasattr(store_obj, '電話番号') else None,
             'email': store_obj.email if hasattr(store_obj, 'email') else None,
             'openai_api_key': store_obj.openai_api_key if hasattr(store_obj, 'openai_api_key') else None,
+            'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None),
+            'google_api_key': getattr(store_obj, 'google_api_key', None),
+            'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None),
             '有効': store_obj.有効,
             'created_at': store_obj.created_at,
             'updated_at': store_obj.updated_at if hasattr(store_obj, 'updated_at') else None
@@ -890,6 +896,9 @@ def store_edit(store_id):
             phone = request.form.get('phone', '').strip()
             email = request.form.get('email', '').strip()
             openai_api_key = request.form.get('openai_api_key', '').strip()
+            google_vision_api_key = request.form.get('google_vision_api_key', '').strip()
+            google_api_key = request.form.get('google_api_key', '').strip()
+            anthropic_api_key = request.form.get('anthropic_api_key', '').strip()
             active = int(request.form.get('active', '1'))
             
             if not name or not slug:
@@ -917,6 +926,9 @@ def store_edit(store_id):
             store_obj.電話番号 = phone if phone else None
             store_obj.email = email if email else None
             store_obj.openai_api_key = openai_api_key if openai_api_key else None
+            store_obj.google_vision_api_key = google_vision_api_key if google_vision_api_key else None
+            store_obj.google_api_key = google_api_key if google_api_key else None
+            store_obj.anthropic_api_key = anthropic_api_key if anthropic_api_key else None
             store_obj.有効 = active
             db.commit()
             

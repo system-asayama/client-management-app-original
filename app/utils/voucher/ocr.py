@@ -390,35 +390,268 @@ JSONのみを返してください。説明文は不要です。"""
                 pass
 
 
-def process_bank_statement_image(image_path: str, api_key: str = None) -> Dict:
-    """通帳画像を処理して情報を抜出する（通帳モード）。"""
+def extract_text_with_google_vision_api_key(image_path: str, api_key: str) -> str:
+    """
+    Google Cloud Vision API（REST APIキー認証）で画像からテキストを抽出する。
+    日本語漢字の認識精度が高い。
+    """
+    import requests
+    import base64
+    
+    with open(image_path, 'rb') as f:
+        image_content = base64.b64encode(f.read()).decode('utf-8')
+    
+    url = f'https://vision.googleapis.com/v1/images:annotate?key={api_key}'
+    payload = {
+        'requests': [{
+            'image': {'content': image_content},
+            'features': [{'type': 'DOCUMENT_TEXT_DETECTION', 'maxResults': 1}],
+            'imageContext': {'languageHints': ['ja', 'en']}
+        }]
+    }
+    
+    response = requests.post(url, json=payload, timeout=30)
+    response.raise_for_status()
+    result = response.json()
+    
+    if 'error' in result:
+        raise Exception(f"Vision API Error: {result['error']}")
+    
+    responses = result.get('responses', [])
+    if not responses:
+        return ""
+    
+    first_response = responses[0]
+    if 'error' in first_response:
+        raise Exception(f"Vision API Response Error: {first_response['error']}")
+    
+    full_text_annotation = first_response.get('fullTextAnnotation', {})
+    text = full_text_annotation.get('text', '')
+    
+    if not text:
+        text_annotations = first_response.get('textAnnotations', [])
+        if text_annotations:
+            text = text_annotations[0].get('description', '')
+    
+    return text
+
+
+def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str, max_tokens: int = 4000) -> dict:
+    """
+    Google Visionで抽出したテキストをOpenAIに渡してJSON構造化する。
+    """
+    import requests
+    import time
+    
+    system_message = (
+        'あなたは日本語文書のOCR専門家です。'
+        '漢字・ひらがな・カタカナを正確に読み取ってください。'
+        '必ずJSON形式のみで返してください。説明文は不要です。'
+    )
+    
+    prompt = prompt_template.replace('{OCR_TEXT}', text)
+    
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'model': 'gpt-4o',
+        'messages': [
+            {'role': 'system', 'content': system_message},
+            {'role': 'user', 'content': prompt}
+        ],
+        'max_tokens': max_tokens,
+        'response_format': {'type': 'json_object'}
+    }
+    
+    for attempt in range(3):
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers, json=payload, timeout=60
+        )
+        response.raise_for_status()
+        resp_json = response.json()
+        choice = resp_json.get('choices', [{}])[0]
+        raw_content = choice.get('message', {}).get('content')
+        if not raw_content:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            return {}
+        try:
+            return json.loads(raw_content)
+        except json.JSONDecodeError:
+            return {'raw_text': raw_content[:500]}
+    return {}
+
+
+def process_bank_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None) -> Dict:
+    """通帳画像を処理して情報を抜出する（通帳モード）。
+    
+    処理方式（優先順）:
+    1. Google Vision API（文字認識）+ GPT-4o（構造化）: 最高精度
+    2. GPT-4o Vision単体: 標準精度
+    3. エラー時: 空データを返す
+    """
     empty = {'bank_name': None, 'branch_name': None, 'account_type': None,
              'account_number': None, 'account_holder': None,
              'period_start': None, 'period_end': None, 'transactions': [], 'raw_text': ''}
-    if not api_key:
+    
+    if not api_key and not google_vision_api_key:
         return empty
-    try:
-        return extract_bank_statement_with_openai_vision(image_path, api_key)
-    except Exception as e:
-        print(f"通帳OCRエラー: {e}")
-        return empty
+    
+    # 方式1: Google Vision + GPT-4o（最高精度）
+    if google_vision_api_key and api_key:
+        try:
+            print(f"[OCR] Google Vision APIで文字認識中: {image_path}")
+            ocr_text = extract_text_with_google_vision_api_key(image_path, google_vision_api_key)
+            print(f"[OCR] Google Vision成功: {len(ocr_text)}文字")
+            
+            prompt_template = """以下は銀行通帳または通帳明細書からOCRで読み取ったテキストです。
+以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
+{{
+  "bank_name": "銀行名・金融機関名",
+  "branch_name": "支店名",
+  "account_type": "口座種別（普通・当座・定期など）",
+  "account_number": "口座番号",
+  "account_holder": "口座名義",
+  "period_start": "明細期間開始日（YYYY-MM-DD形式）",
+  "period_end": "明細期間終了日（YYYY-MM-DD形式）",
+  "transactions": [
+    {{
+      "date": "取引日付（YYYY-MM-DD形式）",
+      "description": "摘要・取引内容",
+      "deposit": "入金額（数値のみ）",
+      "withdrawal": "出金額（数値のみ）",
+      "balance": "残高（数値のみ）",
+      "note": "備考"
+    }}
+  ],
+  "raw_text": "入力テキストをそのまま返す"
+}}
+transactionsは全ての明細行を抜出してください。
+JSONのみを返してください。説明文は不要です。
+
+OCRテキスト:
+{OCR_TEXT}"""
+            
+            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=8000)
+            
+            def to_float(val):
+                if val is None:
+                    return None
+                try:
+                    return float(str(val).replace(',', '').replace('¥', '').replace('円', '').strip())
+                except (ValueError, TypeError):
+                    return None
+            
+            for t in data.get('transactions', []):
+                t['deposit'] = to_float(t.get('deposit'))
+                t['withdrawal'] = to_float(t.get('withdrawal'))
+                t['balance'] = to_float(t.get('balance'))
+            
+            if not data.get('raw_text'):
+                data['raw_text'] = ocr_text
+            
+            print(f"[OCR] 構造化完了: {len(data.get('transactions', []))}件の取引")
+            return data
+        except Exception as e:
+            print(f"[OCR] Google Vision + GPT-4oエラー: {e}、GPT-4o Visionにフォールバック")
+    
+    # 方式2: GPT-4o Vision単体
+    if api_key:
+        try:
+            return extract_bank_statement_with_openai_vision(image_path, api_key)
+        except Exception as e:
+            print(f"通帳OCRエラー: {e}")
+    
+    return empty
 
 
-def process_credit_statement_image(image_path: str, api_key: str = None) -> Dict:
-    """クレジット明細画像を処理して情報を抜出する（クレジット明細モード）。"""
+def process_credit_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None) -> Dict:
+    """クレジット明細画像を処理して情報を抜出する（クレジット明細モード）。
+    
+    処理方式（優先順）:
+    1. Google Vision API（文字認識）+ GPT-4o（構造化）: 最高精度
+    2. GPT-4o Vision単体: 標準精度
+    3. エラー時: 空データを返す
+    """
     empty = {'card_company': None, 'card_name': None, 'member_name': None,
              'statement_month': None, 'payment_date': None,
              'total_amount': None, 'transactions': [], 'raw_text': ''}
-    if not api_key:
+    
+    if not api_key and not google_vision_api_key:
         return empty
-    try:
-        return extract_credit_statement_with_openai_vision(image_path, api_key)
-    except Exception as e:
-        import traceback
-        err_detail = traceback.format_exc()
-        print(f"クレジット明細OCRエラー: {e}\n{err_detail}")
-        empty['_error'] = str(e)
-        return empty
+    
+    # 方式1: Google Vision + GPT-4o（最高精度）
+    if google_vision_api_key and api_key:
+        try:
+            print(f"[OCR] Google Vision APIで文字認識中: {image_path}")
+            ocr_text = extract_text_with_google_vision_api_key(image_path, google_vision_api_key)
+            print(f"[OCR] Google Vision成功: {len(ocr_text)}文字")
+            
+            prompt_template = """以下はクレジットカードの利用明細書からOCRで読み取ったテキストです。
+以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
+{{
+  "card_company": "カード会社名（例: American Express, JCB, VISA, 楽天カードなど）",
+  "card_name": "カード名・品名",
+  "member_name": "会員名義",
+  "statement_month": "明細年月（YYYY-MM形式）",
+  "payment_date": "支払日（YYYY-MM-DD形式）",
+  "total_amount": "利用総額（数値のみ）",
+  "transactions": [
+    {{
+      "date": "利用日（YYYY-MM-DD形式）",
+      "store_name": "利用店名・内容",
+      "user_name": "利用者名",
+      "amount": "利用金額（数値のみ）",
+      "installment": "分割回数・支払方法",
+      "note": "備考"
+    }}
+  ],
+  "raw_text": "入力テキストをそのまま返す"
+}}
+transactionsは全ての利用明細行を抜出してください。
+JSONのみを返してください。説明文は不要です。
+
+OCRテキスト:
+{OCR_TEXT}"""
+            
+            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=8000)
+            
+            def to_float(val):
+                if val is None:
+                    return None
+                try:
+                    return float(str(val).replace(',', '').replace('¥', '').replace('円', '').strip())
+                except (ValueError, TypeError):
+                    return None
+            
+            data['total_amount'] = to_float(data.get('total_amount'))
+            for t in data.get('transactions', []):
+                t['amount'] = to_float(t.get('amount'))
+            
+            if not data.get('raw_text'):
+                data['raw_text'] = ocr_text
+            
+            print(f"[OCR] 構造化完了: {len(data.get('transactions', []))}件の明細")
+            return data
+        except Exception as e:
+            import traceback
+            print(f"[OCR] Google Vision + GPT-4oエラー: {e}\n{traceback.format_exc()}、GPT-4o Visionにフォールバック")
+    
+    # 方式2: GPT-4o Vision単体
+    if api_key:
+        try:
+            return extract_credit_statement_with_openai_vision(image_path, api_key)
+        except Exception as e:
+            import traceback
+            err_detail = traceback.format_exc()
+            print(f"クレジット明細OCRエラー: {e}\n{err_detail}")
+            empty['_error'] = str(e)
+    
+    return empty
 
 
 def process_receipt_image(image_path: str, api_key: str = None) -> Dict:

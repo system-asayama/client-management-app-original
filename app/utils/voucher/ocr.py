@@ -7,8 +7,19 @@ Google Cloud Vision API統合版
 import re
 import os
 from typing import Dict, Optional, List
-from PIL import Image
-import pytesseract
+try:
+    from PIL import Image
+    PILLOW_AVAILABLE = True
+except ImportError:
+    Image = None
+    PILLOW_AVAILABLE = False
+
+try:
+    import pytesseract
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    pytesseract = None
+    TESSERACT_AVAILABLE = False
 
 
 def extract_text_from_image(image_path: str, use_google_vision: bool = True) -> str:
@@ -31,13 +42,16 @@ def extract_text_from_image(image_path: str, use_google_vision: bool = True) -> 
             print("Tesseract OCRにフォールバック")
     
     # フォールバック: Tesseract OCR
-    try:
-        image = Image.open(image_path)
-        text = pytesseract.image_to_string(image, lang='jpn')
-        return text
-    except Exception as e:
-        print(f"Tesseract OCRエラー: {e}")
-        return ""
+    if TESSERACT_AVAILABLE and PILLOW_AVAILABLE:
+        try:
+            image = Image.open(image_path)
+            text = pytesseract.image_to_string(image, lang='jpn')
+            return text
+        except Exception as e:
+            print(f"Tesseract OCRエラー: {e}")
+
+    # OCR利用不可能の場合は空文字列を返す（手動入力モードにフォールバック）
+    return ""
 
 
 def extract_text_with_google_vision(image_path: str) -> str:

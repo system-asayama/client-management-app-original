@@ -124,6 +124,10 @@ def run_migrations():
             ("T_アプリ管理者グループ", "google_vision_api_key", "TEXT NULL"),
             ("T_アプリ管理者グループ", "google_api_key", "TEXT NULL"),
             ("T_アプリ管理者グループ", "anthropic_api_key", "TEXT NULL"),
+            # T_管理者テーブルにAPIキーカラムを追加
+            ("T_管理者", "google_vision_api_key", "TEXT NULL"),
+            ("T_管理者", "google_api_key", "TEXT NULL"),
+            ("T_管理者", "anthropic_api_key", "TEXT NULL"),
         ]
         
         added_count = 0

@@ -67,14 +67,23 @@ def get_api_keys(tenant_id, tenpo_id):
                     result['google_api_key'] = tenant.google_api_key
                 if not result['anthropic_api_key'] and getattr(tenant, 'anthropic_api_key', None):
                     result['anthropic_api_key'] = tenant.anthropic_api_key
-        if not result['openai_api_key']:
-            sys_admin = db.query(TKanrisha).filter(
-                TKanrisha.role == 'system_admin',
-                TKanrisha.openai_api_key != None,
-                TKanrisha.openai_api_key != ''
-            ).first()
-            if sys_admin:
-                result['openai_api_key'] = sys_admin.openai_api_key
+        # システム管理者から未設定のAPIキーをフォールバック
+        needs_fallback = not all([result['openai_api_key'], result['google_vision_api_key'], result['google_api_key'], result['anthropic_api_key']])
+        if needs_fallback:
+            sys_admins = db.query(TKanrisha).filter(
+                TKanrisha.role == 'system_admin'
+            ).all()
+            for sys_admin in sys_admins:
+                if not result['openai_api_key'] and getattr(sys_admin, 'openai_api_key', None):
+                    result['openai_api_key'] = sys_admin.openai_api_key
+                if not result['google_vision_api_key'] and getattr(sys_admin, 'google_vision_api_key', None):
+                    result['google_vision_api_key'] = sys_admin.google_vision_api_key
+                if not result['google_api_key'] and getattr(sys_admin, 'google_api_key', None):
+                    result['google_api_key'] = sys_admin.google_api_key
+                if not result['anthropic_api_key'] and getattr(sys_admin, 'anthropic_api_key', None):
+                    result['anthropic_api_key'] = sys_admin.anthropic_api_key
+                if all([result['openai_api_key'], result['google_vision_api_key'], result['google_api_key'], result['anthropic_api_key']]):
+                    break
     except Exception:
         pass
     finally:

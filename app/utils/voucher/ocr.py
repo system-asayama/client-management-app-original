@@ -18,7 +18,7 @@ def _encode_image_to_base64(image_path: str) -> str:
         return base64.b64encode(f.read()).decode('utf-8')
 
 
-def _pdf_to_images(pdf_path: str, dpi: int = 120) -> list:
+def _pdf_to_images(pdf_path: str, dpi: int = 72) -> list:
     """PDFを全ページJPG画像リストに変換する。画像ファイルはそのまま返す。"""
     ext = os.path.splitext(pdf_path)[1].lower()
     if ext != '.pdf':
@@ -212,7 +212,7 @@ JSONのみを返してください。説明文は不要です。"""
         all_transactions = []
         base_data = None
         raw_texts = []
-        CHUNK = 4
+        CHUNK = 3
 
         for chunk_start in range(0, len(image_paths), CHUNK):
             chunk = image_paths[chunk_start:chunk_start + CHUNK]
@@ -317,7 +317,7 @@ JSONのみを返してください。説明文は不要です。"""
         all_transactions = []
         base_data = None
         raw_texts = []
-        CHUNK = 4
+        CHUNK = 3
 
         for chunk_start in range(0, len(image_paths), CHUNK):
             chunk = image_paths[chunk_start:chunk_start + CHUNK]

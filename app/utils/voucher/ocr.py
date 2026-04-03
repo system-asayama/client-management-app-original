@@ -535,9 +535,29 @@ def process_bank_statement_image(image_path: str, api_key: str = None, google_vi
             print(f"[OCR] Google Vision APIで文字認識中: {image_path}")
             ocr_text = extract_text_with_google_vision_api_key(image_path, google_vision_api_key)
             print(f"[OCR] Google Vision成功: {len(ocr_text)}文字")
+            print(f"[OCR] OCRテキスト先頭200文字: {repr(ocr_text[:200])}")
             
-            prompt_template = """以下は銀行通帳または通帳明細書からOCRで読み取ったテキストです。
+            prompt_template = """以下は日本の銀行通帳または通帳明細書からOCRで読み取ったテキストです。
 以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
+
+【日付の解釈ルール】
+- 通帳の日付は「年月日」形式で表示されることが多い。例: "08-03-16" = 2008年3月16日
+- 2桁の年は西暦に変換する。"00"-"29" → 2000-2029年、"30"-"99" → 1930-1999年
+- 平成元号の場合: H1=1989年、H2=1990年、...H31=2019年、R1=2019年、R2=2020年...
+- 必ずYYYY-MM-DD形式で返すこと
+
+【入金・出金の判定ルール】
+- 通帳の列構造は通常「摘要 | お支払い金額(出金) | お頂き金額(入金) | 残高」の順
+- 「お支払い」「お払い」「お引き出し」「出金」の列にある金額 = withdrawal（出金）
+- 「お頂き」「入金」「お入れ」の列にある金額 = deposit（入金）
+- 「*」の付いた金額はその列の正規の金額として扱う（「*」は除去）
+- 入金・出金のどちらか一方のみに数値を入れ、もう一方はnull
+
+【残高の解釈ルール】
+- 残高は「差引残高」「残高」の列の数値
+- 「*」「,」は除去して数値のみ返す
+- 残高の最後に「手1」「手2」などの手数記号が付く場合は除去する
+
 {{
   "bank_name": "銀行名・金融機関名",
   "branch_name": "支店名",
@@ -548,29 +568,37 @@ def process_bank_statement_image(image_path: str, api_key: str = None, google_vi
   "period_end": "明細期間終了日（YYYY-MM-DD形式）",
   "transactions": [
     {{
-      "date": "取引日付（YYYY-MM-DD形式）",
-      "description": "摘要・取引内容",
-      "deposit": "入金額（数値のみ）",
-      "withdrawal": "出金額（数値のみ）",
-      "balance": "残高（数値のみ）",
+      "date": "取引日付（YYYY-MM-DD形式、平成・西暦変換済み）",
+      "description": "摘要・取引内容（OCRの内容をそのまま記載）",
+      "deposit": "入金額（数値のみ、出金の場合はnull）",
+      "withdrawal": "出金額（数値のみ、入金の場合はnull）",
+      "balance": "残高（数値のみ、「*」「,」「手数記号」を除去）",
       "note": "備考"
     }}
-  ],
-  "raw_text": "入力テキストをそのまま返す"
+  ]
 }}
-transactionsは全ての明細行を抜出してください。
+transactionsは全ての明細行を抜出してください。一行も欠かさないようにしてください。
 JSONのみを返してください。説明文は不要です。
 
 OCRテキスト:
 {OCR_TEXT}"""
             
-            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=8000)
+            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=16000)
             
+            import re
             def to_float(val):
                 if val is None:
                     return None
                 try:
-                    return float(str(val).replace(',', '').replace('¥', '').replace('円', '').strip())
+                    s = str(val)
+                    # 「*」「¥」「円」「,」を除去
+                    s = s.replace('*', '').replace(',', '').replace('¥', '').replace('円', '')
+                    # 残高の最後に付く手数記号（手1、手2、手3など）を除去
+                    s = re.sub(r'手\d+$', '', s.strip())
+                    s = s.strip()
+                    if not s:
+                        return None
+                    return float(s)
                 except (ValueError, TypeError):
                     return None
             

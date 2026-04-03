@@ -11,3 +11,4 @@ requests==2.31.0
 cloudinary
 PyMuPDF
 Pillow
+openpyxl

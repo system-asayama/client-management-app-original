@@ -205,17 +205,28 @@ def mypage():
                 google_api_key = request.form.get('google_api_key', '').strip() or None
                 anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
                 
-                if hasattr(admin, 'openai_api_key'):
-                    admin.openai_api_key = openai_api_key
-                if hasattr(admin, 'google_vision_api_key'):
-                    admin.google_vision_api_key = google_vision_api_key
-                if hasattr(admin, 'google_api_key'):
-                    admin.google_api_key = google_api_key
-                if hasattr(admin, 'anthropic_api_key'):
-                    admin.anthropic_api_key = anthropic_api_key
-                db.commit()
-                
-                flash('APIキー設定を更新しました', 'success')
+                # 直接SQLで更新（カラムが存在しない場合のエラーを回避）
+                try:
+                    from sqlalchemy import text
+                    db.execute(text(
+                        'UPDATE "T_管理者" SET '
+                        'openai_api_key = :openai_api_key, '
+                        'google_vision_api_key = :google_vision_api_key, '
+                        'google_api_key = :google_api_key, '
+                        'anthropic_api_key = :anthropic_api_key '
+                        'WHERE id = :id'
+                    ), {
+                        'openai_api_key': openai_api_key,
+                        'google_vision_api_key': google_vision_api_key,
+                        'google_api_key': google_api_key,
+                        'anthropic_api_key': anthropic_api_key,
+                        'id': user_id
+                    })
+                    db.commit()
+                    flash('APIキー設定を更新しました', 'success')
+                except Exception as e:
+                    db.rollback()
+                    flash(f'APIキーの保存に失敗しました: {str(e)}', 'error')
                 return redirect(url_for('system_admin.mypage'))
             
             elif action == 'change_password':

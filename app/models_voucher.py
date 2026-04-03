@@ -179,6 +179,27 @@ class TCreditStatement(Base):
         return f"<TCreditStatement(id={self.id}, カード会社名={self.カード会社名})>"
 
 
+class TBankDescriptionLearning(Base):
+    """通帳摘要学習テーブル（手動修正した摘要の対応関係を学習）"""
+    __tablename__ = 'T_通帳摘要学習'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False, index=True)
+
+    # OCRが読み取った元の摘要（正規化済み）
+    元摘要 = Column(String(500), nullable=False, comment='OCR読み取り元の摘要（正規化済み）', index=True)
+    # 手動修正後の摘要
+    修正摘要 = Column(String(500), nullable=False, comment='手動修正後の摘要')
+    # 適用回数（同じ修正が繰り返されるほど信頼度が上がる）
+    適用回数 = Column(Integer, default=1, comment='この修正が適用された回数')
+    # 最終更新日時
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<TBankDescriptionLearning(id={self.id}, 元摘要={self.元摘要}, 修正摘要={self.修正摘要})>"
+
+
 class TCreditTransaction(Base):
     """クレジット明細行（クレジット明細モード - 1明細1行）"""
     __tablename__ = 'T_クレジット明細行'

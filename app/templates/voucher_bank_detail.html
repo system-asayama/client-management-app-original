@@ -176,7 +176,7 @@
       </thead>
       <tbody id="txBody">
         {% for t in transactions %}
-        <tr data-row="{{ loop.index0 }}">
+        <tr data-row="{{ loop.index0 }}" data-original-description="{{ t.摘要 or '' }}">
           <td class="editable"><span class="display-val" style="white-space:nowrap;">{{ t.日付 or '—' }}</span><input type="text" class="edit-val" value="{{ t.日付 or '' }}" placeholder="YYYY-MM-DD" style="display:none;"></td>
           <td class="editable"><span class="display-val">{{ t.摘要 or '—' }}</span><input type="text" class="edit-val" value="{{ t.摘要 or '' }}" placeholder="摘要" style="display:none;"></td>
           <td class="editable num"><span class="display-val deposit">{% if t.入金 is not none %}{{ '{:,.0f}'.format(t.入金) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.入金 | int if t.入金 is not none else '' }}" placeholder="" style="display:none;"></td>
@@ -303,9 +303,12 @@ function saveChanges() {
   var transactions = [];
   rows.forEach(function(row) {
     var inputs = row.querySelectorAll('.edit-val');
+    // data-original-descriptionに保存した元の摘要を送信（学習用）
+    var originalDesc = row.getAttribute('data-original-description') || '';
     transactions.push({
       date: inputs[0] ? inputs[0].value.trim() : '',
       description: inputs[1] ? inputs[1].value.trim() : '',
+      original_description: originalDesc,
       deposit: inputs[2] ? inputs[2].value.replace(/,/g, '').trim() : '',
       withdrawal: inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '',
       balance: inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '',
@@ -352,10 +355,16 @@ function saveChanges() {
         if (displays[5]) displays[5].textContent = vals[5] || '';
       });
       cancelEdit();
-      // 成功通知
+      // 成功通知（学習件数も表示）
       var banner = document.createElement('div');
       banner.className = 'alert alert-success mb-3';
-      banner.textContent = '✅ ' + data.count + '件の明細を保存しました。';
+      var msg = data.message || ('✅ ' + data.count + '件の明細を保存しました。');
+      if (!data.message) {
+        msg = '✅ ' + msg;
+      } else {
+        msg = '✅ ' + msg;
+      }
+      banner.textContent = msg;
       document.getElementById('transactionCard').insertAdjacentElement('beforebegin', banner);
       setTimeout(function() { banner.remove(); }, 4000);
     } else {

@@ -10,7 +10,7 @@ import csv
 import threading
 from datetime import datetime
 from app.db import SessionLocal
-from app.models_voucher import TBankStatement, TBankTransaction, TBankColumnTemplate
+from app.models_voucher import TBankStatement, TBankTransaction, TBankColumnTemplate, TBankDescriptionLearning
 from app.models_login import TTenpo, TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from app.utils.voucher.ocr import process_bank_statement_image, save_uploaded_file
@@ -22,6 +22,49 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _normalize_description(text: str) -> str:
+    """摘要文字列を正規化（全角→半角、大文字→小文字、スペース除去）して照合精度を上げる"""
+    if not text:
+        return ''
+    import unicodedata
+    # NFKC正規化（全角→半角、ユニコード正規化）
+    text = unicodedata.normalize('NFKC', text)
+    # 大文字→小文字
+    text = text.lower()
+    # 先頭・末尾・連続スペースを除去
+    text = ' '.join(text.split())
+    return text
+
+
+def _save_learning_data(db, tenant_id: int, original_desc: str, corrected_desc: str):
+    """手動修正の摘要対応を学習テーブルに保存または更新する"""
+    if not original_desc or not corrected_desc:
+        return
+    if original_desc == corrected_desc:
+        return  # 変更なしは記録しない
+    norm_orig = _normalize_description(original_desc)
+    if not norm_orig:
+        return
+    # 既存レコードを検索（同じ元摘要と修正摘要の組み合わせ）
+    existing = db.query(TBankDescriptionLearning).filter(
+        TBankDescriptionLearning.tenant_id == tenant_id,
+        TBankDescriptionLearning.元摘要 == norm_orig,
+        TBankDescriptionLearning.修正摘要 == corrected_desc
+    ).first()
+    if existing:
+        existing.適用回数 += 1
+        print(f'[学習] 適用回数更新: "{original_desc}" → "{corrected_desc}" (回数={existing.適用回数})')
+    else:
+        new_record = TBankDescriptionLearning(
+            tenant_id=tenant_id,
+            元摘要=norm_orig,
+            修正摘要=corrected_desc,
+            適用回数=1
+        )
+        db.add(new_record)
+        print(f'[学習] 新規学習: "{original_desc}" → "{corrected_desc}"')
 
 
 def get_session_info():
@@ -120,7 +163,31 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
 
         db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
 
+        # 学習データを取得して自動適用用のマッピングを作成
+        learning_map = {}
+        try:
+            learnings = db.query(TBankDescriptionLearning).filter(
+                TBankDescriptionLearning.tenant_id == tenant_id
+            ).all()
+            for lrn in learnings:
+                # 元摘要を正規化（全角・半角・大小文字統一）してマッピング
+                key = _normalize_description(lrn.元摘要)
+                # 同じ元摘要に複数の修正がある場合は適用回数が多いものを優先
+                if key not in learning_map or lrn.適用回数 > learning_map[key].適用回数:
+                    learning_map[key] = lrn
+        except Exception as e:
+            print(f'[学習] 学習データ取得エラー: {e}')
+
+        applied_count = 0
         for i, t in enumerate(ocr_result.get('transactions', []), 1):
+            desc = t.get('description') or ''
+            # 学習データと照合して自動適用
+            norm_desc = _normalize_description(desc)
+            if norm_desc and norm_desc in learning_map:
+                corrected = learning_map[norm_desc].修正摘要
+                print(f'[学習] 摘要自動適用: "{desc}" → "{corrected}"')
+                t['description'] = corrected
+                applied_count += 1
             row = TBankTransaction(
                 statement_id=stmt_id,
                 tenant_id=tenant_id,
@@ -133,6 +200,8 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
                 行番号=i,
             )
             db.add(row)
+        if applied_count > 0:
+            print(f'[学習] 合計{applied_count}行の摘要を自動適用しました')
 
         db.commit()
 
@@ -522,23 +591,44 @@ def update_transactions(stmt_id):
         if not data or 'transactions' not in data:
             return jsonify({'success': False, 'error': 'データが不正です'}), 400
 
+        # 修正前の摘要を保存（学習用）
+        # クライアントから「元の摘要（original_description）」を送信してもらう
+        # 送信されない場合は現在DBの摘要を使用
+        existing_rows = db.query(TBankTransaction).filter(
+            TBankTransaction.statement_id == stmt_id
+        ).order_by(TBankTransaction.行番号).all()
+        existing_desc_map = {row.行番号: row.摘要 for row in existing_rows}
+
         # 既存の明細を全削除して再登録
         db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
 
+        def to_float_or_none(v):
+            if v is None or str(v).strip() == '':
+                return None
+            try:
+                return float(str(v).replace(',', '').replace('¥', '').replace('円', '').strip())
+            except (ValueError, TypeError):
+                return None
+
+        learning_saved = 0
         for i, t in enumerate(data['transactions'], 1):
-            def to_float_or_none(v):
-                if v is None or str(v).strip() == '':
-                    return None
+            new_desc = t.get('description') or None
+
+            # 学習データの記録：元の摘要と修正後の摘要を比較
+            # クライアントからoriginal_descriptionが送信された場合はそれを使用
+            original_desc = t.get('original_description') or existing_desc_map.get(i)
+            if original_desc and new_desc and original_desc != new_desc:
                 try:
-                    return float(str(v).replace(',', '').replace('¥', '').replace('円', '').strip())
-                except (ValueError, TypeError):
-                    return None
+                    _save_learning_data(db, tenant_id, original_desc, new_desc)
+                    learning_saved += 1
+                except Exception as le:
+                    print(f'[学習] 記録エラー: {le}')
 
             row = TBankTransaction(
                 statement_id=stmt_id,
                 tenant_id=tenant_id,
                 日付=t.get('date') or None,
-                摘要=t.get('description') or None,
+                摘要=new_desc,
                 入金=to_float_or_none(t.get('deposit')),
                 出金=to_float_or_none(t.get('withdrawal')),
                 残高=to_float_or_none(t.get('balance')),
@@ -548,7 +638,11 @@ def update_transactions(stmt_id):
             db.add(row)
 
         db.commit()
-        return jsonify({'success': True, 'count': len(data['transactions'])})
+        msg = f'保存しました（{len(data["transactions"])}行'
+        if learning_saved > 0:
+            msg += f'、{learning_saved}件の摘要修正を学習しました'
+        msg += '）'
+        return jsonify({'success': True, 'count': len(data['transactions']), 'learning_saved': learning_saved, 'message': msg})
 
     except Exception as e:
         db.rollback()

@@ -119,6 +119,37 @@ class TBankTransaction(Base):
         return f"<TBankTransaction(id={self.id}, 日付={self.日付}, 摘要={self.摘要})>"
 
 
+class TBankColumnTemplate(Base):
+    """通帳列定義テンプレート（テナントごとに保存・再利用可能）"""
+    __tablename__ = 'T_通帳列定義テンプレート'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False, index=True)
+    テンプレート名 = Column(String(255), nullable=False, comment='テンプレート名（例：岡山銀行通帳）')
+    銀行名 = Column(String(255), nullable=True, comment='対象銀行名')
+    # 列定義（列番号と役割のマッピング）
+    列1_役割 = Column(String(50), nullable=True, default='date', comment='列1の役割')
+    列1_名称 = Column(String(100), nullable=True, default='年月日', comment='列1の表示名')
+    列2_役割 = Column(String(50), nullable=True, default='code', comment='列2の役割')
+    列2_名称 = Column(String(100), nullable=True, default='記号', comment='列2の表示名')
+    列3_役割 = Column(String(50), nullable=True, default='withdrawal', comment='列3の役割')
+    列3_名称 = Column(String(100), nullable=True, default='お払戻し金額（出金）', comment='列3の表示名')
+    列4_役割 = Column(String(50), nullable=True, default='deposit', comment='列4の役割')
+    列4_名称 = Column(String(100), nullable=True, default='お預り金額/お利息（入金）', comment='列4の表示名')
+    列5_役割 = Column(String(50), nullable=True, default='balance', comment='列5の役割')
+    列5_名称 = Column(String(100), nullable=True, default='差引残高', comment='列5の表示名')
+    列6_役割 = Column(String(50), nullable=True, default='note', comment='列6の役割')
+    列6_名称 = Column(String(100), nullable=True, default='備考', comment='列6の表示名')
+    # 追加メモ（GPT-4oへの補足指示）
+    補足指示 = Column(Text, nullable=True, comment='GPT-4oへの補足指示（例：*は金額修飾記号）')
+    is_default = Column(Boolean, default=False, comment='デフォルトテンプレートとして使用するか')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<TBankColumnTemplate(id={self.id}, テンプレート名={self.テンプレート名})>"
+
+
 class TCreditStatement(Base):
     """クレジット明細テーブル（クレジット明細モード - 1ファイル1レコード）"""
     __tablename__ = 'T_クレジット明細'

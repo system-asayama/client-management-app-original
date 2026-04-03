@@ -350,7 +350,9 @@ def create_app() -> Flask:
         app.register_blueprint(voucher_bank_bp)
         print("✅ voucher_bank blueprint 登録完了")
     except Exception as e:
+        import traceback
         print(f"⚠️ voucher_bank blueprint 登録エラー: {e}")
+        traceback.print_exc()
 
     try:
         from .blueprints.voucher_credit import bp as voucher_credit_bp

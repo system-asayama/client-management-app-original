@@ -17,36 +17,73 @@ def _encode_image_to_base64(image_path: str) -> str:
         return base64.b64encode(f.read()).decode('utf-8')
 
 
+def _pdf_to_images(pdf_path: str) -> list:
+    """ファイルがPDFの場合、画像リストに変換する。画像の場合はそのまま返す。"""
+    ext = os.path.splitext(pdf_path)[1].lower()
+    if ext != '.pdf':
+        return [pdf_path]
+    try:
+        from pdf2image import convert_from_path
+        images = convert_from_path(pdf_path, dpi=150)
+        tmp_paths = []
+        for i, img in enumerate(images):
+            tmp_path = pdf_path + f'_page{i+1}.jpg'
+            img.save(tmp_path, 'JPEG', quality=85)
+            tmp_paths.append(tmp_path)
+        return tmp_paths
+    except Exception as e:
+        print(f'PDF変換エラー: {e}')
+        return []
+
+
 def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: int = 2000) -> dict:
-    """共通のOpenAI Vision API呼び出し"""
+    """共通のOpenAI Vision API呼び出し。PDFは自動変換。"""
     import requests
+    # PDFの場合は画像に変換
     ext = os.path.splitext(image_path)[1].lower()
-    mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-                '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
-    mime_type = mime_map.get(ext, 'image/jpeg')
-    image_data = _encode_image_to_base64(image_path)
+    if ext == '.pdf':
+        image_paths = _pdf_to_images(image_path)
+        if not image_paths:
+            raise ValueError('PDFを画像に変換できませんでした')
+        # 最初のページだけでなく、全ページを送信（最大4ページまで）
+        content = [{'type': 'text', 'text': prompt}]
+        for p in image_paths[:4]:
+            img_data = _encode_image_to_base64(p)
+            content.append({'type': 'image_url', 'image_url': {
+                'url': f'data:image/jpeg;base64,{img_data}',
+                'detail': 'high'
+            }})
+        # 一時ファイルを削除
+        for p in image_paths:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+    else:
+        mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                    '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
+        mime_type = mime_map.get(ext, 'image/jpeg')
+        image_data = _encode_image_to_base64(image_path)
+        content = [
+            {'type': 'text', 'text': prompt},
+            {'type': 'image_url', 'image_url': {
+                'url': f'data:{mime_type};base64,{image_data}',
+                'detail': 'high'
+            }}
+        ]
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
     }
     payload = {
         'model': 'gpt-4o',
-        'messages': [{
-            'role': 'user',
-            'content': [
-                {'type': 'text', 'text': prompt},
-                {'type': 'image_url', 'image_url': {
-                    'url': f'data:{mime_type};base64,{image_data}',
-                    'detail': 'high'
-                }}
-            ]
-        }],
+        'messages': [{'role': 'user', 'content': content}],
         'max_tokens': max_tokens,
         'response_format': {'type': 'json_object'}
     }
     response = requests.post(
         'https://api.openai.com/v1/chat/completions',
-        headers=headers, json=payload, timeout=60
+        headers=headers, json=payload, timeout=120
     )
     response.raise_for_status()
     return json.loads(response.json()['choices'][0]['message']['content'])
@@ -121,7 +158,7 @@ JSONのみを返してください。説明文は不要です。"""
         except (ValueError, TypeError):
             return None
 
-    data = _call_openai_vision(image_path, api_key, prompt, max_tokens=2000)
+    data = _call_openai_vision(image_path, api_key, prompt, max_tokens=4000)
     for t in data.get('transactions', []):
         t['deposit'] = to_float(t.get('deposit'))
         t['withdrawal'] = to_float(t.get('withdrawal'))
@@ -165,7 +202,7 @@ JSONのみを返してください。説明文は不要です。"""
         except (ValueError, TypeError):
             return None
 
-    data = _call_openai_vision(image_path, api_key, prompt, max_tokens=2000)
+    data = _call_openai_vision(image_path, api_key, prompt, max_tokens=4000)
     data['total_amount'] = to_float(data.get('total_amount'))
     for t in data.get('transactions', []):
         t['amount'] = to_float(t.get('amount'))

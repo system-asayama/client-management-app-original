@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}通帳アップロード - 証憑データ化アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .vc-header {
+    background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+  }
+  .vc-header .sub { font-size: 0.78rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .vc-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .vc-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; white-space: nowrap;
+  }
+  .vc-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .vc-btn-success { background: #16a34a; color: #fff; }
+  .upload-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .upload-card h2 { font-size: 1rem; font-weight: 700; color: #14532d; margin: 0 0 1rem 0; }
+  .drop-zone {
+    border: 2.5px dashed #86efac; border-radius: 12px; padding: 2.5rem 1rem;
+    text-align: center; background: #f0fdf4; cursor: pointer; transition: all 0.2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #16a34a; background: #dcfce7; }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-zone .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .drop-zone .main-text { font-size: 1rem; font-weight: 600; color: #14532d; margin-bottom: 0.25rem; }
+  .drop-zone .sub-text { font-size: 0.82rem; color: #6b7280; }
+  .preview-area { margin-top: 1rem; display: none; }
+  .preview-area img { max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #e5e7eb; }
+  .info-box {
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
+    padding: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: #14532d;
+  }
+  .info-box ul { margin: 0.5rem 0 0 0; padding-left: 1.2rem; }
+  .info-box li { margin-bottom: 0.25rem; }
+</style>
+
+<div class="vc-header">
+  <div>
+    <div class="sub">🏦 証憑データ化アプリ</div>
+    <h1>通帳をアップロード</h1>
+  </div>
+  <a href="{{ url_for('voucher_bank.index') }}" class="vc-btn vc-btn-white">← 一覧に戻る</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' if cat == 'warning' else 'danger' }} mb-3" role="alert">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="info-box">
+  <strong>🏦 通帳モードについて</strong>
+  <ul>
+    <li>通帳や銀行の明細書の画像をアップロードしてください</li>
+    <li>AIが口座情報・入出金明細を自動抽出します</li>
+    <li>抽出後、CSV・Excelでダウンロードできます</li>
+    <li>対応形式：PNG / JPG / GIF / PDF</li>
+  </ul>
+</div>
+
+<div class="upload-card">
+  <h2>📎 ファイルを選択</h2>
+  <form method="POST" enctype="multipart/form-data" id="uploadForm">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" name="file" id="fileInput" accept=".png,.jpg,.jpeg,.gif,.pdf" required>
+      <div class="icon">🏦</div>
+      <div class="main-text">ここをタップしてファイルを選択</div>
+      <div class="sub-text">またはドラッグ＆ドロップ</div>
+      <div class="sub-text" style="margin-top:0.5rem;">PNG / JPG / GIF / PDF</div>
+    </div>
+    <div class="preview-area" id="previewArea">
+      <img id="previewImg" src="" alt="プレビュー">
+      <div id="fileName" style="font-size:0.82rem;color:#374151;margin-top:0.5rem;"></div>
+    </div>
+    <div style="margin-top:1.25rem;">
+      <button type="submit" class="vc-btn vc-btn-success" style="width:100%;justify-content:center;padding:0.75rem;">
+        🚀 アップロードしてOCR処理
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const previewArea = document.getElementById('previewArea');
+const previewImg = document.getElementById('previewImg');
+const fileName = document.getElementById('fileName');
+
+fileInput.addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  fileName.textContent = file.name;
+  previewArea.style.display = 'block';
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => { previewImg.src = e.target.result; previewImg.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  } else {
+    previewImg.style.display = 'none';
+  }
+});
+
+['dragover','dragenter'].forEach(ev => {
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+});
+['dragleave','drop'].forEach(ev => {
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+});
+dropZone.addEventListener('drop', e => {
+  const file = e.dataTransfer.files[0];
+  if (file) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+});
+</script>
+{% endblock %}

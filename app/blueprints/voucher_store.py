@@ -39,7 +39,16 @@ def get_session_info():
 
 
 # ============================================================
-# 証憑一覧
+# 証桯モード選択トップ
+# ============================================================
+@bp.route('/top')
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def top():
+    return render_template('voucher_top.html')
+
+
+# ============================================================
+# 証桯一覧（レシート・領収書モード）
 # ============================================================
 @bp.route('/')
 @require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])

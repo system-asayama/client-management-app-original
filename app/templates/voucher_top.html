@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}証憑データ化アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .vc-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.75rem 1.5rem;
+    margin-bottom: 2rem; text-align: center;
+  }
+  .vc-header .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .vc-header h1 { margin: 0 0 0.4rem 0; font-size: 1.6rem; font-weight: 800; }
+  .vc-header p { margin: 0; font-size: 0.9rem; opacity: 0.8; }
+
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .mode-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1.75rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .mode-card:hover {
+    border-color: #2563a8;
+    box-shadow: 0 4px 20px rgba(37,99,168,0.15);
+    transform: translateY(-2px);
+    text-decoration: none;
+    color: inherit;
+  }
+  .mode-card .mode-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+  }
+  .mode-card .mode-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #1e3a5f;
+  }
+  .mode-card .mode-desc {
+    font-size: 0.85rem;
+    color: #6b7280;
+    line-height: 1.6;
+  }
+  .mode-card .mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+  .badge-receipt { background: #dbeafe; color: #1e40af; }
+  .badge-bank { background: #d1fae5; color: #065f46; }
+  .badge-credit { background: #fce7f3; color: #9d174d; }
+
+  .mode-card.receipt { border-top: 4px solid #2563a8; }
+  .mode-card.bank { border-top: 4px solid #16a34a; }
+  .mode-card.credit { border-top: 4px solid #db2777; }
+
+  .mode-card .mode-features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .mode-card .mode-features li {
+    font-size: 0.8rem;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .mode-card .mode-features li::before {
+    content: "✓";
+    color: #16a34a;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .mode-card .mode-action {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #2563a8;
+  }
+  .mode-card.bank .mode-action { color: #16a34a; }
+  .mode-card.credit .mode-action { color: #db2777; }
+</style>
+
+<div class="vc-header">
+  <div class="icon">📄</div>
+  <h1>証憑データ化アプリ</h1>
+  <p>書類の種類を選択してください</p>
+</div>
+
+<div class="mode-grid">
+  <!-- レシート・領収書モード -->
+  <a href="{{ url_for('voucher_store.index') }}" class="mode-card receipt">
+    <div class="mode-icon">🧾</div>
+    <div>
+      <div class="mode-title">レシート・領収書</div>
+      <span class="mode-badge badge-receipt">📋 証憑管理</span>
+    </div>
+    <div class="mode-desc">
+      レシートや領収書の画像をアップロードして、取引先・金額・日付などを自動抽出します。インボイス番号・法人番号の検索にも対応。
+    </div>
+    <ul class="mode-features">
+      <li>会社名・金額・日付を自動抽出</li>
+      <li>インボイス登録番号の確認</li>
+      <li>法人番号検索対応</li>
+      <li>一覧・詳細・編集・CSV出力</li>
+    </ul>
+    <div class="mode-action">一覧を開く →</div>
+  </a>
+
+  <!-- 通帳モード -->
+  <a href="{{ url_for('voucher_bank.index') }}" class="mode-card bank">
+    <div class="mode-icon">🏦</div>
+    <div>
+      <div class="mode-title">通帳明細</div>
+      <span class="mode-badge badge-bank">📊 CSV/Excel出力</span>
+    </div>
+    <div class="mode-desc">
+      通帳や銀行明細書の画像をアップロードして、入出金明細を自動抽出します。CSV・Excelファイルとしてダウンロードできます。
+    </div>
+    <ul class="mode-features">
+      <li>口座情報（銀行名・口座番号）を抽出</li>
+      <li>入金・出金・残高を行ごとに抽出</li>
+      <li>CSVダウンロード対応</li>
+      <li>Excelダウンロード対応</li>
+    </ul>
+    <div class="mode-action">一覧を開く →</div>
+  </a>
+
+  <!-- クレジット明細モード -->
+  <a href="{{ url_for('voucher_credit.index') }}" class="mode-card credit">
+    <div class="mode-icon">💳</div>
+    <div>
+      <div class="mode-title">クレジット明細</div>
+      <span class="mode-badge badge-credit">📊 CSV/Excel出力</span>
+    </div>
+    <div class="mode-desc">
+      クレジットカードの利用明細書をアップロードして、利用日・店舗名・金額などを自動抽出します。CSV・Excelファイルとしてダウンロードできます。
+    </div>
+    <ul class="mode-features">
+      <li>カード情報・明細年月を抽出</li>
+      <li>利用日・店舗名・金額を行ごとに抽出</li>
+      <li>CSVダウンロード対応</li>
+      <li>Excelダウンロード対応</li>
+    </ul>
+    <div class="mode-action">一覧を開く →</div>
+  </a>
+</div>
+{% endblock %}

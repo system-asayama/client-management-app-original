@@ -93,6 +93,30 @@ def init_all_tables():
         }), 500
 
 
+@bp.route('/create_bank_credit_tables')
+def create_bank_credit_tables():
+    """通帳明細・クレジット明細テーブルを作成する"""
+    try:
+        from ..db import engine
+        from ..models_voucher import TBankStatement, TBankTransaction, TCreditStatement, TCreditTransaction
+        from ..db import Base
+        Base.metadata.create_all(engine, tables=[
+            TBankStatement.__table__,
+            TBankTransaction.__table__,
+            TCreditStatement.__table__,
+            TCreditTransaction.__table__,
+        ])
+        return jsonify({
+            'status': 'success',
+            'message': '通帳明細・クレジット明細テーブルを作成しました'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'マイグレーション失敗: {str(e)}'
+        }), 500
+
+
 @bp.route('/add_admin_columns')
 def add_admin_columns():
     """T_管理者テーブルにis_ownerとcan_manage_adminsカラムを追加"""

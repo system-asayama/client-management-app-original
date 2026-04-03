@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}クレジット明細詳細 - 証憑データ化アプリ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .vc-header {
+    background: linear-gradient(135deg, #831843 0%, #db2777 100%);
+    color: #fff; border-radius: 16px; padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .vc-header .sub { font-size: 0.78rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .vc-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+  .vc-header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .vc-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.45rem 1rem; border-radius: 8px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; white-space: nowrap;
+  }
+  .vc-btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .vc-btn-pink { background: #db2777; color: #fff; }
+  .vc-btn-outline { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
+
+  .info-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;
+  }
+  .info-card h2 { font-size: 0.95rem; font-weight: 700; color: #831843; margin: 0 0 1rem 0; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+  .info-item .label { font-size: 0.75rem; color: #6b7280; margin-bottom: 2px; }
+  .info-item .value { font-size: 0.9rem; font-weight: 600; color: #111827; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { background: #831843; color: #fff; padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; white-space: nowrap; }
+  td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f3f4f6; }
+  tr:hover td { background: #fdf2f8; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .amount { color: #db2777; font-weight: 600; }
+  .total-row { background: #fce7f3; font-weight: 700; }
+</style>
+
+<div class="vc-header">
+  <div class="sub">💳 証憑データ化アプリ / クレジット明細</div>
+  <h1>{{ stmt.カード会社名 or 'クレジット明細' }}{% if stmt.カード名 %} / {{ stmt.カード名 }}{% endif %}</h1>
+  <div class="vc-header-actions">
+    <a href="{{ url_for('voucher_credit.index') }}" class="vc-btn vc-btn-white">← 一覧に戻る</a>
+    <a href="{{ url_for('voucher_credit.export_csv', stmt_id=stmt.id) }}" class="vc-btn vc-btn-pink">⬇ CSV</a>
+    <a href="{{ url_for('voucher_credit.export_excel', stmt_id=stmt.id) }}" class="vc-btn vc-btn-pink">⬇ Excel</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' if cat == 'warning' else 'danger' }} mb-3">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<!-- カード情報 -->
+<div class="info-card">
+  <h2>💳 カード情報</h2>
+  <div class="info-grid">
+    <div class="info-item"><div class="label">カード会社名</div><div class="value">{{ stmt.カード会社名 or '—' }}</div></div>
+    <div class="info-item"><div class="label">カード名</div><div class="value">{{ stmt.カード名 or '—' }}</div></div>
+    <div class="info-item"><div class="label">会員名</div><div class="value">{{ stmt.会員名 or '—' }}</div></div>
+    <div class="info-item"><div class="label">明細年月</div><div class="value">{{ stmt.明細年月 or '—' }}</div></div>
+    <div class="info-item"><div class="label">支払日</div><div class="value">{{ stmt.支払日 or '—' }}</div></div>
+    <div class="info-item"><div class="label">利用総額</div><div class="value" style="color:#db2777;">{% if stmt.利用総額 is not none %}{{ '{:,.0f}'.format(stmt.利用総額) }}円{% else %}—{% endif %}</div></div>
+  </div>
+</div>
+
+<!-- 明細一覧 -->
+<div class="info-card">
+  <h2>📋 利用明細（{{ transactions|length }}件）</h2>
+  {% if transactions %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>利用日</th>
+          <th>利用店名</th>
+          <th>利用者</th>
+          <th class="num">利用金額</th>
+          <th>分割回数</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td style="white-space:nowrap;">{{ t.利用日 or '—' }}</td>
+          <td>{{ t.利用店名 or '—' }}</td>
+          <td>{{ t.利用者 or '—' }}</td>
+          <td class="num amount">{% if t.利用金額 is not none %}{{ '{:,.0f}'.format(t.利用金額) }}{% else %}—{% endif %}</td>
+          <td>{{ t.分割回数 or '—' }}</td>
+          <td>{{ t.備考 or '' }}</td>
+        </tr>
+        {% endfor %}
+        {% if stmt.利用総額 is not none %}
+        <tr class="total-row">
+          <td colspan="3" style="text-align:right;">合計</td>
+          <td class="num amount">{{ '{:,.0f}'.format(stmt.利用総額) }}</td>
+          <td colspan="2"></td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:2rem;color:#9ca3af;">明細データがありません</div>
+  {% endif %}
+</div>
+{% endblock %}

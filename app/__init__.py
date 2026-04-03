@@ -345,6 +345,20 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ voucher_store blueprint 登録エラー: {e}")
 
+    try:
+        from .blueprints.voucher_bank import bp as voucher_bank_bp
+        app.register_blueprint(voucher_bank_bp)
+        print("✅ voucher_bank blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ voucher_bank blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.voucher_credit import bp as voucher_credit_bp
+        app.register_blueprint(voucher_credit_bp)
+        print("✅ voucher_credit blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ voucher_credit blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

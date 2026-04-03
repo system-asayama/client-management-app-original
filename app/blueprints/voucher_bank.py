@@ -38,8 +38,8 @@ def _normalize_description(text: str) -> str:
     return text
 
 
-def _save_learning_data(db, tenant_id: int, original_desc: str, corrected_desc: str):
-    """手動修正の摘要対応を学習テーブルに保存または更新する"""
+def _save_learning_data(db, tenant_id: int, original_desc: str, corrected_desc: str, tenpo_id: int = None, template_id: int = None):
+    """手動修正の摘要対応を学習テーブルに保存または更新する（店舗・テンプレート単位で分離）"""
     if not original_desc or not corrected_desc:
         return
     if original_desc == corrected_desc:
@@ -47,24 +47,35 @@ def _save_learning_data(db, tenant_id: int, original_desc: str, corrected_desc: 
     norm_orig = _normalize_description(original_desc)
     if not norm_orig:
         return
-    # 既存レコードを検索（同じ元摘要と修正摘要の組み合わせ）
-    existing = db.query(TBankDescriptionLearning).filter(
+    # 既存レコードを検索（店舗・テンプレート・元摘要・修正摘要の組み合わせ）
+    q = db.query(TBankDescriptionLearning).filter(
         TBankDescriptionLearning.tenant_id == tenant_id,
         TBankDescriptionLearning.元摘要 == norm_orig,
         TBankDescriptionLearning.修正摘要 == corrected_desc
-    ).first()
+    )
+    if tenpo_id is not None:
+        q = q.filter(TBankDescriptionLearning.tenpo_id == tenpo_id)
+    else:
+        q = q.filter(TBankDescriptionLearning.tenpo_id.is_(None))
+    if template_id is not None:
+        q = q.filter(TBankDescriptionLearning.template_id == template_id)
+    else:
+        q = q.filter(TBankDescriptionLearning.template_id.is_(None))
+    existing = q.first()
     if existing:
         existing.適用回数 += 1
-        print(f'[学習] 適用回数更新: "{original_desc}" → "{corrected_desc}" (回数={existing.適用回数})')
+        print(f'[学習] 適用回数更新: "{original_desc}" → "{corrected_desc}" (店舗={tenpo_id}, テンプレート={template_id}, 回数={existing.適用回数})')
     else:
         new_record = TBankDescriptionLearning(
             tenant_id=tenant_id,
+            tenpo_id=tenpo_id,
+            template_id=template_id,
             元摘要=norm_orig,
             修正摘要=corrected_desc,
             適用回数=1
         )
         db.add(new_record)
-        print(f'[学習] 新規学習: "{original_desc}" → "{corrected_desc}"')
+        print(f'[学習] 新規学習: "{original_desc}" → "{corrected_desc}" (店舗={tenpo_id}, テンプレート={template_id})')
 
 
 def get_session_info():
@@ -134,7 +145,7 @@ def get_api_keys(tenant_id, tenpo_id):
     return result
 
 
-def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None, column_def=None):
+def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None, column_def=None, tenpo_id=None, template_id=None):
     """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
     db = SessionLocal()
     try:
@@ -164,11 +175,21 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
         db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
 
         # 学習データを取得して自動適用用のマッピングを作成
+        # 店舗・テンプレート単位で学習データを絞り込む
         learning_map = {}
         try:
-            learnings = db.query(TBankDescriptionLearning).filter(
+            lq = db.query(TBankDescriptionLearning).filter(
                 TBankDescriptionLearning.tenant_id == tenant_id
-            ).all()
+            )
+            if tenpo_id is not None:
+                lq = lq.filter(TBankDescriptionLearning.tenpo_id == tenpo_id)
+            else:
+                lq = lq.filter(TBankDescriptionLearning.tenpo_id.is_(None))
+            if template_id is not None:
+                lq = lq.filter(TBankDescriptionLearning.template_id == template_id)
+            else:
+                lq = lq.filter(TBankDescriptionLearning.template_id.is_(None))
+            learnings = lq.all()
             for lrn in learnings:
                 # 元摘要を正規化（全角・半角・大小文字統一）してマッピング
                 key = _normalize_description(lrn.元摘要)
@@ -309,6 +330,16 @@ def upload():
 
         # 列定義を収集
         column_def = None
+        used_template_id = None  # 使用したテンプレートID（学習データの分離管理用）
+
+        # 既存テンプレートを読み込んだ場合
+        load_template_id = request.form.get('load_template_id', '')
+        if load_template_id:
+            try:
+                used_template_id = int(load_template_id)
+            except (ValueError, TypeError):
+                pass
+
         col1_role = request.form.get('col1_role', '')
         if col1_role:  # 列定義が送信された場合
             column_def = {
@@ -345,10 +376,24 @@ def upload():
                     )
                     db2.add(tmpl)
                     db2.commit()
+                    used_template_id = tmpl.id  # 新規保存したテンプレートのIDを使用
                 except Exception:
                     pass
                 finally:
                     db2.close()
+
+        # TBankStatementにtemplate_idを保存
+        if used_template_id:
+            db3 = SessionLocal()
+            try:
+                s = db3.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
+                if s:
+                    s.template_id = used_template_id
+                    db3.commit()
+            except Exception:
+                pass
+            finally:
+                db3.close()
 
         if not has_any_key:
             flash('APIキーが未設定のため、OCR処理をスキップしました。設定画面からOpenAIまたはGoogle Cloud Vision APIキーを設定してください。', 'warning')
@@ -356,7 +401,8 @@ def upload():
             t = threading.Thread(
                 target=_run_ocr_background,
                 args=(stmt_id, filepath, openai_api_key, tenant_id),
-                kwargs={'google_vision_api_key': google_vision_api_key, 'column_def': column_def},
+                kwargs={'google_vision_api_key': google_vision_api_key, 'column_def': column_def,
+                        'tenpo_id': tenpo_id, 'template_id': used_template_id},
                 daemon=True
             )
             t.start()

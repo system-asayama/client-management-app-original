@@ -88,6 +88,7 @@ class TBankStatement(Base):
     期間_開始 = Column(String(20), nullable=True, comment='明細期間開始日')
     期間_終了 = Column(String(20), nullable=True, comment='明細期間終了日')
 
+    template_id = Column(Integer, ForeignKey('T_通帳列定義テンプレート.id'), nullable=True, index=True, comment='使用した列定義テンプレートID')
     ステータス = Column(String(20), default='pending')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -185,6 +186,8 @@ class TBankDescriptionLearning(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False, index=True)
+    tenpo_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True, index=True, comment='店舗ID（店舗ごとに学習データを分離）')
+    template_id = Column(Integer, ForeignKey('T_通帳列定義テンプレート.id'), nullable=True, index=True, comment='列定義テンプレートID（テンプレートごとに学習データを分離）')
 
     # OCRが読み取った元の摘要（正規化済み）
     元摘要 = Column(String(500), nullable=False, comment='OCR読み取り元の摘要（正規化済み）', index=True)

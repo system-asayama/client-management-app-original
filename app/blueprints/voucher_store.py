@@ -11,7 +11,7 @@ import csv
 from datetime import datetime
 from app.db import SessionLocal
 from app.models_voucher import TVoucher, TCompany
-from app.models_login import TTenpo
+from app.models_login import TTenpo, TTenant, TKanrisha
 from app.utils.decorators import require_roles, ROLES
 from app.utils.voucher.ocr import process_receipt_image, save_uploaded_file
 from app.utils.voucher.nta_api import NTAInvoiceAPI
@@ -102,22 +102,43 @@ def upload():
         upload_dir = os.path.join('uploads', 'vouchers', str(tenant_id))
         filepath = save_uploaded_file(file, upload_dir)
 
-        # 店舗のOpenAI APIキーを取得
+        # OpenAI APIキーを継承順に取得：店舗 → テナント → システム管理者
         openai_api_key = None
-        if tenpo_id:
-            db_tmp = SessionLocal()
-            try:
+        api_key_source = None
+        db_tmp = SessionLocal()
+        try:
+            # 1. 店舗のAPIキー
+            if tenpo_id:
                 tenpo = db_tmp.query(TTenpo).filter(TTenpo.id == tenpo_id).first()
-                if tenpo and hasattr(tenpo, 'openai_api_key'):
+                if tenpo and getattr(tenpo, 'openai_api_key', None):
                     openai_api_key = tenpo.openai_api_key
-            except Exception:
-                pass
-            finally:
-                db_tmp.close()
+                    api_key_source = '店舗'
+
+            # 2. テナントのAPIキー（店舗にない場合）
+            if not openai_api_key and tenant_id:
+                tenant = db_tmp.query(TTenant).filter(TTenant.id == tenant_id).first()
+                if tenant and getattr(tenant, 'openai_api_key', None):
+                    openai_api_key = tenant.openai_api_key
+                    api_key_source = 'テナント'
+
+            # 3. システム管理者のAPIキー（店舗・テナントにない場合）
+            if not openai_api_key:
+                sys_admin = db_tmp.query(TKanrisha).filter(
+                    TKanrisha.role == 'system_admin',
+                    TKanrisha.openai_api_key != None,
+                    TKanrisha.openai_api_key != ''
+                ).first()
+                if sys_admin and getattr(sys_admin, 'openai_api_key', None):
+                    openai_api_key = sys_admin.openai_api_key
+                    api_key_source = 'システム管理者'
+        except Exception:
+            pass
+        finally:
+            db_tmp.close()
 
         # OCR処理（OpenAI Vision API使用）
         if not openai_api_key:
-            flash('店舗のOpenAI APIキーが未設定のため、OCR処理をスキップしました。店舗設定からOpenAI APIキーを登録してください。', 'warning')
+            flash('OpenAI APIキーが未設定のため、OCR処理をスキップしました。店舗・テナントまたはシステム管理者のOpenAI APIキーを登録してください。', 'warning')
         ocr_result = process_receipt_image(filepath, api_key=openai_api_key)
 
         # 電話番号・住所から法人番号検索（NTA API）

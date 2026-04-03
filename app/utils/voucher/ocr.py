@@ -67,19 +67,14 @@ def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_
         headers=headers, json=payload, timeout=120
     )
     response.raise_for_status()
-    resp_json = response.json()
-    choice = resp_json.get('choices', [{}])[0]
-    raw_content = choice.get('message', {}).get('content')
-    finish_reason = choice.get('finish_reason', '')
-    if not raw_content:
-        # contentがNoneまたは空の場合（content_filterやlengthなどによる）
-        print(f'[OCR] APIレスポンスcontentがNull: finish_reason={finish_reason}')
-        return {'transactions': [], 'raw_text': f'[APIエラー: finish_reason={finish_reason}]'}
+    raw_content = response.json()['choices'][0]['message']['content']
     try:
         return json.loads(raw_content)
     except json.JSONDecodeError:
         # JSONが途中で切れている場合、transactionsリストを安全に抽出する
+        import re
         transactions = []
+        # transactionsの各要素を個別に抽出
         for m in re.finditer(r'\{[^{}]+\}', raw_content):
             try:
                 obj = json.loads(m.group())
@@ -132,10 +127,7 @@ def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: 
             headers=headers, json=payload, timeout=120
         )
         response.raise_for_status()
-        raw_content = response.json()['choices'][0]['message'].get('content')
-        if not raw_content:
-            return {}
-        return json.loads(raw_content)
+        return json.loads(response.json()['choices'][0]['message']['content'])
 
 
 def extract_text_with_openai_vision(image_path: str, api_key: str) -> Dict:

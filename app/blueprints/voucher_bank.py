@@ -84,7 +84,18 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id):
 
         print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR開始')
         ocr_result = process_bank_statement_image(filepath, api_key=api_key)
-        print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR完了 transactions={len(ocr_result.get("transactions", []))}')
+        print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR完了 transactions={len(ocr_result.get("transactions", []))} error={ocr_result.get("_error")}')
+
+        # OCR内部エラーの確認
+        if ocr_result.get('_error'):
+            err_msg = ocr_result['_error']
+            print(f'[OCR] 通帳明細 stmt_id={stmt_id} OCR内部エラー: {err_msg}')
+            stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
+            if stmt:
+                stmt.ステータス = 'error'
+                stmt.OCR結果_生データ = f'OCRエラー: {err_msg}'
+                db.commit()
+            return
 
         stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
         if not stmt:

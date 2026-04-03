@@ -104,6 +104,69 @@ def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_
     return {'transactions': [], 'raw_text': '[リトライ上限超過]'}
 
 
+def _call_openai_vision_with_system(image_path: str, api_key: str, prompt: str, max_tokens: int = 16000) -> dict:
+    """通帳用Vision API呼び出し。システムプロンプト付き、detail=high、max_tokens大。"""
+    import requests
+    import time
+    system_message = (
+        'あなたは日本の銀行通帳のOCR専門家です。'
+        '画像を極めて注意深く分析し、各列（年月日・記号・お払戈し金額・お預り金額・差引残高・備考）の内容を正確に読み取ってください。'
+        '手書き文字は文脈と慣用句を考慮して正確に読んでください。'
+        '「*」は金額の修飾記号であり、金額の一部ではありません。「*3,413,114」は3413114です。'
+        '記号列（100、900など）は取引種別コードであり、金額ではありません。'
+        '必ずJSON形式のみで返してください。説明文は不要です。'
+    )
+    ext = os.path.splitext(image_path)[1].lower()
+    mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
+    mime_type = mime_map.get(ext, 'image/jpeg')
+    image_data = _encode_image_to_base64(image_path)
+    content = [
+        {'type': 'text', 'text': prompt},
+        {'type': 'image_url', 'image_url': {
+            'url': f'data:{mime_type};base64,{image_data}',
+            'detail': 'high'
+        }}
+    ]
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'model': 'gpt-4o',
+        'messages': [
+            {'role': 'system', 'content': system_message},
+            {'role': 'user', 'content': content}
+        ],
+        'max_tokens': max_tokens,
+        'response_format': {'type': 'json_object'}
+    }
+    for attempt in range(3):
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers, json=payload, timeout=180
+        )
+        response.raise_for_status()
+        resp_json = response.json()
+        choice = resp_json.get('choices', [{}])[0]
+        raw_content = choice.get('message', {}).get('content')
+        finish_reason = choice.get('finish_reason', '')
+        print(f'[OCR] Vision応答: finish_reason={finish_reason}, 入力トークン={resp_json.get("usage", {}).get("prompt_tokens")}, 出力トークン={resp_json.get("usage", {}).get("completion_tokens")}')
+        if not raw_content:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            return {'transactions': []}
+        try:
+            return json.loads(raw_content)
+        except json.JSONDecodeError:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            return {'transactions': []}
+    return {'transactions': []}
+
+
 def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: int = 2000) -> dict:
     """単一ファイル（画像またはPDF1ページ目）のVision API呼び出し（レシート用）"""
     import requests
@@ -286,7 +349,8 @@ JSONのみを返してください。説明文は不要です。"""
 
     ext = os.path.splitext(image_path)[1].lower()
     if ext != '.pdf':
-        data = _call_openai_vision(image_path, api_key, prompt_header, max_tokens=4000)
+        # JPEG/PNG: max_tokensを16000に増やして全明細を確実に出力
+        data = _call_openai_vision_with_system(image_path, api_key, prompt_header, max_tokens=16000)
         for t in data.get('transactions', []):
             t['deposit'] = to_float(t.get('deposit'))
             t['withdrawal'] = to_float(t.get('withdrawal'))

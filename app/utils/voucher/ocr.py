@@ -345,9 +345,56 @@ JSONのみを返してください。説明文は不要です。"""
         if val is None:
             return None
         try:
-            return float(str(val).replace(',', '').replace('¥', '').replace('円', '').strip())
+            return float(str(val).replace(',', '').replace('¥', '').replace('円', '').replace('*', '').strip())
         except (ValueError, TypeError):
             return None
+
+    def fix_transactions_by_balance(transactions: list) -> list:
+        """
+        残高チェックにより入出金の誤りを自動修正する。
+        前行残高 + 入金 - 出金 = 今行残高 が成立するか検証し、
+        成立しない場合は入出金の入れ替えを試みる。
+        """
+        TOLERANCE = 5  # 丸め誤差許容（円）
+        fixed_count = 0
+
+        for i in range(1, len(transactions)):
+            prev = transactions[i - 1]
+            curr = transactions[i]
+
+            prev_balance = prev.get('balance')
+            curr_balance = curr.get('balance')
+            deposit = curr.get('deposit') or 0
+            withdrawal = curr.get('withdrawal') or 0
+
+            # 残高が両方ある場合のみチェック
+            if prev_balance is None or curr_balance is None:
+                continue
+
+            expected = prev_balance + deposit - withdrawal
+            diff = abs(expected - curr_balance)
+
+            if diff <= TOLERANCE:
+                continue  # 正しい
+
+            # 入出金を入れ替えて再チェック
+            expected_swapped = prev_balance + withdrawal - deposit
+            diff_swapped = abs(expected_swapped - curr_balance)
+
+            if diff_swapped <= TOLERANCE:
+                # 入れ替えで合う → 修正
+                old_dep = curr.get('deposit')
+                old_wit = curr.get('withdrawal')
+                curr['deposit'] = old_wit if old_wit else None
+                curr['withdrawal'] = old_dep if old_dep else None
+                fixed_count += 1
+                print(f'[残高チェック] {i+1}行目 入出金を入れ替え修正: 摘要={curr.get("description")}, 入金={curr["deposit"]}, 出金={curr["withdrawal"]}')
+            else:
+                print(f'[残高チェック] {i+1}行目 不一致（自動修正不可）: 摘要={curr.get("description")}, 期待残高={expected:.0f}, 実際残高={curr_balance:.0f}, 差={diff:.0f}')
+
+        if fixed_count > 0:
+            print(f'[残高チェック] 合計{fixed_count}行を自動修正しました')
+        return transactions
 
     ext = os.path.splitext(image_path)[1].lower()
     if ext != '.pdf':
@@ -357,6 +404,8 @@ JSONのみを返してください。説明文は不要です。"""
             t['deposit'] = to_float(t.get('deposit'))
             t['withdrawal'] = to_float(t.get('withdrawal'))
             t['balance'] = to_float(t.get('balance'))
+        # 残高チェックによる自動修正
+        data['transactions'] = fix_transactions_by_balance(data.get('transactions', []))
         return data
 
     # PDF: 全ページをチャンク処理（4ページずつ）
@@ -391,7 +440,8 @@ JSONのみを返してください。説明文は不要です。"""
                     all_transactions.append(t)
 
         result = base_data or {}
-        result['transactions'] = all_transactions
+        # 残高チェックによる自動修正（PDFも同様）
+        result['transactions'] = fix_transactions_by_balance(all_transactions)
         result['raw_text'] = '\n'.join(raw_texts)
         return result
     finally:

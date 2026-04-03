@@ -71,10 +71,13 @@
 
 <div class="vc-header">
   <div>
-    <div class="sub">証憑データ化アプリ</div>
-    <h1>📸 証憑アップロード</h1>
+    <div class="sub">🧧 証桯データ化アプリ / レシート・領収書</div>
+    <h1>📸 証桯アップロード</h1>
   </div>
-  <a href="{{ url_for('voucher_store.index') }}" class="vc-btn vc-btn-white">← 一覧に戻る</a>
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+    <a href="{{ url_for('voucher_store.top') }}" class="vc-btn vc-btn-white">📂 モード選択</a>
+    <a href="{{ url_for('voucher_store.index') }}" class="vc-btn vc-btn-white">← 一覧</a>
+  </div>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}

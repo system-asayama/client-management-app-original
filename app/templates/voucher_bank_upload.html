@@ -39,6 +39,99 @@
   }
   .info-box ul { margin: 0.5rem 0 0 0; padding-left: 1.2rem; }
   .info-box li { margin-bottom: 0.25rem; }
+
+  /* 列定義フォーム */
+  .col-def-box {
+    margin-top: 1.5rem;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 1rem;
+    background: #f0fdf4;
+  }
+  .col-def-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .col-def-header strong {
+    color: #14532d;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+  .col-def-toggle {
+    font-size: 0.8rem;
+    color: #16a34a;
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.2rem 0.4rem;
+  }
+  /* 列定義の各行：縦積みレイアウト */
+  .col-row {
+    background: #fff;
+    border: 1px solid #d1fae5;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .col-row-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #14532d;
+    margin-bottom: 0.4rem;
+  }
+  .col-row-inputs {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .col-row-inputs input[type=text] {
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.82rem;
+  }
+  .col-row-inputs select {
+    flex: 0 0 auto;
+    width: 110px;
+    padding: 0.4rem 0.3rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.82rem;
+  }
+  /* テンプレート保存エリア */
+  .tmpl-save-area {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .tmpl-save-area input[type=text] {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    box-sizing: border-box;
+  }
+  .tmpl-checkboxes {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .tmpl-checkboxes label {
+    font-size: 0.82rem;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+  }
 </style>
 
 <div class="vc-header">
@@ -81,18 +174,18 @@
     </div>
 
     <!-- 列定義設定 -->
-    <div style="margin-top:1.5rem;border:1px solid #bbf7d0;border-radius:10px;padding:1rem;background:#f0fdf4;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-        <strong style="color:#14532d;font-size:0.95rem;">📋 通帳の列構造を指定（精度向上）</strong>
-        <button type="button" onclick="toggleColumnDef()" id="toggleBtn" style="font-size:0.8rem;color:#16a34a;background:none;border:none;cursor:pointer;">▼ 開く</button>
+    <div class="col-def-box">
+      <div class="col-def-header">
+        <strong>📋 通帳の列構造を指定<br>（精度向上）</strong>
+        <button type="button" onclick="toggleColumnDef()" id="toggleBtn" class="col-def-toggle">▼ 開く</button>
       </div>
       <div id="columnDefSection" style="display:none;">
-        <p style="font-size:0.82rem;color:#374151;margin-bottom:1rem;">通帳の列の順番と役割を指定するとOCR精度が向上します。</p>
+        <p style="font-size:0.82rem;color:#374151;margin-bottom:0.75rem;">通帳の列の順番と役割を指定するとOCR精度が向上します。</p>
 
         {% if templates %}
-        <div style="margin-bottom:1rem;">
-          <label style="font-size:0.85rem;font-weight:600;color:#374151;">保存済みテンプレートを使用：</label>
-          <select id="templateSelect" onchange="loadTemplate()" style="width:100%;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;margin-top:0.3rem;">
+        <div style="margin-bottom:0.75rem;">
+          <label style="font-size:0.82rem;font-weight:600;color:#374151;display:block;margin-bottom:0.3rem;">保存済みテンプレートを使用：</label>
+          <select id="templateSelect" onchange="loadTemplate()" style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;box-sizing:border-box;">
             <option value="">-- テンプレートを選択 --</option>
             {% for t in templates %}
             <option value="{{ t.id }}"
@@ -109,47 +202,58 @@
         </div>
         {% endif %}
 
-        <div style="display:grid;gap:0.5rem;">
+        <!-- 列定義（縦積みカード形式） -->
+        <div>
+          {% set default_names = ['年月日', '記号', 'お払戻し金額（出金）', 'お預り金額（入金）', '差引残高', '備考'] %}
+          {% set default_roles = ['date', 'code', 'withdrawal', 'deposit', 'balance', 'note'] %}
           {% for i in range(1, 7) %}
-          <div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:0.5rem;align-items:center;">
-            <span style="font-size:0.82rem;color:#6b7280;font-weight:600;">列{{ i }}</span>
-            <input type="text" name="col{{ i }}_name" id="col{{ i }}_name" placeholder="列名（例：年月日）"
-              value="{% if i==1 %}年月日{% elif i==2 %}記号{% elif i==3 %}お払戻し金額（出金）{% elif i==4 %}お預り金額（入金）{% elif i==5 %}差引残高{% else %}備考{% endif %}"
-              style="padding:0.35rem 0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">
-            <select name="col{{ i }}_role" id="col{{ i }}_role" style="padding:0.35rem 0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">
-              <option value="date" {% if i==1 %}selected{% endif %}>年月日</option>
-              <option value="code" {% if i==2 %}selected{% endif %}>記号（金額でない）</option>
-              <option value="withdrawal" {% if i==3 %}selected{% endif %}>出金</option>
-              <option value="deposit" {% if i==4 %}selected{% endif %}>入金</option>
-              <option value="balance" {% if i==5 %}selected{% endif %}>残高</option>
-              <option value="note" {% if i==6 %}selected{% endif %}>備考</option>
-              <option value="ignore">無視</option>
-            </select>
+          <div class="col-row">
+            <div class="col-row-label">列 {{ i }}</div>
+            <div class="col-row-inputs">
+              <input type="text" name="col{{ i }}_name" id="col{{ i }}_name"
+                placeholder="列名（例：年月日）"
+                value="{{ default_names[i-1] }}">
+              <select name="col{{ i }}_role" id="col{{ i }}_role">
+                <option value="date" {% if default_roles[i-1]=='date' %}selected{% endif %}>年月日</option>
+                <option value="code" {% if default_roles[i-1]=='code' %}selected{% endif %}>記号</option>
+                <option value="withdrawal" {% if default_roles[i-1]=='withdrawal' %}selected{% endif %}>出金</option>
+                <option value="deposit" {% if default_roles[i-1]=='deposit' %}selected{% endif %}>入金</option>
+                <option value="balance" {% if default_roles[i-1]=='balance' %}selected{% endif %}>残高</option>
+                <option value="note" {% if default_roles[i-1]=='note' %}selected{% endif %}>備考</option>
+                <option value="ignore">無視</option>
+              </select>
+            </div>
           </div>
           {% endfor %}
         </div>
 
         <div style="margin-top:0.75rem;">
-          <label style="font-size:0.82rem;font-weight:600;color:#374151;">補足指示（任意）：</label>
-          <textarea name="col_note" id="col_note" rows="2" placeholder="例：*は金額の修飾記号です。記号列（100,900など）は取引コードで金額ではありません。"
-            style="width:100%;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;margin-top:0.3rem;resize:vertical;">*は金額の修飾記号です。記号列（100,900など）は取引コードで金額ではありません。</textarea>
+          <label style="font-size:0.82rem;font-weight:600;color:#374151;display:block;margin-bottom:0.3rem;">補足指示（任意）：</label>
+          <textarea name="col_note" id="col_note" rows="3"
+            placeholder="例：*は金額の修飾記号です。記号列（100,900など）は取引コードで金額ではありません。"
+            style="width:100%;padding:0.4rem 0.5rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;resize:vertical;box-sizing:border-box;">*は金額の修飾記号です。記号列（100,900など）は取引コードで金額ではありません。</textarea>
         </div>
 
-        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;align-items:center;">
-          <input type="text" name="template_name" id="template_name" placeholder="テンプレート名（例：岡山銀行通帳）"
-            style="flex:1;padding:0.4rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.82rem;">
-          <label style="font-size:0.82rem;color:#374151;white-space:nowrap;">
-            <input type="checkbox" name="save_template" value="1"> この設定を保存
-          </label>
-          <label style="font-size:0.82rem;color:#374151;white-space:nowrap;">
-            <input type="checkbox" name="set_default" value="1"> デフォルト
-          </label>
+        <!-- テンプレート保存 -->
+        <div class="tmpl-save-area">
+          <input type="text" name="template_name" id="template_name"
+            placeholder="テンプレート名（例：岡山銀行通帳）">
+          <div class="tmpl-checkboxes">
+            <label>
+              <input type="checkbox" name="save_template" value="1">
+              この設定を保存
+            </label>
+            <label>
+              <input type="checkbox" name="set_default" value="1">
+              デフォルトに設定
+            </label>
+          </div>
         </div>
       </div>
     </div>
 
     <div style="margin-top:1.25rem;">
-      <button type="submit" class="vc-btn vc-btn-success" style="width:100%;justify-content:center;padding:0.75rem;">
+      <button type="submit" class="vc-btn vc-btn-success" style="width:100%;justify-content:center;padding:0.75rem;font-size:1rem;">
         🚀 アップロードしてOCR処理
       </button>
     </div>

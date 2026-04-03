@@ -42,9 +42,17 @@ def _pdf_to_images(pdf_path: str, dpi: int = 72) -> list:
         return []
 
 
-def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_tokens: int = 8000) -> dict:
-    """指定された画像ページリストをOpenAI Vision APIに送信する"""
+def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_tokens: int = 8000, retry: int = 2) -> dict:
+    """指定された画像ページリストをOpenAI Vision APIに送信する（contentがnullの場合はリトライ）"""
     import requests
+    import time
+    system_message = (
+        'あなたは日本語文書のOCR専門家です。'
+        '漢字・ひらがな・カタカナを正確に読み取ってください。'
+        '似た文字（例：「ー」と「一」、「0」とO、「土」と「士」など）は文脈から正しく判断してください。'
+        '店名・会社名・人名の漢字は特に慎重に読み取ってください。'
+        '必ずJSON形式のみで返してください。説明文は不要です。'
+    )
     content = [{'type': 'text', 'text': prompt}]
     for p in image_paths:
         img_data = _encode_image_to_base64(p)
@@ -58,37 +66,42 @@ def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_
     }
     payload = {
         'model': 'gpt-4o',
-        'messages': [{'role': 'user', 'content': content}],
+        'messages': [
+            {'role': 'system', 'content': system_message},
+            {'role': 'user', 'content': content}
+        ],
         'max_tokens': max_tokens,
         'response_format': {'type': 'json_object'}
     }
-    response = requests.post(
-        'https://api.openai.com/v1/chat/completions',
-        headers=headers, json=payload, timeout=120
-    )
-    response.raise_for_status()
-    resp_json = response.json()
-    choice = resp_json.get('choices', [{}])[0]
-    raw_content = choice.get('message', {}).get('content')
-    finish_reason = choice.get('finish_reason', '')
-    if not raw_content:
-        print(f'[OCR] APIレスポンスcontentがNull: finish_reason={finish_reason}')
-        return {'transactions': [], 'raw_text': f'[APIエラー: finish_reason={finish_reason}]'}
-    try:
-        return json.loads(raw_content)
-    except json.JSONDecodeError:
-        # JSONが途中で切れている場合、transactionsリストを安全に抽出する
-        import re
-        transactions = []
-        # transactionsの各要素を個別に抽出
-        for m in re.finditer(r'\{[^{}]+\}', raw_content):
-            try:
-                obj = json.loads(m.group())
-                if any(k in obj for k in ('date', 'store_name', 'amount', 'deposit', 'withdrawal')):
-                    transactions.append(obj)
-            except Exception:
-                pass
-        return {'transactions': transactions, 'raw_text': raw_content[:500]}
+    for attempt in range(retry + 1):
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers, json=payload, timeout=120
+        )
+        response.raise_for_status()
+        resp_json = response.json()
+        choice = resp_json.get('choices', [{}])[0]
+        raw_content = choice.get('message', {}).get('content')
+        finish_reason = choice.get('finish_reason', '')
+        if not raw_content:
+            print(f'[OCR] contentがNull: finish_reason={finish_reason}, attempt={attempt+1}/{retry+1}')
+            if attempt < retry:
+                time.sleep(2)
+                continue
+            return {'transactions': [], 'raw_text': f'[APIエラー: finish_reason={finish_reason}]'}
+        try:
+            return json.loads(raw_content)
+        except json.JSONDecodeError:
+            transactions = []
+            for m in re.finditer(r'\{[^{}]+\}', raw_content):
+                try:
+                    obj = json.loads(m.group())
+                    if any(k in obj for k in ('date', 'store_name', 'amount', 'deposit', 'withdrawal')):
+                        transactions.append(obj)
+                except Exception:
+                    pass
+            return {'transactions': transactions, 'raw_text': raw_content[:500]}
+    return {'transactions': [], 'raw_text': '[リトライ上限超過]'}
 
 
 def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: int = 2000) -> dict:

@@ -459,7 +459,7 @@ def extract_text_with_google_vision_api_key(image_path: str, api_key: str) -> st
 
 def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str, max_tokens: int = 4000) -> dict:
     """
-    Google Visionで抽出したテキストをOpenAIに渡してJSON構造化する。
+    Google Visionで抜出したテキストをOpenAIに渡してJSON構造化する。
     """
     import requests
     import time
@@ -471,6 +471,7 @@ def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str,
     )
     
     prompt = prompt_template.replace('{OCR_TEXT}', text)
+    print(f'[OCR] GPT-4oに送信するプロンプト長: {len(prompt)}文字, max_tokens={max_tokens}')
     
     headers = {
         'Authorization': f'Bearer {api_key}',
@@ -489,20 +490,26 @@ def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str,
     for attempt in range(3):
         response = requests.post(
             'https://api.openai.com/v1/chat/completions',
-            headers=headers, json=payload, timeout=60
+            headers=headers, json=payload, timeout=120
         )
         response.raise_for_status()
         resp_json = response.json()
         choice = resp_json.get('choices', [{}])[0]
         raw_content = choice.get('message', {}).get('content')
+        finish_reason = choice.get('finish_reason', '')
+        usage = resp_json.get('usage', {})
+        print(f'[OCR] GPT-4oレスポンス: finish_reason={finish_reason}, 入力トークン={usage.get("prompt_tokens")}, 出力トークン={usage.get("completion_tokens")}')
         if not raw_content:
+            print(f'[OCR] GPT-4oレスポンスが空: attempt={attempt+1}')
             if attempt < 2:
                 time.sleep(2)
                 continue
             return {}
+        print(f'[OCR] GPT-4o生レスポンス先頭300文字: {raw_content[:300]}')
         try:
             return json.loads(raw_content)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f'[OCR] JSONパースエラー: {e}, レスポンス: {raw_content[:200]}')
             return {'raw_text': raw_content[:500]}
     return {}
 
@@ -611,6 +618,7 @@ def process_credit_statement_image(image_path: str, api_key: str = None, google_
             print(f"[OCR] Google Vision APIで文字認識中: {image_path}")
             ocr_text = extract_text_with_google_vision_api_key(image_path, google_vision_api_key)
             print(f"[OCR] Google Vision成功: {len(ocr_text)}文字")
+            print(f"[OCR] OCRテキスト先頭200文字: {repr(ocr_text[:200])}")
             
             prompt_template = """以下はクレジットカードの利用明細書からOCRで読み取ったテキストです。
 以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
@@ -627,11 +635,10 @@ def process_credit_statement_image(image_path: str, api_key: str = None, google_
       "store_name": "利用店名・内容",
       "user_name": "利用者名",
       "amount": "利用金額（数値のみ）",
-      "installment": "分割回数・支払方法",
+      "installment": "分割回数・支払い方法",
       "note": "備考"
     }}
-  ],
-  "raw_text": "入力テキストをそのまま返す"
+  ]
 }}
 transactionsは全ての利用明細行を抜出してください。
 JSONのみを返してください。説明文は不要です。
@@ -639,7 +646,7 @@ JSONのみを返してください。説明文は不要です。
 OCRテキスト:
 {OCR_TEXT}"""
             
-            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=8000)
+            data = _call_openai_vision_with_text(ocr_text, api_key, prompt_template, max_tokens=16000)
             
             def to_float(val):
                 if val is None:
@@ -657,6 +664,7 @@ OCRテキスト:
                 data['raw_text'] = ocr_text
             
             print(f"[OCR] 構造化完了: {len(data.get('transactions', []))}件の明細")
+            print(f"[OCR] GPT-4oレスポンス先頭500文字: {str(data)[:500]}")
             return data
         except Exception as e:
             import traceback

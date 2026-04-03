@@ -1708,6 +1708,16 @@ def run_migrations():
             print(f'  \u26a0\ufe0f  android_apk_version\u30de\u30a4\u30b0\u30ec\u30fc\u30b7\u30e7\u30f3\u30a8\u30e9\u30fc: {e}')
             conn.rollback()
 
+        # 通帳明細・クレジット明細テーブルの自動作成
+        print("\n[マイグレーション] 通帳明細・クレジット明細テーブルを作成...")
+        try:
+            from app.db import Base, engine
+            from app import models_voucher  # noqa: F401 - TBankStatement、TCreditStatementなどをBaseに登録
+            Base.metadata.create_all(bind=engine)
+            print("  ✅ 通帳明細・クレジット明細テーブル作成完了")
+        except Exception as e:
+            print(f"  ⚠️ 通帳明細・クレジット明細テーブル作成エラー: {e}")
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

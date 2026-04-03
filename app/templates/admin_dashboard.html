@@ -144,12 +144,6 @@
   </div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}{% for category, message in messages %}
-  <div class="alert alert-{{ category }}">{{ message }}</div>
-  {% endfor %}{% endif %}
-{% endwith %}
-
 <!-- ウェルカムカード -->
 <div class="welcome-card">
   <div class="welcome-avatar">{{ session.user_name[0] if session.user_name else '?' }}</div>

@@ -390,17 +390,12 @@ JSONのみを返してください。説明文は不要です。"""
                 pass
 
 
-def extract_text_with_google_vision_api_key(image_path: str, api_key: str) -> str:
-    """
-    Google Cloud Vision API（REST APIキー認証）で画像からテキストを抽出する。
-    日本語漢字の認識精度が高い。
-    """
+def _call_google_vision_single(image_path: str, api_key: str) -> str:
+    """単一画像ファイルをGoogle Cloud Vision APIに送信してテキストを取得する"""
     import requests
     import base64
-    
     with open(image_path, 'rb') as f:
         image_content = base64.b64encode(f.read()).decode('utf-8')
-    
     url = f'https://vision.googleapis.com/v1/images:annotate?key={api_key}'
     payload = {
         'requests': [{
@@ -409,31 +404,57 @@ def extract_text_with_google_vision_api_key(image_path: str, api_key: str) -> st
             'imageContext': {'languageHints': ['ja', 'en']}
         }]
     }
-    
     response = requests.post(url, json=payload, timeout=30)
     response.raise_for_status()
     result = response.json()
-    
     if 'error' in result:
         raise Exception(f"Vision API Error: {result['error']}")
-    
     responses = result.get('responses', [])
     if not responses:
-        return ""
-    
+        return ''
     first_response = responses[0]
     if 'error' in first_response:
         raise Exception(f"Vision API Response Error: {first_response['error']}")
-    
     full_text_annotation = first_response.get('fullTextAnnotation', {})
     text = full_text_annotation.get('text', '')
-    
     if not text:
         text_annotations = first_response.get('textAnnotations', [])
         if text_annotations:
             text = text_annotations[0].get('description', '')
-    
     return text
+
+
+def extract_text_with_google_vision_api_key(image_path: str, api_key: str) -> str:
+    """
+    Google Cloud Vision API（REST APIキー認証）で画像またはPDFからテキストを抽出する。
+    PDFの場合は全ページを画像変換して各ページを処理する。
+    日本語漢字の認識精度が高い。
+    """
+    ext = os.path.splitext(image_path)[1].lower()
+    if ext == '.pdf':
+        # PDFは全ページを画像変換して各ページをGoogle Visionで処理
+        image_paths = _pdf_to_images(image_path, dpi=150)
+        if not image_paths:
+            raise ValueError('PDFを画像に変換できませんでした')
+        try:
+            all_texts = []
+            for i, page_path in enumerate(image_paths):
+                try:
+                    print(f'[OCR] Google Vision: ページ{i+1}/{len(image_paths)}処理中')
+                    page_text = _call_google_vision_single(page_path, api_key)
+                    if page_text:
+                        all_texts.append(page_text)
+                except Exception as e:
+                    print(f'[OCR] ページ{i+1}エラー: {e}')
+            return '\n'.join(all_texts)
+        finally:
+            for p in image_paths:
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
+    else:
+        return _call_google_vision_single(image_path, api_key)
 
 
 def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str, max_tokens: int = 4000) -> dict:

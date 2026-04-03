@@ -372,7 +372,10 @@ def process_credit_statement_image(image_path: str, api_key: str = None) -> Dict
     try:
         return extract_credit_statement_with_openai_vision(image_path, api_key)
     except Exception as e:
-        print(f"クレジット明細OCRエラー: {e}")
+        import traceback
+        err_detail = traceback.format_exc()
+        print(f"クレジット明細OCRエラー: {e}\n{err_detail}")
+        empty['_error'] = str(e)
         return empty
 
 

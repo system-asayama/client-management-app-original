@@ -161,7 +161,9 @@ def upload():
         finally:
             db.close()
 
-        flash(f'クレジット明細をアップロードしました。{len(ocr_result.get("transactions", []))}件の明細を抽出しました。', 'success')
+        if ocr_result.get('_error'):
+            flash(f'OCRエラー: {ocr_result["_error"]}', 'warning')
+        flash(f'クレジット明細をアップロードしました。{len(ocr_result.get("transactions", []))}件の明細を抗出しました。', 'success')
         return redirect(url_for('voucher_credit.detail', stmt_id=stmt_id))
 
     except Exception as e:

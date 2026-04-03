@@ -67,7 +67,13 @@ def _call_openai_vision_pages(image_paths: list, api_key: str, prompt: str, max_
         headers=headers, json=payload, timeout=120
     )
     response.raise_for_status()
-    raw_content = response.json()['choices'][0]['message']['content']
+    resp_json = response.json()
+    choice = resp_json.get('choices', [{}])[0]
+    raw_content = choice.get('message', {}).get('content')
+    finish_reason = choice.get('finish_reason', '')
+    if not raw_content:
+        print(f'[OCR] APIレスポンスcontentがNull: finish_reason={finish_reason}')
+        return {'transactions': [], 'raw_text': f'[APIエラー: finish_reason={finish_reason}]'}
     try:
         return json.loads(raw_content)
     except json.JSONDecodeError:
@@ -127,7 +133,10 @@ def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: 
             headers=headers, json=payload, timeout=120
         )
         response.raise_for_status()
-        return json.loads(response.json()['choices'][0]['message']['content'])
+        raw_content = response.json()['choices'][0]['message'].get('content')
+        if not raw_content:
+            return {}
+        return json.loads(raw_content)
 
 
 def extract_text_with_openai_vision(image_path: str, api_key: str) -> Dict:

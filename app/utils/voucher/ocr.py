@@ -322,7 +322,7 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str, col
   例: 「デントウ - 3カツ」→ description="デントウ", note="3カツ"
   例: 「オカヤマケンコクミンケンコ」→ description="オカヤマケンコクミンケンコ"（全て印字）
 - 「〃」「″」は「同上」の略記符号
-- 備考欄（最右列）の手数記号もnoteに含める
+- 備考欄（最右列）の手数記号は remarks に入れる（noteに入れない）
 
 【日付変換】
 - 通帳の日付は和暦。2桁年は元号ごとに西暦変換すること
@@ -346,11 +346,12 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str, col
       "deposit": 入金額の数値またはnull,
       "withdrawal": 出金額の数値またはnull,
       "balance": 残高の数値,
-      "note": "手書き部分・備考"
+      "note": "手書き部分のみ（カッコ内などの手書き文字）",
+      "remarks": "備考欄の手数記号・コードなど（最右列）"
     }}
   ]
 }}
-全ての明細行を一行も欠かさず抜出してください。JSONのみを返してください。"""
+全ての明細行を一行も欠かず抜出してください。JSONのみを返してください。"""
 
     prompt_transactions = """この画像は日本の銀行通帳の続きのページです。
 画像を直接見て、列の位置を視覚的に判断して明細行のみを抜出してください。
@@ -373,7 +374,8 @@ def extract_bank_statement_with_openai_vision(image_path: str, api_key: str, col
       "deposit": "入金額（お預り金額列の値のみ、数値のみ、出金の場偈はnull）",
       "withdrawal": "出金額（お払戈し金額列の値のみ、数値のみ、入金の場偈はnull）",
       "balance": "差引残高（数値のみ、備考欄の手数記号を含めない）",
-      "note": "備考（手数記号など）"
+      "note": "手書き部分のみ（カッコ内などの手書き文字）",
+      "remarks": "備考欄の手数記号・コードなど（最右列）"
     }
   ],
   "raw_text": "このページの全テキスト"
@@ -856,11 +858,12 @@ def _structure_bank_text_with_gpt(ocr_text: str, api_key: str, column_def: dict 
       "deposit": 入金額の数値またはnull,
       "withdrawal": 出金額の数値またはnull,
       "balance": 残高の数値,
-      "note": "手書き部分・備考"
+      "note": "手書き部分のみ（カッコ内などの手書き文字）",
+      "remarks": "備考欄の手数記号・コードなど（最右列）"
     }}
   ]
 }}
-全ての明細行を一行も欠かさず抜出してください。JSONのみを返してください。
+全ての明細行を一行も欠かず抜出してください。JSONのみを返してください。
 
 OCRテキスト:
 {ocr_text}"""

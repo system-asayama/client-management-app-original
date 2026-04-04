@@ -26,6 +26,8 @@ class TKanrisha(Base):
     google_vision_api_key = Column(Text, nullable=True, comment='Google Cloud Vision APIキー（OCR用）')
     google_api_key = Column(Text, nullable=True, comment='Google Gemini APIキー')
     anthropic_api_key = Column(Text, nullable=True, comment='Anthropic Claude APIキー')
+    azure_document_intelligence_endpoint = Column(Text, nullable=True, comment='Azure Document Intelligence エンドポイントURL')
+    azure_document_intelligence_key = Column(Text, nullable=True, comment='Azure Document Intelligence APIキー')
     phone = Column(String(50), nullable=True, comment='電話番号')
     position = Column(String(100), nullable=True, comment='役職')
     face_photo_url = Column(Text, nullable=True, comment='顔認証用写真URL（Base64またはストレージURL）')

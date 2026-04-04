@@ -1708,6 +1708,48 @@ def run_migrations():
             print(f'  \u26a0\ufe0f  android_apk_version\u30de\u30a4\u30b0\u30ec\u30fc\u30b7\u30e7\u30f3\u30a8\u30e9\u30fc: {e}')
             conn.rollback()
 
+        # Azure Document Intelligenceカラムの追加
+        print("\n[マイグレーション] Azure Document Intelligenceカラムを追加...")
+        try:
+            is_pg = _is_pg(conn)
+            azure_migrations = [
+                ('T_テナント', 'azure_document_intelligence_endpoint', 'TEXT'),
+                ('T_テナント', 'azure_document_intelligence_key', 'TEXT'),
+                ('T_店舗', 'azure_document_intelligence_endpoint', 'TEXT'),
+                ('T_店舗', 'azure_document_intelligence_key', 'TEXT'),
+                ('T_管理者', 'azure_document_intelligence_endpoint', 'TEXT'),
+                ('T_管理者', 'azure_document_intelligence_key', 'TEXT'),
+                ('T_アプリ管理者グループ', 'azure_document_intelligence_endpoint', 'TEXT'),
+                ('T_アプリ管理者グループ', 'azure_document_intelligence_key', 'TEXT'),
+            ]
+            for table_name, col_name, col_type in azure_migrations:
+                try:
+                    if is_pg:
+                        cur.execute("""
+                            SELECT column_name FROM information_schema.columns
+                            WHERE table_name = %s AND column_name = %s
+                        """, (table_name, col_name))
+                        if not cur.fetchone():
+                            cur.execute(f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} {col_type}')
+                            conn.commit()
+                            print(f'  ✅ {table_name}.{col_name}カラムを追加しました')
+                        else:
+                            print(f'  ℹ️  {table_name}.{col_name}カラムは既に存在します（スキップ）')
+                    else:
+                        cur.execute(f'PRAGMA table_info("{table_name}")')
+                        existing = [row[1] for row in cur.fetchall()]
+                        if col_name not in existing:
+                            cur.execute(f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} {col_type}')
+                            conn.commit()
+                            print(f'  ✅ {table_name}.{col_name}カラムを追加しました')
+                        else:
+                            print(f'  ℹ️  {table_name}.{col_name}カラムは既に存在します（スキップ）')
+                except Exception as col_e:
+                    print(f'  ⚠️  {table_name}.{col_name}マイグレーションエラー: {col_e}')
+                    conn.rollback()
+        except Exception as e:
+            print(f'  ⚠️  Azure ADIマイグレーションエラー: {e}')
+
         # 通帳明細・クレジット明細テーブルの自動作成
         print("\n[マイグレーション] 通帳明細・クレジット明細テーブルを作成...")
         try:

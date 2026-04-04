@@ -24,6 +24,54 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _convert_wareki_date(date_str: str) -> str:
+    """和暦日付を西暦に変換する。
+    対応形式:
+      - 元号付き: "令和8年3月16日", "R8.03.16", "H20-05-01", "S50/04/01"
+      - 2桁年のみ (YYYY-MM-DD形式だが年が和暦年の場合): "08-03-16"
+    """
+    import re
+    if not date_str:
+        return date_str
+
+    # 元号対応表（元号先頭年 → 西暦元年）
+    ERA_MAP = {
+        '令和': 2018, 'r': 2018, 'R': 2018,
+        '平成': 1988, 'h': 1988, 'H': 1988,
+        '昭和': 1925, 's': 1925, 'S': 1925,
+        '大正': 1911, 't': 1911, 'T': 1911,
+    }
+
+    # 元号漢字付き: "令和8年3月16日" または "令和8.3.16"
+    m = re.match(r'(令和|平成|昭和|大正)(\d{1,2})[年.-/](\d{1,2})[月.-/](\d{1,2})日?', date_str)
+    if m:
+        era, y, mo, d = m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4))
+        year = ERA_MAP[era] + y
+        return f'{year:04d}-{mo:02d}-{d:02d}'
+
+    # アルファベット元号付き: "R8.03.16", "H20-05-01"
+    m = re.match(r'^([RrHhSsTt])(\d{1,2})[.-/](\d{1,2})[.-/](\d{1,2})$', date_str)
+    if m:
+        era_key = m.group(1)
+        y, mo, d = int(m.group(2)), int(m.group(3)), int(m.group(4))
+        year = ERA_MAP[era_key] + y
+        return f'{year:04d}-{mo:02d}-{d:02d}'
+
+    # YYYY-MM-DD形式だが年が2桁の場合: "08-03-16"
+    # 現在年(2026)以内になる元号で解釈（令和得意な年から順に試行）
+    m = re.match(r'^(\d{2})-(\d{2})-(\d{2})$', date_str)
+    if m:
+        yy, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        for era_base in [2018, 1988, 1925]:  # 令和→平成→昭和の順に試行
+            year = era_base + yy
+            if year <= 2026:  # 現在年以内ならその元号と判断
+                return f'{year:04d}-{mo:02d}-{d:02d}'
+        # どれにも当てはまらない場合は元の文字列を返す
+        return date_str
+
+    return date_str
+
+
 def _normalize_description(text: str) -> str:
     """摘要文字列を正規化（全角→半角、大文字→小文字、スペース除去）して照合精度を上げる"""
     if not text:
@@ -263,7 +311,7 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
                         row = TBankTransaction(
                             statement_id=stmt_id,
                             tenant_id=tenant_id,
-                            日付=t.get('date'),
+                            日付=_convert_wareki_date(t.get('date')),
                             摘要=t.get('description'),
                             手書き摘要=t.get('note'),
                             入金=t.get('deposit'),
@@ -291,7 +339,7 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
             row = TBankTransaction(
                 statement_id=stmt_id,
                 tenant_id=tenant_id,
-                日付=t.get('date'),
+                日付=_convert_wareki_date(t.get('date')),
                 摘要=t.get('description'),
                 手書き摘要=t.get('note'),
                 入金=t.get('deposit'),
@@ -767,7 +815,7 @@ def update_transactions(stmt_id):
             row = TBankTransaction(
                 statement_id=stmt_id,
                 tenant_id=tenant_id,
-                日付=t.get('date') or None,
+                日付=_convert_wareki_date(t.get('date')) or None,
                 摘要=new_desc,
                 手書き摘要=t.get('handwritten_description') or None,
                 入金=to_float_or_none(t.get('deposit')),

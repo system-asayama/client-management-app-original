@@ -646,6 +646,39 @@ function addFilingOffice(officeType) {
       </div>
     </div>
 
+    <!-- e-Tax / eLTAX 認証情報 -->
+    <div class="form-section">
+      <div class="section-title">e-Tax / eLTAX 認証情報</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">e-Tax 利用者識別番号</label>
+          <input type="text" name="etax_user_id" class="form-control"
+                 value="{{ client.etax_user_id or '' }}"
+                 placeholder="例：12345678901234（16桁）">
+        </div>
+        <div class="form-group">
+          <label class="form-label">e-Tax パスワード</label>
+          <input type="password" name="etax_password" class="form-control"
+                 value="{{ client.etax_password or '' }}"
+                 placeholder="e-Taxパスワード"
+                 autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">eLTAX 利用者ID</label>
+          <input type="text" name="eltax_user_id" class="form-control"
+                 value="{{ client.eltax_user_id or '' }}"
+                 placeholder="eLTAX利用者ID">
+        </div>
+        <div class="form-group">
+          <label class="form-label">eLTAX パスワード</label>
+          <input type="password" name="eltax_password" class="form-control"
+                 value="{{ client.eltax_password or '' }}"
+                 placeholder="eLTAXパスワード"
+                 autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+
     <div class="btn-row">
       <button type="submit" class="btn-submit">保存する</button>
       <a href="{{ url_for('clients.tax_info', client_id=client.id) }}" class="btn-cancel">キャンセル</a>

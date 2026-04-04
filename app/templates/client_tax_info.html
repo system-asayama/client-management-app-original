@@ -345,6 +345,37 @@
     </div>
   </div>
 
+  <!-- e-Tax / eLTAX 認証情報 -->
+  <div class="info-card">
+    <div class="section-title">e-Tax / eLTAX 認証情報</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">e-Tax 利用者識別番号</div>
+        <div class="info-value {% if not client.etax_user_id %}empty{% endif %}">
+          {{ client.etax_user_id or '未登録' }}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">e-Tax パスワード</div>
+        <div class="info-value {% if not client.etax_password %}empty{% endif %}">
+          {% if client.etax_password %}●●●●●●●●{% else %}未登録{% endif %}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">eLTAX 利用者ID</div>
+        <div class="info-value {% if not client.eltax_user_id %}empty{% endif %}">
+          {{ client.eltax_user_id or '未登録' }}
+        </div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">eLTAX パスワード</div>
+        <div class="info-value {% if not client.eltax_password %}empty{% endif %}">
+          {% if client.eltax_password %}●●●●●●●●{% else %}未登録{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
   <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="btn-back">← 業務情報に戻る</a>
 </div>
 {% endblock %}

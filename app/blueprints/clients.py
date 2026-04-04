@@ -1492,6 +1492,10 @@ def edit_tax_info(client_id):
             client.municipal_tax_extension = int(request.form.get('municipal_tax_extension', 0))
             client.has_fixed_asset_tax = int(request.form.get('has_fixed_asset_tax', 0))
             client.has_depreciable_asset_tax = int(request.form.get('has_depreciable_asset_tax', 0))
+            client.etax_user_id = request.form.get('etax_user_id') or None
+            client.etax_password = request.form.get('etax_password') or None
+            client.eltax_user_id = request.form.get('eltax_user_id') or None
+            client.eltax_password = request.form.get('eltax_password') or None
             db.commit()
             flash('税務申告基本情報を更新しました', 'success')
             return redirect(url_for('clients.tax_info', client_id=client_id))

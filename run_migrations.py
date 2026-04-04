@@ -941,6 +941,10 @@ def run_migrations():
             ('municipal_tax_extension',        'INTEGER DEFAULT 0'),
             ('has_fixed_asset_tax',            'INTEGER DEFAULT 0'),
             ('has_depreciable_asset_tax',      'INTEGER DEFAULT 0'),
+            ('etax_user_id',                   'VARCHAR(100)'),
+            ('etax_password',                  'VARCHAR(255)'),
+            ('eltax_user_id',                  'VARCHAR(100)'),
+            ('eltax_password',                 'VARCHAR(255)'),
         ]
         try:
             for col_name, col_def in tax_columns:

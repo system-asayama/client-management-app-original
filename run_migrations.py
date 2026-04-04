@@ -1760,14 +1760,15 @@ def run_migrations():
         except Exception as e:
             print(f"  ⚠️ 通帳明細・クレジット明細テーブル作成エラー: {e}")
 
-        # T_通帳明細・T_通帳摘要学習テーブルにtemplate_idカラムを追加
-        print("\n[マイグレーション] T_通帳明細・T_通帳摘要学習テーブルにtemplate_idカラムを追加...")
+        # T_通帳明細・T_通帳摘要学習テーブルにtenpo_id・template_idカラムを追加
+        print("\n[マイグレーション] T_通帳明細・T_通帳摘要学習テーブルにtenpo_id・template_idカラムを追加...")
         try:
             from sqlalchemy import text
             from app.db import engine as sa_engine
             with sa_engine.connect() as sa_conn:
                 bank_template_cols = [
                     ('T_通帳明細', 'template_id'),
+                    ('T_通帳摘要学習', 'tenpo_id'),
                     ('T_通帳摘要学習', 'template_id'),
                 ]
                 for table_name, col_name in bank_template_cols:

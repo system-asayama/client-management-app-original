@@ -114,6 +114,15 @@ def _call_openai_vision_with_system(image_path: str, api_key: str, prompt: str, 
         '手書き文字は文脈と慣用句を考慮して正確に読んでください。'
         '「*」は金額の修飾記号であり、金額の一部ではありません。「*3,413,114」は3413114です。'
         '記号列（100、900など）は取引種別コードであり、金額ではありません。'
+        '【摘要の分割ルール】印字（活字）部分をdescription、手書き部分（カッコ内・余白への書き込みなど）をnoteに必ず分けて出力してください。'
+        '例: "カード〃(植松 ノートパソコン)" → description="カード", note="植松 ノートパソコン"'
+        '例: "フリコミ(カ)シフト" → description="フリコミ", note="(カ)シフト"'
+        '例: "デントウ - 3カツ" → description="デントウ", note="3カツ"'
+        '【通帳カタカナ変換辞書】以下の略語・カタカナは対応する正式名称に変換してください: '
+        'デントウ→電灯, ケンコクミン→健康保険組合, フリコミ→振込, カード→カード払い, '
+        'ソフトバンクモバイル→ソフトバンクモバイル, アプライド→アプライド, '
+        'SMCC→三井住友カード, MHF→MHF, インターネット→インターネット代。'
+        '固有名詞（人名・会社名）はカタカナのまま正確に読み取ってください。'
         '必ずJSON形式のみで返してください。説明文は不要です。'
     )
     ext = os.path.splitext(image_path)[1].lower()
@@ -426,8 +435,24 @@ JSONのみを返してください。説明文は不要です。"""
 
     ext = os.path.splitext(image_path)[1].lower()
     if ext != '.pdf':
-        # JPEG/PNG: max_tokensを16000に増やして全明細を確実に出力
-        data = _call_openai_vision_with_system(image_path, api_key, prompt_header, max_tokens=16000)
+        # JPEG/PNG: 前処理してからOCR
+        preprocessed_path = None
+        try:
+            from app.utils.voucher.image_preprocess import preprocess_bank_image
+            preprocessed_path = preprocess_bank_image(image_path)
+            ocr_target = preprocessed_path
+        except Exception as e:
+            print(f'[前処理] スキップ（元画像使用）: {e}')
+            ocr_target = image_path
+        try:
+            data = _call_openai_vision_with_system(ocr_target, api_key, prompt_header, max_tokens=16000)
+        finally:
+            # 前処理済み一時ファイルを削除（元画像は削除しない）
+            if preprocessed_path and preprocessed_path != image_path:
+                try:
+                    os.remove(preprocessed_path)
+                except Exception:
+                    pass
         for t in data.get('transactions', []):
             t['deposit'] = to_float(t.get('deposit'))
             t['withdrawal'] = to_float(t.get('withdrawal'))
@@ -703,12 +728,165 @@ def _call_openai_vision_with_text(text: str, api_key: str, prompt_template: str,
     return {}
 
 
+def _extract_text_with_azure_document_intelligence(image_path: str, azure_endpoint: str, azure_key: str) -> str:
+    """
+    Azure Document Intelligence（prebuilt-read モデル）で画像からテキストを抽出する。
+    返り値: 抽出されたテキスト文字列（失敗時は空文字列）
+    """
+    import requests
+    import time
+
+    # 画像をバイナリで読み込む
+    with open(image_path, 'rb') as f:
+        image_bytes = f.read()
+
+    ext = os.path.splitext(image_path)[1].lower()
+    mime_map = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+                '.pdf': 'application/pdf', '.tiff': 'image/tiff', '.tif': 'image/tiff'}
+    content_type = mime_map.get(ext, 'image/jpeg')
+
+    # Analyze document（非同期）
+    analyze_url = f"{azure_endpoint.rstrip('/')}/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-11-30"
+    headers = {
+        'Ocp-Apim-Subscription-Key': azure_key,
+        'Content-Type': content_type,
+    }
+    resp = requests.post(analyze_url, headers=headers, data=image_bytes, timeout=60)
+    if resp.status_code not in (200, 202):
+        print(f'[Azure ADI] 送信エラー: {resp.status_code} {resp.text[:200]}')
+        return ''
+
+    # ポーリングで結果取得
+    operation_url = resp.headers.get('Operation-Location') or resp.headers.get('operation-location')
+    if not operation_url:
+        # 同期レスポンスの場合
+        try:
+            return _parse_azure_adi_result(resp.json())
+        except Exception:
+            return ''
+
+    for _ in range(30):
+        time.sleep(2)
+        poll_resp = requests.get(operation_url, headers={'Ocp-Apim-Subscription-Key': azure_key}, timeout=30)
+        poll_json = poll_resp.json()
+        status = poll_json.get('status', '')
+        if status == 'succeeded':
+            return _parse_azure_adi_result(poll_json)
+        elif status in ('failed', 'canceled'):
+            print(f'[Azure ADI] 解析失敗: {status}')
+            return ''
+    print('[Azure ADI] タイムアウト')
+    return ''
+
+
+def _parse_azure_adi_result(result_json: dict) -> str:
+    """Azure ADI のレスポンスJSONからテキストを抽出して返す"""
+    try:
+        pages = result_json.get('analyzeResult', result_json).get('pages', [])
+        lines = []
+        for page in pages:
+            for line in page.get('lines', []):
+                lines.append(line.get('content', ''))
+        return '\n'.join(lines)
+    except Exception as e:
+        print(f'[Azure ADI] パースエラー: {e}')
+        return ''
+
+
+def _structure_bank_text_with_gpt(ocr_text: str, api_key: str, column_def: dict = None) -> dict:
+    """
+    OCRで抽出したテキストをGPT-4oで通帳明細JSONに構造化する。
+    Azure ADIのテキスト出力を受け取り、高精度な構造化を行う。
+    """
+    # 列定義をプロンプトに組み込む
+    if column_def and column_def.get('columns'):
+        col_lines = []
+        for i, col in enumerate(column_def['columns'], 1):
+            col_name = col.get('name', '')
+            col_note = col.get('note', '')
+            line = f'  列{i}: {col_name}'
+            if col_note:
+                line += f'（{col_note}）'
+            col_lines.append(line)
+        col_structure = '\n'.join(col_lines)
+        col_rules = []
+        for i, col in enumerate(column_def['columns'], 1):
+            col_type = col.get('type', '')
+            col_name = col.get('name', '')
+            if col_type == 'code':
+                col_rules.append(f'列{i}（{col_name}）は取引コードであり金額ではない。deposit/withdrawalに入れない。')
+            elif col_type == 'withdrawal':
+                col_rules.append(f'列{i}（{col_name}）に数値がある → withdrawal（出金）に記入、depositはnull')
+            elif col_type == 'deposit':
+                col_rules.append(f'列{i}（{col_name}）に数値がある → deposit（入金）に記入、withdrawalはnull')
+        col_rules_str = '\n'.join(col_rules) if col_rules else '  列の位置（左右）で入金・出金を判断する。'
+    else:
+        col_structure = '  列１: 年月日（日付）\n  列２: 記号（100・900などの数字コード ← これは金額ではない）\n  列３: お払戻し金額（出金額）← 左側の金額列\n  列４: お頂り金額/お利息（入金額）← 右側の金額列\n  列５: 差引残高\n  列６: 備考（手数記号など）'
+        col_rules_str = '  列の位置（左右）で入金・出金を判断する。\n  記号列（100・900など）は取引コードであり金額ではない。'
+
+    prompt = f"""以下は日本の銀行通帳からOCRで読み取ったテキストです。
+以下のJSON形式で情報を抜出してください。不明な場合はnullにしてください。
+
+【列構造】通帳は左から以下の列で構成されています：
+{col_structure}
+
+【列判定ルール】
+{col_rules_str}
+2. 1行に入金と出金が同時に存在することはない。必ずどちらか一方のみ。
+3. 「*」は金額の修飾記号。「*98,800」→98800、「*3,413,114」→3413114（数値のみ、桁数を変えない）
+4. 残高は差引残高列の値のみ。直後の備考数字（980・960・186・217など）は残高に含めない。
+5. 日付は〈08-03-16」→」2008-03-16」（2桁年: 00-29→2000年代、30-99→1900年代）
+6. 摘要の印字（活字）部分 → description、手書き部分（カッコ内など）→ note
+
+{{
+  "bank_name": "銀行名",
+  "branch_name": "支店名",
+  "account_type": "口座種別",
+  "account_number": "口座番号",
+  "account_holder": "口座名義",
+  "period_start": "YYYY-MM-DD",
+  "period_end": "YYYY-MM-DD",
+  "transactions": [
+    {{
+      "date": "YYYY-MM-DD",
+      "description": "摘要（印字部分のみ）",
+      "deposit": 入金額の数値またはnull,
+      "withdrawal": 出金額の数値またはnull,
+      "balance": 残高の数値,
+      "note": "手書き部分・備考"
+    }}
+  ]
+}}
+全ての明細行を一行も欠かさず抜出してください。JSONのみを返してください。
+
+OCRテキスト:
+{ocr_text}"""
+
+    result = _call_openai_vision_with_text(ocr_text, api_key, prompt, max_tokens=16000)
+
+    def to_float(val):
+        if val is None:
+            return None
+        try:
+            return float(str(val).replace(',', '').replace('¥', '').replace('円', '').replace('*', '').strip())
+        except (ValueError, TypeError):
+            return None
+
+    for t in result.get('transactions', []):
+        t['deposit'] = to_float(t.get('deposit'))
+        t['withdrawal'] = to_float(t.get('withdrawal'))
+        t['balance'] = to_float(t.get('balance'))
+
+    return result
+
+
 def process_bank_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None, column_def: dict = None) -> Dict:
     """通帳画像を処理して情報を抜出する（通帳モード）。
     
     処理方式（優先順）:
-    1. GPT-4o Vision直接（画像を直接渡す）: 最高精度（列構造を視覚的に判断）
-    2. エラー時: 空データを返す
+    1. Azure Document Intelligence（ADI）+ GPT-4o構造化: 環境変数 AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT / AZURE_DOCUMENT_INTELLIGENCE_KEY が設定されている場合
+    2. GPT-4o Vision直接（画像前処理付き）: ADI未設定の場合
+    3. エラー時: 空データを返す
     """
     empty = {'bank_name': None, 'branch_name': None, 'account_type': None,
              'account_number': None, 'account_holder': None,
@@ -716,15 +894,34 @@ def process_bank_statement_image(image_path: str, api_key: str = None, google_vi
     
     if not api_key:
         return empty
-    
-    # GPT-4o Vision直接（画像を直接渡して列構造を視覚的に判断）
+
+    # Azure Document Intelligence が設定されている場合は優先使用
+    azure_endpoint = os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT', '').strip()
+    azure_key = os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_KEY', '').strip()
+    if azure_endpoint and azure_key:
+        try:
+            print(f'[OCR] Azure Document Intelligence処理開始: {image_path}')
+            ocr_text = _extract_text_with_azure_document_intelligence(image_path, azure_endpoint, azure_key)
+            if ocr_text:
+                print(f'[OCR] Azure ADI成功: {len(ocr_text)}文字')
+                # GPT-4oでテキストを構造化
+                result = _structure_bank_text_with_gpt(ocr_text, api_key, column_def=column_def)
+                result['raw_text'] = ocr_text
+                print(f'[OCR] Azure ADI+GPT-4o構造化完了: {len(result.get("transactions", []))}件の取引')
+                return result
+            else:
+                print('[OCR] Azure ADI テキスト抽出失敗、GPT-4o Visionにフォールバック')
+        except Exception as e:
+            print(f'[OCR] Azure ADIエラー: {e}、GPT-4o Visionにフォールバック')
+
+    # GPT-4o Vision直接（画像前処理付き・列構造を視覚的に判断）
     try:
-        print(f"[OCR] GPT-4o Vision直接処理開始: {image_path}")
+        print(f'[OCR] GPT-4o Vision直接処理開始: {image_path}')
         result = extract_bank_statement_with_openai_vision(image_path, api_key, column_def=column_def)
-        print(f"[OCR] GPT-4o Vision完了: {len(result.get('transactions', []))}件の取引")
+        print(f'[OCR] GPT-4o Vision完了: {len(result.get("transactions", []))}件の取引')
         return result
     except Exception as e:
-        print(f"[OCR] GPT-4o Visionエラー: {e}")
+        print(f'[OCR] GPT-4o Visionエラー: {e}')
     
     return empty
 

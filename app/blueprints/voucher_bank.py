@@ -97,7 +97,8 @@ def get_openai_api_key(tenant_id, tenpo_id):
 def get_api_keys(tenant_id, tenpo_id):
     """店舗 → テナント → システム管理者の順で各種 APIキーを取得"""
     db = SessionLocal()
-    result = {'openai_api_key': None, 'google_vision_api_key': None, 'google_api_key': None, 'anthropic_api_key': None}
+    result = {'openai_api_key': None, 'google_vision_api_key': None, 'google_api_key': None, 'anthropic_api_key': None,
+              'azure_document_intelligence_endpoint': None, 'azure_document_intelligence_key': None}
     try:
         if tenpo_id:
             tenpo = db.query(TTenpo).filter(TTenpo.id == tenpo_id).first()
@@ -110,6 +111,10 @@ def get_api_keys(tenant_id, tenpo_id):
                     result['google_api_key'] = tenpo.google_api_key
                 if getattr(tenpo, 'anthropic_api_key', None):
                     result['anthropic_api_key'] = tenpo.anthropic_api_key
+                if getattr(tenpo, 'azure_document_intelligence_endpoint', None):
+                    result['azure_document_intelligence_endpoint'] = tenpo.azure_document_intelligence_endpoint
+                if getattr(tenpo, 'azure_document_intelligence_key', None):
+                    result['azure_document_intelligence_key'] = tenpo.azure_document_intelligence_key
         if tenant_id:
             tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
             if tenant:
@@ -121,6 +126,10 @@ def get_api_keys(tenant_id, tenpo_id):
                     result['google_api_key'] = tenant.google_api_key
                 if not result['anthropic_api_key'] and getattr(tenant, 'anthropic_api_key', None):
                     result['anthropic_api_key'] = tenant.anthropic_api_key
+                if not result['azure_document_intelligence_endpoint'] and getattr(tenant, 'azure_document_intelligence_endpoint', None):
+                    result['azure_document_intelligence_endpoint'] = tenant.azure_document_intelligence_endpoint
+                if not result['azure_document_intelligence_key'] and getattr(tenant, 'azure_document_intelligence_key', None):
+                    result['azure_document_intelligence_key'] = tenant.azure_document_intelligence_key
         # システム管理者から未設定のAPIキーをフォールバック
         needs_fallback = not all([result['openai_api_key'], result['google_vision_api_key'], result['google_api_key'], result['anthropic_api_key']])
         if needs_fallback:
@@ -145,7 +154,7 @@ def get_api_keys(tenant_id, tenpo_id):
     return result
 
 
-def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None, column_def=None, tenpo_id=None, template_id=None):
+def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api_key=None, column_def=None, tenpo_id=None, template_id=None, azure_document_intelligence_endpoint=None, azure_document_intelligence_key=None):
     """バックグラウンドスレッドでOCR処理を実行してDBを更新する"""
     db = SessionLocal()
     try:
@@ -155,7 +164,9 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
         stmt.ステータス = 'processing'
         db.commit()
 
-        ocr_result = process_bank_statement_image(filepath, api_key=api_key, google_vision_api_key=google_vision_api_key, column_def=column_def)
+        ocr_result = process_bank_statement_image(filepath, api_key=api_key, google_vision_api_key=google_vision_api_key, column_def=column_def,
+                                                    azure_document_intelligence_endpoint=azure_document_intelligence_endpoint,
+                                                    azure_document_intelligence_key=azure_document_intelligence_key)
 
         stmt = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
         if not stmt:
@@ -311,7 +322,9 @@ def upload():
         api_keys = get_api_keys(tenant_id, tenpo_id)
         openai_api_key = api_keys.get('openai_api_key')
         google_vision_api_key = api_keys.get('google_vision_api_key')
-        has_any_key = openai_api_key or google_vision_api_key
+        azure_adi_endpoint = api_keys.get('azure_document_intelligence_endpoint')
+        azure_adi_key = api_keys.get('azure_document_intelligence_key')
+        has_any_key = openai_api_key or google_vision_api_key or (azure_adi_endpoint and azure_adi_key)
 
         db = SessionLocal()
         try:
@@ -402,11 +415,20 @@ def upload():
                 target=_run_ocr_background,
                 args=(stmt_id, filepath, openai_api_key, tenant_id),
                 kwargs={'google_vision_api_key': google_vision_api_key, 'column_def': column_def,
-                        'tenpo_id': tenpo_id, 'template_id': used_template_id},
+                        'tenpo_id': tenpo_id, 'template_id': used_template_id,
+                        'azure_document_intelligence_endpoint': azure_adi_endpoint,
+                        'azure_document_intelligence_key': azure_adi_key},
                 daemon=True
             )
             t.start()
-            key_info = 'Google Cloud Vision API + GPT-4o' if google_vision_api_key and openai_api_key else ('Google Cloud Vision API' if google_vision_api_key else 'GPT-4o')
+            if azure_adi_endpoint and azure_adi_key:
+                key_info = 'Azure Document Intelligence + GPT-4o'
+            elif google_vision_api_key and openai_api_key:
+                key_info = 'Google Cloud Vision API + GPT-4o'
+            elif google_vision_api_key:
+                key_info = 'Google Cloud Vision API'
+            else:
+                key_info = 'GPT-4o'
             flash(f'通帳をアップロードしました。OCR処理（{key_info}）をバックグラウンドで実行中です...', 'success')
 
         return redirect(url_for('voucher_bank.detail', stmt_id=stmt_id))

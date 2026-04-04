@@ -271,6 +271,8 @@ def mypage():
                 google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
                 google_api_key = request.form.get('google_api_key', '').strip() or None
                 anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
                 
                 if store_id:
                     store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
@@ -282,6 +284,10 @@ def mypage():
                             store_obj.google_api_key = google_api_key
                         if hasattr(store_obj, 'anthropic_api_key'):
                             store_obj.anthropic_api_key = anthropic_api_key
+                        if hasattr(store_obj, 'azure_document_intelligence_endpoint'):
+                            store_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                        if hasattr(store_obj, 'azure_document_intelligence_key'):
+                            store_obj.azure_document_intelligence_key = azure_document_intelligence_key
                         db.commit()
                         flash('APIキー設定を更新しました', 'success')
                     else:
@@ -301,6 +307,8 @@ def mypage():
                     'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None) or '',
                     'google_api_key': getattr(store_obj, 'google_api_key', None) or '',
                     'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None) or '',
+                    'azure_document_intelligence_endpoint': getattr(store_obj, 'azure_document_intelligence_endpoint', None) or '',
+                    'azure_document_intelligence_key': getattr(store_obj, 'azure_document_intelligence_key', None) or '',
                 }
         
         return render_template('admin_mypage.html', user=user, tenant_name=tenant_name, stores=stores, store_list=store_list, tenant_list=tenant_list, store_api=store_api)

@@ -373,6 +373,8 @@ def mypage():
                 google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
                 google_api_key = request.form.get('google_api_key', '').strip() or None
                 anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
                 
                 if tenant_id:
                     tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
@@ -384,6 +386,10 @@ def mypage():
                             tenant_obj.google_api_key = google_api_key
                         if hasattr(tenant_obj, 'anthropic_api_key'):
                             tenant_obj.anthropic_api_key = anthropic_api_key
+                        if hasattr(tenant_obj, 'azure_document_intelligence_endpoint'):
+                            tenant_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                        if hasattr(tenant_obj, 'azure_document_intelligence_key'):
+                            tenant_obj.azure_document_intelligence_key = azure_document_intelligence_key
                         db.commit()
                         flash('APIキー設定を更新しました', 'success')
                     else:
@@ -402,6 +408,8 @@ def mypage():
                     'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
                     'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
                     'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
+                    'azure_document_intelligence_endpoint': getattr(tenant_obj, 'azure_document_intelligence_endpoint', None) or '',
+                    'azure_document_intelligence_key': getattr(tenant_obj, 'azure_document_intelligence_key', None) or '',
                 }
         
         return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list, tenant_api=tenant_api)

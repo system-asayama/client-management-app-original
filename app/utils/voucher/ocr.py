@@ -880,7 +880,8 @@ OCRテキスト:
     return result
 
 
-def process_bank_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None, column_def: dict = None) -> Dict:
+def process_bank_statement_image(image_path: str, api_key: str = None, google_vision_api_key: str = None, column_def: dict = None,
+                                  azure_document_intelligence_endpoint: str = None, azure_document_intelligence_key: str = None) -> Dict:
     """通帳画像を処理して情報を抜出する（通帳モード）。
     
     処理方式（優先順）:
@@ -895,9 +896,9 @@ def process_bank_statement_image(image_path: str, api_key: str = None, google_vi
     if not api_key:
         return empty
 
-    # Azure Document Intelligence が設定されている場合は優先使用
-    azure_endpoint = os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT', '').strip()
-    azure_key = os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_KEY', '').strip()
+    # Azure Document Intelligence が設定されている場合は優先使用（DB設定 > 環境変数の順）
+    azure_endpoint = (azure_document_intelligence_endpoint or '').strip() or os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT', '').strip()
+    azure_key = (azure_document_intelligence_key or '').strip() or os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_KEY', '').strip()
     if azure_endpoint and azure_key:
         try:
             print(f'[OCR] Azure Document Intelligence処理開始: {image_path}')

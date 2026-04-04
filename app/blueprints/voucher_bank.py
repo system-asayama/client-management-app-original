@@ -840,3 +840,37 @@ def update_transactions(stmt_id):
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+
+# ============================================================
+# 通帳明細削除
+# ============================================================
+@bp.route('/<int:stmt_id>/delete', methods=['POST'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def delete(stmt_id):
+    info = get_session_info()
+    tenant_id = info['tenant_id']
+
+    db = SessionLocal()
+    try:
+        stmt = db.query(TBankStatement).filter(
+            TBankStatement.id == stmt_id,
+            TBankStatement.tenant_id == tenant_id
+        ).first()
+
+        if not stmt:
+            flash('通帳明細が見つかりません', 'error')
+            return redirect(url_for('voucher_bank.index'))
+
+        # 関連する明細行を先に削除
+        db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
+        db.delete(stmt)
+        db.commit()
+        flash('通帳明細を削除しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'削除に失敗しました: {str(e)}', 'error')
+    finally:
+        db.close()
+
+    return redirect(url_for('voucher_bank.index'))

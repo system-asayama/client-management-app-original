@@ -143,6 +143,18 @@
       <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ group_api.anthropic_api_key or '' }}" placeholder="sk-ant-..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
       <small style="color:#666; display:block; margin-top:5px"><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
     </div>
+    <div style="margin-bottom:15px; padding:15px; background:#f0f7ff; border:1px solid #b3d7ff; border-radius:6px">
+      <label style="display:block; margin-bottom:8px; font-weight:bold">📄 Azure Document Intelligence（高精度通帳OCR用）</label>
+      <div style="margin-bottom:10px">
+        <label for="azure_document_intelligence_endpoint" style="display:block; margin-bottom:5px">エンドポイントURL</label>
+        <input type="text" id="azure_document_intelligence_endpoint" name="azure_document_intelligence_endpoint" value="{{ group_api.azure_document_intelligence_endpoint or '' }}" placeholder="https://samurai-ocr.cognitiveservices.azure.com/" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      </div>
+      <div style="margin-bottom:5px">
+        <label for="azure_document_intelligence_key" style="display:block; margin-bottom:5px">APIキー</label>
+        <input type="password" id="azure_document_intelligence_key" name="azure_document_intelligence_key" value="{{ group_api.azure_document_intelligence_key or '' }}" placeholder="Azureポータルの「キーとエンドポイント」からコピー" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      </div>
+      <small style="color:#666; display:block; margin-top:5px"><a href="https://portal.azure.com" target="_blank">Azureポータル</a>でDocument Intelligenceリソースを作成後、「キーとエンドポイント」から取得。グループ内の全テナント・店舗で共通利用されます（店舗・テナント側設定が優先）。</small>
+    </div>
     <button type="submit" class="btn">APIキーを保存</button>
   </form>
   {% endif %}

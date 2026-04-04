@@ -204,6 +204,8 @@ def mypage():
                 'google_vision_api_key': getattr(group, 'google_vision_api_key', None) or '',
                 'google_api_key': getattr(group, 'google_api_key', None) or '',
                 'anthropic_api_key': getattr(group, 'anthropic_api_key', None) or '',
+                'azure_document_intelligence_endpoint': getattr(group, 'azure_document_intelligence_endpoint', None) or '',
+                'azure_document_intelligence_key': getattr(group, 'azure_document_intelligence_key', None) or '',
             }
         
         # POSTリクエスト（APIキー更新）
@@ -214,6 +216,8 @@ def mypage():
                 google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
                 google_api_key = request.form.get('google_api_key', '').strip() or None
                 anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
                 
                 if group:
                     group.openai_api_key = openai_api_key
@@ -223,6 +227,10 @@ def mypage():
                         group.google_api_key = google_api_key
                     if hasattr(group, 'anthropic_api_key'):
                         group.anthropic_api_key = anthropic_api_key
+                    if hasattr(group, 'azure_document_intelligence_endpoint'):
+                        group.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                    if hasattr(group, 'azure_document_intelligence_key'):
+                        group.azure_document_intelligence_key = azure_document_intelligence_key
                     db.commit()
                     flash('APIキー設定を更新しました', 'success')
                 else:

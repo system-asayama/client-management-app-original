@@ -11,7 +11,7 @@ import threading
 from datetime import datetime
 from app.db import SessionLocal
 from app.models_voucher import TBankStatement, TBankTransaction, TBankColumnTemplate, TBankDescriptionLearning
-from app.models_login import TTenpo, TTenant, TKanrisha
+from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup
 from app.utils.decorators import require_roles, ROLES
 from app.utils.voucher.ocr import process_bank_statement_image, save_uploaded_file
 
@@ -130,6 +130,35 @@ def get_api_keys(tenant_id, tenpo_id):
                     result['azure_document_intelligence_endpoint'] = tenant.azure_document_intelligence_endpoint
                 if not result['azure_document_intelligence_key'] and getattr(tenant, 'azure_document_intelligence_key', None):
                     result['azure_document_intelligence_key'] = tenant.azure_document_intelligence_key
+        # アプリ管理グループから未設定のAPIキーをフォールバック
+        needs_group_fallback = not all([result['openai_api_key'], result['google_vision_api_key'],
+                                        result['azure_document_intelligence_endpoint'], result['azure_document_intelligence_key']])
+        if needs_group_fallback and tenant_id:
+            # テナントに結びついたアプリ管理者を取得してグループを確認
+            try:
+                app_managers = db.query(TKanrisha).filter(
+                    TKanrisha.role == 'app_manager',
+                    TKanrisha.app_manager_group_id.isnot(None)
+                ).all()
+                for am in app_managers:
+                    if am.app_manager_group_id:
+                        grp = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == am.app_manager_group_id).first()
+                        if grp:
+                            if not result['openai_api_key'] and getattr(grp, 'openai_api_key', None):
+                                result['openai_api_key'] = grp.openai_api_key
+                            if not result['google_vision_api_key'] and getattr(grp, 'google_vision_api_key', None):
+                                result['google_vision_api_key'] = grp.google_vision_api_key
+                            if not result['google_api_key'] and getattr(grp, 'google_api_key', None):
+                                result['google_api_key'] = grp.google_api_key
+                            if not result['anthropic_api_key'] and getattr(grp, 'anthropic_api_key', None):
+                                result['anthropic_api_key'] = grp.anthropic_api_key
+                            if not result['azure_document_intelligence_endpoint'] and getattr(grp, 'azure_document_intelligence_endpoint', None):
+                                result['azure_document_intelligence_endpoint'] = grp.azure_document_intelligence_endpoint
+                            if not result['azure_document_intelligence_key'] and getattr(grp, 'azure_document_intelligence_key', None):
+                                result['azure_document_intelligence_key'] = grp.azure_document_intelligence_key
+                            break
+            except Exception:
+                pass
         # システム管理者から未設定のAPIキーをフォールバック
         needs_fallback = not all([result['openai_api_key'], result['google_vision_api_key'], result['google_api_key'], result['anthropic_api_key']])
         if needs_fallback:

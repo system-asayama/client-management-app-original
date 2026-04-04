@@ -325,5 +325,7 @@ class TAppManagerGroup(Base):
     google_vision_api_key = Column(Text, nullable=True, comment='Google Cloud Vision APIキー（OCR用）')
     google_api_key = Column(Text, nullable=True, comment='Google Gemini APIキー')
     anthropic_api_key = Column(Text, nullable=True, comment='Anthropic Claude APIキー')
+    azure_document_intelligence_endpoint = Column(Text, nullable=True, comment='Azure Document Intelligence エンドポイントURL')
+    azure_document_intelligence_key = Column(Text, nullable=True, comment='Azure Document Intelligence APIキー')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

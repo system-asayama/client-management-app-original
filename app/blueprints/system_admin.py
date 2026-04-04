@@ -136,6 +136,8 @@ def mypage():
             'google_vision_api_key': getattr(admin, 'google_vision_api_key', None),
             'google_api_key': getattr(admin, 'google_api_key', None),
             'anthropic_api_key': getattr(admin, 'anthropic_api_key', None),
+            'azure_document_intelligence_endpoint': getattr(admin, 'azure_document_intelligence_endpoint', None),
+            'azure_document_intelligence_key': getattr(admin, 'azure_document_intelligence_key', None),
             'role': ROLES["SYSTEM_ADMIN"],
             'created_at': admin.created_at,
             'updated_at': admin.updated_at
@@ -204,24 +206,49 @@ def mypage():
                 google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
                 google_api_key = request.form.get('google_api_key', '').strip() or None
                 anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
                 
                 # 直接SQLで更新（カラムが存在しない場合のエラーを回避）
                 try:
                     from sqlalchemy import text
-                    db.execute(text(
-                        'UPDATE "T_管理者" SET '
-                        'openai_api_key = :openai_api_key, '
-                        'google_vision_api_key = :google_vision_api_key, '
-                        'google_api_key = :google_api_key, '
-                        'anthropic_api_key = :anthropic_api_key '
-                        'WHERE id = :id'
-                    ), {
-                        'openai_api_key': openai_api_key,
-                        'google_vision_api_key': google_vision_api_key,
-                        'google_api_key': google_api_key,
-                        'anthropic_api_key': anthropic_api_key,
-                        'id': user_id
-                    })
+                    # Azure ADIカラムが存在するか確認してから更新
+                    try:
+                        db.execute(text(
+                            'UPDATE "T_管理者" SET '
+                            'openai_api_key = :openai_api_key, '
+                            'google_vision_api_key = :google_vision_api_key, '
+                            'google_api_key = :google_api_key, '
+                            'anthropic_api_key = :anthropic_api_key, '
+                            'azure_document_intelligence_endpoint = :azure_document_intelligence_endpoint, '
+                            'azure_document_intelligence_key = :azure_document_intelligence_key '
+                            'WHERE id = :id'
+                        ), {
+                            'openai_api_key': openai_api_key,
+                            'google_vision_api_key': google_vision_api_key,
+                            'google_api_key': google_api_key,
+                            'anthropic_api_key': anthropic_api_key,
+                            'azure_document_intelligence_endpoint': azure_document_intelligence_endpoint,
+                            'azure_document_intelligence_key': azure_document_intelligence_key,
+                            'id': user_id
+                        })
+                    except Exception:
+                        # Azure ADIカラムがない場合は旧カラムのみ更新
+                        db.rollback()
+                        db.execute(text(
+                            'UPDATE "T_管理者" SET '
+                            'openai_api_key = :openai_api_key, '
+                            'google_vision_api_key = :google_vision_api_key, '
+                            'google_api_key = :google_api_key, '
+                            'anthropic_api_key = :anthropic_api_key '
+                            'WHERE id = :id'
+                        ), {
+                            'openai_api_key': openai_api_key,
+                            'google_vision_api_key': google_vision_api_key,
+                            'google_api_key': google_api_key,
+                            'anthropic_api_key': anthropic_api_key,
+                            'id': user_id
+                        })
                     db.commit()
                     flash('APIキー設定を更新しました', 'success')
                 except Exception as e:

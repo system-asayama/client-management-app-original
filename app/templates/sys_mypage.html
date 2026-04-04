@@ -214,6 +214,18 @@
       <input type="password" name="anthropic_api_key" value="{{ user.anthropic_api_key or '' }}" placeholder="sk-ant-...">
       <small><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
     </div>
+    <div class="form-group" style="padding:15px; background:#f0f7ff; border:1px solid #b3d7ff; border-radius:6px">
+      <label style="font-weight:bold">📄 Azure Document Intelligence（高精度通帳OCR用）</label>
+      <div style="margin-bottom:10px">
+        <label style="display:block; margin-bottom:5px; font-weight:normal">エンドポイントURL</label>
+        <input type="text" name="azure_document_intelligence_endpoint" value="{{ user.azure_document_intelligence_endpoint or '' }}" placeholder="https://samurai-ocr.cognitiveservices.azure.com/" style="width:100%">
+      </div>
+      <div>
+        <label style="display:block; margin-bottom:5px; font-weight:normal">APIキー</label>
+        <input type="password" name="azure_document_intelligence_key" value="{{ user.azure_document_intelligence_key or '' }}" placeholder="Azureポータルの「キーとエンドポイント」からコピー" style="width:100%">
+      </div>
+      <small style="display:block; margin-top:8px"><a href="https://portal.azure.com" target="_blank">Azureポータル</a>でDocument Intelligenceリソースを作成後、「キーとエンドポイント」から取得。テナント・店舗側が未設定の場合のフォールバックとして使用されます。</small>
+    </div>
     <button type="submit" class="btn-action primary">APIキーを保存</button>
   </form>
 </div>

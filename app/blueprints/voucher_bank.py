@@ -145,6 +145,10 @@ def get_api_keys(tenant_id, tenpo_id):
                     result['google_api_key'] = sys_admin.google_api_key
                 if not result['anthropic_api_key'] and getattr(sys_admin, 'anthropic_api_key', None):
                     result['anthropic_api_key'] = sys_admin.anthropic_api_key
+                if not result['azure_document_intelligence_endpoint'] and getattr(sys_admin, 'azure_document_intelligence_endpoint', None):
+                    result['azure_document_intelligence_endpoint'] = sys_admin.azure_document_intelligence_endpoint
+                if not result['azure_document_intelligence_key'] and getattr(sys_admin, 'azure_document_intelligence_key', None):
+                    result['azure_document_intelligence_key'] = sys_admin.azure_document_intelligence_key
                 if all([result['openai_api_key'], result['google_vision_api_key'], result['google_api_key'], result['anthropic_api_key']]):
                     break
     except Exception:

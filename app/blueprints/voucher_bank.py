@@ -242,6 +242,41 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
                     learning_map[key] = lrn
         except Exception as e:
             print(f'[学習] 学習データ取得エラー: {e}')
+            # DBセッションがエラー状態になっている可能性があるためrollbackして
+            # completedステータスを確実に保存する
+            try:
+                db.rollback()
+                stmt2 = db.query(TBankStatement).filter(TBankStatement.id == stmt_id).first()
+                if stmt2:
+                    stmt2.OCR結果_生データ = ocr_result.get('raw_text', '')
+                    stmt2.銀行名 = ocr_result.get('bank_name')
+                    stmt2.支店名 = ocr_result.get('branch_name')
+                    stmt2.口座種別 = ocr_result.get('account_type')
+                    stmt2.口座番号 = ocr_result.get('account_number')
+                    stmt2.口座名義 = ocr_result.get('account_holder')
+                    stmt2.期間_開始 = ocr_result.get('period_start')
+                    stmt2.期間_終了 = ocr_result.get('period_end')
+                    stmt2.ステータス = 'completed'
+                    db.flush()
+                    db.query(TBankTransaction).filter(TBankTransaction.statement_id == stmt_id).delete()
+                    for i, t in enumerate(ocr_result.get('transactions', []), 1):
+                        row = TBankTransaction(
+                            statement_id=stmt_id,
+                            tenant_id=tenant_id,
+                            日付=t.get('date'),
+                            摘要=t.get('description'),
+                            入金=t.get('deposit'),
+                            出金=t.get('withdrawal'),
+                            残高=t.get('balance'),
+                            備考=t.get('note'),
+                            行番号=i,
+                        )
+                        db.add(row)
+                    db.commit()
+                    print(f'[学習] 学習データなしでOCR結果を保存しました（{len(ocr_result.get("transactions", []))}件）')
+            except Exception as e2:
+                print(f'[学習] フォールバック保存エラー: {e2}')
+            return
 
         applied_count = 0
         for i, t in enumerate(ocr_result.get('transactions', []), 1):

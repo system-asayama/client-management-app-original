@@ -106,7 +106,8 @@ class TBankTransaction(Base):
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False, index=True)
 
     日付 = Column(String(20), nullable=True, comment='取引日付')
-    摘要 = Column(String(500), nullable=True, comment='摘要・取引内容')
+    摘要 = Column(String(500), nullable=True, comment='摘要（印字部分）')
+    手書き摘要 = Column(String(500), nullable=True, comment='摘要（手書き部分）')
     入金 = Column(Float, nullable=True, comment='入金額')
     出金 = Column(Float, nullable=True, comment='出金額')
     残高 = Column(Float, nullable=True, comment='残高')

@@ -1767,18 +1767,19 @@ def run_migrations():
             from app.db import engine as sa_engine
             with sa_engine.connect() as sa_conn:
                 bank_template_cols = [
-                    ('T_通帳明細', 'template_id'),
-                    ('T_通帳摘要学習', 'tenpo_id'),
-                    ('T_通帳摘要学習', 'template_id'),
+                    ('T_通帳明細', 'template_id', 'INTEGER'),
+                    ('T_通帳摘要学習', 'tenpo_id', 'INTEGER'),
+                    ('T_通帳摘要学習', 'template_id', 'INTEGER'),
+                    ('T_通帳明細行', '手書き摘要', 'VARCHAR(500)'),
                 ]
-                for table_name, col_name in bank_template_cols:
+                for table_name, col_name, col_type in bank_template_cols:
                     try:
                         result = sa_conn.execute(text(
                             f"SELECT column_name FROM information_schema.columns "
                             f"WHERE table_name='{table_name}' AND column_name='{col_name}'"
                         ))
                         if not result.fetchone():
-                            sa_conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} INTEGER'))
+                            sa_conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type}'))
                             sa_conn.commit()
                             print(f'  ✅ {table_name}.{col_name}カラムを追加しました')
                         else:

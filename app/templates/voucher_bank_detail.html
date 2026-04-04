@@ -166,7 +166,8 @@
       <thead>
         <tr>
           <th>日付</th>
-          <th>摘要</th>
+          <th>摘要（印字）</th>
+          <th>手書き摘要</th>
           <th class="num">入金</th>
           <th class="num">出金</th>
           <th class="num">残高</th>
@@ -178,7 +179,8 @@
         {% for t in transactions %}
         <tr data-row="{{ loop.index0 }}" data-original-description="{{ t.摘要 or '' }}">
           <td class="editable"><span class="display-val" style="white-space:nowrap;">{{ t.日付 or '—' }}</span><input type="text" class="edit-val" value="{{ t.日付 or '' }}" placeholder="YYYY-MM-DD" style="display:none;"></td>
-          <td class="editable"><span class="display-val">{{ t.摘要 or '—' }}</span><input type="text" class="edit-val" value="{{ t.摘要 or '' }}" placeholder="摘要" style="display:none;"></td>
+          <td class="editable"><span class="display-val">{{ t.摘要 or '—' }}</span><input type="text" class="edit-val" value="{{ t.摘要 or '' }}" placeholder="摘要（印字）" style="display:none;"></td>
+          <td class="editable"><span class="display-val">{{ t.手書き摘要 or '' }}</span><input type="text" class="edit-val" value="{{ t.手書き摘要 or '' }}" placeholder="手書き摘要" style="display:none;"></td>
           <td class="editable num"><span class="display-val deposit">{% if t.入金 is not none %}{{ '{:,.0f}'.format(t.入金) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.入金 | int if t.入金 is not none else '' }}" placeholder="" style="display:none;"></td>
           <td class="editable num"><span class="display-val withdrawal">{% if t.出金 is not none %}{{ '{:,.0f}'.format(t.出金) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.出金 | int if t.出金 is not none else '' }}" placeholder="" style="display:none;"></td>
           <td class="editable num"><span class="display-val">{% if t.残高 is not none %}{{ '{:,.0f}'.format(t.残高) }}{% else %}—{% endif %}</span><input type="text" class="edit-val num-input" value="{{ t.残高 | int if t.残高 is not none else '' }}" placeholder="" style="display:none;"></td>
@@ -283,7 +285,8 @@ function addRow() {
   var tbody = document.getElementById('txBody');
   var tr = document.createElement('tr');
   tr.innerHTML = '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="YYYY-MM-DD"></td>'
-    + '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="摘要"></td>'
+    + '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="摘要（印字）"></td>'
+    + '<td class="editable"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val" value="" placeholder="手書き摘要"></td>'
     + '<td class="editable num"><span class="display-val deposit" style="display:none;"></span><input type="text" class="edit-val num-input" value="" placeholder=""></td>'
     + '<td class="editable num"><span class="display-val withdrawal" style="display:none;"></span><input type="text" class="edit-val num-input" value="" placeholder=""></td>'
     + '<td class="editable num"><span class="display-val" style="display:none;"></span><input type="text" class="edit-val num-input" value="" placeholder=""></td>'
@@ -308,11 +311,12 @@ function saveChanges() {
     transactions.push({
       date: inputs[0] ? inputs[0].value.trim() : '',
       description: inputs[1] ? inputs[1].value.trim() : '',
+      handwritten_description: inputs[2] ? inputs[2].value.trim() : '',
       original_description: originalDesc,
-      deposit: inputs[2] ? inputs[2].value.replace(/,/g, '').trim() : '',
-      withdrawal: inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '',
-      balance: inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '',
-      note: inputs[5] ? inputs[5].value.trim() : ''
+      deposit: inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '',
+      withdrawal: inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '',
+      balance: inputs[5] ? inputs[5].value.replace(/,/g, '').trim() : '',
+      note: inputs[6] ? inputs[6].value.trim() : ''
     });
   });
 
@@ -334,12 +338,13 @@ function saveChanges() {
         var inputs = row.querySelectorAll('.edit-val');
         var displays = row.querySelectorAll('.display-val');
         var vals = [
-          inputs[0] ? inputs[0].value.trim() : '',
-          inputs[1] ? inputs[1].value.trim() : '',
-          inputs[2] ? inputs[2].value.replace(/,/g, '').trim() : '',
-          inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '',
-          inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '',
-          inputs[5] ? inputs[5].value.trim() : ''
+          inputs[0] ? inputs[0].value.trim() : '',           // 日付
+          inputs[1] ? inputs[1].value.trim() : '',           // 摘要（印字）
+          inputs[2] ? inputs[2].value.trim() : '',           // 手書き摘要
+          inputs[3] ? inputs[3].value.replace(/,/g, '').trim() : '', // 入金
+          inputs[4] ? inputs[4].value.replace(/,/g, '').trim() : '', // 出金
+          inputs[5] ? inputs[5].value.replace(/,/g, '').trim() : '', // 残高
+          inputs[6] ? inputs[6].value.trim() : ''            // 備考
         ];
         // 数値フォーマット
         function fmtNum(v) {
@@ -349,10 +354,11 @@ function saveChanges() {
         }
         if (displays[0]) displays[0].textContent = vals[0] || '—';
         if (displays[1]) displays[1].textContent = vals[1] || '—';
-        if (displays[2]) displays[2].textContent = vals[2] ? fmtNum(vals[2]) : '—';
+        if (displays[2]) displays[2].textContent = vals[2] || '';
         if (displays[3]) displays[3].textContent = vals[3] ? fmtNum(vals[3]) : '—';
         if (displays[4]) displays[4].textContent = vals[4] ? fmtNum(vals[4]) : '—';
-        if (displays[5]) displays[5].textContent = vals[5] || '';
+        if (displays[5]) displays[5].textContent = vals[5] ? fmtNum(vals[5]) : '—';
+        if (displays[6]) displays[6].textContent = vals[6] || '';
       });
       cancelEdit();
       // 成功通知（学習件数も表示）

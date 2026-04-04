@@ -107,12 +107,6 @@
   </div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% for cat, msg in messages %}
-    <div class="alert alert-{{ 'success' if cat == 'success' else 'warning' if cat == 'warning' else 'danger' }} mb-3">{{ msg }}</div>
-  {% endfor %}
-{% endwith %}
-
 <!-- 処理中バナー -->
 {% if stmt.ステータス in ('pending', 'processing') %}
 <div class="processing-banner" id="processing-banner">

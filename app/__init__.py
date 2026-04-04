@@ -337,7 +337,7 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ homepage_builder blueprint 登録エラー: {e}")
 
-    # 証桮データ化アプリ blueprint登録
+    # 証憑データ化アプリ blueprint登録
     try:
         from .blueprints.voucher_store import bp as voucher_store_bp
         app.register_blueprint(voucher_store_bp)

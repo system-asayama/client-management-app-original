@@ -2312,7 +2312,7 @@ AVAILABLE_APPS = [
     },
     {
         'name': 'voucher-digitization',
-        'display_name': '証桮データ化アプリ',
+        'display_name': '証憑データ化アプリ',
         'scope': 'store',
         'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する店舗単位アプリ',
         'url': '/voucher',

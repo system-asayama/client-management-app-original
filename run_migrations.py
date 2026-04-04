@@ -1797,6 +1797,47 @@ def run_migrations():
         except Exception as e:
             print(f'  ⚠️  通帳明細template_idマイグレーションエラー: {e}')
 
+        # T_eTax送信要求テーブルの作成
+        print("\n[マイグレーション] T_eTax送信要求テーブルを作成...")
+        try:
+            from sqlalchemy import text
+            from app.db import engine as sa_engine
+            with sa_engine.connect() as sa_conn:
+                # PostgreSQL用
+                result = sa_conn.execute(text(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_name='T_eTax送信要求'"
+                ))
+                if not result.fetchone():
+                    sa_conn.execute(text("""
+                        CREATE TABLE "T_eTax送信要求" (
+                            id SERIAL PRIMARY KEY,
+                            client_id INTEGER NOT NULL REFERENCES "T_顧問先"(id),
+                            tenant_id INTEGER NOT NULL REFERENCES "T_テナント"(id),
+                            tax_record_id INTEGER REFERENCES "T_納税実績"(id),
+                            request_type VARCHAR(20) NOT NULL DEFAULT 'manual',
+                            tax_type VARCHAR(100),
+                            filing_type VARCHAR(50),
+                            fiscal_year INTEGER,
+                            fiscal_end_month INTEGER,
+                            amount INTEGER,
+                            tax_office_name VARCHAR(100),
+                            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                            payment_code VARCHAR(255),
+                            pdf_file_url TEXT,
+                            error_message TEXT,
+                            retry_count INTEGER NOT NULL DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """))
+                    sa_conn.commit()
+                    print("  ✅ T_eTax送信要求テーブルを作成しました")
+                else:
+                    print("  ℹ️  T_eTax送信要求テーブルは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  T_eTax送信要求テーブル作成エラー: {e}")
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

@@ -12,3 +12,4 @@ cloudinary
 PyMuPDF
 Pillow
 openpyxl
+playwright>=1.40.0

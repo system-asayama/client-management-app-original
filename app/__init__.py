@@ -361,6 +361,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ voucher_credit blueprint 登録エラー: {e}")
 
+    # e-Tax RPA blueprint登録
+    try:
+        from .blueprints.etax import bp as etax_bp
+        app.register_blueprint(etax_bp)
+        print("✅ etax blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ etax blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

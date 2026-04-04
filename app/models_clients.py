@@ -230,6 +230,37 @@ class TVideoCallSession(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TEtaxRequest(Base):
+    """T_eTax送信要求テーブル（e-Tax納付情報登録依頼の送信管理）"""
+    __tablename__ = 'T_eTax送信要求'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    tax_record_id = Column(Integer, ForeignKey('T_納税実績.id'), nullable=True)  # 紐づく納税実績（任意）
+
+    request_type = Column(String(20), nullable=False, default='manual')  # 'manual'=都度送信, 'auto'=定期自動送信
+    tax_type = Column(String(100), nullable=True)       # 税目（例: 消費税及地方消費税、法人税）
+    filing_type = Column(String(50), nullable=True)     # 申告区分（例: 確定申告、中間申告）
+    fiscal_year = Column(Integer, nullable=True)        # 対象決算年度
+    fiscal_end_month = Column(Integer, nullable=True)   # 対象決算月
+    amount = Column(Integer, nullable=True)             # 納付金額（円）
+    tax_office_name = Column(String(100), nullable=True)  # 提出先税務署名
+
+    # 送信ステータス
+    status = Column(String(20), nullable=False, default='pending')
+    # 'pending'=待機中, 'processing'=処理中, 'completed'=完了, 'error'=エラー, 'skipped'=スキップ
+
+    # 取得結果
+    payment_code = Column(String(255), nullable=True)   # 納付区分番号（収納機関番号-納付番号-確認番号）
+    pdf_file_url = Column(Text, nullable=True)          # 納付区分番号通知PDFのURL
+    error_message = Column(Text, nullable=True)         # エラー発生時の詳細メッセージ
+    retry_count = Column(Integer, nullable=False, default=0)  # リトライ回数
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TVideoCallUsage(Base):
     """T_ビデオ通話利用量テーブル（月次集計）"""
     __tablename__ = 'T_ビデオ通話利用量'

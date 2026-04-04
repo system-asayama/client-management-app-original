@@ -103,6 +103,69 @@
   .intermediate-item { font-size: 12px; color: #1565c0; }
   .intermediate-label { font-weight: 600; }
   .divider { border: none; border-top: 1px solid #eee; margin: 14px 0; }
+  /* e-Tax 送信ボタン・ステータス */
+  .etax-section {
+    background: #e8eaf6; border-radius: 8px; padding: 12px 16px;
+    margin-top: 14px; border-left: 4px solid #3949ab;
+  }
+  .etax-section-title { font-size: 12px; font-weight: 700; color: #283593; margin-bottom: 10px; }
+  .etax-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn-etax {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 6px;
+    background: #3949ab; color: #fff;
+    border: none; font-size: 12px; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+  }
+  .btn-etax:hover { background: #283593; }
+  .btn-etax:disabled { background: #9fa8da; cursor: not-allowed; }
+  .etax-status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+  }
+  .status-pending   { background: #fff9c4; color: #f57f17; }
+  .status-processing{ background: #e3f2fd; color: #1565c0; }
+  .status-completed { background: #e8f5e9; color: #2e7d32; }
+  .status-error     { background: #ffebee; color: #c62828; }
+  .payment-code-box {
+    font-size: 12px; color: #1a237e; background: #fff;
+    border: 1px solid #9fa8da; border-radius: 4px;
+    padding: 4px 10px; font-family: monospace; letter-spacing: 1px;
+  }
+  /* e-Tax 送信モーダル */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 12px; padding: 28px 32px;
+    width: 100%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  .modal-title { font-size: 16px; font-weight: 700; color: #1a237e; margin-bottom: 18px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-label { font-size: 12px; font-weight: 700; color: #555; margin-bottom: 4px; }
+  .modal-input {
+    width: 100%; padding: 8px 12px; border-radius: 6px;
+    border: 1.5px solid #c5cae9; font-size: 13px; box-sizing: border-box;
+  }
+  .modal-input:focus { outline: none; border-color: #3949ab; }
+  .modal-select {
+    width: 100%; padding: 8px 12px; border-radius: 6px;
+    border: 1.5px solid #c5cae9; font-size: 13px; box-sizing: border-box;
+    background: #fff;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-modal-cancel {
+    padding: 8px 20px; border-radius: 6px; background: #f5f5f5;
+    color: #555; border: 1.5px solid #ddd; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn-modal-submit {
+    padding: 8px 20px; border-radius: 6px; background: #3949ab;
+    color: #fff; border: none; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .btn-modal-submit:hover { background: #283593; }
 </style>
 
 <div class="page-wrap">
@@ -290,10 +353,182 @@
       </div>
       {% endif %}
 
+      <!-- e-Tax 送信セクション -->
+      <hr class="divider">
+      <div class="etax-section">
+        <div class="etax-section-title">📤 e-Tax 納付情報登録依頼</div>
+        <div class="etax-actions" id="etax-actions-{{ rec.id }}">
+          {% if client.etax_user_id %}
+            <button class="btn-etax" onclick="openEtaxModal({{ rec.id }}, {{ rec.fiscal_year }}, {{ rec.fiscal_end_month }})">
+              📤 e-Taxに送信
+            </button>
+          {% else %}
+            <span style="font-size:12px; color:#c62828;">
+              ⚠️ e-Tax認証情報が未登録です。
+              <a href="{{ url_for('clients.tax_info', client_id=client.id) }}" style="color:#1a237e;">税務申告基本情報ページ</a>で登録してください。
+            </span>
+          {% endif %}
+          <!-- 最新の送信ステータス表示エリア（Ajax更新） -->
+          <div id="etax-status-{{ rec.id }}"></div>
+        </div>
+      </div>
+
     </div>
     {% endfor %}
   {% endif %}
 
   <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="btn-back">← 業務情報に戻る</a>
 </div>
+
+<!-- e-Tax 送信モーダル -->
+<div class="modal-overlay" id="etax-modal">
+  <div class="modal-box">
+    <div class="modal-title">📤 e-Tax 納付情報登録依頼の送信</div>
+    <form id="etax-modal-form">
+      <input type="hidden" id="modal-tax-record-id" name="tax_record_id">
+      <div class="modal-field">
+        <div class="modal-label">税目 <span style="color:#c62828;">*</span></div>
+        <select name="tax_type" id="modal-tax-type" class="modal-select" required>
+          <option value="">選択してください</option>
+          <option value="法人税">法人税</option>
+          <option value="地方法人税">地方法人税</option>
+          <option value="消費税及地方消費税">消費税及地方消費税</option>
+          <option value="源泉所得税">源泉所得税</option>
+          <option value="相続税">相続税</option>
+          <option value="赠与税">赠与税</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">申告区分 <span style="color:#c62828;">*</span></div>
+        <select name="filing_type" id="modal-filing-type" class="modal-select" required>
+          <option value="">選択してください</option>
+          <option value="確定申告">確定申告</option>
+          <option value="中間申告">中間申告</option>
+          <option value="予定申告">予定申告</option>
+          <option value="修正申告">修正申告</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">決算年度 <span style="color:#c62828;">*</span></div>
+        <input type="number" name="fiscal_year" id="modal-fiscal-year" class="modal-input" required min="2000" max="2099" placeholder="例: 2025">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">決算月 <span style="color:#c62828;">*</span></div>
+        <select name="fiscal_end_month" id="modal-fiscal-month" class="modal-select" required>
+          <option value="">選択してください</option>
+          {% for m in range(1, 13) %}
+          <option value="{{ m }}">{{ m }}月</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">納付金額（円） <span style="color:#c62828;">*</span></div>
+        <input type="number" name="amount" id="modal-amount" class="modal-input" required min="1" placeholder="例: 150000">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-modal-cancel" onclick="closeEtaxModal()">キャンセル</button>
+        <button type="submit" class="btn-modal-submit" id="modal-submit-btn">📤 送信する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const CLIENT_ID = {{ client.id }};
+
+function openEtaxModal(recordId, fiscalYear, fiscalMonth) {
+  document.getElementById('modal-tax-record-id').value = recordId;
+  document.getElementById('modal-fiscal-year').value = fiscalYear;
+  document.getElementById('modal-fiscal-month').value = fiscalMonth;
+  document.getElementById('etax-modal').classList.add('active');
+}
+
+function closeEtaxModal() {
+  document.getElementById('etax-modal').classList.remove('active');
+  document.getElementById('etax-modal-form').reset();
+}
+
+// モーダルの外側クリックで閉じる
+document.getElementById('etax-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEtaxModal();
+});
+
+// 送信フォームのサブミット
+document.getElementById('etax-modal-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const submitBtn = document.getElementById('modal-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '送信中...';
+
+  const formData = new FormData(this);
+  const recordId = formData.get('tax_record_id');
+
+  try {
+    const resp = await fetch(`/etax/request/${CLIENT_ID}`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await resp.json();
+
+    closeEtaxModal();
+
+    if (resp.ok && data.request_id) {
+      showStatus(recordId, 'processing', '処理中...');
+      pollStatus(recordId, data.request_id);
+    } else {
+      showStatus(recordId, 'error', data.error || '送信に失敗しました');
+    }
+  } catch (err) {
+    closeEtaxModal();
+    showStatus(recordId, 'error', '通信エラーが発生しました');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '📤 送信する';
+  }
+});
+
+function showStatus(recordId, status, message, paymentCode, pdfUrl) {
+  const el = document.getElementById(`etax-status-${recordId}`);
+  if (!el) return;
+  const statusLabels = {
+    pending: '待機中',
+    processing: '処理中',
+    completed: '完了',
+    error: 'エラー',
+  };
+  let html = `<span class="etax-status-badge status-${status}">${statusLabels[status] || status}</span>`;
+  if (message && status === 'error') {
+    html += ` <span style="font-size:11px; color:#c62828;">${message}</span>`;
+  }
+  if (paymentCode) {
+    html += ` <span class="payment-code-box">💳 ${paymentCode}</span>`;
+  }
+  if (pdfUrl) {
+    html += ` <a href="${pdfUrl}" target="_blank" class="btn-etax" style="font-size:11px; padding:4px 10px;">📄 PDF</a>`;
+  }
+  el.innerHTML = html;
+}
+
+function pollStatus(recordId, requestId) {
+  const interval = setInterval(async () => {
+    try {
+      const resp = await fetch(`/etax/status/${requestId}`);
+      const data = await resp.json();
+      if (data.status === 'completed') {
+        clearInterval(interval);
+        showStatus(recordId, 'completed', null, data.payment_code, data.pdf_file_url);
+      } else if (data.status === 'error') {
+        clearInterval(interval);
+        showStatus(recordId, 'error', data.error_message);
+      } else {
+        showStatus(recordId, data.status, '処理中...');
+      }
+    } catch (err) {
+      clearInterval(interval);
+      showStatus(recordId, 'error', 'ステータスの取得に失敗しました');
+    }
+  }, 5000); // 5秒ごとにポーリング
+}
+</script>
 {% endblock %}

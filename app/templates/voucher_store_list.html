@@ -66,7 +66,6 @@
   <div class="sub">🧧 証憑データ化アプリ / レシート・領収書</div>
   <h1>証憑一覧</h1>
   <div class="vc-header-actions">
-    <a href="{{ url_for('voucher_store.top') }}" class="vc-btn vc-btn-white">📂 モード選択</a>
     <a href="{{ url_for('voucher_store.upload') }}" class="vc-btn vc-btn-white">📸 アップロード</a>
     <a href="{{ url_for('voucher_store.export_csv') }}" class="vc-btn vc-btn-white">⬇️ CSV</a>
   </div>
@@ -79,29 +78,6 @@
   {% endfor %}
 {% endif %}
 {% endwith %}
-
-<!-- サマリー -->
-{% set total_amount = vouchers | selectattr('金額') | map(attribute='金額') | sum %}
-{% set pending_count = vouchers | selectattr('ステータス', 'equalto', 'pending') | list | length %}
-{% set completed_count = vouchers | selectattr('ステータス', 'equalto', 'completed') | list | length %}
-<div class="summary-row">
-  <div class="summary-card">
-    <div class="val">{{ vouchers | length }}</div>
-    <div class="lbl">総件数</div>
-  </div>
-  <div class="summary-card">
-    <div class="val" style="font-size:1.2rem;">¥{{ "{:,.0f}".format(total_amount) }}</div>
-    <div class="lbl">合計金額</div>
-  </div>
-  <div class="summary-card">
-    <div class="val" style="color:#92400e;">{{ pending_count }}</div>
-    <div class="lbl">未処理</div>
-  </div>
-  <div class="summary-card">
-    <div class="val" style="color:#065f46;">{{ completed_count }}</div>
-    <div class="lbl">完了</div>
-  </div>
-</div>
 
 <!-- フィルター -->
 <div class="filter-bar">

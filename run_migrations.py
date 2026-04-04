@@ -1760,6 +1760,37 @@ def run_migrations():
         except Exception as e:
             print(f"  ⚠️ 通帳明細・クレジット明細テーブル作成エラー: {e}")
 
+        # T_通帳明細・T_通帳摘要学習テーブルにtemplate_idカラムを追加
+        print("\n[マイグレーション] T_通帳明細・T_通帳摘要学習テーブルにtemplate_idカラムを追加...")
+        try:
+            from sqlalchemy import text
+            from app.db import engine as sa_engine
+            with sa_engine.connect() as sa_conn:
+                bank_template_cols = [
+                    ('T_通帳明細', 'template_id'),
+                    ('T_通帳摘要学習', 'template_id'),
+                ]
+                for table_name, col_name in bank_template_cols:
+                    try:
+                        result = sa_conn.execute(text(
+                            f"SELECT column_name FROM information_schema.columns "
+                            f"WHERE table_name='{table_name}' AND column_name='{col_name}'"
+                        ))
+                        if not result.fetchone():
+                            sa_conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} INTEGER'))
+                            sa_conn.commit()
+                            print(f'  ✅ {table_name}.{col_name}カラムを追加しました')
+                        else:
+                            print(f'  ℹ️  {table_name}.{col_name}カラムは既に存在します（スキップ）')
+                    except Exception as col_e:
+                        print(f'  ⚠️  {table_name}.{col_name}マイグレーションエラー: {col_e}')
+                        try:
+                            sa_conn.rollback()
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f'  ⚠️  通帳明細template_idマイグレーションエラー: {e}')
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

@@ -588,13 +588,14 @@ def export_csv(stmt_id):
     writer.writerow(['口座名義', stmt.口座名義 or ''])
     writer.writerow(['期間', f"{stmt.期間_開始 or ''} ～ {stmt.期間_終了 or ''}"])
     writer.writerow([])
-    writer.writerow(['日付', '摘要', '手書き摘要', '入金', '出金', '残高', '備考'])
+    writer.writerow(['日付', '摘要', '入金', '出金', '残高', '備考'])
 
     for t in transactions:
+        parts = [p for p in [t.摘要, t.手書き摘要] if p]
+        description = ' / '.join(parts)
         writer.writerow([
             t.日付 or '',
-            t.摘要 or '',
-            t.手書き摘要 or '',
+            description,
             int(t.入金) if t.入金 is not None else '',
             int(t.出金) if t.出金 is not None else '',
             int(t.残高) if t.残高 is not None else '',
@@ -664,7 +665,7 @@ def export_excel(stmt_id):
         ws.cell(r, 2, value)
 
     header_row = len(info_rows) + 2
-    headers = ['日付', '摘要', '手書き摘要', '入金', '出金', '残高', '備考']
+    headers = ['日付', '摘要', '入金', '出金', '残高', '備考']
     for c, h in enumerate(headers, 1):
         cell = ws.cell(header_row, c, h)
         cell.fill = header_fill
@@ -674,10 +675,11 @@ def export_excel(stmt_id):
 
     for i, t in enumerate(transactions):
         row = header_row + 1 + i
+        parts = [p for p in [t.摘要, t.手書き摘要] if p]
+        description = ' / '.join(parts)
         values = [
             t.日付 or '',
-            t.摘要 or '',
-            t.手書き摘要 or '',
+            description,
             int(t.入金) if t.入金 is not None else '',
             int(t.出金) if t.出金 is not None else '',
             int(t.残高) if t.残高 is not None else '',
@@ -686,17 +688,16 @@ def export_excel(stmt_id):
         for c, v in enumerate(values, 1):
             cell = ws.cell(row, c, v)
             cell.border = border
-            if c in (4, 5, 6) and v != '':
+            if c in (3, 4, 5) and v != '':
                 cell.alignment = Alignment(horizontal='right')
                 cell.number_format = '#,##0'
 
     ws.column_dimensions['A'].width = 14
-    ws.column_dimensions['B'].width = 30
-    ws.column_dimensions['C'].width = 30
+    ws.column_dimensions['B'].width = 40
+    ws.column_dimensions['C'].width = 14
     ws.column_dimensions['D'].width = 14
     ws.column_dimensions['E'].width = 14
-    ws.column_dimensions['F'].width = 14
-    ws.column_dimensions['G'].width = 20
+    ws.column_dimensions['F'].width = 20
 
     output = io.BytesIO()
     wb.save(output)

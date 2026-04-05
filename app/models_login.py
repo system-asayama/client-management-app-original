@@ -30,7 +30,8 @@ class TKanrisha(Base):
     azure_document_intelligence_key = Column(Text, nullable=True, comment='Azure Document Intelligence APIキー')
     phone = Column(String(50), nullable=True, comment='電話番号')
     position = Column(String(100), nullable=True, comment='役職')
-    face_photo_url = Column(Text, nullable=True, comment='顔認証用写真URL（Base64またはストレージURL）')
+    face_photo_url = Column(Text, nullable=True, comment='顔認証用写真・URL（Base64またはストレージURL）')
+    gps_mode = Column(String(20), default='always', nullable=True, comment='GPS追跡モード: always=常時追跡, checkin_only=出退勤時のみ')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

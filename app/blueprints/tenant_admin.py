@@ -3564,6 +3564,46 @@ def gps_settings():
         mobile_api_key = os.environ.get('MOBILE_API_KEY', '')
         flask_base_url = request.host_url.rstrip('/')
         tenant_slug = getattr(tenant_obj, 'slug', '') or ''
+        # スタッフ別GPSモード設定用：全スタッフ一覧（管理者＋従業員、重複なし）
+        all_stores_gps = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).all()
+        all_store_ids_gps = [s.id for s in all_stores_gps]
+        store_admin_rows_gps = db.query(TKanrishaTenpo).filter(
+            TKanrishaTenpo.store_id.in_(all_store_ids_gps)
+        ).all() if all_store_ids_gps else []
+        store_admin_ids_gps = list(set(r.admin_id for r in store_admin_rows_gps))
+        tenant_admin_rows_gps = db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_ids_gps = list(set(r.admin_id for r in tenant_admin_rows_gps))
+        all_admin_ids_gps = list(set(store_admin_ids_gps + tenant_admin_ids_gps))
+        admins_gps = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids_gps), TKanrisha.active == 1
+        ).order_by(TKanrisha.id).all() if all_admin_ids_gps else []
+        employees_gps = db.query(TJugyoin).filter(
+            TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
+        ).order_by(TJugyoin.id).all()
+        seen_gps = set()
+        staff_gps_list = []
+        for a in admins_gps:
+            if a.login_id not in seen_gps:
+                seen_gps.add(a.login_id)
+                staff_gps_list.append({
+                    'id': a.id,
+                    'name': a.name,
+                    'type': 'admin',
+                    'role': getattr(a, 'role', 'admin'),
+                    'gps_mode': getattr(a, 'gps_mode', 'always') or 'always'
+                })
+        for e in employees_gps:
+            if e.login_id not in seen_gps:
+                seen_gps.add(e.login_id)
+                staff_gps_list.append({
+                    'id': e.id,
+                    'name': e.name,
+                    'type': 'employee',
+                    'role': 'employee',
+                    'gps_mode': getattr(e, 'gps_mode', 'always') or 'always'
+                })
         return render_template('tenant_admin_gps_settings.html',
                                tenant=tenant_obj,
                                gps_enabled=gps_enabled,
@@ -3574,7 +3614,8 @@ def gps_settings():
                                android_apk_version=android_apk_version,
                                mobile_api_key=mobile_api_key,
                                flask_base_url=flask_base_url,
-                               tenant_slug=tenant_slug)
+                               tenant_slug=tenant_slug,
+                               staff_gps_list=staff_gps_list)
     finally:
         db.close()
 
@@ -3626,5 +3667,45 @@ def apk_download_page():
                                apk_url=apk_url,
                                apk_version=apk_version,
                                tenant_name=tenant_name)
+    finally:
+        db.close()
+
+
+
+# ─────────────────────────────────────────────
+# スタッフ別GPSモード更新API
+# ─────────────────────────────────────────────
+@bp.route('/update_staff_gps_mode', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def update_staff_gps_mode():
+    """スタッフ個別のGPSモード（常時記録/出退勤のみ）を更新するAPI"""
+    from flask import jsonify
+    tenant_id = session.get('tenant_id')
+    data = request.get_json(silent=True) or {}
+    staff_id = data.get('staff_id')
+    staff_type = data.get('staff_type')
+    gps_mode = data.get('gps_mode', 'always')
+    if gps_mode not in ('always', 'checkin_only'):
+        return jsonify({'ok': False, 'error': '無効なgps_mode値です'}), 400
+    if not staff_id or not staff_type:
+        return jsonify({'ok': False, 'error': 'staff_idとstaff_typeは必須です'}), 400
+    db = SessionLocal()
+    try:
+        if staff_type == 'admin':
+            staff = db.query(TKanrisha).filter(TKanrisha.id == staff_id).first()
+        else:
+            staff = db.query(TJugyoin).filter(
+                TJugyoin.id == staff_id,
+                TJugyoin.tenant_id == tenant_id
+            ).first()
+        if not staff:
+            return jsonify({'ok': False, 'error': 'スタッフが見つかりません'}), 404
+        staff.gps_mode = gps_mode
+        db.commit()
+        mode_label = '常時記録' if gps_mode == 'always' else '出退勤・休憩のみ'
+        return jsonify({'ok': True, 'message': f'{staff.name} のGPSモードを「{mode_label}」に更新しました'})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()

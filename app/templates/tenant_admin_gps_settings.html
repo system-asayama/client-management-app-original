@@ -469,6 +469,61 @@
     </form>
 </div>
 
+<!-- スタッフ別GPSモード設定セクション -->
+<div class="settings-card" style="margin-top:24px;">
+    <div class="settings-title">👤 スタッフ別GPS記録モード</div>
+    <div class="settings-desc">
+        各スタッフのGPS記録モードを個別に設定できます。常時記録は動きのたびにGPSを記録します。出退勤・休憩のみは出勤・休憩開始・休憩終了・退勤時のみ記録します。
+    </div>
+    {% if staff_gps_list %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>氏名</th>
+                <th>役割</th>
+                <th>GPSモード</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for staff in staff_gps_list %}
+            <tr id="staff-row-{{ staff.type }}-{{ staff.id }}">
+                <td><strong>{{ staff.name }}</strong></td>
+                <td>
+                    {% if staff.role == 'tenant_admin' %}
+                    <span class="badge-active">テナント管理者</span>
+                    {% elif staff.role == 'admin' %}
+                    <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600;">店舗管理者</span>
+                    {% else %}
+                    <span style="background:#f3f4f6;color:#374151;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600;">従業員</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button type="button"
+                            class="gps-mode-btn {% if staff.gps_mode == 'always' %}gps-mode-active{% endif %}"
+                            onclick="setStaffGpsMode('{{ staff.type }}', {{ staff.id }}, 'always', this)"
+                            style="padding:6px 12px;border-radius:6px;border:2px solid {% if staff.gps_mode == 'always' %}#1a237e{% else %}#d1d5db{% endif %};background:{% if staff.gps_mode == 'always' %}#1a237e{% else %}#f5f7ff{% endif %};color:{% if staff.gps_mode == 'always' %}#fff{% else %}#374151{% endif %};font-size:0.82em;font-weight:600;cursor:pointer;">
+                            📱 常時記録
+                        </button>
+                        <button type="button"
+                            class="gps-mode-btn {% if staff.gps_mode == 'checkin_only' %}gps-mode-active{% endif %}"
+                            onclick="setStaffGpsMode('{{ staff.type }}', {{ staff.id }}, 'checkin_only', this)"
+                            style="padding:6px 12px;border-radius:6px;border:2px solid {% if staff.gps_mode == 'checkin_only' %}#1a237e{% else %}#d1d5db{% endif %};background:{% if staff.gps_mode == 'checkin_only' %}#1a237e{% else %}#f5f7ff{% endif %};color:{% if staff.gps_mode == 'checkin_only' %}#fff{% else %}#374151{% endif %};font-size:0.82em;font-weight:600;cursor:pointer;">
+                            📍 出退勤・休憩のみ
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>スタッフが登録されていません</p>
+    </div>
+    {% endif %}
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 {% if mobile_api_key %}
@@ -544,6 +599,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+async function setStaffGpsMode(staffType, staffId, mode, btn) {
+    // ボタンの親要素内の全ボタンをリセット
+    var row = document.getElementById('staff-row-' + staffType + '-' + staffId);
+    if (row) {
+        row.querySelectorAll('button').forEach(function(b) {
+            b.style.background = '#f5f7ff';
+            b.style.color = '#374151';
+            b.style.borderColor = '#d1d5db';
+        });
+    }
+    // クリックしたボタンをアクティブに
+    btn.style.background = '#1a237e';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#1a237e';
+    try {
+        var resp = await fetch('{{ url_for("tenant_admin.update_staff_gps_mode") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({staff_id: staffId, staff_type: staffType, gps_mode: mode})
+        });
+        var data = await resp.json();
+        if (!data.ok) {
+            alert('エラー: ' + (data.error || '不明なエラー'));
+        }
+    } catch(e) {
+        alert('通信エラーが発生しました');
+    }
+}
 
 function copyToClipboard(inputId, btn) {
     var input = document.getElementById(inputId);

@@ -24,7 +24,7 @@ def today_jst():
 
 
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TAttendance, TAttendanceLocation
+from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAdminTenant, TAttendance, TAttendanceLocation
 from app.models_clients import TMessage, TMessageRead
 from app.utils.decorators import require_roles, ROLES
 
@@ -192,6 +192,39 @@ def attendance():
             else:
                 s['role'] = 'employee'
 
+        # 従業員管理画面と同じロジックで全スタッフ数を集計（管理者含む・重複なし）
+        all_stores = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1
+        ).all()
+        all_store_ids = [s.id for s in all_stores]
+        store_admin_rows = db.query(TKanrishaTenpo).filter(
+            TKanrishaTenpo.store_id.in_(all_store_ids)
+        ).all() if all_store_ids else []
+        store_admin_ids = list(set(r.admin_id for r in store_admin_rows))
+        tenant_admin_rows = db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_ids = list(set(r.admin_id for r in tenant_admin_rows))
+        all_admin_ids = list(set(store_admin_ids + tenant_admin_ids))
+        admin_count = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids), TKanrisha.active == 1
+        ).count() if all_admin_ids else 0
+        employee_count = db.query(TJugyoin).filter(
+            TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
+        ).count()
+        # 管理者が従業員テーブルにも登録されている場合の重複を除くため、login_idで重複排除
+        admin_login_ids = set(
+            a.login_id for a in db.query(TKanrisha).filter(
+                TKanrisha.id.in_(all_admin_ids), TKanrisha.active == 1
+            ).all()
+        ) if all_admin_ids else set()
+        emp_login_ids = set(
+            e.login_id for e in db.query(TJugyoin).filter(
+                TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
+            ).all()
+        )
+        total_staff_count = len(admin_login_ids | emp_login_ids)
+
         return render_template('kintaikanri_attendance.html',
                                staff_data=staff_data,
                                all_staff=all_staff,
@@ -204,7 +237,8 @@ def attendance():
                                total_work_days=total_work_days,
                                total_work_hours=total_work_minutes_all // 60,
                                total_work_minutes_remainder=total_work_minutes_all % 60,
-                               currently_working=currently_working)
+                               currently_working=currently_working,
+                               total_staff_count=total_staff_count)
     finally:
         db.close()
 

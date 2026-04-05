@@ -448,3 +448,37 @@ def export_excel(stmt_id):
     return send_file(output,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True, download_name=filename)
+
+
+# ============================================================
+# クレジット明細削除
+# ============================================================
+@bp.route('/<int:stmt_id>/delete', methods=['POST'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def delete(stmt_id):
+    info = get_session_info()
+    tenant_id = info['tenant_id']
+
+    db = SessionLocal()
+    try:
+        stmt = db.query(TCreditStatement).filter(
+            TCreditStatement.id == stmt_id,
+            TCreditStatement.tenant_id == tenant_id
+        ).first()
+
+        if not stmt:
+            flash('クレジット明細が見つかりません', 'error')
+            return redirect(url_for('voucher_credit.index'))
+
+        # 関連する明細行を先に削除
+        db.query(TCreditTransaction).filter(TCreditTransaction.statement_id == stmt_id).delete()
+        db.delete(stmt)
+        db.commit()
+        flash('クレジット明細を削除しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'削除に失敗しました: {str(e)}', 'error')
+    finally:
+        db.close()
+
+    return redirect(url_for('voucher_credit.index'))

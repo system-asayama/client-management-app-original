@@ -39,8 +39,9 @@ def get_session_info():
 
 
 # ============================================================
-# 証桯モード選択トップ
+# 証憑モード選択トップ（/ と /top の両方で表示）
 # ============================================================
+@bp.route('/')
 @bp.route('/top')
 @require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
 def top():
@@ -48,9 +49,9 @@ def top():
 
 
 # ============================================================
-# 証桯一覧（レシート・領収書モード）
+# 証憑一覧（レシート・領収書モード）
 # ============================================================
-@bp.route('/')
+@bp.route('/list/')
 @require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
 def index():
     info = get_session_info()

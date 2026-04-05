@@ -200,7 +200,7 @@
 <div class="stats-row">
   <div class="stat-card">
     <div class="stat-label">対象スタッフ数</div>
-    <div class="stat-value">{{ staff_data | length }}</div>
+    <div class="stat-value">{{ total_staff_count if total_staff_count is defined else (staff_data | length) }}</div>
     <div class="stat-sub">名</div>
   </div>
   <div class="stat-card">

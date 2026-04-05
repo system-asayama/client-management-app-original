@@ -238,9 +238,9 @@ def _call_openai_vision(image_path: str, api_key: str, prompt: str, max_tokens: 
 
 def extract_text_with_openai_vision(image_path: str, api_key: str) -> Dict:
     """
-    OpenAI GPT-4o Vision APIを使用して証桯画像からデータを抜出する。
+    OpenAI GPT-4o Vision APIを使用して証憑画像からデータを抜出する。
     """
-    prompt = """この画像は領収書・請求書・レシートなどの証桯書類です。
+    prompt = """この画像は領収書・請求書・レシートなどの証憑書類です。
 以下の情報をJSON形式で抜出してください。不明な場合はnullにしてください。
 {
   "company_name": "発行会社・店舗名（文字列）",

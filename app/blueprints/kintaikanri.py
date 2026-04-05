@@ -24,7 +24,7 @@ def today_jst():
 
 
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TAttendance, TAttendanceLocation
+from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAdminTenant, TAttendance, TAttendanceLocation
 from app.models_clients import TMessage, TMessageRead
 from app.utils.decorators import require_roles, ROLES
 
@@ -169,22 +169,62 @@ def attendance():
 
         staff_data = list(staff_map.values())
 
-        # スタッフ絞り込みドロップダウン用：ユニークなスタッフ一覧を取得
-        all_staff_keys = db.query(
-            TAttendance.staff_type,
-            TAttendance.staff_id,
-            TAttendance.staff_name
-        ).filter(
-            TAttendance.tenant_id == tenant_id
-        ).distinct().all()
-        # 管理者のrole情報を引き当てるマップを構築
-        admin_role_map = {a.id: getattr(a, 'role', 'admin') for a in db.query(TKanrisha).filter(
-            TKanrisha.tenant_id == tenant_id
-        ).all()}
+        # 従業員管理画面と同じロジックで全スタッフを取得（管理者含む・重複なし）
+        all_stores = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1
+        ).all()
+        all_store_ids = [st.id for st in all_stores]
+        store_admin_rows = db.query(TKanrishaTenpo).filter(
+            TKanrishaTenpo.store_id.in_(all_store_ids)
+        ).all() if all_store_ids else []
+        store_admin_ids = list(set(r.admin_id for r in store_admin_rows))
+        tenant_admin_rows = db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_ids = list(set(r.admin_id for r in tenant_admin_rows))
+        all_admin_ids = list(set(store_admin_ids + tenant_admin_ids))
+
+        # 管理者リスト（全店舗の管理者＋テナント管理者）
+        admins_all = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids), TKanrisha.active == 1
+        ).order_by(TKanrisha.id).all() if all_admin_ids else []
+
+        # 従業員リスト
+        employees_all = db.query(TJugyoin).filter(
+            TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
+        ).order_by(TJugyoin.id).all()
+
+        # 管理者のrole情報マップ
+        admin_role_map = {a.id: getattr(a, 'role', 'admin') for a in admins_all}
+
+        # 管理者のlogin_idセット（従業員との重複排除用）
+        admin_login_id_set = {a.login_id for a in admins_all}
+
+        # ドロップダウン用：全スタッフ一覧（管理者＋従業員、重複なし）
         all_staff = []
-        for r in all_staff_keys:
-            role = admin_role_map.get(r.staff_id, 'admin') if r.staff_type == 'admin' else 'employee'
-            all_staff.append({'staff_type': r.staff_type, 'staff_id': r.staff_id, 'staff_name': r.staff_name or f'スタッフ{r.staff_id}', 'role': role})
+        seen_login_ids = set()
+        for a in admins_all:
+            if a.login_id not in seen_login_ids:
+                seen_login_ids.add(a.login_id)
+                all_staff.append({
+                    'staff_type': 'admin',
+                    'staff_id': a.id,
+                    'staff_name': a.name,
+                    'role': getattr(a, 'role', 'admin')
+                })
+        for e in employees_all:
+            if e.login_id not in seen_login_ids:
+                seen_login_ids.add(e.login_id)
+                all_staff.append({
+                    'staff_type': 'employee',
+                    'staff_id': e.id,
+                    'staff_name': e.name,
+                    'role': 'employee'
+                })
+
+        # 対象スタッフ数（重複なし）
+        total_staff_count = len(seen_login_ids)
+
         # staff_dataにもrole情報を付加
         for s in staff_data:
             if s['staff_type'] == 'admin':
@@ -204,7 +244,8 @@ def attendance():
                                total_work_days=total_work_days,
                                total_work_hours=total_work_minutes_all // 60,
                                total_work_minutes_remainder=total_work_minutes_all % 60,
-                               currently_working=currently_working)
+                               currently_working=currently_working,
+                               total_staff_count=total_staff_count)
     finally:
         db.close()
 
@@ -330,16 +371,38 @@ def attendance_map():
         # 対象スタッフID（未指定なら全スタッフ）
         staff_id_param = request.args.get('staff_id')
 
-        # テナント内の全スタッフ（管理者 + 従業員）を取得
-        admins = db.query(TKanrisha).filter(
-            and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
+        # テナント内の全スタッフ（管理者 + 従業員）を重複なしで取得
+        all_stores_m = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1
         ).all()
+        all_store_ids_m = [st.id for st in all_stores_m]
+        store_admin_rows_m = db.query(TKanrishaTenpo).filter(
+            TKanrishaTenpo.store_id.in_(all_store_ids_m)
+        ).all() if all_store_ids_m else []
+        store_admin_ids_m = list(set(r.admin_id for r in store_admin_rows_m))
+        tenant_admin_rows_m = db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_ids_m = list(set(r.admin_id for r in tenant_admin_rows_m))
+        all_admin_ids_m = list(set(store_admin_ids_m + tenant_admin_ids_m))
+        admins = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids_m), TKanrisha.active == 1
+        ).order_by(TKanrisha.id).all() if all_admin_ids_m else []
         employees = db.query(TJugyoin).filter(
             and_(TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1)
-        ).all()
+        ).order_by(TJugyoin.id).all()
 
-        staff_list = [{'id': a.id, 'name': a.name, 'type': 'admin', 'role': getattr(a, 'role', 'admin')} for a in admins]
-        staff_list += [{'id': e.id, 'name': e.name, 'type': 'employee', 'role': 'employee'} for e in employees]
+        # login_idで重複排除しながらstaff_listを構築
+        seen_login_ids_m = set()
+        staff_list = []
+        for a in admins:
+            if a.login_id not in seen_login_ids_m:
+                seen_login_ids_m.add(a.login_id)
+                staff_list.append({'id': a.id, 'name': a.name, 'type': 'admin', 'role': getattr(a, 'role', 'admin')})
+        for e in employees:
+            if e.login_id not in seen_login_ids_m:
+                seen_login_ids_m.add(e.login_id)
+                staff_list.append({'id': e.id, 'name': e.name, 'type': 'employee', 'role': 'employee'})
 
         # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
         staff_id_set = {(s['id'], s['type']) for s in staff_list}
@@ -522,15 +585,42 @@ def attendance_map_realtime_data():
 
         staff_id_param = request.args.get('staff_id')
 
-        admins = db.query(TKanrisha).filter(
-            and_(TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1)
+        all_stores_rt = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1
         ).all()
+        all_store_ids_rt = [st.id for st in all_stores_rt]
+        store_admin_rows_rt = db.query(TKanrishaTenpo).filter(
+            TKanrishaTenpo.store_id.in_(all_store_ids_rt)
+        ).all() if all_store_ids_rt else []
+        store_admin_ids_rt = list(set(r.admin_id for r in store_admin_rows_rt))
+        tenant_admin_rows_rt = db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_ids_rt = list(set(r.admin_id for r in tenant_admin_rows_rt))
+        all_admin_ids_rt = list(set(store_admin_ids_rt + tenant_admin_ids_rt))
+        admins = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids_rt), TKanrisha.active == 1
+        ).order_by(TKanrisha.id).all() if all_admin_ids_rt else []
         employees = db.query(TJugyoin).filter(
             and_(TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1)
-        ).all()
+        ).order_by(TJugyoin.id).all()
+        # login_idで重複排除
+        seen_rt = set()
+        admins_dedup = []
+        for a in admins:
+            if a.login_id not in seen_rt:
+                seen_rt.add(a.login_id)
+                admins_dedup.append(a)
+        employees_dedup = []
+        for e in employees:
+            if e.login_id not in seen_rt:
+                seen_rt.add(e.login_id)
+                employees_dedup.append(e)
+        admins = admins_dedup
+        employees = employees_dedup
         name_map = {(a.id, 'admin'): a.name for a in admins}
         name_map.update({(e.id, 'employee'): e.name for e in employees})
-        def normalize_name(n): return n.replace('\u3000', ' ').strip() if n else ''
+        def normalize_name(n): return n.replace('　', ' ').strip() if n else ''
         name_to_tenant_id = {normalize_name(a.name): a.id for a in admins}
         null_admins = db.query(TKanrisha).filter(TKanrisha.tenant_id == None).all()
         null_id_to_tenant_id = {}

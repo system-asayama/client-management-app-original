@@ -68,7 +68,7 @@ def dashboard(store_id):
                     TJugyoinTenpo.store_id == store_id,
                     TJugyoin.active == 1
                 )
-            ).count()
+            ).distinct(TJugyoin.id).count()
         except Exception:
             employee_count = 0
 
@@ -82,7 +82,7 @@ def dashboard(store_id):
                     TKanrishaTenpo.store_id == store_id,
                     TKanrisha.active == 1
                 )
-            ).count()
+            ).distinct(TKanrisha.id).count()
         except Exception:
             admin_count = 0
 
@@ -373,7 +373,7 @@ def attendance(store_id):
                     TKanrishaTenpo.store_id == store_id,
                     TKanrisha.active == 1
                 )
-            ).count()
+            ).distinct(TKanrisha.id).count()
         except Exception:
             target_admin_count = 0
         try:
@@ -385,7 +385,7 @@ def attendance(store_id):
                     TJugyoinTenpo.store_id == store_id,
                     TJugyoin.active == 1
                 )
-            ).count()
+            ).distinct(TJugyoin.id).count()
         except Exception:
             target_employee_count = 0
         target_staff_count = target_admin_count + target_employee_count

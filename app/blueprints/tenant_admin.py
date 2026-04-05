@@ -66,11 +66,20 @@ def jimusho_dashboard():
             except Exception:
                 s_store_admin = 0
             try:
-                s_jugyoin = db.query(TJugyoin).join(
+                # 管理者テーブルに存在するlogin_idを取得（重複除外用）
+                admin_login_ids = [
+                    r[0] for r in db.query(TKanrisha.login_id).filter(
+                        TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1
+                    ).all()
+                ]
+                q = db.query(TJugyoin).join(
                     TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
                 ).filter(
                     and_(TJugyoin.tenant_id == tenant_id, TJugyoinTenpo.store_id == store.id, TJugyoin.active == 1)
-                ).count()
+                )
+                if admin_login_ids:
+                    q = q.filter(~TJugyoin.login_id.in_(admin_login_ids))
+                s_jugyoin = q.count()
             except Exception:
                 s_jugyoin = 0
             try:
@@ -131,10 +140,18 @@ def jimusho_dashboard():
         except Exception:
             store_admin_count = 0
         try:
-            jugyoin_count = db.query(TJugyoin).filter(
+            all_admin_login_ids = [
+                r[0] for r in db.query(TKanrisha.login_id).filter(
+                    TKanrisha.tenant_id == tenant_id, TKanrisha.active == 1
+                ).all()
+            ]
+            q_jugyoin = db.query(TJugyoin).filter(
                 TJugyoin.tenant_id == tenant_id,
                 TJugyoin.active == 1
-            ).count()
+            )
+            if all_admin_login_ids:
+                q_jugyoin = q_jugyoin.filter(~TJugyoin.login_id.in_(all_admin_login_ids))
+            jugyoin_count = q_jugyoin.count()
         except Exception:
             jugyoin_count = 0
         employee_count = tenant_admin_count + store_admin_count + jugyoin_count

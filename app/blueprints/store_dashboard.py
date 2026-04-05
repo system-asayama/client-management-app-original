@@ -188,6 +188,7 @@ def employees(store_id):
         tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
 
         # 従業員一覧（この店舗に所属）
+        # distinct()でT_従業員_店舗に重複行がある場合の重複表示を防ぐ
         employee_list = db.query(TJugyoin).join(
             TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
         ).filter(
@@ -195,9 +196,10 @@ def employees(store_id):
                 TJugyoin.tenant_id == tenant_id,
                 TJugyoinTenpo.store_id == store_id
             )
-        ).order_by(TJugyoin.id).all()
+        ).distinct(TJugyoin.id).order_by(TJugyoin.id).all()
 
         # 管理者一覧（この店舗に所属）
+        # distinct()でT_管理者_店舗に重複行がある場合の重複表示を防ぐ
         admin_list = db.query(TKanrisha).join(
             TKanrishaTenpo, TKanrisha.id == TKanrishaTenpo.admin_id
         ).filter(
@@ -205,7 +207,7 @@ def employees(store_id):
                 TKanrisha.tenant_id == tenant_id,
                 TKanrishaTenpo.store_id == store_id
             )
-        ).order_by(TKanrisha.id).all()
+        ).distinct(TKanrisha.id).order_by(TKanrisha.id).all()
 
         return render_template(
             'store_employees.html',

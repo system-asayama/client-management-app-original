@@ -1873,12 +1873,78 @@ def store_admin_invite():
 @bp.route('/employees')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def employees():
-    """従業員一覧"""
+    """従業員一覧（管理者を自動登録・重複排除）"""
     tenant_id = session.get('tenant_id')
     store_id = session.get('store_id')  # 選択された店舗ID
     db = SessionLocal()
     
     try:
+        # テナントに紐づく全店舗を取得
+        all_stores = db.query(TTenpo).filter(
+            TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1
+        ).all()
+        all_store_ids = [s.id for s in all_stores]
+
+        # 店舗管理者（TKanrishaTenpo経由）を取得
+        store_admin_rows = []
+        if all_store_ids:
+            store_admin_rows = db.query(TKanrishaTenpo).filter(
+                TKanrishaTenpo.store_id.in_(all_store_ids)
+            ).all()
+        store_admin_ids = list(set(r.admin_id for r in store_admin_rows))
+
+        # テナント管理者を取得
+        tenant_admin_rows = db.query(TTenantAdminTenant).filter(
+            TTenantAdminTenant.tenant_id == tenant_id
+        ).all()
+        tenant_admin_ids = list(set(r.admin_id for r in tenant_admin_rows))
+
+        all_admin_ids = list(set(store_admin_ids + tenant_admin_ids))
+        admins_to_sync = db.query(TKanrisha).filter(
+            TKanrisha.id.in_(all_admin_ids),
+            TKanrisha.active == 1
+        ).all() if all_admin_ids else []
+
+        # 管理者を従業員テーブルに自動登録（未登録のみ）
+        for admin in admins_to_sync:
+            existing = db.query(TJugyoin).filter(
+                TJugyoin.login_id == admin.login_id
+            ).first()
+            if not existing:
+                new_emp = TJugyoin(
+                    login_id=admin.login_id,
+                    name=admin.name,
+                    email=admin.email,
+                    password_hash=admin.password_hash,
+                    tenant_id=tenant_id,
+                    role='employee',
+                    active=1,
+                    phone=getattr(admin, 'phone', None),
+                    position=getattr(admin, 'position', None),
+                )
+                db.add(new_emp)
+                db.flush()
+                # 所属店舗を登録
+                for row in store_admin_rows:
+                    if row.admin_id == admin.id:
+                        already = db.query(TJugyoinTenpo).filter(
+                            TJugyoinTenpo.employee_id == new_emp.id,
+                            TJugyoinTenpo.store_id == row.store_id
+                        ).first()
+                        if not already:
+                            db.add(TJugyoinTenpo(employee_id=new_emp.id, store_id=row.store_id))
+            else:
+                # 既存従業員に未登録の店舗を追加
+                for row in store_admin_rows:
+                    if row.admin_id == admin.id:
+                        already = db.query(TJugyoinTenpo).filter(
+                            TJugyoinTenpo.employee_id == existing.id,
+                            TJugyoinTenpo.store_id == row.store_id
+                        ).first()
+                        if not already:
+                            db.add(TJugyoinTenpo(employee_id=existing.id, store_id=row.store_id))
+        db.commit()
+
         # 店舗が選択されている場合はその店舗に所属する従業員のみを表示
         if store_id:
             employee_list = db.query(TJugyoin).join(
@@ -1888,15 +1954,19 @@ def employees():
                     TJugyoin.tenant_id == tenant_id,
                     TJugyoinTenpo.store_id == store_id
                 )
-            ).order_by(TJugyoin.id).all()
+            ).distinct().order_by(TJugyoin.id).all()
         else:
-            # 店舗が選択されていない場合は全従業員を表示
+            # 店舗が選択されていない場合は全従業員を表示（重複なし）
             employee_list = db.query(TJugyoin).filter(
                 TJugyoin.tenant_id == tenant_id
             ).order_by(TJugyoin.id).all()
         
         employees_data = []
+        seen_ids = set()
         for e in employee_list:
+            if e.id in seen_ids:
+                continue
+            seen_ids.add(e.id)
             # 所属店舗を取得
             store_relations = db.query(TJugyoinTenpo).filter(
                 TJugyoinTenpo.employee_id == e.id
@@ -1904,9 +1974,9 @@ def employees():
             
             stores_list = []
             for rel in store_relations:
-                store = db.query(TTenpo).filter(TTenpo.id == rel.store_id).first()
-                if store:
-                    stores_list.append({'name': store.名称})
+                s = db.query(TTenpo).filter(TTenpo.id == rel.store_id).first()
+                if s:
+                    stores_list.append({'name': s.名称})
             
             employees_data.append({
                 'id': e.id,

@@ -169,34 +169,11 @@ def attendance():
 
         staff_data = list(staff_map.values())
 
-        # スタッフ絞り込みドロップダウン用：ユニークなスタッフ一覧を取得
-        all_staff_keys = db.query(
-            TAttendance.staff_type,
-            TAttendance.staff_id,
-            TAttendance.staff_name
-        ).filter(
-            TAttendance.tenant_id == tenant_id
-        ).distinct().all()
-        # 管理者のrole情報を引き当てるマップを構築
-        admin_role_map = {a.id: getattr(a, 'role', 'admin') for a in db.query(TKanrisha).filter(
-            TKanrisha.tenant_id == tenant_id
-        ).all()}
-        all_staff = []
-        for r in all_staff_keys:
-            role = admin_role_map.get(r.staff_id, 'admin') if r.staff_type == 'admin' else 'employee'
-            all_staff.append({'staff_type': r.staff_type, 'staff_id': r.staff_id, 'staff_name': r.staff_name or f'スタッフ{r.staff_id}', 'role': role})
-        # staff_dataにもrole情報を付加
-        for s in staff_data:
-            if s['staff_type'] == 'admin':
-                s['role'] = admin_role_map.get(s['staff_id'], 'admin')
-            else:
-                s['role'] = 'employee'
-
-        # 従業員管理画面と同じロジックで全スタッフ数を集計（管理者含む・重複なし）
+        # 従業員管理画面と同じロジックで全スタッフを取得（管理者含む・重複なし）
         all_stores = db.query(TTenpo).filter(
             TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1
         ).all()
-        all_store_ids = [s.id for s in all_stores]
+        all_store_ids = [st.id for st in all_stores]
         store_admin_rows = db.query(TKanrishaTenpo).filter(
             TKanrishaTenpo.store_id.in_(all_store_ids)
         ).all() if all_store_ids else []
@@ -206,24 +183,54 @@ def attendance():
         ).all()
         tenant_admin_ids = list(set(r.admin_id for r in tenant_admin_rows))
         all_admin_ids = list(set(store_admin_ids + tenant_admin_ids))
-        admin_count = db.query(TKanrisha).filter(
+
+        # 管理者リスト（全店舗の管理者＋テナント管理者）
+        admins_all = db.query(TKanrisha).filter(
             TKanrisha.id.in_(all_admin_ids), TKanrisha.active == 1
-        ).count() if all_admin_ids else 0
-        employee_count = db.query(TJugyoin).filter(
+        ).order_by(TKanrisha.id).all() if all_admin_ids else []
+
+        # 従業員リスト
+        employees_all = db.query(TJugyoin).filter(
             TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
-        ).count()
-        # 管理者が従業員テーブルにも登録されている場合の重複を除くため、login_idで重複排除
-        admin_login_ids = set(
-            a.login_id for a in db.query(TKanrisha).filter(
-                TKanrisha.id.in_(all_admin_ids), TKanrisha.active == 1
-            ).all()
-        ) if all_admin_ids else set()
-        emp_login_ids = set(
-            e.login_id for e in db.query(TJugyoin).filter(
-                TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
-            ).all()
-        )
-        total_staff_count = len(admin_login_ids | emp_login_ids)
+        ).order_by(TJugyoin.id).all()
+
+        # 管理者のrole情報マップ
+        admin_role_map = {a.id: getattr(a, 'role', 'admin') for a in admins_all}
+
+        # 管理者のlogin_idセット（従業員との重複排除用）
+        admin_login_id_set = {a.login_id for a in admins_all}
+
+        # ドロップダウン用：全スタッフ一覧（管理者＋従業員、重複なし）
+        all_staff = []
+        seen_login_ids = set()
+        for a in admins_all:
+            if a.login_id not in seen_login_ids:
+                seen_login_ids.add(a.login_id)
+                all_staff.append({
+                    'staff_type': 'admin',
+                    'staff_id': a.id,
+                    'staff_name': a.name,
+                    'role': getattr(a, 'role', 'admin')
+                })
+        for e in employees_all:
+            if e.login_id not in seen_login_ids:
+                seen_login_ids.add(e.login_id)
+                all_staff.append({
+                    'staff_type': 'employee',
+                    'staff_id': e.id,
+                    'staff_name': e.name,
+                    'role': 'employee'
+                })
+
+        # 対象スタッフ数（重複なし）
+        total_staff_count = len(seen_login_ids)
+
+        # staff_dataにもrole情報を付加
+        for s in staff_data:
+            if s['staff_type'] == 'admin':
+                s['role'] = admin_role_map.get(s['staff_id'], 'admin')
+            else:
+                s['role'] = 'employee'
 
         return render_template('kintaikanri_attendance.html',
                                staff_data=staff_data,

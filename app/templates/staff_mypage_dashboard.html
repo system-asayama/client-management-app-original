@@ -197,30 +197,7 @@
                     <div class="attendance-time">{{ today.strftime('%Y年%m月%d日') }}</div>
                 {% endif %}
             </div>
-            <div class="attendance-btns">
-                {% if not today_attendance or not today_attendance.clock_in %}
-                <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                    <input type="hidden" name="action" value="clock_in">
-                    <button type="submit" class="btn-clock btn-clock-in">出勤</button>
-                </form>
-                {% elif not today_attendance.clock_out %}
-                    {% if today_attendance.break_start and not today_attendance.break_end %}
-                    <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                        <input type="hidden" name="action" value="break_end">
-                        <button type="submit" class="btn-clock btn-break-end">休憩終了</button>
-                    </form>
-                    {% else %}
-                    <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                        <input type="hidden" name="action" value="break_start">
-                        <button type="submit" class="btn-clock btn-break-start">休憩開始</button>
-                    </form>
-                    {% endif %}
-                    <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                        <input type="hidden" name="action" value="clock_out">
-                        <button type="submit" class="btn-clock btn-clock-out">退勤</button>
-                    </form>
-                {% endif %}
-            </div>
+
         </div>
         <a href="{{ url_for('kintaikanri.attendance') }}" class="btn btn-secondary" style="font-size:12px;">勤怠管理を開く</a>
     </div>

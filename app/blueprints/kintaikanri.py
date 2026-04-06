@@ -621,6 +621,8 @@ def attendance_map_realtime_data():
         employees = employees_dedup
         name_map = {(a.id, 'admin'): a.name for a in admins}
         name_map.update({(e.id, 'employee'): e.name for e in employees})
+        gps_mode_map = {(a.id, 'admin'): getattr(a, 'gps_mode', None) or 'always' for a in admins}
+        gps_mode_map.update({(e.id, 'employee'): getattr(e, 'gps_mode', None) or 'always' for e in employees})
         def normalize_name(n): return n.replace('　', ' ').strip() if n else ''
         name_to_tenant_id = {normalize_name(a.name): a.id for a in admins}
         null_admins = db.query(TKanrisha).filter(TKanrisha.tenant_id == None).all()
@@ -709,6 +711,7 @@ def attendance_map_realtime_data():
                 'staff_id': sid,
                 'staff_type': stype,
                 'staff_name': staff_name,
+                'gps_mode': gps_mode_map.get((sid, stype), 'always'),
                 'clock_in': _fmt_rt(att_rt['clock_in']) if att_rt else None,
                 'clock_out': _fmt_rt(att_rt['clock_out']) if att_rt else None,
                 'break_start': _fmt_rt(att_rt['break_start']) if att_rt else None,

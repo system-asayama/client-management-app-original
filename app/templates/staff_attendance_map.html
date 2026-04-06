@@ -339,6 +339,8 @@ function findNearestPoint(points, targetTime) {
 
 // ──────────────────────────────────────────────
 // トラックを描画する（経路=太い線、特定地点=○マーカーのみ）
+// gps_mode === 'always' の場合のみ移動経路（ポリライン）を描画する
+// checkin_only の場合は出退勤・休憩地点のマーカーのみ表示
 // ──────────────────────────────────────────────
 function drawTrack(track, colorIndex) {
     const color = COLORS[colorIndex % COLORS.length];
@@ -352,14 +354,17 @@ function drawTrack(track, colorIndex) {
     const bounds = L.latLngBounds(latlngs);
     layerGroups[key].bounds = bounds;
 
-    // ── 移動経路：太い連続線（マーカーなし）
-    L.polyline(latlngs, {
-        color: color,
-        weight: 5,
-        opacity: 0.85,
-        lineJoin: 'round',
-        lineCap: 'round'
-    }).addTo(group);
+    // ── 移動経路：gps_mode が 'always' の場合のみポリラインを描画
+    const gpsMode = track.gps_mode || 'always';
+    if (gpsMode === 'always') {
+        L.polyline(latlngs, {
+            color: color,
+            weight: 5,
+            opacity: 0.85,
+            lineJoin: 'round',
+            lineCap: 'round'
+        }).addTo(group);
+    }
 
     // ── 特定地点のみ○マーカーを表示
     const specialPoints = [];

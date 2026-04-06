@@ -398,11 +398,11 @@ def attendance_map():
         for a in admins:
             if a.login_id not in seen_login_ids_m:
                 seen_login_ids_m.add(a.login_id)
-                staff_list.append({'id': a.id, 'name': a.name, 'type': 'admin', 'role': getattr(a, 'role', 'admin')})
+                staff_list.append({'id': a.id, 'name': a.name, 'type': 'admin', 'role': getattr(a, 'role', 'admin'), 'gps_mode': getattr(a, 'gps_mode', None) or 'always'})
         for e in employees:
             if e.login_id not in seen_login_ids_m:
                 seen_login_ids_m.add(e.login_id)
-                staff_list.append({'id': e.id, 'name': e.name, 'type': 'employee', 'role': 'employee'})
+                staff_list.append({'id': e.id, 'name': e.name, 'type': 'employee', 'role': 'employee', 'gps_mode': getattr(e, 'gps_mode', None) or 'always'})
 
         # 位置データに含まれるがスタッフ一覧にないスタッフを追加（tenant_id=NULLのシステム管理者など）
         staff_id_set = {(s['id'], s['type']) for s in staff_list}
@@ -499,6 +499,7 @@ def attendance_map():
                 'staff_id': s['id'],
                 'staff_name': s['name'],
                 'staff_type': s['type'],
+                'gps_mode': s.get('gps_mode', 'always'),
                 'clock_in': _fmt(att['clock_in']) if att else None,
                 'clock_out': _fmt(att['clock_out']) if att else None,
                 'break_start': _fmt(att['break_start']) if att else None,

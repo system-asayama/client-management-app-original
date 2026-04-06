@@ -271,6 +271,12 @@
                 <span class="icon">📁</span> ファイル共有
             </a>
 
+            <div class="nav-section-label">店舗</div>
+            <a href="/store/2/dashboard"
+               class="nav-item {% if request.path.startswith('/store/2') %}active{% endif %}">
+                <span class="icon">🏪</span> 店舗ダッシュボード
+            </a>
+
             <div class="nav-section-label">勤怠</div>
             <a href="{{ url_for('staff_mypage.attendance') }}"
                class="nav-item {% if request.endpoint == 'staff_mypage.attendance' %}active{% endif %}">

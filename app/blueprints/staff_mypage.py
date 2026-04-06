@@ -520,8 +520,21 @@ def attendance():
                      TAttendance.work_date == today)
             ).order_by(TAttendance.id.desc()).first()
 
+        # ログインユーザーのgps_modeを取得
+        from app.models_login import TKanrisha as _TK, TJugyoin as _TJ
+        if role == ROLES['EMPLOYEE']:
+            _staff_obj = db.query(_TJ).filter(_TJ.id == user_id).first()
+        else:
+            _staff_obj = db.query(_TK).filter(_TK.id == user_id).first()
+        staff_gps_mode = getattr(_staff_obj, 'gps_mode', None) or 'always'
+
         if request.method == 'POST':
             action = request.form.get('action', '')
+
+            # alwaysモードはWebからの出退勤操作をブロック
+            if staff_gps_mode == 'always' and action in ('clock_in', 'clock_out', 'break_start', 'break_end'):
+                flash('このアカウントはGPS常時記録モードです。アプリから出退勤操作を行ってください。', 'error')
+                return redirect(url_for('staff_mypage.attendance'))
 
             if action == 'clock_in':
                 if today_record and today_record.clock_in and not today_record.clock_out:
@@ -667,7 +680,8 @@ def attendance():
                                unread_count=unread_count,
                                gps_enabled=gps_enabled,
                                gps_interval_minutes=gps_interval_minutes,
-                               gps_continuous=gps_continuous)
+                               gps_continuous=gps_continuous,
+                               staff_gps_mode=staff_gps_mode)
     finally:
         db.close()
 

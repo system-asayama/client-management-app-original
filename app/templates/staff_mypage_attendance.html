@@ -161,6 +161,17 @@
         </div>
     </div>
     <div class="clock-buttons">
+        {% if staff_gps_mode == 'always' %}
+        <!-- alwaysモード：アプリ起動ボタンのみ表示 -->
+        <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">
+            <button onclick="openGpsApp()" class="btn-clock-in" style="border:none; cursor:pointer;">
+                📱 アプリで出退勤する
+            </button>
+            <p style="font-size:11px; color:#888; margin:0;">
+                ※ GPS常時記録モードのため、アプリからのみ操作可能です
+            </p>
+        </div>
+        {% else %}
         {% if not today_record or not today_record.clock_in or today_record.clock_out %}
         <form method="post" onsubmit="onClockIn()">
             <input type="hidden" name="action" value="clock_in">
@@ -182,6 +193,7 @@
                 <input type="hidden" name="action" value="clock_out">
                 <button type="submit" class="btn-clock-out">🕐 退勤</button>
             </form>
+        {% endif %}
         {% endif %}
     </div>
 </div>
@@ -526,6 +538,38 @@ window.addEventListener('load', function() {
 });
 {% endif %}
 {% endif %}
+
+// ──────────────────────────────────────────────
+// GPS常時記録モード：アプリ起動 or ダウンロードページへ誘導
+// ──────────────────────────────────────────────
+const APP_SCHEME = 'manus20260326073941://';
+const DOWNLOAD_URL = '{{ url_for("staff_mypage.apk_download") }}';
+
+function openGpsApp() {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = APP_SCHEME;
+    document.body.appendChild(iframe);
+
+    const fallbackTimer = setTimeout(function() {
+        document.body.removeChild(iframe);
+        window.location.href = DOWNLOAD_URL;
+    }, 1500);
+
+    window.addEventListener('blur', function onBlur() {
+        clearTimeout(fallbackTimer);
+        if (iframe.parentNode) document.body.removeChild(iframe);
+        window.removeEventListener('blur', onBlur);
+    }, { once: true });
+
+    document.addEventListener('visibilitychange', function onVis() {
+        if (document.hidden) {
+            clearTimeout(fallbackTimer);
+            if (iframe.parentNode) document.body.removeChild(iframe);
+            document.removeEventListener('visibilitychange', onVis);
+        }
+    }, { once: true });
+}
 </script>
 
 {% endblock %}

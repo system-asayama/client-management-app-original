@@ -140,6 +140,15 @@ def dashboard():
 
         android_apk_url = getattr(tenant, 'android_apk_url', None) if tenant else None
         android_apk_version = getattr(tenant, 'android_apk_version', None) if tenant else None
+
+        # ログインユーザーのgps_modeを取得
+        from app.models_login import TKanrisha, TJugyoin
+        if role == ROLES['EMPLOYEE']:
+            staff_obj = db.query(TJugyoin).filter(TJugyoin.id == user_id).first()
+        else:
+            staff_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        staff_gps_mode = getattr(staff_obj, 'gps_mode', None) or 'always'
+
         return render_template('staff_mypage_dashboard.html',
                                tenant=tenant,
                                assigned_count=assigned_count,
@@ -150,7 +159,8 @@ def dashboard():
                                upcoming_deadlines=upcoming_deadlines,
                                today=today,
                                android_apk_url=android_apk_url,
-                               android_apk_version=android_apk_version)
+                               android_apk_version=android_apk_version,
+                               staff_gps_mode=staff_gps_mode)
     finally:
         db.close()
 

@@ -149,6 +149,18 @@ def dashboard():
             staff_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
         staff_gps_mode = getattr(staff_obj, 'gps_mode', None) or 'always'
 
+        # ログインユーザーの所属店舗一覧を取得
+        from app.models_login import TKanrishaTenpo, TJugyoinTenpo, TTenpo
+        if role == ROLES['EMPLOYEE']:
+            store_links = db.query(TJugyoinTenpo, TTenpo).join(
+                TTenpo, TJugyoinTenpo.store_id == TTenpo.id
+            ).filter(TJugyoinTenpo.employee_id == user_id).all()
+        else:
+            store_links = db.query(TKanrishaTenpo, TTenpo).join(
+                TTenpo, TKanrishaTenpo.store_id == TTenpo.id
+            ).filter(TKanrishaTenpo.admin_id == user_id).all()
+        staff_stores = [{'id': t.id, 'name': getattr(t, '名称', str(t.id))} for _, t in store_links]
+
         return render_template('staff_mypage_dashboard.html',
                                tenant=tenant,
                                assigned_count=assigned_count,
@@ -160,7 +172,8 @@ def dashboard():
                                today=today,
                                android_apk_url=android_apk_url,
                                android_apk_version=android_apk_version,
-                               staff_gps_mode=staff_gps_mode)
+                               staff_gps_mode=staff_gps_mode,
+                               staff_stores=staff_stores)
     finally:
         db.close()
 
@@ -528,6 +541,18 @@ def attendance():
             _staff_obj = db.query(_TK).filter(_TK.id == user_id).first()
         staff_gps_mode = getattr(_staff_obj, 'gps_mode', None) or 'always'
 
+        # 所属店舗一覧を取得
+        from app.models_login import TKanrishaTenpo, TJugyoinTenpo, TTenpo
+        if role == ROLES['EMPLOYEE']:
+            _store_links = db.query(TJugyoinTenpo, TTenpo).join(
+                TTenpo, TJugyoinTenpo.store_id == TTenpo.id
+            ).filter(TJugyoinTenpo.employee_id == user_id).all()
+        else:
+            _store_links = db.query(TKanrishaTenpo, TTenpo).join(
+                TTenpo, TKanrishaTenpo.store_id == TTenpo.id
+            ).filter(TKanrishaTenpo.admin_id == user_id).all()
+        staff_stores = [{'id': t.id, 'name': getattr(t, '名称', str(t.id))} for _, t in _store_links]
+
         if request.method == 'POST':
             action = request.form.get('action', '')
 
@@ -681,7 +706,8 @@ def attendance():
                                gps_enabled=gps_enabled,
                                gps_interval_minutes=gps_interval_minutes,
                                gps_continuous=gps_continuous,
-                               staff_gps_mode=staff_gps_mode)
+                               staff_gps_mode=staff_gps_mode,
+                               staff_stores=staff_stores)
     finally:
         db.close()
 

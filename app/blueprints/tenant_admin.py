@@ -3458,6 +3458,8 @@ def gps_settings():
         gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
         android_apk_url = getattr(tenant_obj, 'android_apk_url', None) or ''
         android_apk_version = getattr(tenant_obj, 'android_apk_version', None) or ''
+        truck_apk_url = getattr(tenant_obj, 'truck_apk_url', None) or ''
+        truck_apk_version = getattr(tenant_obj, 'truck_apk_version', None) or ''
         import os
         mobile_api_key = os.environ.get('MOBILE_API_KEY', '')
         flask_base_url = request.host_url.rstrip('/')
@@ -3534,6 +3536,8 @@ def gps_settings():
                                gps_continuous=gps_continuous,
                                android_apk_url=android_apk_url,
                                android_apk_version=android_apk_version,
+                               truck_apk_url=truck_apk_url,
+                               truck_apk_version=truck_apk_version,
                                mobile_api_key=mobile_api_key,
                                flask_base_url=flask_base_url,
                                tenant_slug=tenant_slug,
@@ -3558,10 +3562,14 @@ def update_apk_url():
             return redirect(url_for('tenant_admin.gps_settings'))
         apk_url = request.form.get('android_apk_url', '').strip()
         apk_version = request.form.get('android_apk_version', '').strip()
+        truck_apk_url = request.form.get('truck_apk_url', '').strip()
+        truck_apk_version = request.form.get('truck_apk_version', '').strip()
         tenant_obj.android_apk_url = apk_url if apk_url else None
         tenant_obj.android_apk_version = apk_version if apk_version else None
+        tenant_obj.truck_apk_url = truck_apk_url if truck_apk_url else None
+        tenant_obj.truck_apk_version = truck_apk_version if truck_apk_version else None
         db.commit()
-        if apk_url:
+        if apk_url or truck_apk_url:
             flash('APK URLを登録しました。配布ページが有効になりました。', 'success')
         else:
             flash('APK URLを削除しました。', 'success')

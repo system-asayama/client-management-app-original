@@ -469,6 +469,43 @@
     </form>
 </div>
 
+<!-- トラック運行管理アプリ APK配布セクション -->
+<div class="settings-card" style="margin-top:24px;">
+    <div class="settings-title">🚚 トラック運行管理アプリ配布</div>
+    <div class="settings-desc">
+        トラック運行管理アプリ（APK）のダウンロードURLを登録すると、ドライバーがアプリの設定画面から直接ダウンロードできるようになります。
+    </div>
+    <form method="post" action="{{ url_for('tenant_admin.update_apk_url') }}">
+        <input type="hidden" name="android_apk_url" value="{{ android_apk_url or '' }}">
+        <input type="hidden" name="android_apk_version" value="{{ android_apk_version or '' }}">
+        <div class="form-group">
+            <label>トラックアプリ APKダウンロードURL</label>
+            <input type="url" name="truck_apk_url"
+                   value="{{ truck_apk_url or '' }}"
+                   placeholder="https://example.com/truck-app.apk"
+                   style="width:100%; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px;">
+            <div class="form-hint">ファイル名が .apk で終わる直リンクを入力してください（EASビルドのダウンロードURLなど）</div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+            <label>APKバージョン</label>
+            <input type="text" name="truck_apk_version"
+                   value="{{ truck_apk_version or '' }}"
+                   placeholder="例: v1.0.0"
+                   style="width:160px; padding:.6rem .7rem; border:1px solid #ccc; border-radius:8px;">
+            <div class="form-hint">ドライバーのダウンロード画面に表示されます</div>
+        </div>
+        {% if truck_apk_url %}
+        <div class="notice-box info" style="margin-bottom:16px;">
+            ドライバー向けダウンロードURL（永続リンク）:
+            <code style="background:#f0f4ff; padding:2px 6px; border-radius:4px; font-size:.85em;">
+                {{ flask_base_url }}/api/mobile/truck_apk_download?tenant_slug={{ tenant_slug }}
+            </code>
+        </div>
+        {% endif %}
+        <button type="submit" class="save-btn">URLを保存</button>
+    </form>
+</div>
+
 <!-- スタッフ別GPSモード設定セクション -->
 <div class="settings-card" style="margin-top:24px;">
     <div class="settings-title">👤 スタッフ別GPS記録モード</div>

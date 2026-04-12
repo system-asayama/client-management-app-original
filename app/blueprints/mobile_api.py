@@ -965,3 +965,54 @@ def face_status():
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+
+# ─────────────────────────────────────────────
+# トラック運行管理アプリ APKダウンロード
+# ─────────────────────────────────────────────
+@bp.route('/truck_apk_download')
+def truck_apk_download():
+    """トラック運行管理アプリのAPKファイルをプロキシ配信する（署名付きURLの期限切れに依存しない永続エンドポイント）
+
+    認証: X-Mobile-API-Key ヘッダーによるAPIキー認証
+    テナント識別: X-Tenant-Slug ヘッダーまたはクエリパラメータ tenant_slug
+    """
+    if not _check_api_key():
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    tenant_slug = request.headers.get('X-Tenant-Slug') or request.args.get('tenant_slug', '')
+    if not tenant_slug:
+        return jsonify({'ok': False, 'error': 'tenant_slugが必要です'}), 400
+
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.slug == tenant_slug).first()
+        if not tenant:
+            return jsonify({'ok': False, 'error': 'テナントが見つかりません'}), 404
+
+        apk_url = getattr(tenant, 'truck_apk_url', None)
+        if not apk_url:
+            return jsonify({'ok': False, 'error': 'APKファイルが設定されていません。管理者にお問い合わせください。'}), 404
+
+        import requests as req_lib
+        from flask import Response, stream_with_context
+        try:
+            resp = req_lib.get(apk_url, stream=True, timeout=60)
+            if resp.status_code == 200:
+                apk_version = getattr(tenant, 'truck_apk_version', None) or '1.0.0'
+                filename = 'truck-operation-app-{}.apk'.format(apk_version)
+                return Response(
+                    stream_with_context(resp.iter_content(chunk_size=8192)),
+                    content_type='application/vnd.android.package-archive',
+                    headers={
+                        'Content-Disposition': 'attachment; filename="{}"'.format(filename),
+                        'Content-Length': resp.headers.get('Content-Length', ''),
+                    }
+                )
+            else:
+                return jsonify({'ok': False, 'error': 'APKファイルのダウンロードに失敗しました（HTTP {}）'.format(resp.status_code)}), 502
+        except Exception as e:
+            current_app.logger.error(f'トラックAPKダウンロードエラー: {e}', exc_info=True)
+            return jsonify({'ok': False, 'error': 'APKファイルの取得中にエラーが発生しました: {}'.format(str(e))}), 500
+    finally:
+        db.close()

@@ -974,10 +974,17 @@ def face_status():
 def truck_apk_download():
     """トラック運行管理アプリのAPKファイルをプロキシ配信する（署名付きURLの期限切れに依存しない永続エンドポイント）
 
-    認証: X-Mobile-API-Key ヘッダーによるAPIキー認証
+    認証: X-Mobile-API-Key ヘッダーまたはクエリパラメータ api_key によるAPIキー認証
     テナント識別: X-Tenant-Slug ヘッダーまたはクエリパラメータ tenant_slug
+    注意: ブラウザからのダウンロードのため、クエリパラメータでのAPIキー指定もサポート
     """
-    if not _check_api_key():
+    # ヘッダーまたはクエリパラメータからAPIキーを取得
+    api_key_from_query = request.args.get('api_key', '')
+    if api_key_from_query:
+        expected = os.environ.get('MOBILE_API_KEY', '')
+        if not expected or not hmac.compare_digest(api_key_from_query, expected):
+            return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    elif not _check_api_key():
         return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
 
     tenant_slug = request.headers.get('X-Tenant-Slug') or request.args.get('tenant_slug', '')

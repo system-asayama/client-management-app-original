@@ -133,6 +133,9 @@ def available_apps():
                         elif app_copy['name'] == 'voucher-digitization':
                             # 証憑データ化アプリは店舗IDを含むURLへ
                             app_copy['url'] = f'/voucher?store_id={store_id}'
+                        elif app_copy['name'] == 'truck-operation':
+                            # トラック運行管理アプリは外部URLのまま
+                            app_copy['url'] = 'https://truck-operation-app-ca0895a9e5d5.herokuapp.com/login'
                         enabled_apps.append(app_copy)
         finally:
             db.close()

@@ -1,0 +1,47 @@
+service: e-contract
+versioning:
+  strategy: semver
+  current: 0.1.0
+stages:
+  - name: canary
+    target_tenants:
+      - 1001
+      - 1002
+    traffic_percent: 10
+    duration_hours: 24
+    gates:
+      max_http_5xx_rate: 0.5
+      max_auth_error_rate: 2.0
+      max_finalize_failure_rate: 1.0
+      max_audit_verify_failure_count: 0
+  - name: limited
+    target_tenants:
+      - 1001
+      - 1002
+      - 1003
+      - 1004
+    traffic_percent: 40
+    duration_hours: 48
+    gates:
+      max_http_5xx_rate: 0.3
+      max_auth_error_rate: 1.0
+      max_finalize_failure_rate: 0.5
+      max_audit_verify_failure_count: 0
+  - name: full
+    target_tenants: all
+    traffic_percent: 100
+    duration_hours: 0
+    gates:
+      max_http_5xx_rate: 0.2
+      max_auth_error_rate: 0.8
+      max_finalize_failure_rate: 0.3
+      max_audit_verify_failure_count: 0
+rollback:
+  trigger_any:
+    - http_5xx_rate_exceeded
+    - finalize_failure_rate_exceeded
+    - audit_verify_failure_detected
+  action:
+    - stop_new_rollout
+    - revert_to_previous_version
+    - notify_oncall

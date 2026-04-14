@@ -3,7 +3,7 @@
 スタッフマイページ ブループリント
 税理士事務所側スタッフ（tenant_admin / admin / employee）向けのマイページ機能
 """
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app
 from sqlalchemy import and_, or_, func as sqlfunc
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -283,13 +283,22 @@ def my_clients():
     try:
         unread_count = _get_unread_count(tenant_id, user_name)
 
-        # 担当顧問先を取得
-        assignments = db.query(TClientAssignment).filter(
-            and_(TClientAssignment.tenant_id == tenant_id,
-                 TClientAssignment.staff_id == user_id)
-        ).all()
-        assigned_client_ids = [a.client_id for a in assignments]
-        assignment_map = {a.client_id: a for a in assignments}
+        # 担当顧問先を取得（スキーマ差異などで失敗しても画面は表示する）
+        assignments = []
+        assigned_client_ids = []
+        assignment_map = {}
+        try:
+            assignments = db.query(TClientAssignment).filter(
+                and_(TClientAssignment.tenant_id == tenant_id,
+                     TClientAssignment.staff_id == user_id)
+            ).all()
+            assigned_client_ids = [a.client_id for a in assignments]
+            assignment_map = {a.client_id: a for a in assignments}
+        except Exception as e:
+            current_app.logger.exception('Failed to load client assignments on /staff/clients: %s', e)
+            # 一般スタッフは担当情報が取得できない場合、空表示にする（権限過剰表示を防ぐ）
+            if role not in (ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN']):
+                flash('担当顧問先情報の取得に失敗しました。管理者にお問い合わせください。', 'warning')
 
         if role in (ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN']):
             # 管理者は全顧問先を表示
@@ -301,16 +310,20 @@ def my_clients():
             ).order_by(TClient.name).all() if assigned_client_ids else []
 
         # 各顧問先の未読チャット数
-        read_ids = {r.message_id for r in db.query(TMessageRead).filter(
-            TMessageRead.reader_type == 'staff',
-            TMessageRead.reader_id == user_name
-        ).all()}
         unread_by_client = {}
-        for client in clients:
-            msgs = db.query(TMessage).filter(
-                and_(TMessage.client_id == client.id, TMessage.sender_type == 'client')
-            ).all()
-            unread_by_client[client.id] = sum(1 for m in msgs if m.id not in read_ids)
+        try:
+            read_ids = {r.message_id for r in db.query(TMessageRead).filter(
+                TMessageRead.reader_type == 'staff',
+                TMessageRead.reader_id == user_name
+            ).all()}
+            for client in clients:
+                msgs = db.query(TMessage).filter(
+                    and_(TMessage.client_id == client.id, TMessage.sender_type == 'client')
+                ).all()
+                unread_by_client[client.id] = sum(1 for m in msgs if m.id not in read_ids)
+        except Exception as e:
+            current_app.logger.exception('Failed to load unread chat counters on /staff/clients: %s', e)
+            unread_by_client = {c.id: 0 for c in clients}
 
         return render_template('staff_mypage_clients.html',
                                clients=clients,

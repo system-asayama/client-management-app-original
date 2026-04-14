@@ -2292,6 +2292,14 @@ AVAILABLE_APPS = [
         'url': 'https://truck-operation-app-ca0895a9e5d5.herokuapp.com/login',
         'icon': '🚛',
         'external': True
+    },
+    {
+        'name': 'e-contract',
+        'display_name': '電子契約アプリ',
+        'scope': 'store',
+        'description': '電子契約の作成、署名、契約確定を行う店舗単位アプリ',
+        'url': '/e-contract',
+        'icon': '✍️'
     }
 ]
 

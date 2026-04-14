@@ -38,6 +38,14 @@ AVAILABLE_APPS = [
         'description': 'トラックの運行・ドライバー・ルートを管理するシステム',
         'url': 'https://truck-operation-app-ca0895a9e5d5.herokuapp.com/login',
         'icon': '🚛'
+    },
+    {
+        'name': 'e-contract',
+        'display_name': '電子契約アプリ',
+        'scope': 'store',
+        'description': '電子契約の作成、署名、契約確定を行う',
+        'url': '/e-contract',
+        'icon': '✍️'
     }
 ]
 

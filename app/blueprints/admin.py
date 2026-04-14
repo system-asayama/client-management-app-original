@@ -30,6 +30,14 @@ AVAILABLE_APPS = [
         'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する',
         'url': '/voucher',
         'icon': '🧾'
+    },
+    {
+        'name': 'truck-operation',
+        'display_name': 'トラック運行管理アプリ',
+        'scope': 'store',
+        'description': 'トラックの運行・ドライバー・ルートを管理するシステム',
+        'url': 'https://truck-operation-app-ca0895a9e5d5.herokuapp.com/login',
+        'icon': '🚛'
     }
 ]
 

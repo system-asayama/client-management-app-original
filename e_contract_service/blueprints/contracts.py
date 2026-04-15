@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, g, jsonify, request
 from sqlalchemy import func
@@ -21,7 +21,7 @@ def _canonical_json(data: dict) -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _append_audit_log(db, contract_id: str, action: str, actor_id: int, actor_type: str, metadata: dict) -> None:

@@ -21,6 +21,31 @@
     .upload-area .icon { font-size: 2.5rem; }
     #upload-progress { display: none; }
     #pdf-preview-wrap { display: none; }
+
+    .signer-row {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .signer-row .signer-num {
+      font-size: .75rem;
+      font-weight: 600;
+      color: #6c757d;
+      margin-bottom: 6px;
+    }
+    .signer-row .btn-remove {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    .drag-handle {
+      cursor: grab;
+      color: #adb5bd;
+      padding: 0 6px;
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -38,7 +63,6 @@
     <div class="mb-3">
       <label class="form-label fw-semibold">契約書PDF <span class="text-danger">*</span></label>
 
-      <!-- タブ切替 -->
       <ul class="nav nav-tabs mb-2" id="docTab">
         <li class="nav-item">
           <button class="nav-link active" id="tab-upload" onclick="switchTab('upload')">📁 ファイルアップロード</button>
@@ -48,7 +72,6 @@
         </li>
       </ul>
 
-      <!-- アップロードパネル -->
       <div id="panel-upload">
         <div class="upload-area" id="drop-zone" onclick="document.getElementById('pdf-file-input').click()">
           <div class="icon">📄</div>
@@ -57,7 +80,6 @@
         </div>
         <input type="file" id="pdf-file-input" accept=".pdf,application/pdf" class="d-none">
 
-        <!-- アップロード進捗 -->
         <div id="upload-progress" class="mt-2">
           <div class="progress">
             <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
@@ -65,7 +87,6 @@
           <div class="small text-muted mt-1">アップロード中...</div>
         </div>
 
-        <!-- アップロード済み表示 -->
         <div id="pdf-preview-wrap" class="mt-2 p-2 border rounded bg-white d-flex align-items-center gap-2">
           <span class="text-success fs-5">✅</span>
           <div class="flex-grow-1">
@@ -76,21 +97,26 @@
         </div>
       </div>
 
-      <!-- URLパネル -->
       <div id="panel-url" class="d-none">
         <input id="document_url" class="form-control" placeholder="https://example.com/contract.pdf">
         <div class="form-text">公開アクセス可能なPDFのURLを入力してください。</div>
       </div>
 
-      <!-- 隠しフィールド（最終的なdocument_url） -->
       <input type="hidden" id="resolved_document_url">
     </div>
 
     <!-- 署名者 -->
     <div class="mb-3">
-      <label class="form-label fw-semibold">署名者（JSON） <span class="text-danger">*</span></label>
-      <textarea id="signers" class="form-control font-monospace" rows="5">[{"name":"署名者A","email":"a@example.com","order_index":1}]</textarea>
-      <div class="form-text">order_index は署名順（1から始まる整数）。複数の場合はカンマ区切りで追加してください。</div>
+      <label class="form-label fw-semibold">署名者 <span class="text-danger">*</span></label>
+      <div class="form-text mb-2">署名する順番に追加してください。複数の場合は上から順に署名依頼が届きます。</div>
+
+      <div id="signers-list">
+        <!-- 署名者行はJSで生成 -->
+      </div>
+
+      <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="addSigner()">
+        ＋ 署名者を追加
+      </button>
     </div>
 
     <!-- 顔認証オプション -->
@@ -116,7 +142,6 @@
       <a class="btn btn-outline-secondary" href="/e-contract/ui/contracts">戻る</a>
     </div>
     <div id="error-msg" class="mt-2 text-danger small"></div>
-    <pre id="result" class="mt-3 small text-muted"></pre>
   </div>
 </div>
 
@@ -150,36 +175,22 @@ document.getElementById('pdf-file-input').addEventListener('change', e => {
 /* ===================== ファイルアップロード ===================== */
 async function handleFileSelected(file) {
   if (!file.name.toLowerCase().endsWith('.pdf')) {
-    showError('PDFファイルのみアップロードできます。');
-    return;
+    showError('PDFファイルのみアップロードできます。'); return;
   }
   if (file.size > 20 * 1024 * 1024) {
-    showError('ファイルサイズが20MBを超えています。');
-    return;
+    showError('ファイルサイズが20MBを超えています。'); return;
   }
   showError('');
-
-  // 進捗表示
   document.getElementById('upload-progress').style.display = 'block';
   document.getElementById('pdf-preview-wrap').style.display = 'none';
 
   const formData = new FormData();
   formData.append('file', file);
-
   try {
-    const res = await fetch('/e-contract/api/documents/upload', {
-      method: 'POST',
-      body: formData
-    });
+    const res = await fetch('/e-contract/api/documents/upload', { method: 'POST', body: formData });
     const data = await res.json();
     document.getElementById('upload-progress').style.display = 'none';
-
-    if (!res.ok) {
-      showError('アップロードエラー: ' + (data.error || res.status));
-      return;
-    }
-
-    // 成功
+    if (!res.ok) { showError('アップロードエラー: ' + (data.error || res.status)); return; }
     document.getElementById('resolved_document_url').value = data.document_url;
     document.getElementById('pdf-filename').textContent = data.filename;
     document.getElementById('pdf-filesize').textContent = formatSize(data.size);
@@ -202,6 +213,66 @@ function formatSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+/* ===================== 署名者フォーム ===================== */
+let signerCount = 0;
+
+function addSigner(name = '', email = '') {
+  signerCount++;
+  const idx = signerCount;
+  const list = document.getElementById('signers-list');
+
+  const row = document.createElement('div');
+  row.className = 'signer-row';
+  row.dataset.idx = idx;
+  row.innerHTML = `
+    <div class="signer-num">署名者 ${list.children.length + 1}</div>
+    <button type="button" class="btn btn-sm btn-outline-danger btn-remove" onclick="removeSigner(this)" title="削除">✕</button>
+    <div class="row g-2">
+      <div class="col-12 col-sm-5">
+        <input type="text" class="form-control form-control-sm signer-name"
+               placeholder="氏名（例：山田 太郎）" value="${escHtml(name)}" required>
+      </div>
+      <div class="col-12 col-sm-7">
+        <input type="email" class="form-control form-control-sm signer-email"
+               placeholder="メールアドレス（例：yamada@example.com）" value="${escHtml(email)}" required>
+      </div>
+    </div>
+  `;
+  list.appendChild(row);
+  renumberSigners();
+}
+
+function removeSigner(btn) {
+  btn.closest('.signer-row').remove();
+  renumberSigners();
+}
+
+function renumberSigners() {
+  document.querySelectorAll('#signers-list .signer-row').forEach((row, i) => {
+    row.querySelector('.signer-num').textContent = `署名者 ${i + 1}`;
+  });
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function collectSigners() {
+  const rows = document.querySelectorAll('#signers-list .signer-row');
+  const result = [];
+  let valid = true;
+  rows.forEach((row, i) => {
+    const name = row.querySelector('.signer-name').value.trim();
+    const email = row.querySelector('.signer-email').value.trim();
+    if (!name || !email || !email.includes('@')) { valid = false; return; }
+    result.push({ name, email, order_index: i + 1 });
+  });
+  return valid ? result : null;
+}
+
+// 初期状態：署名者1人を追加
+addSigner();
+
 /* ===================== 顔認証トグル ===================== */
 document.getElementById('require_face_auth').addEventListener('change', function() {
   document.getElementById('face-auth-detail').classList.toggle('d-none', !this.checked);
@@ -216,32 +287,21 @@ function showError(msg) {
 async function createContract() {
   showError('');
 
-  // document_url の解決
-  let documentUrl = '';
-  if (currentTab === 'upload') {
-    documentUrl = document.getElementById('resolved_document_url').value;
-    if (!documentUrl) {
-      showError('契約書PDFをアップロードしてください。');
-      return;
-    }
-  } else {
-    documentUrl = document.getElementById('document_url').value.trim();
-    if (!documentUrl) {
-      showError('ドキュメントURLを入力してください。');
-      return;
-    }
-  }
-
   const title = document.getElementById('title').value.trim();
   if (!title) { showError('契約タイトルを入力してください。'); return; }
 
-  let signers;
-  try {
-    signers = JSON.parse(document.getElementById('signers').value);
-  } catch (e) {
-    showError('署名者JSONの形式が正しくありません。');
-    return;
+  let documentUrl = '';
+  if (currentTab === 'upload') {
+    documentUrl = document.getElementById('resolved_document_url').value;
+    if (!documentUrl) { showError('契約書PDFをアップロードしてください。'); return; }
+  } else {
+    documentUrl = document.getElementById('document_url').value.trim();
+    if (!documentUrl) { showError('ドキュメントURLを入力してください。'); return; }
   }
+
+  const signers = collectSigners();
+  if (!signers) { showError('署名者の氏名・メールアドレスをすべて正しく入力してください。'); return; }
+  if (signers.length === 0) { showError('署名者を1人以上追加してください。'); return; }
 
   const btn = document.getElementById('btn-create');
   btn.disabled = true;

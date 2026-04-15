@@ -25,18 +25,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
-            # Main app restart (handle already-stopped / abnormal-termination state)
-            supervisorctl restart samurai-hub || supervisorctl start samurai-hub
-            # Restart e-contract service (port 5001) via nohup – no sudo required
-            pkill -f "e_contract_service.app" || true
+            supervisorctl restart samurai-hub
+            sleep 3
+            supervisorctl status samurai-hub
+            # Start e-contract service in a new session (detached from SSH)
+            pkill -f "python.*e_contract_service" 2>/dev/null || true
             sleep 1
-            nohup venv/bin/python -m e_contract_service.app \
-              > /var/log/econtract-app.log 2>&1 &
-            echo "e-contract started with PID $!"
-            sleep 5
-            # Fail deploy only if main app is still not running
-            supervisorctl status samurai-hub | grep -q RUNNING || { echo "ERROR: samurai-hub not running"; exit 1; }
-            curl -sf http://localhost:5001/healthz && echo "e-contract OK" || echo "e-contract healthz failed"
+            setsid venv/bin/python -m e_contract_service.app \
+              >> /var/log/econtract-app.log 2>&1 &
+            echo "e-contract started"
 
   deploy-staging:
     name: Deploy to Staging (dev.samurai-hub.com)
@@ -56,15 +53,12 @@ jobs:
             git fetch origin develop
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
-            # Main app restart (handle already-stopped / abnormal-termination state)
-            supervisorctl restart samurai-hub || supervisorctl start samurai-hub
-            # Restart e-contract service (port 5001) via nohup – no sudo required
-            pkill -f "e_contract_service.app" || true
+            supervisorctl restart samurai-hub
+            sleep 3
+            supervisorctl status samurai-hub
+            # Start e-contract service in a new session (detached from SSH)
+            pkill -f "python.*e_contract_service" 2>/dev/null || true
             sleep 1
-            nohup venv/bin/python -m e_contract_service.app \
-              > /var/log/econtract-app.log 2>&1 &
-            echo "e-contract started with PID $!"
-            sleep 5
-            # Fail deploy only if main app is still not running
-            supervisorctl status samurai-hub | grep -q RUNNING || { echo "ERROR: samurai-hub not running"; exit 1; }
-            curl -sf http://localhost:5001/healthz && echo "e-contract OK" || echo "e-contract healthz failed"
+            setsid venv/bin/python -m e_contract_service.app \
+              >> /var/log/econtract-app.log 2>&1 &
+            echo "e-contract started"

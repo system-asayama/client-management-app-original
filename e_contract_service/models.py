@@ -26,6 +26,7 @@ class Contract(Base):
     document_url = Column(Text, nullable=False)
     status = Column(String(32), nullable=False, default="draft")
     hash = Column(String(64), nullable=True)
+    require_face_auth = Column(Integer, nullable=False, default=0)  # 0=不要, 1=必須
     created_at = Column(DateTime, default=_utcnow, nullable=False)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
 
@@ -44,6 +45,7 @@ class Signer(Base):
     order_index = Column(Integer, nullable=False)
     status = Column(String(32), nullable=False, default="pending")
     kyc_status = Column(String(32), nullable=False, default="pending")
+    face_auth_status = Column(String(32), nullable=False, default="not_required")  # not_required / pending / passed / failed
     signed_at = Column(DateTime, nullable=True)
     ip = Column(String(64), nullable=True)
     user_agent = Column(Text, nullable=True)

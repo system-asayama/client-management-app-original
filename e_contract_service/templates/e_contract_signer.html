@@ -3,35 +3,873 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>署名ページ</title>
+  <title>電子契約 署名ページ</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .step-indicator { display: flex; gap: 8px; margin-bottom: 24px; }
+    .step-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+      background: #dee2e6; color: #6c757d;
+      transition: all 0.3s;
+    }
+    .step-dot.active { background: #0d6efd; color: #fff; }
+    .step-dot.done { background: #198754; color: #fff; }
+    .step-line { flex: 1; height: 2px; background: #dee2e6; align-self: center; }
+    .step-line.done { background: #198754; }
+
+    #camera-wrap {
+      position: relative; width: 100%; max-width: 480px; margin: 0 auto;
+      border-radius: 12px; overflow: hidden; background: #000;
+    }
+    #video { width: 100%; display: block; transform: scaleX(-1); }
+    #canvas-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; transform: scaleX(-1);
+    }
+    #face-guide {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 200px; height: 260px;
+      border: 3px solid rgba(255,255,255,0.6);
+      border-radius: 50% / 60%;
+      pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
+    }
+    #direction-arrow {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      font-size: 48px; line-height: 1; pointer-events: none;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+      transition: opacity 0.3s;
+    }
+    #liveness-status {
+      position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); color: #fff;
+      padding: 6px 16px; border-radius: 20px;
+      font-size: 14px; white-space: nowrap;
+      pointer-events: none;
+    }
+    .capture-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: #fff; border: 4px solid #0d6efd;
+      display: flex; align-items: center; justify-content: center;
+      margin: 16px auto 0; cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .capture-btn:active { transform: scale(0.92); }
+    .capture-btn-inner { width: 44px; height: 44px; border-radius: 50%; background: #0d6efd; }
+
+    .preview-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+    .preview-thumb {
+      width: 100px; height: 80px; object-fit: cover;
+      border-radius: 8px; border: 2px solid #dee2e6;
+    }
+    .preview-thumb.ok { border-color: #198754; }
+    .preview-thumb.ng { border-color: #dc3545; }
+
+    .progress-ring { transform: rotate(-90deg); }
+    .progress-ring-circle {
+      transition: stroke-dashoffset 0.4s ease;
+      stroke-linecap: round;
+    }
+
+    .liveness-check-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px;
+      background: #f8f9fa; margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .liveness-check-item .icon { font-size: 22px; width: 32px; text-align: center; }
+    .liveness-check-item.done { background: #d1e7dd; }
+    .liveness-check-item.active { background: #cfe2ff; }
+
+    #result-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    #result-overlay.show { display: flex; }
+    .result-card {
+      background: #fff; border-radius: 16px; padding: 32px;
+      text-align: center; max-width: 360px; width: 90%;
+    }
+    .result-icon { font-size: 64px; margin-bottom: 16px; }
+  </style>
 </head>
-<body class="bg-light">
-<div class="container py-4" style="max-width:760px;">
-  <h1 class="h4">署名者ページ</h1>
-  <p class="text-muted">トークン: {{ token }}</p>
-  <div class="d-flex gap-2 mb-3">
-    <button class="btn btn-outline-primary" onclick="verify()">URL検証</button>
-    <button class="btn btn-outline-warning" onclick="kyc()">KYC</button>
-    <button class="btn btn-outline-info" onclick="consent()">同意</button>
-    <button class="btn btn-success" onclick="sign()">署名</button>
+<body>
+<div class="container py-4" style="max-width: 600px;">
+
+  <!-- ヘッダー -->
+  <div class="text-center mb-4">
+    <h1 class="h4 fw-bold">電子契約 本人確認</h1>
+    <p class="text-muted small mb-0">署名前に本人確認を行います</p>
   </div>
-  <pre id="result" class="small"></pre>
+
+  <!-- ステップインジケーター（顔認証あり） -->
+  <div id="step-indicator-face" class="step-indicator align-items-center" style="display:none!important;">
+    <div class="step-dot active" id="sdot-1">1</div>
+    <div class="step-line" id="sline-1"></div>
+    <div class="step-dot" id="sdot-2">2</div>
+    <div class="step-line" id="sline-2"></div>
+    <div class="step-dot" id="sdot-3">3</div>
+    <div class="step-line" id="sline-3"></div>
+    <div class="step-dot" id="sdot-4">4</div>
+  </div>
+  <div id="step-labels-face" class="d-flex justify-content-between small text-muted mb-4" style="display:none!important;">
+    <span>身分証</span><span>ライブネス</span><span>照合</span><span>署名</span>
+  </div>
+
+  <!-- ステップインジケーター（顔認証なし） -->
+  <div id="step-indicator-noface" class="step-indicator align-items-center" style="display:none!important;">
+    <div class="step-dot active" id="sdot-n1">1</div>
+    <div class="step-line" id="sline-n1"></div>
+    <div class="step-dot" id="sdot-n2">2</div>
+    <div class="step-line" id="sline-n2"></div>
+    <div class="step-dot" id="sdot-n3">3</div>
+  </div>
+  <div id="step-labels-noface" class="d-flex justify-content-between small text-muted mb-4" style="display:none!important;">
+    <span>内容確認</span><span>同意</span><span>署名</span>
+  </div>
+
+  <!-- ===== SECTION: 読み込み中 ===== -->
+  <div id="sec-loading" class="text-center py-5">
+    <div class="spinner-border text-primary mb-3"></div>
+    <p class="text-muted">情報を読み込んでいます...</p>
+  </div>
+
+  <!-- ===== SECTION: エラー ===== -->
+  <div id="sec-error" class="d-none">
+    <div class="alert alert-danger">
+      <strong>エラー</strong><br>
+      <span id="error-msg">リンクが無効か期限切れです。</span>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: 契約内容確認 ===== -->
+  <div id="sec-contract" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title" id="contract-title">契約書タイトル</h5>
+        <p class="text-muted small mb-2">署名者: <strong id="signer-name"></strong></p>
+        <a id="doc-link" href="#" target="_blank" class="btn btn-outline-primary btn-sm">
+          📄 契約書を確認する
+        </a>
+        <div id="face-auth-notice" class="alert alert-info mt-3 mb-0 d-none">
+          <strong>🔒 本人確認（顔認証）が必要です</strong><br>
+          <small>身分証撮影と顔の動作確認を行います。</small>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary w-100" onclick="proceedFromContract()">
+      次へ進む →
+    </button>
+  </div>
+
+  <!-- ===== SECTION: 身分証撮影 ===== -->
+  <div id="sec-id-card" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">📋 身分証を撮影してください</h5>
+        <p class="text-muted small">運転免許証・マイナンバーカード・パスポートなど顔写真付き身分証</p>
+        <div id="camera-wrap">
+          <video id="video-id" autoplay playsinline muted></video>
+          <canvas id="canvas-overlay-id"></canvas>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-outline-secondary btn-sm" onclick="switchCamera('id')">📷 カメラ切替</button>
+        </div>
+        <div class="capture-btn" onclick="captureIdCard()">
+          <div class="capture-btn-inner"></div>
+        </div>
+        <p class="text-center text-muted small mt-2">ボタンを押して撮影</p>
+        <canvas id="canvas-id" style="display:none;"></canvas>
+        <div id="id-preview-wrap" class="d-none mt-2">
+          <img id="id-preview" class="preview-thumb" alt="身分証プレビュー">
+          <p class="text-success small mt-1">✅ 撮影しました。問題なければ次へ進んでください。</p>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="retakeIdCard()">撮り直す</button>
+            <button class="btn btn-primary btn-sm" onclick="proceedToLiveness()">次へ →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: ライブネスチェック ===== -->
+  <div id="sec-liveness" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">🎭 本人確認（なりすまし防止）</h5>
+        <p class="text-muted small">カメラに顔を向け、指示に従って動作してください</p>
+
+        <!-- チェックリスト -->
+        <div id="liveness-checklist" class="mb-3">
+          <div class="liveness-check-item active" id="lc-right">
+            <span class="icon">➡️</span>
+            <div>
+              <div class="fw-semibold">右を向く</div>
+              <div class="text-muted small">顔を右に向けてください</div>
+            </div>
+            <span class="ms-auto" id="lc-right-status">⏳</span>
+          </div>
+          <div class="liveness-check-item" id="lc-left">
+            <span class="icon">⬅️</span>
+            <div>
+              <div class="fw-semibold">左を向く</div>
+              <div class="text-muted small">顔を左に向けてください</div>
+            </div>
+            <span class="ms-auto" id="lc-left-status">⏳</span>
+          </div>
+          <div class="liveness-check-item" id="lc-front">
+            <span class="icon">😊</span>
+            <div>
+              <div class="fw-semibold">正面を向く</div>
+              <div class="text-muted small">カメラを正面から見てください</div>
+            </div>
+            <span class="ms-auto" id="lc-front-status">⏳</span>
+          </div>
+        </div>
+
+        <!-- カメラ -->
+        <div id="camera-wrap">
+          <video id="video-liveness" autoplay playsinline muted></video>
+          <canvas id="canvas-overlay-liveness"></canvas>
+          <div id="face-guide"></div>
+          <div id="direction-arrow">➡️</div>
+          <div id="liveness-status">顔をガイドに合わせてください</div>
+        </div>
+
+        <div class="mt-3">
+          <div class="progress" style="height:8px;">
+            <div id="liveness-progress-bar" class="progress-bar bg-success" style="width:0%; transition:width 0.3s;"></div>
+          </div>
+          <p class="text-center text-muted small mt-1" id="liveness-hint">右を向いてください</p>
+        </div>
+
+        <canvas id="canvas-liveness-right" style="display:none;"></canvas>
+        <canvas id="canvas-liveness-left" style="display:none;"></canvas>
+        <canvas id="canvas-liveness-front" style="display:none;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: 顔照合中 ===== -->
+  <div id="sec-matching" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body text-center py-4">
+        <div class="spinner-border text-primary mb-3"></div>
+        <h5>顔照合中...</h5>
+        <p class="text-muted small" id="matching-status">身分証とセルフィーを照合しています</p>
+        <div class="preview-grid justify-content-center mt-3">
+          <div class="text-center">
+            <img id="match-id-thumb" class="preview-thumb" alt="身分証">
+            <div class="small text-muted mt-1">身分証</div>
+          </div>
+          <div class="text-center">
+            <img id="match-selfie-thumb" class="preview-thumb" alt="セルフィー">
+            <div class="small text-muted mt-1">セルフィー</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: 同意・署名 ===== -->
+  <div id="sec-sign" class="d-none">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">✅ 内容確認・署名</h5>
+        <div id="face-auth-passed-badge" class="alert alert-success d-none mb-3">
+          <strong>✅ 本人確認完了</strong> 顔認証が正常に完了しました。
+        </div>
+        <p class="text-muted small">以下の内容に同意の上、署名してください。</p>
+        <div class="border rounded p-3 mb-3 bg-white">
+          <div class="mb-1"><strong>契約書:</strong> <span id="sign-contract-title"></span></div>
+          <div><strong>署名者:</strong> <span id="sign-signer-name"></span></div>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="agree-check">
+          <label class="form-check-label" for="agree-check">
+            契約内容を確認し、同意します
+          </label>
+        </div>
+        <button class="btn btn-success w-100 fw-bold" onclick="doConsent()" id="btn-consent">
+          同意して署名する
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SECTION: 完了 ===== -->
+  <div id="sec-done" class="d-none">
+    <div class="card text-center py-5">
+      <div class="card-body">
+        <div style="font-size:64px;">✅</div>
+        <h4 class="mt-3">署名が完了しました</h4>
+        <p class="text-muted">ご署名ありがとうございました。</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="debug-log" class="mt-3 small text-muted" style="display:none;"></div>
 </div>
+
+<!-- 結果オーバーレイ -->
+<div id="result-overlay">
+  <div class="result-card">
+    <div class="result-icon" id="overlay-icon">❌</div>
+    <h4 id="overlay-title">認証失敗</h4>
+    <p class="text-muted" id="overlay-msg">もう一度お試しください。</p>
+    <button class="btn btn-primary mt-2" onclick="closeOverlay()">閉じる</button>
+  </div>
+</div>
+
+<!-- face-api.js -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
-const token = {{ token|tojson }};
-async function req(path, body={}){
-  const res = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const data = await res.json();
-  document.getElementById('result').textContent = JSON.stringify(data,null,2);
+const TOKEN = {{ token|tojson }};
+const API_BASE = '/e-contract/api/sign/' + TOKEN;
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model';
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let contractData = null;
+let requireFaceAuth = false;
+let idCardDataUrl = null;
+let livenessCaptures = { right: null, left: null, front: null };
+let livenessStep = 'right'; // right → left → front → done
+let faceApiLoaded = false;
+let livenessStream = null;
+let idStream = null;
+let livenessDetectionTimer = null;
+let currentCameraFacing = 'user';
+
+// ライブネス判定しきい値
+const YAW_THRESHOLD_RIGHT = 0.18;  // 右向き：yaw > 0.18
+const YAW_THRESHOLD_LEFT  = -0.18; // 左向き：yaw < -0.18
+const YAW_FRONT_MAX       = 0.12;  // 正面：|yaw| < 0.12
+const HOLD_FRAMES_REQUIRED = 8;    // 何フレーム保持で確定
+let holdFrames = 0;
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+function show(id) { document.getElementById(id).classList.remove('d-none'); }
+function hide(id) { document.getElementById(id).classList.add('d-none'); }
+function log(msg) {
+  const el = document.getElementById('debug-log');
+  el.textContent += msg + '\n';
 }
-async function verify(){
-  const res = await fetch(`/e-contract/api/sign/${token}`); const data = await res.json();
-  document.getElementById('result').textContent = JSON.stringify(data,null,2);
+
+function showOverlay(icon, title, msg) {
+  document.getElementById('overlay-icon').textContent = icon;
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-msg').textContent = msg;
+  document.getElementById('result-overlay').classList.add('show');
 }
-async function kyc(){ await req(`/e-contract/api/sign/${token}/kyc`, {kyc_provider:'mock',kyc_session_id:'ui-session',result:'success'}); }
-async function consent(){ await req(`/e-contract/api/sign/${token}/consent`, {agreed:true}); }
-async function sign(){ await req(`/e-contract/api/sign/${token}/sign`, {}); }
+function closeOverlay() {
+  document.getElementById('result-overlay').classList.remove('show');
+}
+
+// ─── Step Indicator ──────────────────────────────────────────────────────────
+function updateStepFace(step) {
+  // step: 1=身分証, 2=ライブネス, 3=照合, 4=署名
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById('sdot-' + i);
+    if (!dot) continue;
+    dot.classList.remove('active', 'done');
+    if (i < step) dot.classList.add('done');
+    else if (i === step) dot.classList.add('active');
+  }
+  for (let i = 1; i <= 3; i++) {
+    const line = document.getElementById('sline-' + i);
+    if (!line) continue;
+    line.classList.toggle('done', i < step);
+  }
+}
+function updateStepNoFace(step) {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('sdot-n' + i);
+    if (!dot) continue;
+    dot.classList.remove('active', 'done');
+    if (i < step) dot.classList.add('done');
+    else if (i === step) dot.classList.add('active');
+  }
+  for (let i = 1; i <= 2; i++) {
+    const line = document.getElementById('sline-n' + i);
+    if (!line) continue;
+    line.classList.toggle('done', i < step);
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const res = await fetch(API_BASE);
+    if (!res.ok) throw new Error('invalid_token');
+    contractData = await res.json();
+    requireFaceAuth = contractData.require_face_auth || false;
+
+    document.getElementById('contract-title').textContent = contractData.title;
+    document.getElementById('signer-name').textContent = contractData.signer?.name || '';
+    document.getElementById('doc-link').href = contractData.document_url || '#';
+    document.getElementById('sign-contract-title').textContent = contractData.title;
+    document.getElementById('sign-signer-name').textContent = contractData.signer?.name || '';
+
+    hide('sec-loading');
+
+    if (requireFaceAuth) {
+      document.getElementById('face-auth-notice').classList.remove('d-none');
+      document.getElementById('step-indicator-face').style.removeProperty('display');
+      document.getElementById('step-labels-face').style.removeProperty('display');
+      updateStepFace(1);
+    } else {
+      document.getElementById('step-indicator-noface').style.removeProperty('display');
+      document.getElementById('step-labels-noface').style.removeProperty('display');
+      updateStepNoFace(1);
+    }
+    show('sec-contract');
+  } catch (e) {
+    hide('sec-loading');
+    document.getElementById('error-msg').textContent = 'リンクが無効か期限切れです。';
+    show('sec-error');
+  }
+}
+
+// ─── Contract → next ─────────────────────────────────────────────────────────
+async function proceedFromContract() {
+  hide('sec-contract');
+  if (requireFaceAuth) {
+    updateStepFace(1);
+    await startIdCardCamera();
+    show('sec-id-card');
+  } else {
+    updateStepNoFace(2);
+    show('sec-sign');
+  }
+}
+
+// ─── ID Card Camera ───────────────────────────────────────────────────────────
+async function startIdCardCamera() {
+  try {
+    idStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('video-id');
+    video.srcObject = idStream;
+  } catch (e) {
+    showOverlay('⚠️', 'カメラエラー', 'カメラへのアクセスを許可してください。');
+  }
+}
+
+async function switchCamera(mode) {
+  currentCameraFacing = currentCameraFacing === 'user' ? 'environment' : 'user';
+  if (mode === 'id') {
+    if (idStream) idStream.getTracks().forEach(t => t.stop());
+    idStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentCameraFacing }
+    });
+    document.getElementById('video-id').srcObject = idStream;
+  }
+}
+
+function captureIdCard() {
+  const video = document.getElementById('video-id');
+  const canvas = document.getElementById('canvas-id');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  // 鏡像反転していない実際の映像を取得（transformはCSS側のみ）
+  ctx.drawImage(video, 0, 0);
+  idCardDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  document.getElementById('id-preview').src = idCardDataUrl;
+  document.getElementById('id-preview-wrap').classList.remove('d-none');
+}
+
+function retakeIdCard() {
+  idCardDataUrl = null;
+  document.getElementById('id-preview-wrap').classList.add('d-none');
+}
+
+async function proceedToLiveness() {
+  if (!idCardDataUrl) { showOverlay('⚠️', '撮影が必要です', '身分証を撮影してください。'); return; }
+  if (idStream) idStream.getTracks().forEach(t => t.stop());
+  hide('sec-id-card');
+  updateStepFace(2);
+
+  // face-api.js モデル読み込み
+  if (!faceApiLoaded) {
+    document.getElementById('liveness-status').textContent = 'AIモデルを読み込み中...';
+    show('sec-liveness');
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+      faceApiLoaded = true;
+    } catch (e) {
+      // フォールバック: 別CDN
+      try {
+        const FALLBACK = 'https://justadudewhohacks.github.io/face-api.js/models';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(FALLBACK);
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(FALLBACK);
+        faceApiLoaded = true;
+      } catch (e2) {
+        showOverlay('⚠️', 'モデル読み込みエラー', 'ネットワーク接続を確認してください。');
+        return;
+      }
+    }
+  } else {
+    show('sec-liveness');
+  }
+
+  await startLivenessCamera();
+  startLivenessDetection();
+}
+
+// ─── Liveness Camera ──────────────────────────────────────────────────────────
+async function startLivenessCamera() {
+  try {
+    livenessStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    const video = document.getElementById('video-liveness');
+    video.srcObject = livenessStream;
+    await new Promise(r => video.onloadedmetadata = r);
+    video.play();
+
+    // オーバーレイキャンバスのサイズを合わせる
+    const overlay = document.getElementById('canvas-overlay-liveness');
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+  } catch (e) {
+    showOverlay('⚠️', 'カメラエラー', 'フロントカメラへのアクセスを許可してください。');
+  }
+}
+
+// ─── Liveness Detection Loop ──────────────────────────────────────────────────
+function startLivenessDetection() {
+  livenessStep = 'right';
+  holdFrames = 0;
+  updateLivenessUI();
+  livenessDetectionTimer = setInterval(detectFrame, 150);
+}
+
+async function detectFrame() {
+  const video = document.getElementById('video-liveness');
+  if (video.readyState < 2) return;
+
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 });
+  const result = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
+
+  const overlay = document.getElementById('canvas-overlay-liveness');
+  const ctx = overlay.getContext('2d');
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  if (!result) {
+    document.getElementById('liveness-status').textContent = '顔が検出できません';
+    holdFrames = 0;
+    return;
+  }
+
+  // ランドマークから顔の向き（yaw）を推定
+  const yaw = estimateYaw(result.landmarks);
+  drawFaceBox(ctx, result.detection.box, overlay.width, overlay.height);
+
+  const statusEl = document.getElementById('liveness-status');
+  const hintEl = document.getElementById('liveness-hint');
+
+  // 各ステップの判定
+  let conditionMet = false;
+  if (livenessStep === 'right') {
+    conditionMet = yaw > YAW_THRESHOLD_RIGHT;
+    statusEl.textContent = conditionMet ? `右向き検出中... (${holdFrames + 1}/${HOLD_FRAMES_REQUIRED})` : '右を向いてください →';
+  } else if (livenessStep === 'left') {
+    conditionMet = yaw < YAW_THRESHOLD_LEFT;
+    statusEl.textContent = conditionMet ? `左向き検出中... (${holdFrames + 1}/${HOLD_FRAMES_REQUIRED})` : '← 左を向いてください';
+  } else if (livenessStep === 'front') {
+    conditionMet = Math.abs(yaw) < YAW_FRONT_MAX;
+    statusEl.textContent = conditionMet ? `正面確認中... (${holdFrames + 1}/${HOLD_FRAMES_REQUIRED})` : '正面を向いてください 😊';
+  }
+
+  if (conditionMet) {
+    holdFrames++;
+    if (holdFrames >= HOLD_FRAMES_REQUIRED) {
+      captureForLiveness(livenessStep);
+      advanceLivenessStep();
+    }
+  } else {
+    holdFrames = 0;
+  }
+}
+
+// 顔のランドマークからyaw（左右回転）を推定
+function estimateYaw(landmarks) {
+  const pts = landmarks.positions;
+  // 鼻先 (30), 左目外角 (36), 右目外角 (45), 顎先 (8)
+  const noseTip    = pts[30];
+  const leftEye    = pts[36];
+  const rightEye   = pts[45];
+  const faceCenter = { x: (leftEye.x + rightEye.x) / 2, y: (leftEye.y + rightEye.y) / 2 };
+  const eyeWidth   = rightEye.x - leftEye.x;
+  if (eyeWidth < 1) return 0;
+  // 鼻先が顔中心からどれだけずれているか（正規化）
+  const offset = noseTip.x - faceCenter.x;
+  return offset / eyeWidth; // 正 = 右向き、負 = 左向き
+}
+
+function drawFaceBox(ctx, box, canvasW, canvasH) {
+  // CSS transform: scaleX(-1) があるので、描画座標を反転
+  const scaleX = canvasW / (document.getElementById('video-liveness').videoWidth || canvasW);
+  const scaleY = canvasH / (document.getElementById('video-liveness').videoHeight || canvasH);
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.translate(-canvasW, 0);
+  ctx.strokeStyle = '#00ff88';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(box.x * scaleX, box.y * scaleY, box.width * scaleX, box.height * scaleY);
+  ctx.restore();
+}
+
+function captureForLiveness(step) {
+  const video = document.getElementById('video-liveness');
+  const canvas = document.getElementById('canvas-liveness-' + step);
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  // 鏡像反転して保存（自然な向き）
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+  livenessCaptures[step] = canvas.toDataURL('image/jpeg', 0.85);
+}
+
+function advanceLivenessStep() {
+  holdFrames = 0;
+  if (livenessStep === 'right') {
+    markLivenessItem('right', true);
+    livenessStep = 'left';
+    updateLivenessUI();
+  } else if (livenessStep === 'left') {
+    markLivenessItem('left', true);
+    livenessStep = 'front';
+    updateLivenessUI();
+  } else if (livenessStep === 'front') {
+    markLivenessItem('front', true);
+    livenessStep = 'done';
+    clearInterval(livenessDetectionTimer);
+    document.getElementById('liveness-progress-bar').style.width = '100%';
+    document.getElementById('liveness-hint').textContent = '✅ ライブネスチェック完了！';
+    document.getElementById('liveness-status').textContent = '完了';
+    if (livenessStream) livenessStream.getTracks().forEach(t => t.stop());
+    setTimeout(proceedToMatching, 800);
+  }
+}
+
+function markLivenessItem(step, ok) {
+  const item = document.getElementById('lc-' + step);
+  const statusEl = document.getElementById('lc-' + step + '-status');
+  item.classList.remove('active');
+  item.classList.add('done');
+  statusEl.textContent = ok ? '✅' : '❌';
+}
+
+function updateLivenessUI() {
+  const steps = ['right', 'left', 'front'];
+  const arrows = { right: '➡️', left: '⬅️', front: '😊' };
+  const hints  = { right: '右を向いてください', left: '左を向いてください', front: '正面を向いてください' };
+  const progress = { right: 0, left: 33, front: 66 };
+
+  steps.forEach(s => {
+    const item = document.getElementById('lc-' + s);
+    item.classList.remove('active');
+    if (s === livenessStep) item.classList.add('active');
+  });
+
+  if (livenessStep !== 'done') {
+    document.getElementById('direction-arrow').textContent = arrows[livenessStep];
+    document.getElementById('liveness-hint').textContent = hints[livenessStep];
+    document.getElementById('liveness-progress-bar').style.width = progress[livenessStep] + '%';
+  }
+}
+
+// ─── Face Matching ────────────────────────────────────────────────────────────
+async function proceedToMatching() {
+  hide('sec-liveness');
+  updateStepFace(3);
+  show('sec-matching');
+
+  // サムネイル表示
+  document.getElementById('match-id-thumb').src = idCardDataUrl;
+  document.getElementById('match-selfie-thumb').src = livenessCaptures.front;
+
+  try {
+    document.getElementById('matching-status').textContent = 'AIモデルを準備中...';
+    // 顔認識ネットワークを追加ロード
+    if (!faceapi.nets.faceRecognitionNet.isLoaded) {
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    }
+    if (!faceapi.nets.ssdMobilenetv1.isLoaded) {
+      await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    }
+
+    document.getElementById('matching-status').textContent = '身分証から顔を検出中...';
+    const idImg = await loadImageFromDataUrl(idCardDataUrl);
+    const idDetection = await faceapi.detectSingleFace(idImg).withFaceLandmarks().withFaceDescriptor();
+
+    if (!idDetection) {
+      hide('sec-matching');
+      showOverlay('❌', '身分証の顔を検出できません', '顔写真が明瞭な身分証を使用し、再度撮影してください。');
+      setTimeout(() => { closeOverlay(); retakeAndRestart(); }, 3000);
+      return;
+    }
+
+    document.getElementById('matching-status').textContent = 'セルフィーから顔を検出中...';
+    const selfieImg = await loadImageFromDataUrl(livenessCaptures.front);
+    const selfieDetection = await faceapi.detectSingleFace(selfieImg).withFaceLandmarks().withFaceDescriptor();
+
+    if (!selfieDetection) {
+      hide('sec-matching');
+      showOverlay('❌', 'セルフィーの顔を検出できません', 'ライブネスチェックをやり直してください。');
+      setTimeout(() => { closeOverlay(); restartLiveness(); }, 3000);
+      return;
+    }
+
+    document.getElementById('matching-status').textContent = '顔を照合中...';
+    const distance = faceapi.euclideanDistance(idDetection.descriptor, selfieDetection.descriptor);
+    const similarity = Math.max(0, Math.min(100, Math.round((1 - distance) * 100)));
+    const THRESHOLD = 0.55; // distance < 0.55 で本人と判定（face-api.js 推奨値）
+
+    log(`顔照合距離: ${distance.toFixed(4)}, 類似度: ${similarity}%`);
+
+    if (distance < THRESHOLD) {
+      await submitFaceAuthResult(true, similarity);
+    } else {
+      await submitFaceAuthResult(false, similarity);
+    }
+  } catch (e) {
+    hide('sec-matching');
+    showOverlay('⚠️', '照合エラー', '顔照合中にエラーが発生しました。再度お試しください。');
+    log('照合エラー: ' + e.message);
+  }
+}
+
+async function loadImageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+async function submitFaceAuthResult(passed, similarity) {
+  try {
+    const res = await fetch(API_BASE + '/face-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passed, similarity })
+    });
+    const data = await res.json();
+    hide('sec-matching');
+
+    if (passed) {
+      showOverlay('✅', '本人確認完了', `顔認証が成功しました（類似度: ${similarity}%）`);
+      setTimeout(() => {
+        closeOverlay();
+        updateStepFace(4);
+        document.getElementById('face-auth-passed-badge').classList.remove('d-none');
+        show('sec-sign');
+      }, 2000);
+    } else {
+      showOverlay('❌', '本人確認失敗', `顔の一致率が不足しています（類似度: ${similarity}%）。再度お試しください。`);
+      setTimeout(() => { closeOverlay(); retakeAndRestart(); }, 3500);
+    }
+  } catch (e) {
+    hide('sec-matching');
+    showOverlay('⚠️', '送信エラー', 'ネットワークエラーが発生しました。');
+  }
+}
+
+function retakeAndRestart() {
+  idCardDataUrl = null;
+  livenessCaptures = { right: null, left: null, front: null };
+  hide('sec-matching');
+  hide('sec-sign');
+  updateStepFace(1);
+  startIdCardCamera();
+  show('sec-id-card');
+  document.getElementById('id-preview-wrap').classList.add('d-none');
+}
+
+function restartLiveness() {
+  livenessCaptures = { right: null, left: null, front: null };
+  hide('sec-matching');
+  // チェックリストをリセット
+  ['right', 'left', 'front'].forEach(s => {
+    const item = document.getElementById('lc-' + s);
+    item.classList.remove('done', 'active');
+    document.getElementById('lc-' + s + '-status').textContent = '⏳';
+  });
+  document.getElementById('lc-right').classList.add('active');
+  updateStepFace(2);
+  show('sec-liveness');
+  startLivenessCamera().then(() => startLivenessDetection());
+}
+
+// ─── KYC (顔認証なしの場合はモックKYC) ──────────────────────────────────────
+async function doKyc() {
+  const res = await fetch(API_BASE + '/kyc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kyc_provider: 'internal', kyc_session_id: 'ui-' + Date.now(), result: 'success' })
+  });
+  return res.ok;
+}
+
+// ─── Consent & Sign ───────────────────────────────────────────────────────────
+async function doConsent() {
+  const agreeCheck = document.getElementById('agree-check');
+  if (!agreeCheck.checked) {
+    showOverlay('⚠️', '同意が必要です', '「同意します」にチェックを入れてください。');
+    return;
+  }
+  const btn = document.getElementById('btn-consent');
+  btn.disabled = true;
+  btn.textContent = '処理中...';
+
+  try {
+    // KYC（顔認証なしの場合はここでモックKYCを実行）
+    if (!requireFaceAuth) {
+      const kycOk = await doKyc();
+      if (!kycOk) throw new Error('kyc_failed');
+    }
+
+    // 同意
+    const consentRes = await fetch(API_BASE + '/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agreed: true })
+    });
+    if (!consentRes.ok) throw new Error('consent_failed');
+
+    // 署名
+    const signRes = await fetch(API_BASE + '/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (!signRes.ok) throw new Error('sign_failed');
+
+    hide('sec-sign');
+    if (requireFaceAuth) updateStepFace(4);
+    else updateStepNoFace(3);
+    show('sec-done');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '同意して署名する';
+    showOverlay('❌', 'エラー', '処理中にエラーが発生しました。ページを再読み込みしてください。');
+  }
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+init();
 </script>
 </body>
 </html>

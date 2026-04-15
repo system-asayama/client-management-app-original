@@ -71,6 +71,7 @@ def _serialize_signer(signer: Signer) -> dict:
         "email": signer.email,
         "order_index": signer.order_index,
         "status": signer.status,
+        "face_auth_status": signer.face_auth_status,
         "signed_at": signer.signed_at.isoformat() if signer.signed_at else None,
     }
 
@@ -130,6 +131,7 @@ def create_contract():
     title = (payload.get("title") or "").strip()
     document_url = (payload.get("document_url") or "").strip()
     signers = payload.get("signers") or []
+    require_face_auth = 1 if payload.get("require_face_auth") else 0
 
     if not title or len(title) > 255 or not document_url or not isinstance(signers, list) or not signers:
         return jsonify({"error": "Validation failed", "code": "VALIDATION_ERROR"}), 400
@@ -155,13 +157,15 @@ def create_contract():
             title=title,
             document_url=document_url,
             status="draft",
+            require_face_auth=require_face_auth,
         )
         db.add(contract)
         db.flush()
 
         signer_rows = []
         for signer in sorted(cleaned_signers, key=lambda item: item["order_index"]):
-            row = Signer(contract_id=contract.id, **signer)
+            face_auth_status = "pending" if require_face_auth else "not_required"
+            row = Signer(contract_id=contract.id, face_auth_status=face_auth_status, **signer)
             db.add(row)
             signer_rows.append(row)
 
@@ -266,6 +270,7 @@ def get_contract(contract_id: str):
                 "title": contract.title,
                 "document_url": contract.document_url,
                 "status": contract.status,
+                "require_face_auth": bool(contract.require_face_auth),
                 "tenant_id": contract.tenant_id,
                 "created_by": contract.created_by,
                 "created_at": contract.created_at.isoformat(),

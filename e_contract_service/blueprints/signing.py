@@ -49,14 +49,68 @@ def verify_signing_token(token: str):
                 "contract_id": contract.id,
                 "title": contract.title,
                 "document_url": contract.document_url,
+                "require_face_auth": bool(contract.require_face_auth),
                 "signer": {
                     "signer_id": signer.id,
                     "name": signer.name,
                     "order_index": signer.order_index,
                     "status": signer.status,
+                    "face_auth_status": signer.face_auth_status,
                 },
             }
         )
+    finally:
+        db.close()
+
+
+@bp.post("/<token>/face-auth")
+def record_face_auth(token: str):
+    """ブラウザ側顔照合の結果を受け取り、face_auth_statusを更新する。
+    passed=True の場合は自動的にKYCも通過させ、status=kyc_passed にする。
+    """
+    payload = request.get_json(silent=True) or {}
+    passed = payload.get("passed")
+    similarity = payload.get("similarity", 0)
+
+    if not isinstance(passed, bool):
+        return jsonify({"error": "Validation failed", "code": "VALIDATION_ERROR"}), 400
+
+    db = SessionLocal()
+    try:
+        signer, contract, error = _load_signing_context(db, token)
+        if error:
+            return error
+
+        if not contract.require_face_auth:
+            return jsonify({"error": "Face auth not required", "code": "UNPROCESSABLE"}), 422
+
+        if passed:
+            signer.face_auth_status = "passed"
+            signer.kyc_status = "success"
+            signer.status = "kyc_passed"
+        else:
+            signer.face_auth_status = "failed"
+
+        _append_audit_log(
+            db,
+            contract_id=contract.id,
+            action="face_auth_completed",
+            actor_id=None,
+            actor_type="signer",
+            metadata={
+                "signer_id": signer.id,
+                "passed": passed,
+                "similarity": similarity,
+                "ip": request.headers.get("X-Forwarded-For", request.remote_addr),
+            },
+        )
+        db.commit()
+        return jsonify({
+            "signer_id": signer.id,
+            "face_auth_status": signer.face_auth_status,
+            "status": signer.status,
+            "passed": passed,
+        })
     finally:
         db.close()
 

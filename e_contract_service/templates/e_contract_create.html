@@ -22,6 +22,25 @@
       <label class="form-label">署名者（JSON）</label>
       <textarea id="signers" class="form-control" rows="5">[{"name":"署名者A","email":"a@example.com","order_index":1}]</textarea>
     </div>
+
+    <!-- 顔認証オプション -->
+    <div class="mb-4 p-3 border rounded bg-white">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="require_face_auth" role="switch">
+        <label class="form-check-label fw-semibold" for="require_face_auth">
+          🔒 顔認証を要求する（本人確認オプション）
+        </label>
+      </div>
+      <div id="face-auth-detail" class="mt-2 ms-4 text-muted small d-none">
+        <p class="mb-1">有効にすると、署名者は以下の手順で本人確認を行います：</p>
+        <ol class="mb-0">
+          <li>身分証（免許証・マイナンバーカード等）の撮影</li>
+          <li>ライブネスチェック（右向き → 左向き → 正面）でなりすまし防止</li>
+          <li>身分証とセルフィーの顔照合（AI照合、類似度85%以上で通過）</li>
+        </ol>
+      </div>
+    </div>
+
     <div class="d-flex gap-2">
       <button class="btn btn-primary" onclick="createContract()">作成</button>
       <a class="btn btn-outline-secondary" href="/e-contract/ui/contracts">戻る</a>
@@ -30,11 +49,22 @@
   </div>
 </div>
 <script>
+// 顔認証チェックボックスの説明表示切替
+document.getElementById('require_face_auth').addEventListener('change', function() {
+  const detail = document.getElementById('face-auth-detail');
+  if (this.checked) {
+    detail.classList.remove('d-none');
+  } else {
+    detail.classList.add('d-none');
+  }
+});
+
 async function createContract() {
   const payload = {
     title: document.getElementById('title').value,
     document_url: document.getElementById('document_url').value,
-    signers: JSON.parse(document.getElementById('signers').value)
+    signers: JSON.parse(document.getElementById('signers').value),
+    require_face_auth: document.getElementById('require_face_auth').checked
   };
   const res = await fetch('/e-contract/api/contracts', {
     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)

@@ -15,15 +15,47 @@
     <div><strong>タイトル:</strong> {{ contract.title }}</div>
     <div><strong>状態:</strong> <span class="badge text-bg-info">{{ contract.status }}</span></div>
     <div><strong>URL:</strong> {{ contract.document_url }}</div>
+    <div class="mt-1">
+      <strong>顔認証:</strong>
+      {% if contract.require_face_auth %}
+        <span class="badge text-bg-warning">🔒 必須</span>
+      {% else %}
+        <span class="badge text-bg-secondary">なし</span>
+      {% endif %}
+    </div>
   </div></div>
 
   <div class="card mb-3"><div class="card-body">
     <h2 class="h6">署名者</h2>
-    <ul class="mb-0">
+    <table class="table table-sm mb-0">
+      <thead><tr>
+        <th>#</th><th>名前</th><th>メール</th><th>署名状態</th>
+        {% if contract.require_face_auth %}<th>顔認証</th>{% endif %}
+      </tr></thead>
+      <tbody>
       {% for s in signers %}
-      <li>#{{ s.order_index }} {{ s.name }} ({{ s.email }}) - {{ s.status }}</li>
+      <tr>
+        <td>{{ s.order_index }}</td>
+        <td>{{ s.name }}</td>
+        <td>{{ s.email }}</td>
+        <td>
+          {% if s.status == 'signed' %}<span class="badge text-bg-success">署名済</span>
+          {% elif s.status == 'consented' %}<span class="badge text-bg-info">同意済</span>
+          {% elif s.status == 'kyc_passed' %}<span class="badge text-bg-primary">KYC通過</span>
+          {% else %}<span class="badge text-bg-secondary">{{ s.status }}</span>{% endif %}
+        </td>
+        {% if contract.require_face_auth %}
+        <td>
+          {% if s.face_auth_status == 'passed' %}<span class="badge text-bg-success">✅ 通過</span>
+          {% elif s.face_auth_status == 'failed' %}<span class="badge text-bg-danger">❌ 失敗</span>
+          {% elif s.face_auth_status == 'pending' %}<span class="badge text-bg-warning">⏳ 未実施</span>
+          {% else %}<span class="badge text-bg-secondary">-</span>{% endif %}
+        </td>
+        {% endif %}
+      </tr>
       {% endfor %}
-    </ul>
+      </tbody>
+    </table>
   </div></div>
 
   <div class="d-flex gap-2">

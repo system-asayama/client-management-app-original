@@ -6,7 +6,7 @@ from ..auth import require_roles
 from ..db import SessionLocal
 from ..models import Contract, Signer
 
-bp = Blueprint("e_contract_ui", __name__, url_prefix="/ui")
+bp = Blueprint("e_contract_ui", __name__, url_prefix="/ui", template_folder="../templates")
 
 
 @bp.get("/contracts")

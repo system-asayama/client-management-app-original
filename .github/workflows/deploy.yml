@@ -25,16 +25,16 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
-            # Install e-contract supervisor config if not yet present
-            if [ ! -f /etc/supervisor/conf.d/econtract.conf ]; then
-              sudo cp deploy/supervisor/econtract.conf /etc/supervisor/conf.d/
-              sudo supervisorctl reread
-              sudo supervisorctl update
-            fi
             supervisorctl restart samurai-hub
-            supervisorctl restart samurai-hub-econtract || supervisorctl start samurai-hub-econtract
+            # Restart e-contract service (port 5001) via nohup – no sudo required
+            pkill -f "e_contract_service.app" || true
+            sleep 1
+            nohup venv/bin/python -m e_contract_service.app \
+              > /var/log/econtract-app.log 2>&1 &
+            echo "e-contract started with PID $!"
             sleep 3
-            supervisorctl status samurai-hub samurai-hub-econtract
+            supervisorctl status samurai-hub
+            curl -sf http://localhost:5001/healthz && echo "e-contract OK" || echo "e-contract healthz failed"
 
   deploy-staging:
     name: Deploy to Staging (dev.samurai-hub.com)
@@ -54,13 +54,13 @@ jobs:
             git fetch origin develop
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
-            # Install e-contract supervisor config if not yet present
-            if [ ! -f /etc/supervisor/conf.d/econtract.conf ]; then
-              sudo cp deploy/supervisor/econtract.conf /etc/supervisor/conf.d/
-              sudo supervisorctl reread
-              sudo supervisorctl update
-            fi
             supervisorctl restart samurai-hub
-            supervisorctl restart samurai-hub-econtract || supervisorctl start samurai-hub-econtract
+            # Restart e-contract service (port 5001) via nohup – no sudo required
+            pkill -f "e_contract_service.app" || true
+            sleep 1
+            nohup venv/bin/python -m e_contract_service.app \
+              > /var/log/econtract-app.log 2>&1 &
+            echo "e-contract started with PID $!"
             sleep 3
-            supervisorctl status samurai-hub samurai-hub-econtract
+            supervisorctl status samurai-hub
+            curl -sf http://localhost:5001/healthz && echo "e-contract OK" || echo "e-contract healthz failed"

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}SMTPメール設定{% endblock %}
+{% block content %}
+<style>
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:1.5em;font-weight:700;color:#1a1a2e}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
+.section-title{font-size:1.1em;font-weight:700;color:#374151;margin:0 0 16px 0;padding-bottom:10px;border-bottom:2px solid #e5e7eb}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151;font-size:0.95em}
+.form-group input,.form-group select{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
+.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.83em}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.btn{padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-size:0.95em;font-weight:600;text-decoration:none;display:inline-block}
+.btn-primary{background:#2563a8;color:#fff}
+.btn-primary:hover{background:#1d4ed8}
+.btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #d1d5db}
+.btn-secondary:hover{background:#e5e7eb}
+.btn-test{background:#059669;color:#fff}
+.btn-test:hover{background:#047857}
+.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.alert{padding:12px 16px;border-radius:6px;margin-bottom:16px;font-size:0.9em}
+.alert-success{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0}
+.alert-error{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin-bottom:20px}
+.info-box p{margin:0 0 8px 0;font-size:0.9em;color:#1e40af}
+.info-box p:last-child{margin-bottom:0}
+.preset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.preset-btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;cursor:pointer;font-size:0.85em;text-align:center;transition:all 0.15s}
+.preset-btn:hover{background:#eff6ff;border-color:#2563a8;color:#2563a8}
+.test-section{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-top:24px}
+.password-hint{color:#6b7280;font-size:0.83em;margin-top:4px;display:block}
+</style>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">📧 SMTPメール設定</div>
+    {% if tenant_name %}<div style="color:#6b7280;font-size:0.9em;margin-top:2px">{{ tenant_name }}</div>{% endif %}
+  </div>
+  <a href="{{ url_for('tenant_admin.dashboard') }}" class="btn btn-secondary">← ダッシュボードへ</a>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<div class="alert alert-{{ category }}">{{ message }}</div>
+{% endfor %}
+
+{% if not smtp_config %}
+<div class="alert alert-error">テナントが選択されていません。まずテナントを選択してください。</div>
+{% else %}
+
+<div class="info-box">
+  <p><strong>📌 この設定について</strong></p>
+  <p>電子契約の署名依頼メールなど、システムからのメール送信に使用するSMTPサーバーを設定します。</p>
+  <p>Gmailの場合は「アプリパスワード」を使用してください（通常のパスワードは使用できません）。</p>
+</div>
+
+<div class="card">
+  <h2 class="section-title">よく使うサービスのプリセット</h2>
+  <div class="preset-grid">
+    <button type="button" class="preset-btn" onclick="applyPreset('gmail')">📧 Gmail</button>
+    <button type="button" class="preset-btn" onclick="applyPreset('outlook')">📧 Outlook / Hotmail</button>
+    <button type="button" class="preset-btn" onclick="applyPreset('yahoo')">📧 Yahoo!メール</button>
+    <button type="button" class="preset-btn" onclick="applyPreset('sendgrid')">📨 SendGrid</button>
+    <button type="button" class="preset-btn" onclick="applyPreset('ses')">☁️ Amazon SES</button>
+    <button type="button" class="preset-btn" onclick="applyPreset('custom')">⚙️ カスタム</button>
+  </div>
+
+  <form method="POST" action="{{ url_for('tenant_admin.smtp_settings') }}">
+    <input type="hidden" name="action" value="save_smtp">
+
+    <h2 class="section-title">SMTP接続設定</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="smtp_host">SMTPサーバーホスト名 <span style="color:#ef4444">*</span></label>
+        <input type="text" id="smtp_host" name="smtp_host" value="{{ smtp_config.smtp_host }}"
+               placeholder="例: smtp.gmail.com">
+      </div>
+      <div class="form-group">
+        <label for="smtp_port">ポート番号 <span style="color:#ef4444">*</span></label>
+        <input type="number" id="smtp_port" name="smtp_port" value="{{ smtp_config.smtp_port }}"
+               placeholder="例: 587">
+        <small>587=STARTTLS / 465=SSL/TLS / 25=暗号化なし</small>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="smtp_use_tls">暗号化方式</label>
+      <select id="smtp_use_tls" name="smtp_use_tls">
+        <option value="1" {% if smtp_config.smtp_use_tls == 1 %}selected{% endif %}>STARTTLS（推奨・ポート587）</option>
+        <option value="2" {% if smtp_config.smtp_use_tls == 2 %}selected{% endif %}>SSL/TLS（ポート465）</option>
+        <option value="0" {% if smtp_config.smtp_use_tls == 0 %}selected{% endif %}>暗号化なし（非推奨）</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="smtp_username">ユーザー名（メールアドレス）</label>
+        <input type="text" id="smtp_username" name="smtp_username" value="{{ smtp_config.smtp_username }}"
+               placeholder="例: yourname@gmail.com">
+      </div>
+      <div class="form-group">
+        <label for="smtp_password">パスワード</label>
+        <input type="password" id="smtp_password" name="smtp_password" value=""
+               placeholder="{% if smtp_config.has_password %}（設定済み・変更する場合のみ入力）{% else %}パスワードを入力{% endif %}">
+        {% if smtp_config.has_password %}
+        <span class="password-hint">✅ パスワードは設定済みです。変更する場合のみ入力してください。</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <h2 class="section-title" style="margin-top:24px">差出人設定</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="smtp_from_email">差出人メールアドレス <span style="color:#ef4444">*</span></label>
+        <input type="email" id="smtp_from_email" name="smtp_from_email" value="{{ smtp_config.smtp_from_email }}"
+               placeholder="例: noreply@yourcompany.com">
+        <small>メールの「From」に表示されるアドレス</small>
+      </div>
+      <div class="form-group">
+        <label for="smtp_from_name">差出人名</label>
+        <input type="text" id="smtp_from_name" name="smtp_from_name" value="{{ smtp_config.smtp_from_name }}"
+               placeholder="例: 株式会社〇〇 電子契約">
+        <small>メールの「From」に表示される名前</small>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">💾 設定を保存</button>
+      <a href="{{ url_for('tenant_admin.dashboard') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+
+{% if smtp_config.smtp_host %}
+<div class="card">
+  <h2 class="section-title">📤 テスト送信</h2>
+  <p style="color:#6b7280;font-size:0.9em;margin-bottom:16px">設定が正しいか確認するため、テストメールを送信します。</p>
+  <form method="POST" action="{{ url_for('tenant_admin.smtp_settings') }}">
+    <input type="hidden" name="action" value="test_smtp">
+    <div class="form-group">
+      <label for="test_to">テスト送信先メールアドレス</label>
+      <input type="email" id="test_to" name="test_to" placeholder="例: test@example.com" required>
+    </div>
+    <button type="submit" class="btn btn-test">📨 テストメールを送信</button>
+  </form>
+</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+const PRESETS = {
+  gmail:     { host: 'smtp.gmail.com',         port: '587', tls: '1' },
+  outlook:   { host: 'smtp.office365.com',     port: '587', tls: '1' },
+  yahoo:     { host: 'smtp.mail.yahoo.co.jp',  port: '587', tls: '1' },
+  sendgrid:  { host: 'smtp.sendgrid.net',      port: '587', tls: '1' },
+  ses:       { host: 'email-smtp.us-east-1.amazonaws.com', port: '587', tls: '1' },
+  custom:    { host: '', port: '', tls: '1' },
+};
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  document.getElementById('smtp_host').value = p.host;
+  document.getElementById('smtp_port').value = p.port;
+  document.getElementById('smtp_use_tls').value = p.tls;
+  if (key === 'gmail') {
+    document.getElementById('smtp_username').placeholder = 'yourname@gmail.com';
+    document.getElementById('smtp_password').placeholder = 'Googleアプリパスワード（16文字）';
+  }
+}
+</script>
+{% endblock %}

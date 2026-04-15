@@ -604,6 +604,32 @@ def run_auto_migrations():
         else:
             logger.info("- T_テナント.truck_apk_version カラムは既に存在します（スキップ）")
 
+        # T_テナントテーブルにSMTPメール設定カラムを追加
+        smtp_columns = [
+            ('smtp_host',       'VARCHAR(255) NULL',  'SMTPサーバーホスト名'),
+            ('smtp_port',       'INT NULL',           'SMTPポート番号'),
+            ('smtp_username',   'VARCHAR(255) NULL',  'SMTPユーザー名'),
+            ('smtp_password',   'TEXT NULL',          'SMTPパスワード'),
+            ('smtp_use_tls',    'INT DEFAULT 1',      'TLS使用: 1=STARTTLS, 2=SSL/TLS, 0=なし'),
+            ('smtp_from_email', 'VARCHAR(255) NULL',  '差出人メールアドレス'),
+            ('smtp_from_name',  'VARCHAR(255) NULL',  '差出人名'),
+        ]
+        for col_name, col_def, col_comment in smtp_columns:
+            if not column_exists(session, 'T_テナント', col_name):
+                logger.info(f"T_テナントテーブルに {col_name} カラムを追加中...")
+                try:
+                    if db_type == 'postgresql':
+                        session.execute(text(f'ALTER TABLE "T_テナント" ADD COLUMN "{col_name}" {col_def}'))
+                    else:
+                        session.execute(text(f'ALTER TABLE `T_テナント` ADD COLUMN `{col_name}` {col_def} COMMENT \'{col_comment}\''))
+                    session.commit()
+                    logger.info(f"✓ T_テナント.{col_name} カラムを追加しました")
+                except Exception as col_err:
+                    session.rollback()
+                    logger.error(f"カラム追加エラー: T_テナント.{col_name} - {col_err}")
+            else:
+                logger.info(f"- T_テナント.{col_name} カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

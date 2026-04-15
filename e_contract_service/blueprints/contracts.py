@@ -332,6 +332,29 @@ def dispatch_contract(contract_id: str):
         )
         db.commit()
 
+        # テナントSMTPで署名依頼メールを送信
+        mail_results = []
+        tenant_id = g.auth.tenant_id
+        if tenant_id:
+            try:
+                from ..mailer import send_signing_request_email
+                expires_str = expires_at.strftime('%Y年%m月%d日 %H:%M')
+                for item in issued:
+                    signer_obj = next((s for s in signers if s.id == item["signer_id"]), None)
+                    signer_name = signer_obj.name if signer_obj else item["email"]
+                    sent = send_signing_request_email(
+                        tenant_id=tenant_id,
+                        signer_name=signer_name,
+                        signer_email=item["email"],
+                        contract_title=contract.title,
+                        sign_url=item["sign_url"],
+                        expires_at=expires_str,
+                    )
+                    mail_results.append({"email": item["email"], "sent": sent})
+            except Exception as mail_err:
+                import logging
+                logging.getLogger(__name__).error(f"メール送信エラー: {mail_err}")
+
         return jsonify(
             {
                 "contract_id": contract.id,
@@ -339,6 +362,7 @@ def dispatch_contract(contract_id: str):
                 "dispatched_at": _utcnow().isoformat(),
                 "signer_count": len(issued),
                 "signing_links": issued,
+                "mail_results": mail_results,
             }
         )
     finally:

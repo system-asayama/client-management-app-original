@@ -3656,3 +3656,102 @@ def update_staff_gps_mode():
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+
+# ========================================
+# SMTPメール設定
+# ========================================
+
+@bp.route('/smtp_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def smtp_settings():
+    """テナントのSMTPメール設定"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
+        tenant_name = getattr(tenant_obj, '名称', '') if tenant_obj else ''
+
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'save_smtp':
+                if not tenant_obj:
+                    flash('テナントが選択されていません', 'error')
+                    return redirect(url_for('tenant_admin.smtp_settings'))
+
+                smtp_host = request.form.get('smtp_host', '').strip() or None
+                smtp_port_str = request.form.get('smtp_port', '').strip()
+                smtp_port = int(smtp_port_str) if smtp_port_str.isdigit() else None
+                smtp_username = request.form.get('smtp_username', '').strip() or None
+                smtp_password_raw = request.form.get('smtp_password', '')
+                smtp_use_tls = int(request.form.get('smtp_use_tls', '1'))
+                smtp_from_email = request.form.get('smtp_from_email', '').strip() or None
+                smtp_from_name = request.form.get('smtp_from_name', '').strip() or None
+
+                tenant_obj.smtp_host = smtp_host
+                tenant_obj.smtp_port = smtp_port
+                tenant_obj.smtp_username = smtp_username
+                # パスワードが空欄の場合は既存値を保持
+                if smtp_password_raw.strip():
+                    tenant_obj.smtp_password = smtp_password_raw.strip()
+                tenant_obj.smtp_use_tls = smtp_use_tls
+                tenant_obj.smtp_from_email = smtp_from_email
+                tenant_obj.smtp_from_name = smtp_from_name
+                db.commit()
+                flash('SMTPメール設定を保存しました', 'success')
+                return redirect(url_for('tenant_admin.smtp_settings'))
+
+            elif action == 'test_smtp':
+                # 接続テスト
+                if not tenant_obj:
+                    return {'ok': False, 'error': 'テナントが選択されていません'}, 400
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.multipart import MIMEMultipart
+                test_to = request.form.get('test_to', '').strip()
+                if not test_to:
+                    flash('テスト送信先メールアドレスを入力してください', 'error')
+                    return redirect(url_for('tenant_admin.smtp_settings'))
+                try:
+                    msg = MIMEMultipart()
+                    msg['From'] = f"{tenant_obj.smtp_from_name or ''} <{tenant_obj.smtp_from_email}>"
+                    msg['To'] = test_to
+                    msg['Subject'] = '[テスト] SMTPメール設定確認'
+                    msg.attach(MIMEText('このメールはSMTP設定のテスト送信です。正常に受信できていれば設定は完了です。', 'plain', 'utf-8'))
+
+                    use_tls = getattr(tenant_obj, 'smtp_use_tls', 1)
+                    host = tenant_obj.smtp_host
+                    port = tenant_obj.smtp_port or 587
+                    user = tenant_obj.smtp_username
+                    pwd = tenant_obj.smtp_password
+
+                    if use_tls == 2:
+                        server = smtplib.SMTP_SSL(host, port, timeout=10)
+                    else:
+                        server = smtplib.SMTP(host, port, timeout=10)
+                        if use_tls == 1:
+                            server.starttls()
+                    if user and pwd:
+                        server.login(user, pwd)
+                    server.sendmail(tenant_obj.smtp_from_email, [test_to], msg.as_string())
+                    server.quit()
+                    flash(f'テストメールを {test_to} に送信しました', 'success')
+                except Exception as e:
+                    flash(f'送信エラー: {e}', 'error')
+                return redirect(url_for('tenant_admin.smtp_settings'))
+
+        smtp_config = {
+            'smtp_host': getattr(tenant_obj, 'smtp_host', '') or '',
+            'smtp_port': getattr(tenant_obj, 'smtp_port', '') or '',
+            'smtp_username': getattr(tenant_obj, 'smtp_username', '') or '',
+            'smtp_use_tls': getattr(tenant_obj, 'smtp_use_tls', 1),
+            'smtp_from_email': getattr(tenant_obj, 'smtp_from_email', '') or '',
+            'smtp_from_name': getattr(tenant_obj, 'smtp_from_name', '') or '',
+            'has_password': bool(getattr(tenant_obj, 'smtp_password', None)),
+        } if tenant_obj else None
+
+        return render_template('tenant_smtp_settings.html',
+                               tenant_name=tenant_name,
+                               smtp_config=smtp_config)
+    finally:
+        db.close()

@@ -86,6 +86,14 @@ class TTenant(Base):
     android_apk_version = Column(String(20), nullable=True, comment='AndroidアプリのAPKバージョン（例: v1.0.2）')
     truck_apk_url = Column(Text, nullable=True, comment='トラック運行管理アプリのAPKダウンロードURL')
     truck_apk_version = Column(String(20), nullable=True, comment='トラック運行管理アプリのAPKバージョン（例: v1.0.0）')
+    # メール送信設定（電子契約の署名依頼メール等に使用）
+    smtp_host = Column(String(255), nullable=True, comment='SMTPサーバーホスト名')
+    smtp_port = Column(Integer, nullable=True, comment='SMTPポート番号（例: 587, 465, 25）')
+    smtp_username = Column(String(255), nullable=True, comment='SMTPユーザー名')
+    smtp_password = Column(Text, nullable=True, comment='SMTPパスワード（暗号化推奨）')
+    smtp_use_tls = Column(Integer, default=1, comment='TLS使用: 1=STARTTLS, 2=SSL/TLS, 0=なし')
+    smtp_from_email = Column(String(255), nullable=True, comment='差出人メールアドレス')
+    smtp_from_name = Column(String(255), nullable=True, comment='差出人名')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 

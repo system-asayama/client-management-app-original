@@ -379,13 +379,19 @@ def create_app() -> Flask:
 
     # 電子契約サービス blueprints 直接統合（別プロセス不要）
     try:
-        from e_contract_service.db import Base as ec_Base, engine as ec_engine  # noqa: F401
         from e_contract_service.migrations import run_migrations as ec_run_migrations
-        ec_run_migrations()
         from e_contract_service.blueprints.contracts import bp as ec_contracts_bp
         from e_contract_service.blueprints.signing import bp as ec_signing_bp
         from e_contract_service.blueprints.finalize import bp as ec_finalize_bp
         from e_contract_service.blueprints.ui import bp as ec_ui_bp
+
+        # Migration failure should not hide routes behind 404.
+        try:
+            ec_run_migrations()
+            print("✅ e_contract_service migrations 実行完了")
+        except Exception as mig_err:
+            print(f"⚠️ e_contract_service migrations エラー: {mig_err}")
+
         app.register_blueprint(ec_contracts_bp, url_prefix='/e-contract/api/contracts')
         app.register_blueprint(ec_signing_bp,   url_prefix='/e-contract/api/sign')
         app.register_blueprint(ec_finalize_bp,  url_prefix='/e-contract/api/finalize')

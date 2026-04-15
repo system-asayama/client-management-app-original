@@ -14,7 +14,7 @@ import hmac
 import os
 import struct
 import urllib.request
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def _mock_timestamp(hash_hex: str) -> str:
     モックタイムスタンプ: 実際のDER構造を模したバイト列を返す。
     genTime(UTC) + messageImprint(SHA-256) を含む最小構造。
     """
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     gen_time_str = now.strftime("%Y%m%d%H%M%SZ").encode()
     hash_bytes = bytes.fromhex(hash_hex)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 
@@ -18,7 +18,7 @@ def _hash_token(token: str) -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _load_signing_context(db, token: str):

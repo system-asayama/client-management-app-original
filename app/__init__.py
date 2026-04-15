@@ -377,6 +377,23 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ e_contract_bridge blueprint 登録エラー: {e}")
 
+    # 電子契約サービス blueprints 直接統合（別プロセス不要）
+    try:
+        from e_contract_service.db import Base as ec_Base, engine as ec_engine  # noqa: F401
+        from e_contract_service.migrations import run_migrations as ec_run_migrations
+        ec_run_migrations()
+        from e_contract_service.blueprints.contracts import bp as ec_contracts_bp
+        from e_contract_service.blueprints.signing import bp as ec_signing_bp
+        from e_contract_service.blueprints.finalize import bp as ec_finalize_bp
+        from e_contract_service.blueprints.ui import bp as ec_ui_bp
+        app.register_blueprint(ec_contracts_bp, url_prefix='/e-contract/api/contracts')
+        app.register_blueprint(ec_signing_bp,   url_prefix='/e-contract/api/sign')
+        app.register_blueprint(ec_finalize_bp,  url_prefix='/e-contract/api/finalize')
+        app.register_blueprint(ec_ui_bp,        url_prefix='/e-contract/ui')
+        print("✅ e_contract_service blueprints 登録完了")
+    except Exception as e:
+        print(f"⚠️ e_contract_service blueprints 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

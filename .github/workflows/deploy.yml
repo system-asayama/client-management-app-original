@@ -32,12 +32,6 @@ jobs:
             venv/bin/pip install -r requirements.txt -q
             supervisorctl restart samurai-hub
             sleep 3
-            # Restart e-contract service (port 5001) – kill by port to avoid self-match
-            fuser -k 5001/tcp 2>/dev/null || true
-            sleep 1
-            nohup venv/bin/python -m e_contract_service.app \
-              >> /var/log/econtract-app.log 2>&1 &
-            disown
             supervisorctl status samurai-hub
 
   deploy-staging:
@@ -60,10 +54,4 @@ jobs:
             venv/bin/pip install -r requirements.txt -q
             supervisorctl restart samurai-hub
             sleep 3
-            # Restart e-contract service (port 5001) – kill by port to avoid self-match
-            fuser -k 5001/tcp 2>/dev/null || true
-            sleep 1
-            nohup venv/bin/python -m e_contract_service.app \
-              >> /var/log/econtract-app.log 2>&1 &
-            disown
             supervisorctl status samurai-hub

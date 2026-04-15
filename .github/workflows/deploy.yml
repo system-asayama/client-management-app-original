@@ -26,13 +26,13 @@ jobs:
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
             supervisorctl restart samurai-hub
-            # Start e-contract (port 5001) before final status check
-            pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
+            sleep 3
+            # Restart e-contract service (port 5001) – kill by port to avoid self-match
+            fuser -k 5001/tcp 2>/dev/null || true
             sleep 1
-            setsid venv/bin/python -m e_contract_service.app \
+            nohup venv/bin/python -m e_contract_service.app \
               >> /var/log/econtract-app.log 2>&1 &
-            echo "e-contract started"
-            sleep 2
+            disown
             supervisorctl status samurai-hub
 
   deploy-staging:
@@ -54,11 +54,11 @@ jobs:
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
             supervisorctl restart samurai-hub
-            # Start e-contract (port 5001) before final status check
-            pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
+            sleep 3
+            # Restart e-contract service (port 5001) – kill by port to avoid self-match
+            fuser -k 5001/tcp 2>/dev/null || true
             sleep 1
-            setsid venv/bin/python -m e_contract_service.app \
+            nohup venv/bin/python -m e_contract_service.app \
               >> /var/log/econtract-app.log 2>&1 &
-            echo "e-contract started"
-            sleep 2
+            disown
             supervisorctl status samurai-hub

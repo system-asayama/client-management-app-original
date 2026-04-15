@@ -332,10 +332,11 @@ def dispatch_contract(contract_id: str):
         )
         db.commit()
 
-        # テナントSMTPで署名依頼メールを送信
+        # 店舗SMTPで署名依頼メールを送信
         mail_results = []
         tenant_id = g.auth.tenant_id
-        if tenant_id:
+        store_id = g.auth.store_id
+        if tenant_id or store_id:
             try:
                 from ..mailer import send_signing_request_email
                 expires_str = expires_at.strftime('%Y年%m月%d日 %H:%M')
@@ -349,6 +350,7 @@ def dispatch_contract(contract_id: str):
                         contract_title=contract.title,
                         sign_url=item["sign_url"],
                         expires_at=expires_str,
+                        store_id=store_id,
                     )
                     mail_results.append({"email": item["email"], "sent": sent})
             except Exception as mail_err:

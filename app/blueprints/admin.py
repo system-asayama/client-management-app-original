@@ -1740,3 +1740,101 @@ def employee_toggle_active(employee_id):
         return redirect(url_for('admin.employees'))
     finally:
         db.close()
+
+
+# ========================================
+# SMTPメール設定（店舗単位）
+# ========================================
+
+@bp.route('/smtp_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def smtp_settings():
+    """店舗のSMTPメール設定"""
+    store_id = session.get('store_id')
+    db = SessionLocal()
+    try:
+        store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first() if store_id else None
+        store_name = getattr(store_obj, '名称', '') if store_obj else ''
+
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'save_smtp':
+                if not store_obj:
+                    flash('店舗が選択されていません', 'error')
+                    return redirect(url_for('admin.smtp_settings'))
+
+                smtp_host = request.form.get('smtp_host', '').strip() or None
+                smtp_port_str = request.form.get('smtp_port', '').strip()
+                smtp_port = int(smtp_port_str) if smtp_port_str.isdigit() else None
+                smtp_username = request.form.get('smtp_username', '').strip() or None
+                smtp_password_raw = request.form.get('smtp_password', '')
+                smtp_use_tls = int(request.form.get('smtp_use_tls', '1'))
+                smtp_from_email = request.form.get('smtp_from_email', '').strip() or None
+                smtp_from_name = request.form.get('smtp_from_name', '').strip() or None
+
+                store_obj.smtp_host = smtp_host
+                store_obj.smtp_port = smtp_port
+                store_obj.smtp_username = smtp_username
+                if smtp_password_raw.strip():
+                    store_obj.smtp_password = smtp_password_raw.strip()
+                store_obj.smtp_use_tls = smtp_use_tls
+                store_obj.smtp_from_email = smtp_from_email
+                store_obj.smtp_from_name = smtp_from_name
+                db.commit()
+                flash('SMTPメール設定を保存しました', 'success')
+                return redirect(url_for('admin.smtp_settings'))
+
+            elif action == 'test_smtp':
+                if not store_obj:
+                    flash('店舗が選択されていません', 'error')
+                    return redirect(url_for('admin.smtp_settings'))
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.multipart import MIMEMultipart
+                test_to = request.form.get('test_to', '').strip()
+                if not test_to:
+                    flash('テスト送信先メールアドレスを入力してください', 'error')
+                    return redirect(url_for('admin.smtp_settings'))
+                try:
+                    msg = MIMEMultipart()
+                    msg['From'] = f"{store_obj.smtp_from_name or ''} <{store_obj.smtp_from_email}>"
+                    msg['To'] = test_to
+                    msg['Subject'] = '[テスト] SMTPメール設定確認'
+                    msg.attach(MIMEText('このメールはSMTP設定のテスト送信です。正常に受信できていれば設定は完了です。', 'plain', 'utf-8'))
+
+                    use_tls = getattr(store_obj, 'smtp_use_tls', 1)
+                    host = store_obj.smtp_host
+                    port = store_obj.smtp_port or 587
+                    user = store_obj.smtp_username
+                    pwd = store_obj.smtp_password
+
+                    if use_tls == 2:
+                        server = smtplib.SMTP_SSL(host, port, timeout=10)
+                    else:
+                        server = smtplib.SMTP(host, port, timeout=10)
+                        if use_tls == 1:
+                            server.starttls()
+                    if user and pwd:
+                        server.login(user, pwd)
+                    server.sendmail(store_obj.smtp_from_email, [test_to], msg.as_string())
+                    server.quit()
+                    flash(f'テストメールを {test_to} に送信しました', 'success')
+                except Exception as e:
+                    flash(f'送信エラー: {e}', 'error')
+                return redirect(url_for('admin.smtp_settings'))
+
+        smtp_config = {
+            'smtp_host': getattr(store_obj, 'smtp_host', '') or '',
+            'smtp_port': getattr(store_obj, 'smtp_port', '') or '',
+            'smtp_username': getattr(store_obj, 'smtp_username', '') or '',
+            'smtp_use_tls': getattr(store_obj, 'smtp_use_tls', 1),
+            'smtp_from_email': getattr(store_obj, 'smtp_from_email', '') or '',
+            'smtp_from_name': getattr(store_obj, 'smtp_from_name', '') or '',
+            'has_password': bool(getattr(store_obj, 'smtp_password', None)),
+        } if store_obj else None
+
+        return render_template('admin_smtp_settings.html',
+                               store_name=store_name,
+                               smtp_config=smtp_config)
+    finally:
+        db.close()

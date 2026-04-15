@@ -14,33 +14,38 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def _get_tenant_smtp(tenant_id: int) -> Optional[dict]:
-    """メインDBからテナントのSMTP設定を取得する"""
+def _get_store_smtp(store_id: int) -> Optional[dict]:
+    """メインDBから店舗のSMTP設定を取得する"""
     try:
         from app.db import SessionLocal as MainSessionLocal
-        from app.models_login import TTenant
+        from app.models_login import TTenpo
         db = MainSessionLocal()
         try:
-            tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-            if not tenant:
+            store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+            if not store:
                 return None
-            host = getattr(tenant, 'smtp_host', None)
+            host = getattr(store, 'smtp_host', None)
             if not host:
                 return None
             return {
                 'host': host,
-                'port': getattr(tenant, 'smtp_port', None) or 587,
-                'username': getattr(tenant, 'smtp_username', None),
-                'password': getattr(tenant, 'smtp_password', None),
-                'use_tls': getattr(tenant, 'smtp_use_tls', 1),
-                'from_email': getattr(tenant, 'smtp_from_email', None),
-                'from_name': getattr(tenant, 'smtp_from_name', None) or '',
+                'port': getattr(store, 'smtp_port', None) or 587,
+                'username': getattr(store, 'smtp_username', None),
+                'password': getattr(store, 'smtp_password', None),
+                'use_tls': getattr(store, 'smtp_use_tls', 1),
+                'from_email': getattr(store, 'smtp_from_email', None),
+                'from_name': getattr(store, 'smtp_from_name', None) or '',
             }
         finally:
             db.close()
     except Exception as e:
-        logger.warning(f"テナントSMTP設定取得エラー: {e}")
+        logger.warning(f"店舗SMTP設定取得エラー: {e}")
         return None
+
+
+def _get_tenant_smtp(tenant_id: int) -> Optional[dict]:
+    """後方互換: テナントIDからSMTP設定を取得（非推奨）"""
+    return None
 
 
 def send_signing_request_email(
@@ -50,23 +55,30 @@ def send_signing_request_email(
     contract_title: str,
     sign_url: str,
     expires_at: str,
+    store_id: Optional[int] = None,
 ) -> bool:
     """
     署名依頼メールを送信する。
+    store_id が指定された場合は店舗のSMTP設定を優先して使用する。
 
     Returns:
         True: 送信成功
         False: 送信失敗（SMTP未設定含む）
     """
-    smtp = _get_tenant_smtp(tenant_id)
-    if not smtp:
-        logger.info(f"テナント {tenant_id} のSMTP設定がないためメール送信をスキップ")
+    smtp = None
+    if store_id:
+        smtp = _get_store_smtp(store_id)
+        if not smtp:
+            logger.info(f"店舗 {store_id} のSMTP設定がないためメール送信をスキップ")
+            return False
+    else:
+        logger.info(f"store_id が未指定のためメール送信をスキップ")
         return False
 
     from_addr = smtp['from_email']
     from_name = smtp['from_name']
     if not from_addr:
-        logger.warning(f"テナント {tenant_id} の差出人メールアドレスが未設定")
+        logger.warning(f"店舗 {store_id} の差出人メールアドレスが未設定")
         return False
 
     subject = f"【電子署名のご依頼】{contract_title}"

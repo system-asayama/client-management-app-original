@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>メール送信設定</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .preset-btn { margin: 0 4px 8px 0; font-size: 0.85em; }
+    .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 0.9em; color: #1e40af; }
+  </style>
+</head>
+<body>
+<div class="container py-4" style="max-width:700px">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/e-contract/ui/contracts" class="btn btn-outline-secondary btn-sm">← 電子契約へ戻る</a>
+    <h1 class="h5 mb-0">📧 メール送信設定</h1>
+    {% if store_name %}<span class="badge bg-secondary">{{ store_name }}</span>{% endif %}
+  </div>
+
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+  <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
+  {% endfor %}
+
+  {% if not smtp_config %}
+  <div class="alert alert-warning">店舗が選択されていません。まず店舗を選択してください。</div>
+  {% else %}
+
+  <div class="info-box">
+    <strong>📌 この設定について</strong><br>
+    電子契約の署名依頼メールなど、システムからのメール送信に使用するSMTPサーバーを設定します。<br>
+    Gmailを使用する場合は「アプリパスワード」（16文字）を使用してください。
+  </div>
+
+  <!-- プリセットボタン -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <p class="fw-bold mb-2">よく使うサービスのプリセット</p>
+      <button type="button" class="btn btn-outline-primary btn-sm preset-btn" onclick="applyPreset('gmail')">📧 Gmail</button>
+      <button type="button" class="btn btn-outline-primary btn-sm preset-btn" onclick="applyPreset('outlook')">📧 Outlook / Hotmail</button>
+      <button type="button" class="btn btn-outline-primary btn-sm preset-btn" onclick="applyPreset('yahoo')">📧 Yahoo!メール</button>
+      <button type="button" class="btn btn-outline-primary btn-sm preset-btn" onclick="applyPreset('sendgrid')">📨 SendGrid</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm preset-btn" onclick="applyPreset('custom')">⚙️ カスタム</button>
+    </div>
+  </div>
+
+  <form method="POST" action="/admin/smtp_settings">
+    <input type="hidden" name="action" value="save_smtp">
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 fw-bold mb-3">SMTP接続設定</h2>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label for="smtp_host" class="form-label">SMTPサーバーホスト名 <span class="text-danger">*</span></label>
+            <input type="text" id="smtp_host" name="smtp_host" class="form-control" placeholder="例: smtp.gmail.com" value="{{ smtp_config.smtp_host }}">
+          </div>
+          <div class="col-md-4">
+            <label for="smtp_port" class="form-label">ポート番号 <span class="text-danger">*</span></label>
+            <input type="number" id="smtp_port" name="smtp_port" class="form-control" placeholder="例: 587" value="{{ smtp_config.smtp_port }}">
+          </div>
+          <div class="col-12">
+            <label for="smtp_use_tls" class="form-label">暗号化方式</label>
+            <select id="smtp_use_tls" name="smtp_use_tls" class="form-select">
+              <option value="1" {% if smtp_config.smtp_use_tls == 1 %}selected{% endif %}>STARTTLS（推奨・ポート587）</option>
+              <option value="2" {% if smtp_config.smtp_use_tls == 2 %}selected{% endif %}>SSL/TLS（ポート465）</option>
+              <option value="0" {% if smtp_config.smtp_use_tls == 0 %}selected{% endif %}>暗号化なし（非推奨）</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label for="smtp_username" class="form-label">ユーザー名（メールアドレス）</label>
+            <input type="text" id="smtp_username" name="smtp_username" class="form-control" placeholder="例: yourname@gmail.com" value="{{ smtp_config.smtp_username }}">
+          </div>
+          <div class="col-md-6">
+            <label for="smtp_password" class="form-label">パスワード{% if smtp_config.has_password %} <span class="text-success small">（設定済み）</span>{% endif %}</label>
+            <input type="password" id="smtp_password" name="smtp_password" class="form-control" placeholder="{% if smtp_config.has_password %}変更する場合のみ入力{% else %}パスワードを入力{% endif %}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 fw-bold mb-3">差出人設定</h2>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="smtp_from_email" class="form-label">差出人メールアドレス <span class="text-danger">*</span></label>
+            <input type="email" id="smtp_from_email" name="smtp_from_email" class="form-control" placeholder="例: noreply@yourcompany.com" value="{{ smtp_config.smtp_from_email }}">
+          </div>
+          <div class="col-md-6">
+            <label for="smtp_from_name" class="form-label">差出人名</label>
+            <input type="text" id="smtp_from_name" name="smtp_from_name" class="form-control" placeholder="例: 株式会社〇〇 電子契約" value="{{ smtp_config.smtp_from_name }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+      <button type="submit" class="btn btn-primary">💾 設定を保存</button>
+      <a href="/e-contract/ui/contracts" class="btn btn-outline-secondary">キャンセル</a>
+    </div>
+  </form>
+
+  {% if smtp_config.smtp_host %}
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h6 fw-bold mb-2">📤 テスト送信</h2>
+      <p class="text-muted small mb-3">設定が正しいか確認するため、テストメールを送信します。</p>
+      <form method="POST" action="/admin/smtp_settings">
+        <input type="hidden" name="action" value="test_smtp">
+        <div class="input-group">
+          <input type="email" name="test_to" class="form-control" placeholder="テスト送信先メールアドレス" required>
+          <button type="submit" class="btn btn-outline-primary">送信テスト</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+</div>
+
+<script>
+function applyPreset(service) {
+  const presets = {
+    gmail:     { host: 'smtp.gmail.com',          port: 587, tls: 1 },
+    outlook:   { host: 'smtp-mail.outlook.com',   port: 587, tls: 1 },
+    yahoo:     { host: 'smtp.mail.yahoo.co.jp',   port: 587, tls: 1 },
+    sendgrid:  { host: 'smtp.sendgrid.net',       port: 587, tls: 1, user: 'apikey' },
+    custom:    { host: '',                         port: '',  tls: 1 },
+  };
+  const p = presets[service];
+  if (!p) return;
+  document.getElementById('smtp_host').value = p.host;
+  document.getElementById('smtp_port').value = p.port;
+  document.getElementById('smtp_use_tls').value = p.tls;
+  if (p.user) document.getElementById('smtp_username').value = p.user;
+}
+</script>
+</body>
+</html>

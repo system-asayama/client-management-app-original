@@ -3666,9 +3666,21 @@ def update_staff_gps_mode():
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def smtp_settings():
     """テナントのSMTPメール設定"""
+    role = session.get('role', '')
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
+        # システム管理者がクエリパラメータでテナントを指定できる
+        if role == ROLES["SYSTEM_ADMIN"]:
+            tid_param = request.args.get('tenant_id', type=int) or request.form.get('tenant_id', type=int)
+            if tid_param:
+                tenant_id = tid_param
+
+        # テナント一覧（システム管理者用）
+        all_tenants = []
+        if role == ROLES["SYSTEM_ADMIN"] and not tenant_id:
+            all_tenants = db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()
+
         tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
         tenant_name = getattr(tenant_obj, '名称', '') if tenant_obj else ''
 
@@ -3752,6 +3764,9 @@ def smtp_settings():
 
         return render_template('tenant_smtp_settings.html',
                                tenant_name=tenant_name,
-                               smtp_config=smtp_config)
+                               smtp_config=smtp_config,
+                               all_tenants=all_tenants,
+                               selected_tenant_id=tenant_id,
+                               is_system_admin=(role == ROLES["SYSTEM_ADMIN"]))
     finally:
         db.close()

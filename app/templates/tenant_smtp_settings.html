@@ -45,9 +45,30 @@
 <div class="alert alert-{{ category }}">{{ message }}</div>
 {% endfor %}
 
-{% if not smtp_config %}
+{% if is_system_admin and all_tenants %}
+<div class="card">
+  <h2 class="section-title">🏢 テナントを選択してください</h2>
+  <form method="GET" action="{{ url_for('tenant_admin.smtp_settings') }}">
+    <div class="form-group">
+      <label for="tenant_id_select">テナント</label>
+      <select id="tenant_id_select" name="tenant_id" onchange="this.form.submit()" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;">
+        <option value="">-- テナントを選択 --</option>
+        {% for t in all_tenants %}
+        <option value="{{ t.id }}" {% if t.id == selected_tenant_id %}selected{% endif %}>{{ t.名称 }} (ID: {{ t.id }})</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+{% elif not smtp_config %}
 <div class="alert alert-error">テナントが選択されていません。まずテナントを選択してください。</div>
 {% else %}
+{% if is_system_admin and selected_tenant_id %}
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:0.9em;color:#1e40af;">
+  🔧 システム管理者として <strong>{{ tenant_name }}</strong> のSMTP設定を編集中
+  | <a href="{{ url_for('tenant_admin.smtp_settings') }}">テナントを変更</a>
+</div>
+{% endif %}
 
 <div class="info-box">
   <p><strong>📌 この設定について</strong></p>
@@ -66,8 +87,9 @@
     <button type="button" class="preset-btn" onclick="applyPreset('custom')">⚙️ カスタム</button>
   </div>
 
-  <form method="POST" action="{{ url_for('tenant_admin.smtp_settings') }}">
+  <form method="POST" action="{{ url_for('tenant_admin.smtp_settings') }}{% if selected_tenant_id %}?tenant_id={{ selected_tenant_id }}{% endif %}">
     <input type="hidden" name="action" value="save_smtp">
+    {% if selected_tenant_id %}<input type="hidden" name="tenant_id" value="{{ selected_tenant_id }}">{% endif %}
 
     <h2 class="section-title">SMTP接続設定</h2>
 
@@ -138,8 +160,9 @@
 <div class="card">
   <h2 class="section-title">📤 テスト送信</h2>
   <p style="color:#6b7280;font-size:0.9em;margin-bottom:16px">設定が正しいか確認するため、テストメールを送信します。</p>
-  <form method="POST" action="{{ url_for('tenant_admin.smtp_settings') }}">
+  <form method="POST" action="{{ url_for('tenant_admin.smtp_settings') }}{% if selected_tenant_id %}?tenant_id={{ selected_tenant_id }}{% endif %}">
     <input type="hidden" name="action" value="test_smtp">
+    {% if selected_tenant_id %}<input type="hidden" name="tenant_id" value="{{ selected_tenant_id }}">{% endif %}
     <div class="form-group">
       <label for="test_to">テスト送信先メールアドレス</label>
       <input type="email" id="test_to" name="test_to" placeholder="例: test@example.com" required>

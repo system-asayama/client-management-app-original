@@ -6,6 +6,11 @@ on:
       - main
       - develop
 
+# Prevent parallel deployments to the same VPS from conflicting
+concurrency:
+  group: vps-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy-production:
     name: Deploy to Production (samurai-hub.com)

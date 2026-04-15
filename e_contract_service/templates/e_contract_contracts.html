@@ -10,7 +10,7 @@
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4">電子契約一覧</h1>
-    <a class="btn btn-primary" href="/ui/contracts/create">新規作成</a>
+    <a class="btn btn-primary" href="/e-contract/ui/contracts/create">新規作成</a>
   </div>
   <div class="card">
     <div class="table-responsive">
@@ -23,7 +23,7 @@
             <td>{{ c.title }}</td>
             <td><span class="badge text-bg-secondary">{{ c.status }}</span></td>
             <td>{{ c.created_at }}</td>
-            <td><a class="btn btn-sm btn-outline-primary" href="/ui/contracts/{{ c.id }}">詳細</a></td>
+            <td><a class="btn btn-sm btn-outline-primary" href="/e-contract/ui/contracts/{{ c.id }}">詳細</a></td>
           </tr>
         {% else %}
           <tr><td colspan="5" class="text-center text-muted py-4">契約がありません</td></tr>

@@ -29,7 +29,7 @@
   <div class="d-flex gap-2">
     <button class="btn btn-primary" onclick="dispatchContract('{{ contract.id }}')">署名URL発行</button>
     <button class="btn btn-success" onclick="finalizeContract('{{ contract.id }}')">契約確定</button>
-    <a class="btn btn-outline-secondary" href="/ui/contracts">一覧へ戻る</a>
+    <a class="btn btn-outline-secondary" href="/e-contract/ui/contracts">一覧へ戻る</a>
   </div>
   <pre id="result" class="mt-3 small text-muted"></pre>
   {% else %}
@@ -38,15 +38,15 @@
 </div>
 <script>
 async function dispatchContract(id) {
-  const res = await fetch(`/api/contracts/${id}/dispatch`, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+  const res = await fetch(`/e-contract/api/contracts/${id}/dispatch`, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
   const data = await res.json();
   document.getElementById('result').textContent = JSON.stringify(data, null, 2);
 }
 async function finalizeContract(id) {
-  const res = await fetch(`/api/contracts/${id}/finalize`, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+  const res = await fetch(`/e-contract/api/contracts/${id}/finalize`, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
   const data = await res.json();
   document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-  if (res.ok) location.href = `/ui/contracts/${id}/done`;
+  if (res.ok) location.href = `/e-contract/ui/contracts/${id}/done`;
 }
 </script>
 </body>

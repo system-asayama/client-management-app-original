@@ -26,12 +26,12 @@ async function req(path, body={}){
   document.getElementById('result').textContent = JSON.stringify(data,null,2);
 }
 async function verify(){
-  const res = await fetch(`/api/sign/${token}`); const data = await res.json();
+  const res = await fetch(`/e-contract/api/sign/${token}`); const data = await res.json();
   document.getElementById('result').textContent = JSON.stringify(data,null,2);
 }
-async function kyc(){ await req(`/api/sign/${token}/kyc`, {kyc_provider:'mock',kyc_session_id:'ui-session',result:'success'}); }
-async function consent(){ await req(`/api/sign/${token}/consent`, {agreed:true}); }
-async function sign(){ await req(`/api/sign/${token}/sign`, {}); }
+async function kyc(){ await req(`/e-contract/api/sign/${token}/kyc`, {kyc_provider:'mock',kyc_session_id:'ui-session',result:'success'}); }
+async function consent(){ await req(`/e-contract/api/sign/${token}/consent`, {agreed:true}); }
+async function sign(){ await req(`/e-contract/api/sign/${token}/sign`, {}); }
 </script>
 </body>
 </html>

@@ -28,6 +28,12 @@ jobs:
             supervisorctl restart samurai-hub
             sleep 3
             supervisorctl status samurai-hub
+              # Start e-contract (port 5001) – kill only the standalone service, not gunicorn workers
+              pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
+              sleep 1
+              setsid venv/bin/python -m e_contract_service.app \
+                >> /var/log/econtract-app.log 2>&1 &
+              echo "e-contract started"
 
   deploy-staging:
     name: Deploy to Staging (dev.samurai-hub.com)
@@ -50,3 +56,9 @@ jobs:
             supervisorctl restart samurai-hub
             sleep 3
             supervisorctl status samurai-hub
+              # Start e-contract (port 5001) – kill only the standalone service, not gunicorn workers
+              pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
+              sleep 1
+              setsid venv/bin/python -m e_contract_service.app \
+                >> /var/log/econtract-app.log 2>&1 &
+              echo "e-contract started"

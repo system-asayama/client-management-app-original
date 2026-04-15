@@ -30,6 +30,22 @@ AVAILABLE_APPS = [
         'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する',
         'url': '/voucher',
         'icon': '🧾'
+    },
+    {
+        'name': 'truck-operation',
+        'display_name': 'トラック運行管理アプリ',
+        'scope': 'store',
+        'description': 'トラックの運行・ドライバー・ルートを管理するシステム',
+        'url': 'https://truck.samurai-hub.com/login',
+        'icon': '🚛'
+    },
+    {
+        'name': 'e-contract',
+        'display_name': '電子契約アプリ',
+        'scope': 'store',
+        'description': '電子契約の作成、署名、契約確定を行う',
+        'url': '/e-contract',
+        'icon': '✍️'
     }
 ]
 
@@ -133,6 +149,9 @@ def available_apps():
                         elif app_copy['name'] == 'voucher-digitization':
                             # 証憑データ化アプリは店舗IDを含むURLへ
                             app_copy['url'] = f'/voucher?store_id={store_id}'
+                        elif app_copy['name'] == 'truck-operation':
+                            # トラック運行管理アプリは外部URLのまま
+                            app_copy['url'] = 'https://truck.samurai-hub.com/login'
                         enabled_apps.append(app_copy)
         finally:
             db.close()

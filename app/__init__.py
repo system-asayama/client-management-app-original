@@ -369,6 +369,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ etax blueprint 登録エラー: {e}")
 
+    # 電子契約ブリッジ blueprint登録
+    try:
+        from .blueprints.e_contract_bridge import bp as e_contract_bridge_bp
+        app.register_blueprint(e_contract_bridge_bp)
+        print("✅ e_contract_bridge blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ e_contract_bridge blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

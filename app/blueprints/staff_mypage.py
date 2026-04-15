@@ -3,7 +3,7 @@
 スタッフマイページ ブループリント
 税理士事務所側スタッフ（tenant_admin / admin / employee）向けのマイページ機能
 """
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app
 from sqlalchemy import and_, or_, func as sqlfunc
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -140,6 +140,27 @@ def dashboard():
 
         android_apk_url = getattr(tenant, 'android_apk_url', None) if tenant else None
         android_apk_version = getattr(tenant, 'android_apk_version', None) if tenant else None
+
+        # ログインユーザーのgps_modeを取得
+        from app.models_login import TKanrisha, TJugyoin
+        if role == ROLES['EMPLOYEE']:
+            staff_obj = db.query(TJugyoin).filter(TJugyoin.id == user_id).first()
+        else:
+            staff_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        staff_gps_mode = getattr(staff_obj, 'gps_mode', None) or 'always'
+
+        # ログインユーザーの所属店舗一覧を取得
+        from app.models_login import TKanrishaTenpo, TJugyoinTenpo, TTenpo
+        if role == ROLES['EMPLOYEE']:
+            store_links = db.query(TJugyoinTenpo, TTenpo).join(
+                TTenpo, TJugyoinTenpo.store_id == TTenpo.id
+            ).filter(TJugyoinTenpo.employee_id == user_id).all()
+        else:
+            store_links = db.query(TKanrishaTenpo, TTenpo).join(
+                TTenpo, TKanrishaTenpo.store_id == TTenpo.id
+            ).filter(TKanrishaTenpo.admin_id == user_id).all()
+        staff_stores = [{'id': t.id, 'name': getattr(t, '名称', str(t.id))} for _, t in store_links]
+
         return render_template('staff_mypage_dashboard.html',
                                tenant=tenant,
                                assigned_count=assigned_count,
@@ -150,7 +171,9 @@ def dashboard():
                                upcoming_deadlines=upcoming_deadlines,
                                today=today,
                                android_apk_url=android_apk_url,
-                               android_apk_version=android_apk_version)
+                               android_apk_version=android_apk_version,
+                               staff_gps_mode=staff_gps_mode,
+                               staff_stores=staff_stores)
     finally:
         db.close()
 
@@ -260,13 +283,22 @@ def my_clients():
     try:
         unread_count = _get_unread_count(tenant_id, user_name)
 
-        # 担当顧問先を取得
-        assignments = db.query(TClientAssignment).filter(
-            and_(TClientAssignment.tenant_id == tenant_id,
-                 TClientAssignment.staff_id == user_id)
-        ).all()
-        assigned_client_ids = [a.client_id for a in assignments]
-        assignment_map = {a.client_id: a for a in assignments}
+        # 担当顧問先を取得（スキーマ差異などで失敗しても画面は表示する）
+        assignments = []
+        assigned_client_ids = []
+        assignment_map = {}
+        try:
+            assignments = db.query(TClientAssignment).filter(
+                and_(TClientAssignment.tenant_id == tenant_id,
+                     TClientAssignment.staff_id == user_id)
+            ).all()
+            assigned_client_ids = [a.client_id for a in assignments]
+            assignment_map = {a.client_id: a for a in assignments}
+        except Exception as e:
+            current_app.logger.exception('Failed to load client assignments on /staff/clients: %s', e)
+            # 一般スタッフは担当情報が取得できない場合、空表示にする（権限過剰表示を防ぐ）
+            if role not in (ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN']):
+                flash('担当顧問先情報の取得に失敗しました。管理者にお問い合わせください。', 'warning')
 
         if role in (ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN']):
             # 管理者は全顧問先を表示
@@ -278,16 +310,20 @@ def my_clients():
             ).order_by(TClient.name).all() if assigned_client_ids else []
 
         # 各顧問先の未読チャット数
-        read_ids = {r.message_id for r in db.query(TMessageRead).filter(
-            TMessageRead.reader_type == 'staff',
-            TMessageRead.reader_id == user_name
-        ).all()}
         unread_by_client = {}
-        for client in clients:
-            msgs = db.query(TMessage).filter(
-                and_(TMessage.client_id == client.id, TMessage.sender_type == 'client')
-            ).all()
-            unread_by_client[client.id] = sum(1 for m in msgs if m.id not in read_ids)
+        try:
+            read_ids = {r.message_id for r in db.query(TMessageRead).filter(
+                TMessageRead.reader_type == 'staff',
+                TMessageRead.reader_id == user_name
+            ).all()}
+            for client in clients:
+                msgs = db.query(TMessage).filter(
+                    and_(TMessage.client_id == client.id, TMessage.sender_type == 'client')
+                ).all()
+                unread_by_client[client.id] = sum(1 for m in msgs if m.id not in read_ids)
+        except Exception as e:
+            current_app.logger.exception('Failed to load unread chat counters on /staff/clients: %s', e)
+            unread_by_client = {c.id: 0 for c in clients}
 
         return render_template('staff_mypage_clients.html',
                                clients=clients,
@@ -510,8 +546,33 @@ def attendance():
                      TAttendance.work_date == today)
             ).order_by(TAttendance.id.desc()).first()
 
+        # ログインユーザーのgps_modeを取得
+        from app.models_login import TKanrisha as _TK, TJugyoin as _TJ
+        if role == ROLES['EMPLOYEE']:
+            _staff_obj = db.query(_TJ).filter(_TJ.id == user_id).first()
+        else:
+            _staff_obj = db.query(_TK).filter(_TK.id == user_id).first()
+        staff_gps_mode = getattr(_staff_obj, 'gps_mode', None) or 'always'
+
+        # 所属店舗一覧を取得
+        from app.models_login import TKanrishaTenpo, TJugyoinTenpo, TTenpo
+        if role == ROLES['EMPLOYEE']:
+            _store_links = db.query(TJugyoinTenpo, TTenpo).join(
+                TTenpo, TJugyoinTenpo.store_id == TTenpo.id
+            ).filter(TJugyoinTenpo.employee_id == user_id).all()
+        else:
+            _store_links = db.query(TKanrishaTenpo, TTenpo).join(
+                TTenpo, TKanrishaTenpo.store_id == TTenpo.id
+            ).filter(TKanrishaTenpo.admin_id == user_id).all()
+        staff_stores = [{'id': t.id, 'name': getattr(t, '名称', str(t.id))} for _, t in _store_links]
+
         if request.method == 'POST':
             action = request.form.get('action', '')
+
+            # alwaysモードはWebからの出退勤操作をブロック
+            if staff_gps_mode == 'always' and action in ('clock_in', 'clock_out', 'break_start', 'break_end'):
+                flash('このアカウントはGPS常時記録モードです。アプリから出退勤操作を行ってください。', 'error')
+                return redirect(url_for('staff_mypage.attendance'))
 
             if action == 'clock_in':
                 if today_record and today_record.clock_in and not today_record.clock_out:
@@ -657,7 +718,9 @@ def attendance():
                                unread_count=unread_count,
                                gps_enabled=gps_enabled,
                                gps_interval_minutes=gps_interval_minutes,
-                               gps_continuous=gps_continuous)
+                               gps_continuous=gps_continuous,
+                               staff_gps_mode=staff_gps_mode,
+                               staff_stores=staff_stores)
     finally:
         db.close()
 

@@ -271,6 +271,21 @@
                 <span class="icon">📁</span> ファイル共有
             </a>
 
+            {% if staff_stores is defined and staff_stores %}
+            <div class="nav-section-label">店舗</div>
+            {% if staff_stores|length == 1 %}
+            <a href="/store/{{ staff_stores[0].id }}/dashboard"
+               class="nav-item {% if request.path.startswith('/store/' ~ staff_stores[0].id|string) %}active{% endif %}">
+                <span class="icon">🏪</span> {{ staff_stores[0].name }}
+            </a>
+            {% else %}
+            <a href="/store/"
+               class="nav-item {% if request.path.startswith('/store/') %}active{% endif %}">
+                <span class="icon">🏪</span> 店舗一覧
+            </a>
+            {% endif %}
+            {% endif %}
+
             <div class="nav-section-label">勤怠</div>
             <a href="{{ url_for('staff_mypage.attendance') }}"
                class="nav-item {% if request.endpoint == 'staff_mypage.attendance' %}active{% endif %}">

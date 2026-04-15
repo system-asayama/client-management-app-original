@@ -560,6 +560,50 @@ def run_auto_migrations():
         else:
             logger.info("- T_管理者.gps_mode カラムは既に存在します（スキップ）")
 
+        # T_テナントテーブルに truck_apk_url カラムを追加
+        if not column_exists(session, 'T_テナント', 'truck_apk_url'):
+            logger.info("T_テナントテーブルに truck_apk_url カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_テナント"
+                    ADD COLUMN truck_apk_url TEXT NULL
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_テナント".truck_apk_url IS 'トラック運行管理アプリのAPKダウンロードURL'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_テナント`
+                    ADD COLUMN `truck_apk_url` TEXT NULL
+                    COMMENT 'トラック運行管理アプリのAPKダウンロードURL'
+                """))
+            session.commit()
+            logger.info("✓ T_テナント.truck_apk_url カラムを追加しました")
+        else:
+            logger.info("- T_テナント.truck_apk_url カラムは既に存在します（スキップ）")
+
+        # T_テナントテーブルに truck_apk_version カラムを追加
+        if not column_exists(session, 'T_テナント', 'truck_apk_version'):
+            logger.info("T_テナントテーブルに truck_apk_version カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_テナント"
+                    ADD COLUMN truck_apk_version VARCHAR(20) NULL
+                """))
+                session.execute(text("""
+                    COMMENT ON COLUMN "T_テナント".truck_apk_version IS 'トラック運行管理アプリのAPKバージョン（例: v1.0.0）'
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_テナント`
+                    ADD COLUMN `truck_apk_version` VARCHAR(20) NULL
+                    COMMENT 'トラック運行管理アプリのAPKバージョン（例: v1.0.0）'
+                """))
+            session.commit()
+            logger.info("✓ T_テナント.truck_apk_version カラムを追加しました")
+        else:
+            logger.info("- T_テナント.truck_apk_version カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

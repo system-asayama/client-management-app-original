@@ -197,31 +197,19 @@
                     <div class="attendance-time">{{ today.strftime('%Y年%m月%d日') }}</div>
                 {% endif %}
             </div>
-            <div class="attendance-btns">
-                {% if not today_attendance or not today_attendance.clock_in %}
-                <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                    <input type="hidden" name="action" value="clock_in">
-                    <button type="submit" class="btn-clock btn-clock-in">出勤</button>
-                </form>
-                {% elif not today_attendance.clock_out %}
-                    {% if today_attendance.break_start and not today_attendance.break_end %}
-                    <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                        <input type="hidden" name="action" value="break_end">
-                        <button type="submit" class="btn-clock btn-break-end">休憩終了</button>
-                    </form>
-                    {% else %}
-                    <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                        <input type="hidden" name="action" value="break_start">
-                        <button type="submit" class="btn-clock btn-break-start">休憩開始</button>
-                    </form>
-                    {% endif %}
-                    <form method="post" action="{{ url_for('kintaikanri.attendance') }}">
-                        <input type="hidden" name="action" value="clock_out">
-                        <button type="submit" class="btn-clock btn-clock-out">退勤</button>
-                    </form>
-                {% endif %}
-            </div>
+
         </div>
+        {% if staff_gps_mode == 'always' %}
+        <!-- alwaysモード：アプリ起動ボタン -->
+        <div style="margin-top:12px;">
+            <button onclick="openGpsApp()" class="btn btn-clock-in" style="font-size:13px; padding:10px 18px; border:none; cursor:pointer; border-radius:8px;">
+                📱 アプリで出退勤する
+            </button>
+            <p style="font-size:11px; color:#888; margin-top:6px;">
+                ※ このアカウントはGPS常時記録モードです。アプリからのみ出退勤操作が可能です。
+            </p>
+        </div>
+        {% endif %}
         <a href="{{ url_for('kintaikanri.attendance') }}" class="btn btn-secondary" style="font-size:12px;">勤怠管理を開く</a>
     </div>
 
@@ -308,4 +296,44 @@
     </p>
 </div>
 {% endif %}
+
+<script>
+// ──────────────────────────────────────────────
+// GPS常時記録モード：アプリ起動 or ダウンロードページへ誘導
+// ──────────────────────────────────────────────
+const APP_SCHEME = 'manus20260326073941://';
+const DOWNLOAD_URL = '{{ url_for("staff_mypage.apk_download") }}';
+
+function openGpsApp() {
+    // iframeでディープリンクを試みる
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = APP_SCHEME;
+    document.body.appendChild(iframe);
+
+    // 一定時間後にアプリが開かなかった場合はダウンロードページへ
+    const fallbackTimer = setTimeout(function() {
+        document.body.removeChild(iframe);
+        // ページがフォーカスを失っていればアプリが開いた
+        // フォーカスが残っていればアプリ未インストール
+        window.location.href = DOWNLOAD_URL;
+    }, 1500);
+
+    // アプリが開いてページが非表示になったらタイマーをキャンセル
+    window.addEventListener('blur', function onBlur() {
+        clearTimeout(fallbackTimer);
+        if (iframe.parentNode) document.body.removeChild(iframe);
+        window.removeEventListener('blur', onBlur);
+    }, { once: true });
+
+    // visibilitychangeでも検知
+    document.addEventListener('visibilitychange', function onVis() {
+        if (document.hidden) {
+            clearTimeout(fallbackTimer);
+            if (iframe.parentNode) document.body.removeChild(iframe);
+            document.removeEventListener('visibilitychange', onVis);
+        }
+    }, { once: true });
+}
+</script>
 {% endblock %}

@@ -21,13 +21,13 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd /var/www/samurai-hub
+            cd /var/www/client-management-app
             git fetch origin main
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
-            systemctl restart samurai-hub
+            supervisorctl restart samurai-hub
             sleep 3
-            systemctl is-active samurai-hub && echo "Deploy completed" || echo "Deploy failed"
+            supervisorctl status samurai-hub
 
   deploy-staging:
     name: Deploy to Staging (dev.samurai-hub.com)
@@ -43,10 +43,10 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd /var/www/samurai-hub-dev
+            cd /var/www/client-management-app
             git fetch origin develop
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
-            systemctl restart samurai-hub-dev
+            supervisorctl restart samurai-hub
             sleep 3
-            systemctl is-active samurai-hub-dev && echo "Deploy completed" || echo "Deploy failed"
+            supervisorctl status samurai-hub

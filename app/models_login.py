@@ -84,6 +84,8 @@ class TTenant(Base):
     gps_realtime_enabled = Column(Integer, default=0, comment='リアルタイム追跡モード（1=有効, 0=無効）管理者が地図画面からON/OFF')
     android_apk_url = Column(Text, nullable=True, comment='AndroidアプリのAPKダウンロードURL')
     android_apk_version = Column(String(20), nullable=True, comment='AndroidアプリのAPKバージョン（例: v1.0.2）')
+    truck_apk_url = Column(Text, nullable=True, comment='トラック運行管理アプリのAPKダウンロードURL')
+    truck_apk_version = Column(String(20), nullable=True, comment='トラック運行管理アプリのAPKバージョン（例: v1.0.0）')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 

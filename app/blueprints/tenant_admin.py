@@ -2125,127 +2125,6 @@ def employee_invite():
 
 
 
-@bp.route('/employees/add_from_admin', methods=['GET', 'POST'])
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
-def employee_add_from_admin():
-    """テナント管理者・店舗管理者を従業員として追加"""
-    tenant_id = session.get('tenant_id')
-    db = SessionLocal()
-    try:
-        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-        stores = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).all()
-
-        if request.method == 'POST':
-            admin_ids = request.form.getlist('admin_ids')
-            store_ids = request.form.getlist('store_ids')
-
-            if not admin_ids:
-                flash('追加するユーザーを1名以上選択してください', 'error')
-                return redirect(url_for('tenant_admin.employees'))
-
-            added = []
-            skipped = []
-            for admin_id_str in admin_ids:
-                admin_id = int(admin_id_str)
-                admin = db.query(TKanrisha).filter(TKanrisha.id == admin_id).first()
-                if not admin:
-                    continue
-
-                # 既に同じlogin_idで従業員登録済みかチェック
-                existing = db.query(TJugyoin).filter(
-                    TJugyoin.login_id == admin.login_id
-                ).first()
-                if existing:
-                    skipped.append(admin.name)
-                    # 既存の従業員に店舗を追加
-                    for sid in store_ids:
-                        already = db.query(TJugyoinTenpo).filter(
-                            TJugyoinTenpo.employee_id == existing.id,
-                            TJugyoinTenpo.store_id == int(sid)
-                        ).first()
-                        if not already:
-                            db.add(TJugyoinTenpo(employee_id=existing.id, store_id=int(sid)))
-                    continue
-
-                # 新規従業員として登録
-                new_emp = TJugyoin(
-                    login_id=admin.login_id,
-                    name=admin.name,
-                    email=admin.email,
-                    password_hash=admin.password_hash,
-                    tenant_id=tenant_id,
-                    role='employee',
-                    active=1,
-                    phone=getattr(admin, 'phone', None),
-                    position=getattr(admin, 'position', None),
-                )
-                db.add(new_emp)
-                db.flush()
-
-                for sid in store_ids:
-                    db.add(TJugyoinTenpo(employee_id=new_emp.id, store_id=int(sid)))
-
-                added.append(admin.name)
-
-            db.commit()
-            if added:
-                flash(f'従業員として追加しました: {", ".join(added)}', 'success')
-            if skipped:
-                flash(f'既に従業員登録済みのため店舗を更新しました: {", ".join(skipped)}', 'info')
-            return redirect(url_for('tenant_admin.employees'))
-
-        # GET: テナントに紐づく管理者一覧を取得
-        tenant_admin_ids = db.query(TTenantAdminTenant.admin_id).filter(
-            TTenantAdminTenant.tenant_id == tenant_id
-        ).all()
-        tenant_admin_id_list = [r[0] for r in tenant_admin_ids]
-
-        # 店舗管理者（TKanrishaTenpo経由で同テナントの店舗に紐づく管理者）
-        store_id_list = [s.id for s in stores]
-        store_admin_ids = []
-        if store_id_list:
-            store_admin_rows = db.query(TKanrishaTenpo.admin_id).filter(
-                TKanrishaTenpo.store_id.in_(store_id_list)
-            ).all()
-            store_admin_ids = [r[0] for r in store_admin_rows]
-
-        all_admin_ids = list(set(tenant_admin_id_list + store_admin_ids))
-        admins = db.query(TKanrisha).filter(
-            TKanrisha.id.in_(all_admin_ids),
-            TKanrisha.active == 1
-        ).order_by(TKanrisha.name).all()
-
-        # 既に従業員登録済みのlogin_idセット
-        existing_login_ids = set(
-            r[0] for r in db.query(TJugyoin.login_id).filter(
-                TJugyoin.tenant_id == tenant_id
-            ).all()
-        )
-
-        admins_data = []
-        for a in admins:
-            role_label = {
-                'tenant_admin': 'テナント管理者',
-                'admin': '店舗管理者',
-                'system_admin': 'システム管理者',
-            }.get(a.role, a.role)
-            admins_data.append({
-                'id': a.id,
-                'login_id': a.login_id,
-                'name': a.name,
-                'email': a.email,
-                'role': a.role,
-                'role_label': role_label,
-                'already_employee': a.login_id in existing_login_ids,
-            })
-
-        return render_template('tenant_employee_add_from_admin.html',
-                               admins=admins_data,
-                               stores=stores,
-                               tenant=tenant)
-    finally:
-        db.close()
-
 @bp.route('/employees/new', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def employee_new():
@@ -2404,6 +2283,23 @@ AVAILABLE_APPS = [
         'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する店舗単位アプリ',
         'url': '/voucher',
         'icon': '🧾'
+    },
+    {
+        'name': 'truck-operation',
+        'display_name': 'トラック運行管理アプリ',
+        'scope': 'store',
+        'description': 'トラックの運行状況・ドライバー・ルートを管理する店舗単位アプリ',
+        'url': 'https://truck.samurai-hub.com/login',
+        'icon': '🚛',
+        'external': True
+    },
+    {
+        'name': 'e-contract',
+        'display_name': '電子契約アプリ',
+        'scope': 'store',
+        'description': '電子契約の作成、署名、契約確定を行う店舗単位アプリ',
+        'url': '/e-contract',
+        'icon': '✍️'
     }
 ]
 
@@ -3528,12 +3424,14 @@ def store_apps(store_id):
 
 
 # ─────────────────────────────────────────────
-# GPS記録間隔設定（tenant_admin / system_admin のみ）
+# GPS記録間隔設定（tenant_admin / system_admin / admin が利用可能）
 # ─────────────────────────────────────────────
 @bp.route('/gps_settings', methods=['GET', 'POST'])
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"])
 def gps_settings():
     """GPS位置記録間隔の設定画面"""
+    current_role = session.get('role')
+    current_user_id = session.get('user_id')
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
@@ -3577,28 +3475,54 @@ def gps_settings():
         gps_continuous = getattr(tenant_obj, 'gps_continuous', 0) or 0
         android_apk_url = getattr(tenant_obj, 'android_apk_url', None) or ''
         android_apk_version = getattr(tenant_obj, 'android_apk_version', None) or ''
+        truck_apk_url = getattr(tenant_obj, 'truck_apk_url', None) or ''
+        truck_apk_version = getattr(tenant_obj, 'truck_apk_version', None) or ''
         import os
         mobile_api_key = os.environ.get('MOBILE_API_KEY', '')
         flask_base_url = request.host_url.rstrip('/')
         tenant_slug = getattr(tenant_obj, 'slug', '') or ''
         # スタッフ別GPSモード設定用：全スタッフ一覧（管理者＋従業員、重複なし）
-        all_stores_gps = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).all()
-        all_store_ids_gps = [s.id for s in all_stores_gps]
-        store_admin_rows_gps = db.query(TKanrishaTenpo).filter(
-            TKanrishaTenpo.store_id.in_(all_store_ids_gps)
-        ).all() if all_store_ids_gps else []
-        store_admin_ids_gps = list(set(r.admin_id for r in store_admin_rows_gps))
-        tenant_admin_rows_gps = db.query(TTenantAdminTenant).filter(
-            TTenantAdminTenant.tenant_id == tenant_id
-        ).all()
-        tenant_admin_ids_gps = list(set(r.admin_id for r in tenant_admin_rows_gps))
-        all_admin_ids_gps = list(set(store_admin_ids_gps + tenant_admin_ids_gps))
-        admins_gps = db.query(TKanrisha).filter(
-            TKanrisha.id.in_(all_admin_ids_gps), TKanrisha.active == 1
-        ).order_by(TKanrisha.id).all() if all_admin_ids_gps else []
-        employees_gps = db.query(TJugyoin).filter(
-            TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
-        ).order_by(TJugyoin.id).all()
+        # 店舗管理者(admin)の場合は自分の店舗のスタッフのみ表示
+        if current_role == ROLES["ADMIN"]:
+            # 自分が担当する店舗のIDを取得
+            my_store_rows = db.query(TKanrishaTenpo).filter(
+                TKanrishaTenpo.admin_id == current_user_id
+            ).all()
+            my_store_ids = list(set(r.store_id for r in my_store_rows))
+            # 自分の店舗に所属する管理者
+            store_admin_rows_gps = db.query(TKanrishaTenpo).filter(
+                TKanrishaTenpo.store_id.in_(my_store_ids)
+            ).all() if my_store_ids else []
+            store_admin_ids_gps = list(set(r.admin_id for r in store_admin_rows_gps))
+            admins_gps = db.query(TKanrisha).filter(
+                TKanrisha.id.in_(store_admin_ids_gps), TKanrisha.active == 1
+            ).order_by(TKanrisha.id).all() if store_admin_ids_gps else []
+            # 自分の店舗に所属する従業員
+            emp_store_rows = db.query(TJugyoinTenpo).filter(
+                TJugyoinTenpo.store_id.in_(my_store_ids)
+            ).all() if my_store_ids else []
+            emp_ids = list(set(r.employee_id for r in emp_store_rows))
+            employees_gps = db.query(TJugyoin).filter(
+                TJugyoin.id.in_(emp_ids), TJugyoin.active == 1
+            ).order_by(TJugyoin.id).all() if emp_ids else []
+        else:
+            all_stores_gps = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).all()
+            all_store_ids_gps = [s.id for s in all_stores_gps]
+            store_admin_rows_gps = db.query(TKanrishaTenpo).filter(
+                TKanrishaTenpo.store_id.in_(all_store_ids_gps)
+            ).all() if all_store_ids_gps else []
+            store_admin_ids_gps = list(set(r.admin_id for r in store_admin_rows_gps))
+            tenant_admin_rows_gps = db.query(TTenantAdminTenant).filter(
+                TTenantAdminTenant.tenant_id == tenant_id
+            ).all()
+            tenant_admin_ids_gps = list(set(r.admin_id for r in tenant_admin_rows_gps))
+            all_admin_ids_gps = list(set(store_admin_ids_gps + tenant_admin_ids_gps))
+            admins_gps = db.query(TKanrisha).filter(
+                TKanrisha.id.in_(all_admin_ids_gps), TKanrisha.active == 1
+            ).order_by(TKanrisha.id).all() if all_admin_ids_gps else []
+            employees_gps = db.query(TJugyoin).filter(
+                TJugyoin.tenant_id == tenant_id, TJugyoin.active == 1
+            ).order_by(TJugyoin.id).all()
         seen_gps = set()
         staff_gps_list = []
         for a in admins_gps:
@@ -3629,6 +3553,8 @@ def gps_settings():
                                gps_continuous=gps_continuous,
                                android_apk_url=android_apk_url,
                                android_apk_version=android_apk_version,
+                               truck_apk_url=truck_apk_url,
+                               truck_apk_version=truck_apk_version,
                                mobile_api_key=mobile_api_key,
                                flask_base_url=flask_base_url,
                                tenant_slug=tenant_slug,
@@ -3653,10 +3579,14 @@ def update_apk_url():
             return redirect(url_for('tenant_admin.gps_settings'))
         apk_url = request.form.get('android_apk_url', '').strip()
         apk_version = request.form.get('android_apk_version', '').strip()
+        truck_apk_url = request.form.get('truck_apk_url', '').strip()
+        truck_apk_version = request.form.get('truck_apk_version', '').strip()
         tenant_obj.android_apk_url = apk_url if apk_url else None
         tenant_obj.android_apk_version = apk_version if apk_version else None
+        tenant_obj.truck_apk_url = truck_apk_url if truck_apk_url else None
+        tenant_obj.truck_apk_version = truck_apk_version if truck_apk_version else None
         db.commit()
-        if apk_url:
+        if apk_url or truck_apk_url:
             flash('APK URLを登録しました。配布ページが有効になりました。', 'success')
         else:
             flash('APK URLを削除しました。', 'success')
@@ -3693,7 +3623,7 @@ def apk_download_page():
 # スタッフ別GPSモード更新API
 # ─────────────────────────────────────────────
 @bp.route('/update_staff_gps_mode', methods=['POST'])
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"])
 def update_staff_gps_mode():
     """スタッフ個別のGPSモード（常時記録/出退勤のみ）を更新するAPI"""
     from flask import jsonify

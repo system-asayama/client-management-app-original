@@ -26,14 +26,14 @@ jobs:
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
             supervisorctl restart samurai-hub
-            sleep 3
+            # Start e-contract (port 5001) before final status check
+            pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
+            sleep 1
+            setsid venv/bin/python -m e_contract_service.app \
+              >> /var/log/econtract-app.log 2>&1 &
+            echo "e-contract started"
+            sleep 2
             supervisorctl status samurai-hub
-              # Start e-contract (port 5001) – kill only the standalone service, not gunicorn workers
-              pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
-              sleep 1
-              setsid venv/bin/python -m e_contract_service.app \
-                >> /var/log/econtract-app.log 2>&1 &
-              echo "e-contract started"
 
   deploy-staging:
     name: Deploy to Staging (dev.samurai-hub.com)
@@ -54,11 +54,11 @@ jobs:
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
             supervisorctl restart samurai-hub
-            sleep 3
+            # Start e-contract (port 5001) before final status check
+            pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
+            sleep 1
+            setsid venv/bin/python -m e_contract_service.app \
+              >> /var/log/econtract-app.log 2>&1 &
+            echo "e-contract started"
+            sleep 2
             supervisorctl status samurai-hub
-              # Start e-contract (port 5001) – kill only the standalone service, not gunicorn workers
-              pkill -f "\-m e_contract_service\.app" 2>/dev/null || true
-              sleep 1
-              setsid venv/bin/python -m e_contract_service.app \
-                >> /var/log/econtract-app.log 2>&1 &
-              echo "e-contract started"

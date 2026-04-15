@@ -36,7 +36,7 @@ AVAILABLE_APPS = [
         'display_name': 'トラック運行管理アプリ',
         'scope': 'store',
         'description': 'トラックの運行・ドライバー・ルートを管理するシステム',
-        'url': 'https://truck-operation-app-ca0895a9e5d5.herokuapp.com/login',
+        'url': 'https://truck.samurai-hub.com/login',
         'icon': '🚛'
     },
     {
@@ -151,7 +151,7 @@ def available_apps():
                             app_copy['url'] = f'/voucher?store_id={store_id}'
                         elif app_copy['name'] == 'truck-operation':
                             # トラック運行管理アプリは外部URLのまま
-                            app_copy['url'] = 'https://truck-operation-app-ca0895a9e5d5.herokuapp.com/login'
+                            app_copy['url'] = 'https://truck.samurai-hub.com/login'
                         enabled_apps.append(app_copy)
         finally:
             db.close()

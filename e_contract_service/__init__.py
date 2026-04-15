@@ -22,7 +22,8 @@ def create_app() -> Flask:
 
     app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
     app.config.update(
-        SESSION_COOKIE_NAME=os.environ.get("SESSION_COOKIE_NAME", "cm_session"),
+        # Match Flask default cookie name used by the existing app unless explicitly overridden.
+        SESSION_COOKIE_NAME=os.environ.get("SESSION_COOKIE_NAME", "session"),
         SESSION_COOKIE_DOMAIN=os.environ.get("SESSION_COOKIE_DOMAIN") or None,
         SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true",
         SESSION_COOKIE_HTTPONLY=True,

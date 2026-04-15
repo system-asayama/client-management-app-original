@@ -25,9 +25,16 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
+            # Install e-contract supervisor config if not yet present
+            if [ ! -f /etc/supervisor/conf.d/econtract.conf ]; then
+              sudo cp deploy/supervisor/econtract.conf /etc/supervisor/conf.d/
+              sudo supervisorctl reread
+              sudo supervisorctl update
+            fi
             supervisorctl restart samurai-hub
+            supervisorctl restart samurai-hub-econtract || supervisorctl start samurai-hub-econtract
             sleep 3
-            supervisorctl status samurai-hub
+            supervisorctl status samurai-hub samurai-hub-econtract
 
   deploy-staging:
     name: Deploy to Staging (dev.samurai-hub.com)
@@ -47,6 +54,13 @@ jobs:
             git fetch origin develop
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
+            # Install e-contract supervisor config if not yet present
+            if [ ! -f /etc/supervisor/conf.d/econtract.conf ]; then
+              sudo cp deploy/supervisor/econtract.conf /etc/supervisor/conf.d/
+              sudo supervisorctl reread
+              sudo supervisorctl update
+            fi
             supervisorctl restart samurai-hub
+            supervisorctl restart samurai-hub-econtract || supervisorctl start samurai-hub-econtract
             sleep 3
-            supervisorctl status samurai-hub
+            supervisorctl status samurai-hub samurai-hub-econtract

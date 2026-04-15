@@ -10,7 +10,12 @@
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4">電子契約一覧</h1>
-    <a class="btn btn-primary" href="/e-contract/ui/contracts/create">新規作成</a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm" href="/tenant_admin/smtp_settings" title="署名依頼メールの送信設定">
+        📧 メール送信設定
+      </a>
+      <a class="btn btn-primary" href="/e-contract/ui/contracts/create">新規作成</a>
+    </div>
   </div>
   <div class="card">
     <div class="table-responsive">

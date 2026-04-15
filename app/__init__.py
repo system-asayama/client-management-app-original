@@ -384,6 +384,7 @@ def create_app() -> Flask:
         from e_contract_service.blueprints.signing import bp as ec_signing_bp
         from e_contract_service.blueprints.finalize import bp as ec_finalize_bp
         from e_contract_service.blueprints.ui import bp as ec_ui_bp
+        from e_contract_service.blueprints.documents import bp as ec_documents_bp
 
         # Migration failure should not hide routes behind 404.
         try:
@@ -392,10 +393,11 @@ def create_app() -> Flask:
         except Exception as mig_err:
             print(f"⚠️ e_contract_service migrations エラー: {mig_err}")
 
-        app.register_blueprint(ec_contracts_bp, url_prefix='/e-contract/api/contracts')
-        app.register_blueprint(ec_signing_bp,   url_prefix='/e-contract/api/sign')
-        app.register_blueprint(ec_finalize_bp,  url_prefix='/e-contract/api/finalize')
-        app.register_blueprint(ec_ui_bp,        url_prefix='/e-contract/ui')
+        app.register_blueprint(ec_contracts_bp,  url_prefix='/e-contract/api/contracts')
+        app.register_blueprint(ec_signing_bp,    url_prefix='/e-contract/api/sign')
+        app.register_blueprint(ec_finalize_bp,   url_prefix='/e-contract/api/finalize')
+        app.register_blueprint(ec_documents_bp,  url_prefix='/e-contract')
+        app.register_blueprint(ec_ui_bp,         url_prefix='/e-contract/ui')
         print("✅ e_contract_service blueprints 登録完了")
     except Exception as e:
         print(f"⚠️ e_contract_service blueprints 登録エラー: {e}")

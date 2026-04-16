@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import io
 import json
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify, request, send_file
 from sqlalchemy import func
 
 from ..auth import require_roles
 from ..db import SessionLocal
-from ..models import AuditLog, Contract, Signer
+from ..models import AuditLog, Contract, Signature, Signer
 
 
 bp = Blueprint("e_contract_contracts", __name__, url_prefix="/api/contracts")
@@ -529,5 +532,167 @@ def finalize_contract(contract_id: str):
             "status": contract.status,
             "message": "契約が完了しました",
         })
+    finally:
+        db.close()
+
+
+@bp.get("/<contract_id>/download")
+@require_roles("system_admin", "tenant_admin", "admin")
+def download_signed_pdf(contract_id: str):
+    """署名済みPDFを生成してダウンロードする。
+    オリジナルPDFの末尾に署名者全員の手書きサインを含むページを追加する。
+    """
+    try:
+        import fitz  # PyMuPDF
+        from PIL import Image
+    except ImportError:
+        return jsonify({"error": "PDF生成ライブラリがインストールされていません", "code": "LIBRARY_ERROR"}), 500
+
+    db = SessionLocal()
+    try:
+        contract = _authorize_contract_query(db, contract_id).first()
+        if not contract:
+            return jsonify({"error": "Not found", "code": "NOT_FOUND"}), 404
+
+        signers = (
+            db.query(Signer)
+            .filter(Signer.contract_id == contract_id)
+            .order_by(Signer.order_index)
+            .all()
+        )
+        signatures = (
+            db.query(Signature)
+            .filter(Signature.contract_id == contract_id)
+            .all()
+        )
+        # signer_id → signature_data のマッピング
+        sig_map = {s.signer_id: s.signature_data for s in signatures if s.signature_data}
+
+        # オリジナルPDFを読み込む
+        doc_url = contract.document_url  # /e-contract/api/documents/files/<filename>
+        upload_dir = os.environ.get(
+            "E_CONTRACT_UPLOAD_DIR",
+            os.path.join(os.getcwd(), "uploads", "e_contracts"),
+        )
+
+        # document_urlからファイル名を抽出
+        filename = doc_url.rsplit("/", 1)[-1] if "/" in doc_url else doc_url
+        pdf_path = os.path.join(upload_dir, filename)
+
+        if os.path.exists(pdf_path):
+            pdf_doc = fitz.open(pdf_path)
+        else:
+            # ファイルがない場合は空白PDFを作成
+            pdf_doc = fitz.open()
+
+        # 署名ページを追加
+        page = pdf_doc.new_page(width=595, height=842)  # A4
+
+        # ページタイトル
+        page.insert_text(
+            (50, 60),
+            "署名完了証明",
+            fontsize=18,
+            fontname="helv",
+            color=(0, 0, 0),
+        )
+        page.insert_text(
+            (50, 90),
+            f"契約名: {contract.title}",
+            fontsize=11,
+            fontname="helv",
+            color=(0.3, 0.3, 0.3),
+        )
+        page.insert_text(
+            (50, 110),
+            f"契約ID: {contract.id}",
+            fontsize=9,
+            fontname="helv",
+            color=(0.5, 0.5, 0.5),
+        )
+
+        # 署名者ごとのサインを配置
+        y_offset = 150
+        for signer in signers:
+            if y_offset > 750:
+                # ページが足りない場合は新ページを追加
+                page = pdf_doc.new_page(width=595, height=842)
+                y_offset = 60
+
+            # 署名者情報
+            page.insert_text(
+                (50, y_offset),
+                f"署名者 {signer.order_index}: {signer.name}  <{signer.email}>",
+                fontsize=11,
+                fontname="helv",
+                color=(0, 0, 0),
+            )
+            signed_at_str = signer.signed_at.strftime("%Y年%m月%d日 %H:%M UTC") if signer.signed_at else "未署名"
+            page.insert_text(
+                (50, y_offset + 18),
+                f"署名日時: {signed_at_str}  IP: {signer.ip or '-'}",
+                fontsize=9,
+                fontname="helv",
+                color=(0.5, 0.5, 0.5),
+            )
+
+            # 手書きサイン画像を埋め込む
+            sig_data = sig_map.get(signer.id)
+            if sig_data and sig_data.startswith("data:image"):
+                try:
+                    header, b64 = sig_data.split(",", 1)
+                    img_bytes = base64.b64decode(b64)
+                    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+                    # 白背景に合成
+                    bg = Image.new("RGB", img.size, (255, 255, 255))
+                    bg.paste(img, mask=img.split()[3])
+                    img_buf = io.BytesIO()
+                    bg.save(img_buf, format="PNG")
+                    img_buf.seek(0)
+                    # PDFに画像として挿入
+                    rect = fitz.Rect(50, y_offset + 28, 300, y_offset + 108)
+                    page.insert_image(rect, stream=img_buf.read())
+                    y_offset += 130
+                except Exception:
+                    page.insert_text(
+                        (50, y_offset + 28),
+                        "[署名画像の読み込みエラー]",
+                        fontsize=9,
+                        fontname="helv",
+                        color=(0.8, 0, 0),
+                    )
+                    y_offset += 60
+            else:
+                page.insert_text(
+                    (50, y_offset + 28),
+                    "[手書きサインなし]",
+                    fontsize=9,
+                    fontname="helv",
+                    color=(0.6, 0.6, 0.6),
+                )
+                y_offset += 60
+
+            # 区切り線
+            page.draw_line(
+                fitz.Point(50, y_offset - 10),
+                fitz.Point(545, y_offset - 10),
+                color=(0.8, 0.8, 0.8),
+                width=0.5,
+            )
+
+        # PDFをメモリに出力
+        pdf_bytes = pdf_doc.tobytes()
+        pdf_doc.close()
+
+        buf = io.BytesIO(pdf_bytes)
+        buf.seek(0)
+        safe_title = "".join(c for c in contract.title if c.isalnum() or c in " _-")[:40]
+        download_name = f"signed_{safe_title}_{contract_id[:8]}.pdf"
+        return send_file(
+            buf,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=download_name,
+        )
     finally:
         db.close()

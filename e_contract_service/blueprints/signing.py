@@ -233,7 +233,15 @@ def sign_contract(token: str):
                 metadata={"total_signers": len(all_signers)},
             )
 
-        signature = Signature(contract_id=contract.id, signer_id=signer.id)
+        # リクエストボディからsignature_data（手書きサイン画像のBase64）を取得
+        body = request.get_json(silent=True) or {}
+        signature_data = body.get("signature_data")  # data:image/png;base64,...
+
+        signature = Signature(
+            contract_id=contract.id,
+            signer_id=signer.id,
+            signature_data=signature_data,
+        )
         db.add(signature)
         _append_audit_log(
             db,

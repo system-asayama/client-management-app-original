@@ -69,6 +69,22 @@
     .preview-thumb.ng { border-color: #dc3545; }
 
     .progress-ring { transform: rotate(-90deg); }
+
+    /* 手書きサインキャンバス */
+    #sign-canvas-wrap {
+      position: relative; width: 100%; border: 2px solid #dee2e6;
+      border-radius: 8px; background: #fff; cursor: crosshair;
+      touch-action: none;
+    }
+    #sign-canvas {
+      display: block; width: 100%; height: 160px;
+      border-radius: 6px;
+    }
+    .sign-canvas-label {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #adb5bd; font-size: 14px; pointer-events: none;
+      user-select: none;
+    }
     .progress-ring-circle {
       transition: stroke-dashoffset 0.4s ease;
       stroke-linecap: round;
@@ -288,6 +304,19 @@
           <div class="mb-1"><strong>契約書:</strong> <span id="sign-contract-title"></span></div>
           <div><strong>署名者:</strong> <span id="sign-signer-name"></span></div>
         </div>
+
+        <!-- 手書きサイン -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold">✍️ 手書きサイン</label>
+          <div id="sign-canvas-wrap">
+            <canvas id="sign-canvas"></canvas>
+            <span class="sign-canvas-label" id="sign-canvas-hint">ここに署名してください</span>
+          </div>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="clearSignCanvas()">消去</button>
+          </div>
+        </div>
+
         <div class="form-check mb-3">
           <input class="form-check-input" type="checkbox" id="agree-check">
           <label class="form-check-label" for="agree-check">
@@ -813,6 +842,84 @@ function restartLiveness() {
   startLivenessCamera().then(() => startLivenessDetection());
 }
 
+// ─── 手書きサインキャンバス ───────────────────────────────────────────────────────────
+let signCanvasDrawing = false;
+let signCanvasEmpty = true;
+
+function initSignCanvas() {
+  const canvas = document.getElementById('sign-canvas');
+  const wrap = document.getElementById('sign-canvas-wrap');
+  // 実際の表示サイズに合わせてcanvas解像度を設定
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 160 * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - r.left) * (canvas.width / r.width / dpr), y: (src.clientY - r.top) * (canvas.height / r.height / dpr) };
+  }
+
+  function startDraw(e) {
+    e.preventDefault();
+    signCanvasDrawing = true;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    if (signCanvasEmpty) {
+      signCanvasEmpty = false;
+      document.getElementById('sign-canvas-hint').style.display = 'none';
+    }
+  }
+  function draw(e) {
+    if (!signCanvasDrawing) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }
+  function endDraw() { signCanvasDrawing = false; }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseleave', endDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove', draw, { passive: false });
+  canvas.addEventListener('touchend', endDraw);
+}
+
+function clearSignCanvas() {
+  const canvas = document.getElementById('sign-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  signCanvasEmpty = true;
+  document.getElementById('sign-canvas-hint').style.display = '';
+}
+
+function getSignatureDataUrl() {
+  if (signCanvasEmpty) return null;
+  return document.getElementById('sign-canvas').toDataURL('image/png');
+}
+
+// sec-signを表示するたびにキャンバスを初期化
+(function() {
+  const observer = new MutationObserver(() => {
+    const sec = document.getElementById('sec-sign');
+    if (sec && !sec.classList.contains('d-none')) {
+      setTimeout(initSignCanvas, 50);
+    }
+  });
+  observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+})();
+
 // ─── KYC (顔認証なしの場合はモックKYC) ──────────────────────────────────────
 async function doKyc() {
   const res = await fetch(API_BASE + '/kyc', {
@@ -849,11 +956,20 @@ async function doConsent() {
     });
     if (!consentRes.ok) throw new Error('consent_failed');
 
+    // 手書きサイン画像を取得
+    const signatureData = getSignatureDataUrl();
+    if (!signatureData) {
+      btn.disabled = false;
+      btn.textContent = '同意して署名する';
+      showOverlay('✍️', '手書きサインが必要です', 'サインキャンバスに署名してから「同意して署名する」を押してください。');
+      return;
+    }
+
     // 署名
     const signRes = await fetch(API_BASE + '/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify({ signature_data: signatureData })
     });
     if (!signRes.ok) throw new Error('sign_failed');
 

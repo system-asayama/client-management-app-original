@@ -220,6 +220,19 @@ def sign_contract(token: str):
         if contract.status == "sent":
             contract.status = "signing"
 
+        # 全署名者が署名済みかチェックして契約を完了状態にする
+        all_signers = db.query(Signer).filter(Signer.contract_id == contract.id).all()
+        if all(s.status == "signed" or s.id == signer.id for s in all_signers):
+            contract.status = "completed"
+            _append_audit_log(
+                db,
+                contract_id=contract.id,
+                action="contract_completed",
+                actor_id=None,
+                actor_type="system",
+                metadata={"total_signers": len(all_signers)},
+            )
+
         signature = Signature(contract_id=contract.id, signer_id=signer.id)
         db.add(signature)
         _append_audit_log(

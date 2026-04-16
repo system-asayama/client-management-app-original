@@ -43,6 +43,12 @@ def signer_page(token: str):
     return render_template("e_contract_signer.html", token=token)
 
 
+@bp.get("/contracts/<contract_id>/sign-fields")
+@require_roles("system_admin", "tenant_admin", "admin")
+def sign_fields_page(contract_id: str):
+    return render_template("e_contract_sign_fields.html", contract_id=contract_id)
+
+
 @bp.get("/contracts/<contract_id>/done")
 @require_roles("system_admin", "tenant_admin", "admin")
 def completed_page(contract_id: str):

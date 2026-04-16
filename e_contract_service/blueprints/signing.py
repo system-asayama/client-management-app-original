@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
@@ -44,12 +45,17 @@ def verify_signing_token(token: str):
         if error:
             return error
 
+        # この署名者向けの署名欄のみフィルタリング
+        all_fields = json.loads(contract.sign_fields) if contract.sign_fields else []
+        my_fields = [f for f in all_fields if f.get("signer_index") == signer.order_index]
+
         return jsonify(
             {
                 "contract_id": contract.id,
                 "title": contract.title,
                 "document_url": contract.document_url,
                 "require_face_auth": bool(contract.require_face_auth),
+                "sign_fields": my_fields,
                 "signer": {
                     "signer_id": signer.id,
                     "name": signer.name,

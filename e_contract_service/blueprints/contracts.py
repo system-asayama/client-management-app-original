@@ -274,6 +274,7 @@ def get_contract(contract_id: str):
                 "document_url": contract.document_url,
                 "status": contract.status,
                 "require_face_auth": bool(contract.require_face_auth),
+                "sign_fields": json.loads(contract.sign_fields) if contract.sign_fields else [],
                 "tenant_id": contract.tenant_id,
                 "created_by": contract.created_by,
                 "created_at": contract.created_at.isoformat(),
@@ -281,6 +282,44 @@ def get_contract(contract_id: str):
                 "signers": [_serialize_signer(signer) for signer in signers],
             }
         )
+    finally:
+        db.close()
+
+
+@bp.put("/<contract_id>/sign-fields")
+@require_roles("system_admin", "tenant_admin", "admin")
+def update_sign_fields(contract_id: str):
+    """署名欄位置情報を保存する。
+    Request: { "sign_fields": [{"page":0,"x":0.1,"y":0.8,"w":0.3,"h":0.08,"signer_index":1}, ...] }
+    """
+    db = SessionLocal()
+    try:
+        contract = _authorize_contract_query(db, contract_id).first()
+        if not contract:
+            return jsonify({"error": "Not found", "code": "NOT_FOUND"}), 404
+
+        payload = request.get_json(silent=True) or {}
+        fields = payload.get("sign_fields")
+        if not isinstance(fields, list):
+            return jsonify({"error": "sign_fields must be an array", "code": "VALIDATION_ERROR"}), 400
+
+        # 各フィールドのバリデーション
+        cleaned = []
+        for f in fields:
+            if not isinstance(f, dict):
+                continue
+            cleaned.append({
+                "page": int(f.get("page", 0)),
+                "x": float(f.get("x", 0)),
+                "y": float(f.get("y", 0)),
+                "w": float(f.get("w", 0.3)),
+                "h": float(f.get("h", 0.08)),
+                "signer_index": int(f.get("signer_index", 1)),
+            })
+
+        contract.sign_fields = json.dumps(cleaned, ensure_ascii=False)
+        db.commit()
+        return jsonify({"contract_id": contract_id, "sign_fields": cleaned})
     finally:
         db.close()
 
@@ -540,7 +579,8 @@ def finalize_contract(contract_id: str):
 @require_roles("system_admin", "tenant_admin", "admin")
 def download_signed_pdf(contract_id: str):
     """署名済みPDFを生成してダウンロードする。
-    オリジナルPDFの末尾に署名者全員の手書きサインを含むページを追加する。
+    - sign_fieldsが設定されている場合: PDF内の指定位置に手書きサインを直接埋め込む
+    - 未設定の場合: 末尾に署名完了証明ページを追加
     """
     try:
         import fitz  # PyMuPDF
@@ -567,118 +607,125 @@ def download_signed_pdf(contract_id: str):
         )
         # signer_id → signature_data のマッピング
         sig_map = {s.signer_id: s.signature_data for s in signatures if s.signature_data}
+        # signer.order_index → signer.id のマッピング
+        order_to_id = {s.order_index: s.id for s in signers}
+
+        # 署名欄位置情報
+        sign_fields = json.loads(contract.sign_fields) if contract.sign_fields else []
 
         # オリジナルPDFを読み込む
-        doc_url = contract.document_url  # /e-contract/api/documents/files/<filename>
+        doc_url = contract.document_url
         upload_dir = os.environ.get(
             "E_CONTRACT_UPLOAD_DIR",
             os.path.join(os.getcwd(), "uploads", "e_contracts"),
         )
-
-        # document_urlからファイル名を抽出
         filename = doc_url.rsplit("/", 1)[-1] if "/" in doc_url else doc_url
         pdf_path = os.path.join(upload_dir, filename)
 
         if os.path.exists(pdf_path):
             pdf_doc = fitz.open(pdf_path)
         else:
-            # ファイルがない場合は空白PDFを作成
             pdf_doc = fitz.open()
 
-        # 署名ページを追加
-        page = pdf_doc.new_page(width=595, height=842)  # A4
+        def _embed_sign_image(page, rect, sig_data):
+            """Base64画像をPDFページの指定矩形に埋め込む。"""
+            try:
+                _, b64 = sig_data.split(",", 1)
+                img_bytes = base64.b64decode(b64)
+                img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                bg.paste(img, mask=img.split()[3])
+                buf = io.BytesIO()
+                bg.save(buf, format="PNG")
+                buf.seek(0)
+                page.insert_image(rect, stream=buf.read())
+                return True
+            except Exception:
+                return False
 
-        # ページタイトル
-        page.insert_text(
-            (50, 60),
-            "署名完了証明",
-            fontsize=18,
-            fontname="helv",
-            color=(0, 0, 0),
-        )
-        page.insert_text(
-            (50, 90),
-            f"契約名: {contract.title}",
-            fontsize=11,
-            fontname="helv",
-            color=(0.3, 0.3, 0.3),
-        )
-        page.insert_text(
-            (50, 110),
-            f"契約ID: {contract.id}",
-            fontsize=9,
-            fontname="helv",
-            color=(0.5, 0.5, 0.5),
-        )
+        if sign_fields:
+            # ===== 署名欄位置指定あり: PDF内の指定位置に直接埋め込む =====
+            for field in sign_fields:
+                page_idx = int(field.get("page", 0))
+                if page_idx >= len(pdf_doc):
+                    continue
+                page = pdf_doc[page_idx]
+                pw = page.rect.width
+                ph = page.rect.height
 
-        # 署名者ごとのサインを配置
-        y_offset = 150
-        for signer in signers:
-            if y_offset > 750:
-                # ページが足りない場合は新ページを追加
-                page = pdf_doc.new_page(width=595, height=842)
-                y_offset = 60
+                x0 = field["x"] * pw
+                y0 = field["y"] * ph
+                x1 = x0 + field["w"] * pw
+                y1 = y0 + field["h"] * ph
+                rect = fitz.Rect(x0, y0, x1, y1)
 
-            # 署名者情報
-            page.insert_text(
-                (50, y_offset),
-                f"署名者 {signer.order_index}: {signer.name}  <{signer.email}>",
-                fontsize=11,
-                fontname="helv",
-                color=(0, 0, 0),
-            )
-            signed_at_str = signer.signed_at.strftime("%Y年%m月%d日 %H:%M UTC") if signer.signed_at else "未署名"
-            page.insert_text(
-                (50, y_offset + 18),
-                f"署名日時: {signed_at_str}  IP: {signer.ip or '-'}",
-                fontsize=9,
-                fontname="helv",
-                color=(0.5, 0.5, 0.5),
-            )
+                signer_index = int(field.get("signer_index", 1))
+                signer_id = order_to_id.get(signer_index)
+                sig_data = sig_map.get(signer_id) if signer_id else None
 
-            # 手書きサイン画像を埋め込む
-            sig_data = sig_map.get(signer.id)
-            if sig_data and sig_data.startswith("data:image"):
-                try:
-                    header, b64 = sig_data.split(",", 1)
-                    img_bytes = base64.b64decode(b64)
-                    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-                    # 白背景に合成
-                    bg = Image.new("RGB", img.size, (255, 255, 255))
-                    bg.paste(img, mask=img.split()[3])
-                    img_buf = io.BytesIO()
-                    bg.save(img_buf, format="PNG")
-                    img_buf.seek(0)
-                    # PDFに画像として挿入
-                    rect = fitz.Rect(50, y_offset + 28, 300, y_offset + 108)
-                    page.insert_image(rect, stream=img_buf.read())
-                    y_offset += 130
-                except Exception:
+                if sig_data and sig_data.startswith("data:image"):
+                    # 署名画像を埋め込む
+                    if not _embed_sign_image(page, rect, sig_data):
+                        # エラー時は署名欄枚だけ描画
+                        page.draw_rect(rect, color=(0.8, 0, 0), width=1)
+                        page.insert_text(
+                            (x0 + 2, y0 + (y1 - y0) / 2),
+                            "[署名画像エラー]",
+                            fontsize=8, fontname="helv", color=(0.8, 0, 0)
+                        )
+                else:
+                    # 未署名: 署名欄枚だけ描画
+                    page.draw_rect(rect, color=(0.7, 0.7, 0.7), width=0.5)
+                    signer = next((s for s in signers if s.order_index == signer_index), None)
+                    label = f"署名者{signer_index}" + (f": {signer.name}" if signer else "")
                     page.insert_text(
-                        (50, y_offset + 28),
-                        "[署名画像の読み込みエラー]",
-                        fontsize=9,
-                        fontname="helv",
-                        color=(0.8, 0, 0),
+                        (x0 + 2, y0 + (y1 - y0) / 2 + 4),
+                        label,
+                        fontsize=8, fontname="helv", color=(0.6, 0.6, 0.6)
                     )
-                    y_offset += 60
-            else:
-                page.insert_text(
-                    (50, y_offset + 28),
-                    "[手書きサインなし]",
-                    fontsize=9,
-                    fontname="helv",
-                    color=(0.6, 0.6, 0.6),
-                )
-                y_offset += 60
 
-            # 区切り線
-            page.draw_line(
-                fitz.Point(50, y_offset - 10),
-                fitz.Point(545, y_offset - 10),
-                color=(0.8, 0.8, 0.8),
-                width=0.5,
-            )
+            # 末尾に署名完了証明ページを追加
+            cert_page = pdf_doc.new_page(width=595, height=842)
+            cert_page.insert_text((50, 60), "署名完了証明", fontsize=18, fontname="helv", color=(0, 0, 0))
+            cert_page.insert_text((50, 90), f"契約名: {contract.title}", fontsize=11, fontname="helv", color=(0.3, 0.3, 0.3))
+            cert_page.insert_text((50, 110), f"契約ID: {contract.id}", fontsize=9, fontname="helv", color=(0.5, 0.5, 0.5))
+            y = 140
+            for signer in signers:
+                signed_at_str = signer.signed_at.strftime("%Y年%m月%d日 %H:%M UTC") if signer.signed_at else "未署名"
+                cert_page.insert_text((50, y), f"署名者{signer.order_index}: {signer.name} <{signer.email}>", fontsize=10, fontname="helv", color=(0, 0, 0))
+                cert_page.insert_text((50, y + 15), f"  署名日時: {signed_at_str}  IP: {signer.ip or '-'}", fontsize=9, fontname="helv", color=(0.5, 0.5, 0.5))
+                y += 36
+
+        else:
+            # ===== 署名欄位置未設定: 末尾に署名完了証明ページを追加 =====
+            page = pdf_doc.new_page(width=595, height=842)
+            page.insert_text((50, 60), "署名完了証明", fontsize=18, fontname="helv", color=(0, 0, 0))
+            page.insert_text((50, 90), f"契約名: {contract.title}", fontsize=11, fontname="helv", color=(0.3, 0.3, 0.3))
+            page.insert_text((50, 110), f"契約ID: {contract.id}", fontsize=9, fontname="helv", color=(0.5, 0.5, 0.5))
+
+            y_offset = 150
+            for signer in signers:
+                if y_offset > 750:
+                    page = pdf_doc.new_page(width=595, height=842)
+                    y_offset = 60
+
+                page.insert_text((50, y_offset), f"署名者 {signer.order_index}: {signer.name}  <{signer.email}>", fontsize=11, fontname="helv", color=(0, 0, 0))
+                signed_at_str = signer.signed_at.strftime("%Y年%m月%d日 %H:%M UTC") if signer.signed_at else "未署名"
+                page.insert_text((50, y_offset + 18), f"署名日時: {signed_at_str}  IP: {signer.ip or '-'}", fontsize=9, fontname="helv", color=(0.5, 0.5, 0.5))
+
+                sig_data = sig_map.get(signer.id)
+                if sig_data and sig_data.startswith("data:image"):
+                    rect = fitz.Rect(50, y_offset + 28, 300, y_offset + 108)
+                    if _embed_sign_image(page, rect, sig_data):
+                        y_offset += 130
+                    else:
+                        page.insert_text((50, y_offset + 28), "[署名画像の読み込みエラー]", fontsize=9, fontname="helv", color=(0.8, 0, 0))
+                        y_offset += 60
+                else:
+                    page.insert_text((50, y_offset + 28), "[手書きサインなし]", fontsize=9, fontname="helv", color=(0.6, 0.6, 0.6))
+                    y_offset += 60
+
+                page.draw_line(fitz.Point(50, y_offset - 10), fitz.Point(545, y_offset - 10), color=(0.8, 0.8, 0.8), width=0.5)
 
         # PDFをメモリに出力
         pdf_bytes = pdf_doc.tobytes()

@@ -27,6 +27,9 @@ class Contract(Base):
     status = Column(String(32), nullable=False, default="draft")
     hash = Column(String(64), nullable=True)
     require_face_auth = Column(Integer, nullable=False, default=0)  # 0=不要, 1=必須
+    # 署名欄位置情報 JSON: [{"page":0,"x":0.1,"y":0.8,"w":0.3,"h":0.08,"signer_index":1}, ...]
+    # x,y,w,h は PDFページの幅・高さに対する比率（小数）
+    sign_fields = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow, nullable=False)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
 

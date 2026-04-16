@@ -60,3 +60,15 @@ def run_migrations() -> None:
                         "ALTER TABLE signers ADD COLUMN face_auth_status VARCHAR(32) NOT NULL DEFAULT 'not_required'"
                     )
                 )
+
+        # contracts.sign_fields (署名欄位置情報 JSON)
+        if not _column_exists(conn, "contracts", "sign_fields"):
+            conn.execute(
+                text("ALTER TABLE contracts ADD COLUMN sign_fields TEXT")
+            )
+
+        # signatures.signature_data (手書きサイン画像 Base64)
+        if not _column_exists(conn, "signatures", "signature_data"):
+            conn.execute(
+                text("ALTER TABLE signatures ADD COLUMN signature_data TEXT")
+            )

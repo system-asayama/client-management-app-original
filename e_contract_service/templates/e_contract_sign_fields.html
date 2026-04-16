@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>署名欄の設定</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    #pdf-container {
+      position: relative;
+      display: inline-block;
+      cursor: crosshair;
+      user-select: none;
+    }
+    #pdf-canvas {
+      display: block;
+      border: 1px solid #dee2e6;
+      background: #fff;
+    }
+    .sign-field-box {
+      position: absolute;
+      border: 2px solid #0d6efd;
+      background: rgba(13, 110, 253, 0.08);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #0d6efd;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .sign-field-box:hover {
+      background: rgba(220, 53, 69, 0.12);
+      border-color: #dc3545;
+      color: #dc3545;
+    }
+    .sign-field-box .del-btn {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      color: #dc3545;
+      font-weight: bold;
+    }
+    #page-nav { display: flex; align-items: center; gap: 12px; }
+    .signer-color-0 { border-color: #0d6efd; background: rgba(13,110,253,0.08); color: #0d6efd; }
+    .signer-color-1 { border-color: #198754; background: rgba(25,135,84,0.08); color: #198754; }
+    .signer-color-2 { border-color: #dc3545; background: rgba(220,53,69,0.08); color: #dc3545; }
+    .signer-color-3 { border-color: #fd7e14; background: rgba(253,126,20,0.08); color: #fd7e14; }
+    .signer-color-4 { border-color: #6f42c1; background: rgba(111,66,193,0.08); color: #6f42c1; }
+  </style>
+</head>
+<body>
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+    <h1 class="h5 mb-0">✍️ 署名欄の設定</h1>
+    <span class="text-muted small" id="contract-title-label"></span>
+    <a class="btn btn-outline-secondary btn-sm ms-auto" id="back-link" href="#">← 詳細に戻る</a>
+  </div>
+
+  <div class="row g-3">
+    <!-- 左：PDFビューア -->
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+          <div id="page-nav">
+            <button class="btn btn-outline-secondary btn-sm" onclick="changePage(-1)">◀</button>
+            <span id="page-label" class="small">1 / 1</span>
+            <button class="btn btn-outline-secondary btn-sm" onclick="changePage(1)">▶</button>
+          </div>
+          <div class="ms-auto d-flex align-items-center gap-2">
+            <label class="form-label mb-0 small fw-semibold">署名者を選択:</label>
+            <select id="active-signer" class="form-select form-select-sm" style="width:auto;"></select>
+          </div>
+          <div class="small text-muted">PDFをクリックして署名欄を配置</div>
+        </div>
+        <div class="card-body p-2 overflow-auto">
+          <div id="pdf-container">
+            <canvas id="pdf-canvas"></canvas>
+            <!-- 署名欄ボックスはJSで追加 -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：署名欄リスト & 保存 -->
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-header fw-semibold">配置済み署名欄</div>
+        <div class="card-body p-2">
+          <div id="fields-list" class="small text-muted">まだ署名欄がありません</div>
+        </div>
+      </div>
+      <div class="d-grid gap-2">
+        <button class="btn btn-primary" onclick="saveFields()">💾 署名欄を保存</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="clearAllFields()">🗑 全て削除</button>
+      </div>
+      <div id="save-result" class="mt-2 small"></div>
+
+      <div class="card mt-3">
+        <div class="card-header fw-semibold small">使い方</div>
+        <div class="card-body small text-muted p-2">
+          <ol class="mb-0 ps-3">
+            <li>右上で署名者を選択</li>
+            <li>PDF上の署名させたい位置をクリック</li>
+            <li>必要な署名者分を繰り返す</li>
+            <li>「署名欄を保存」を押す</li>
+          </ol>
+          <p class="mt-2 mb-0">署名欄をクリックすると削除できます。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+const CONTRACT_ID = {{ contract_id|tojson }};
+const API_BASE = '/e-contract/api/contracts/' + CONTRACT_ID;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+let pdfDoc = null;
+let currentPage = 1;
+let totalPages = 1;
+let signFields = [];   // [{page, x, y, w, h, signer_index}, ...]
+let signers = [];
+let canvasW = 0, canvasH = 0;
+
+// 署名欄の標準サイズ（ページ比率）
+const FIELD_W = 0.30;
+const FIELD_H = 0.07;
+
+const SIGNER_COLORS = ['#0d6efd','#198754','#dc3545','#fd7e14','#6f42c1'];
+
+// ─── 初期化 ──────────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('back-link').href = '/e-contract/ui/contracts/' + CONTRACT_ID;
+
+  // 契約情報を取得
+  const res = await fetch(API_BASE);
+  if (!res.ok) { alert('契約情報の取得に失敗しました'); return; }
+  const data = await res.json();
+
+  document.getElementById('contract-title-label').textContent = data.title;
+  signers = data.signers || [];
+  signFields = data.sign_fields || [];
+
+  // 署名者セレクト
+  const sel = document.getElementById('active-signer');
+  signers.forEach((s, i) => {
+    const opt = document.createElement('option');
+    opt.value = s.order_index;
+    opt.textContent = `署名者${s.order_index}: ${s.name}`;
+    sel.appendChild(opt);
+  });
+
+  // PDFを読み込む
+  const pdfUrl = data.document_url;
+  try {
+    pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+    totalPages = pdfDoc.numPages;
+    await renderPage(currentPage);
+    renderFieldBoxes();
+    renderFieldsList();
+  } catch(e) {
+    alert('PDFの読み込みに失敗しました: ' + e.message);
+  }
+}
+
+// ─── PDFレンダリング ──────────────────────────────────────────────────────────
+async function renderPage(pageNum) {
+  const page = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 1.5 });
+  const canvas = document.getElementById('pdf-canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  canvasW = viewport.width;
+  canvasH = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  document.getElementById('page-label').textContent = `${pageNum} / ${totalPages}`;
+}
+
+async function changePage(delta) {
+  const next = currentPage + delta;
+  if (next < 1 || next > totalPages) return;
+  currentPage = next;
+  await renderPage(currentPage);
+  renderFieldBoxes();
+}
+
+// ─── クリックで署名欄を追加 ──────────────────────────────────────────────────
+document.getElementById('pdf-container').addEventListener('click', function(e) {
+  if (e.target !== document.getElementById('pdf-canvas')) return;
+  const rect = this.getBoundingClientRect();
+  const canvas = document.getElementById('pdf-canvas');
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const cx = (e.clientX - rect.left) * scaleX;
+  const cy = (e.clientY - rect.top) * scaleY;
+
+  // 比率に変換（中心点 → 左上角）
+  const x = Math.max(0, Math.min(1 - FIELD_W, cx / canvasW - FIELD_W / 2));
+  const y = Math.max(0, Math.min(1 - FIELD_H, cy / canvasH - FIELD_H / 2));
+
+  const signerIndex = parseInt(document.getElementById('active-signer').value) || 1;
+
+  signFields.push({
+    page: currentPage - 1,  // 0-indexed
+    x, y,
+    w: FIELD_W,
+    h: FIELD_H,
+    signer_index: signerIndex,
+  });
+
+  renderFieldBoxes();
+  renderFieldsList();
+});
+
+// ─── 署名欄ボックス描画 ──────────────────────────────────────────────────────
+function renderFieldBoxes() {
+  // 既存ボックスを削除
+  document.querySelectorAll('.sign-field-box').forEach(el => el.remove());
+
+  const container = document.getElementById('pdf-container');
+  const canvas = document.getElementById('pdf-canvas');
+  const displayW = canvas.offsetWidth || canvas.width;
+  const displayH = canvas.offsetHeight || canvas.height;
+
+  signFields.forEach((f, idx) => {
+    if (f.page !== currentPage - 1) return;
+
+    const box = document.createElement('div');
+    const colorIdx = (f.signer_index - 1) % SIGNER_COLORS.length;
+    box.className = `sign-field-box signer-color-${colorIdx}`;
+    box.style.left   = (f.x * displayW) + 'px';
+    box.style.top    = (f.y * displayH) + 'px';
+    box.style.width  = (f.w * displayW) + 'px';
+    box.style.height = (f.h * displayH) + 'px';
+
+    const signer = signers.find(s => s.order_index === f.signer_index);
+    const label = signer ? `署名者${f.signer_index}: ${signer.name}` : `署名者${f.signer_index}`;
+    box.innerHTML = `<span style="padding:0 4px;">${label}</span><span class="del-btn" data-idx="${idx}">✕</span>`;
+
+    box.querySelector('.del-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const i = parseInt(e.target.dataset.idx);
+      signFields.splice(i, 1);
+      renderFieldBoxes();
+      renderFieldsList();
+    });
+
+    container.appendChild(box);
+  });
+}
+
+// ─── 署名欄リスト描画 ────────────────────────────────────────────────────────
+function renderFieldsList() {
+  const el = document.getElementById('fields-list');
+  if (signFields.length === 0) {
+    el.innerHTML = '<span class="text-muted">まだ署名欄がありません</span>';
+    return;
+  }
+  let html = '<ul class="list-unstyled mb-0">';
+  signFields.forEach((f, i) => {
+    const signer = signers.find(s => s.order_index === f.signer_index);
+    const name = signer ? signer.name : `署名者${f.signer_index}`;
+    const colorIdx = (f.signer_index - 1) % SIGNER_COLORS.length;
+    const color = SIGNER_COLORS[colorIdx];
+    html += `<li class="d-flex align-items-center gap-2 mb-1 p-1 border rounded">
+      <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+      <span class="flex-grow-1">${name} (P.${f.page+1})</span>
+      <button class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size:10px;" onclick="removeField(${i})">✕</button>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+}
+
+function removeField(idx) {
+  signFields.splice(idx, 1);
+  renderFieldBoxes();
+  renderFieldsList();
+}
+
+function clearAllFields() {
+  if (!confirm('全ての署名欄を削除しますか？')) return;
+  signFields = [];
+  renderFieldBoxes();
+  renderFieldsList();
+}
+
+// ─── 保存 ────────────────────────────────────────────────────────────────────
+async function saveFields() {
+  const btn = document.querySelector('button[onclick="saveFields()"]');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  try {
+    const res = await fetch(API_BASE + '/sign-fields', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sign_fields: signFields }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('save-result').innerHTML =
+        '<span class="text-success">✅ 保存しました</span>';
+    } else {
+      document.getElementById('save-result').innerHTML =
+        `<span class="text-danger">エラー: ${data.error || JSON.stringify(data)}</span>`;
+    }
+  } catch(e) {
+    document.getElementById('save-result').innerHTML =
+      `<span class="text-danger">通信エラー: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 署名欄を保存';
+  }
+}
+
+// ─── ページリサイズ対応 ──────────────────────────────────────────────────────
+window.addEventListener('resize', () => renderFieldBoxes());
+
+init();
+</script>
+</body>
+</html>

@@ -411,3 +411,22 @@ def verify_audit_logs(contract_id: str):
         )
     finally:
         db.close()
+
+@bp.delete("/<contract_id>")
+@require_roles("system_admin", "tenant_admin", "admin")
+def delete_contract(contract_id: str):
+    db = SessionLocal()
+    try:
+        contract = _authorize_contract_query(db, contract_id).first()
+        if not contract:
+            return jsonify({"error": "Not found", "code": "NOT_FOUND"}), 404
+
+        # 関連するSignerとAuditLogも削除
+        db.query(Signer).filter(Signer.contract_id == contract_id).delete()
+        db.query(AuditLog).filter(AuditLog.contract_id == contract_id).delete()
+        db.delete(contract)
+        db.commit()
+
+        return jsonify({"message": "deleted", "contract_id": contract_id})
+    finally:
+        db.close()

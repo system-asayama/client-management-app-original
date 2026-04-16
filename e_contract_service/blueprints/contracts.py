@@ -412,6 +412,65 @@ def verify_audit_logs(contract_id: str):
     finally:
         db.close()
 
+@bp.get("/<contract_id>/certificate")
+@require_roles("system_admin", "tenant_admin", "admin")
+def get_certificate(contract_id: str):
+    """署名完了証明書情報を返す"""
+    db = SessionLocal()
+    try:
+        contract = _authorize_contract_query(db, contract_id).first()
+        if not contract:
+            return jsonify({"error": "Not found", "code": "NOT_FOUND"}), 404
+        signers = (
+            db.query(Signer)
+            .filter(Signer.contract_id == contract_id)
+            .order_by(Signer.order_index)
+            .all()
+        )
+        audit_logs = (
+            db.query(AuditLog)
+            .filter(AuditLog.contract_id == contract_id)
+            .order_by(AuditLog.seq)
+            .all()
+        )
+        signer_list = [
+            {
+                "order": s.order_index,
+                "name": s.name,
+                "email": s.email,
+                "status": s.status,
+                "face_auth_status": s.face_auth_status,
+                "signed_at": s.signed_at.strftime("%Y-%m-%dT%H:%M:%SZ") if s.signed_at else None,
+                "ip": s.ip,
+            }
+            for s in signers
+        ]
+        log_list = [
+            {
+                "seq": log.seq,
+                "action": log.action,
+                "actor_type": log.actor_type,
+                "created_at": log.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "hash": log.hash,
+                "prev_hash": log.prev_hash,
+            }
+            for log in audit_logs
+        ]
+        certificate = {
+            "contract_id": contract.id,
+            "title": contract.title,
+            "status": contract.status,
+            "require_face_auth": bool(contract.require_face_auth),
+            "created_at": contract.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "updated_at": contract.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "signers": signer_list,
+            "audit_trail": log_list,
+        }
+        return jsonify(certificate)
+    finally:
+        db.close()
+
+
 @bp.delete("/<contract_id>")
 @require_roles("system_admin", "tenant_admin", "admin")
 def delete_contract(contract_id: str):

@@ -228,18 +228,16 @@ async function changePage(delta) {
   renderFieldBoxes();
 }
 
-// ─── クリックで署名欄を追加 ──────────────────────────────────────────────────
-document.getElementById('pdf-container').addEventListener('click', function(e) {
-  // ボックス上のクリックは無視（ドラッグ後のクリックも無視）
-  if (e.target !== document.getElementById('pdf-canvas')) return;
+// ─── クリック/タップで署名欄を追加 ──────────────────────────────────────────
+function addFieldAtEvent(e, clientX, clientY) {
   if (isDragging || isResizing) return;
-
-  const rect = this.getBoundingClientRect();
+  const container = document.getElementById('pdf-container');
   const canvas = document.getElementById('pdf-canvas');
+  const rect = container.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
-  const cx = (e.clientX - rect.left) * scaleX;
-  const cy = (e.clientY - rect.top) * scaleY;
+  const cx = (clientX - rect.left) * scaleX;
+  const cy = (clientY - rect.top) * scaleY;
 
   const x = Math.max(0, Math.min(1 - FIELD_W, cx / canvasW - FIELD_W / 2));
   const y = Math.max(0, Math.min(1 - FIELD_H, cy / canvasH - FIELD_H / 2));
@@ -256,6 +254,28 @@ document.getElementById('pdf-container').addEventListener('click', function(e) {
 
   renderFieldBoxes();
   renderFieldsList();
+}
+
+document.getElementById('pdf-container').addEventListener('click', function(e) {
+  if (e.target !== document.getElementById('pdf-canvas')) return;
+  addFieldAtEvent(e, e.clientX, e.clientY);
+});
+
+// タッチタップで署名欄を追加（短いタップのみ、ドラッグ中は除外）
+let touchStartX = 0, touchStartY = 0;
+document.getElementById('pdf-container').addEventListener('touchstart', function(e) {
+  if (e.target !== document.getElementById('pdf-canvas')) return;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.getElementById('pdf-container').addEventListener('touchend', function(e) {
+  if (e.target !== document.getElementById('pdf-canvas')) return;
+  if (isDragging || isResizing) return;
+  const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
+  const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+  if (dx < 10 && dy < 10) {
+    addFieldAtEvent(e, touchStartX, touchStartY);
+  }
 });
 
 // ─── ドラッグ移動・リサイズ 共通変数 ─────────────────────────────────────────
@@ -274,14 +294,23 @@ function getDisplayScale() {
   };
 }
 
+// ─── タッチ/マウス 共通座標取得 ─────────────────────────────────────────────
+function getClientXY(e) {
+  if (e.touches && e.touches.length > 0) {
+    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+  }
+  return { clientX: e.clientX, clientY: e.clientY };
+}
+
 // ─── ドラッグ移動 ────────────────────────────────────────────────────────────
 function startDrag(e, idx) {
   e.preventDefault();
   e.stopPropagation();
   isDragging = true;
   activeIdx = idx;
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
+  const { clientX, clientY } = getClientXY(e);
+  dragStartX = clientX;
+  dragStartY = clientY;
   origField = { ...signFields[idx] };
 }
 
@@ -292,18 +321,21 @@ function startResize(e, idx, dir) {
   isResizing = true;
   activeIdx = idx;
   resizeDir = dir;
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
+  const { clientX, clientY } = getClientXY(e);
+  dragStartX = clientX;
+  dragStartY = clientY;
   origField = { ...signFields[idx] };
 }
 
-document.addEventListener('mousemove', function(e) {
+function onPointerMove(e) {
   if (!isDragging && !isResizing) return;
   if (activeIdx < 0) return;
+  e.preventDefault();
 
+  const { clientX, clientY } = getClientXY(e);
   const { dW, dH } = getDisplayScale();
-  const dx = (e.clientX - dragStartX) / dW;
-  const dy = (e.clientY - dragStartY) / dH;
+  const dx = (clientX - dragStartX) / dW;
+  const dy = (clientY - dragStartY) / dH;
   const f = signFields[activeIdx];
 
   if (isDragging) {
@@ -319,9 +351,9 @@ document.addEventListener('mousemove', function(e) {
   }
 
   renderFieldBoxes();
-});
+}
 
-document.addEventListener('mouseup', function() {
+function onPointerUp() {
   if (isDragging || isResizing) {
     isDragging = false;
     isResizing = false;
@@ -329,7 +361,13 @@ document.addEventListener('mouseup', function() {
     origField = null;
     renderFieldsList();
   }
-});
+}
+
+document.addEventListener('mousemove', onPointerMove);
+document.addEventListener('mouseup', onPointerUp);
+document.addEventListener('touchmove', onPointerMove, { passive: false });
+document.addEventListener('touchend', onPointerUp);
+document.addEventListener('touchcancel', onPointerUp);
 
 // ─── 署名欄ボックス描画 ──────────────────────────────────────────────────────
 function renderFieldBoxes() {
@@ -377,16 +415,21 @@ function renderFieldBoxes() {
       const handle = document.createElement('div');
       handle.className = `resize-handle ${dir}`;
       handle.addEventListener('mousedown', (e) => startResize(e, idx, dir));
+      handle.addEventListener('touchstart', (e) => startResize(e, idx, dir), { passive: false });
       box.appendChild(handle);
     });
 
-    // ドラッグ移動
+    // ドラッグ移動（マウス＋タッチ）
     box.addEventListener('mousedown', (e) => {
-      // リサイズハンドル上のクリックは除外
       if (e.target.classList.contains('resize-handle')) return;
       if (e.target.classList.contains('del-btn')) return;
       startDrag(e, idx);
     });
+    box.addEventListener('touchstart', (e) => {
+      if (e.target.classList.contains('resize-handle')) return;
+      if (e.target.classList.contains('del-btn')) return;
+      startDrag(e, idx);
+    }, { passive: false });
 
     container.appendChild(box);
   });

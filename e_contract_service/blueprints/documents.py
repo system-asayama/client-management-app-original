@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 
 from ..auth import require_roles
 
-bp = Blueprint("e_contract_documents", __name__, url_prefix="/api/documents")
+bp = Blueprint("e_contract_documents", __name__, url_prefix="")
 
 ALLOWED_EXTENSIONS = {"pdf"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB

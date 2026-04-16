@@ -396,7 +396,7 @@ def create_app() -> Flask:
         app.register_blueprint(ec_contracts_bp,  url_prefix='/e-contract/api/contracts')
         app.register_blueprint(ec_signing_bp,    url_prefix='/e-contract/api/sign')
         app.register_blueprint(ec_finalize_bp,   url_prefix='/e-contract/api/finalize')
-        app.register_blueprint(ec_documents_bp,  url_prefix='/e-contract')
+        app.register_blueprint(ec_documents_bp,  url_prefix='/e-contract/api/documents')
         app.register_blueprint(ec_ui_bp,         url_prefix='/e-contract/ui')
         print("✅ e_contract_service blueprints 登録完了")
     except Exception as e:

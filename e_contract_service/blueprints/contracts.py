@@ -430,3 +430,45 @@ def delete_contract(contract_id: str):
         return jsonify({"message": "deleted", "contract_id": contract_id})
     finally:
         db.close()
+
+
+@bp.post("/<contract_id>/finalize")
+@require_roles("system_admin", "tenant_admin", "admin")
+def finalize_contract(contract_id: str):
+    """全署名者が署名済みの場合に契約を完了状態にする"""
+    db = SessionLocal()
+    try:
+        contract = _authorize_contract_query(db, contract_id).first()
+        if not contract:
+            return jsonify({"error": "Not found", "code": "NOT_FOUND"}), 404
+
+        signers = db.query(Signer).filter(Signer.contract_id == contract_id).all()
+        if not signers:
+            return jsonify({"error": "署名者が登録されていません", "code": "NO_SIGNERS"}), 400
+
+        unsigned = [s for s in signers if s.status != "signed"]
+        if unsigned:
+            return jsonify({
+                "error": f"未署名の署名者が {len(unsigned)} 名います",
+                "code": "UNSIGNED_SIGNERS",
+                "unsigned_count": len(unsigned)
+            }), 400
+
+        contract.status = "completed"
+        _append_audit_log(
+            db,
+            contract_id=contract.id,
+            action="contract_completed",
+            actor_id=str(g.auth.user_id) if hasattr(g, "auth") else None,
+            actor_type="admin",
+            metadata={"total_signers": len(signers), "manual": True},
+        )
+        db.commit()
+
+        return jsonify({
+            "contract_id": contract.id,
+            "status": contract.status,
+            "message": "契約が完了しました",
+        })
+    finally:
+        db.close()

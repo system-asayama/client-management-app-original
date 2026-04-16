@@ -110,6 +110,12 @@
             <label class="form-label mb-0 small fw-semibold">署名者を選択:</label>
             <select id="active-signer" class="form-select form-select-sm" style="width:auto;"></select>
           </div>
+          <div class="d-flex align-items-center gap-1">
+            <button class="btn btn-outline-secondary btn-sm" onclick="changeZoom(-0.25)" title="縮小">－</button>
+            <span id="zoom-label" class="small px-1">100%</span>
+            <button class="btn btn-outline-secondary btn-sm" onclick="changeZoom(0.25)" title="拡大">＋</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="resetZoom()" title="リセット">⟳</button>
+          </div>
           <div class="small text-muted">タップ:配置 / ドラッグ:移動 / 角・辺:リサイズ</div>
         </div>
         <div class="card-body p-2 overflow-auto">
@@ -167,6 +173,10 @@ let totalPages = 1;
 let signFields = [];
 let signers = [];
 let canvasW = 0, canvasH = 0;
+let zoomScale = 1.5;  // PDF.jsのレンダリングスケール（デフォルト1.5 = 100%）
+const BASE_SCALE = 1.5;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 4.0;
 
 const FIELD_W = 0.30;
 const FIELD_H = 0.07;
@@ -272,10 +282,27 @@ async function init() {
   }
 }
 
+// ─── ズーム操作 ──────────────────────────────────────────────────────────────
+async function changeZoom(delta) {
+  const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, zoomScale + delta));
+  if (newScale === zoomScale) return;
+  zoomScale = newScale;
+  document.getElementById('zoom-label').textContent = Math.round((zoomScale / BASE_SCALE) * 100) + '%';
+  await renderPage(currentPage);
+  renderFieldBoxes();
+}
+
+async function resetZoom() {
+  zoomScale = BASE_SCALE;
+  document.getElementById('zoom-label').textContent = '100%';
+  await renderPage(currentPage);
+  renderFieldBoxes();
+}
+
 // ─── PDFレンダリング ──────────────────────────────────────────────────────────
 async function renderPage(pageNum) {
   const page = await pdfDoc.getPage(pageNum);
-  const viewport = page.getViewport({ scale: 1.5 });
+  const viewport = page.getViewport({ scale: zoomScale });
   const canvas = document.getElementById('pdf-canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;

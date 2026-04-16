@@ -308,7 +308,7 @@ def dispatch_contract(contract_id: str):
                 {
                     "signer_id": signer.id,
                     "email": signer.email,
-                    "sign_url": f"{request.url_root.rstrip('/')}/api/sign/{token}",
+                    "sign_url": f"{request.url_root.rstrip('/')}/e-contract/ui/sign/{token}",
                     "expires_at": expires_at.isoformat(),
                 }
             )

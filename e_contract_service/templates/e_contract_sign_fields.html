@@ -173,10 +173,10 @@ let totalPages = 1;
 let signFields = [];
 let signers = [];
 let canvasW = 0, canvasH = 0;
-let zoomScale = 1.5;  // PDF.jsのレンダリングスケール（デフォルト1.5 = 100%）
-const BASE_SCALE = 1.5;
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 4.0;
+let zoomScale = 1.5;  // 初期値、init内で自動計算される
+let BASE_SCALE = 1.5; // コンテナ幅に合わせたスケール（100%基準）
+const MIN_SCALE_RATIO = 0.25;  // 25%まで縮小可能
+const MAX_SCALE_RATIO = 4.0;   // 400%まで拡大可能
 
 const FIELD_W = 0.30;
 const FIELD_H = 0.07;
@@ -274,6 +274,14 @@ async function init() {
   try {
     pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
     totalPages = pdfDoc.numPages;
+
+    // 初期スケールをコンテナ幅に合わせて自動計算
+    const firstPage = await pdfDoc.getPage(1);
+    const baseViewport = firstPage.getViewport({ scale: 1.0 });
+    const containerWidth = document.querySelector('.card-body.p-2.overflow-auto').clientWidth - 16;
+    BASE_SCALE = containerWidth / baseViewport.width;
+    zoomScale = BASE_SCALE;
+
     await renderPage(currentPage);
     renderFieldBoxes();
     renderFieldsList();
@@ -284,8 +292,11 @@ async function init() {
 
 // ─── ズーム操作 ──────────────────────────────────────────────────────────────
 async function changeZoom(delta) {
-  const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, zoomScale + delta));
-  if (newScale === zoomScale) return;
+  const minScale = BASE_SCALE * MIN_SCALE_RATIO;
+  const maxScale = BASE_SCALE * MAX_SCALE_RATIO;
+  const step = BASE_SCALE * 0.25;  // 25%づつ
+  const newScale = Math.min(maxScale, Math.max(minScale, zoomScale + (delta > 0 ? step : -step)));
+  if (Math.abs(newScale - zoomScale) < 0.001) return;
   zoomScale = newScale;
   document.getElementById('zoom-label').textContent = Math.round((zoomScale / BASE_SCALE) * 100) + '%';
   await renderPage(currentPage);

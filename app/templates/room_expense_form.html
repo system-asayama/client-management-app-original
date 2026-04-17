@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{% if expense %}経費編集{% else %}経費登録{% endif %} - {{ property.物件名 }} {{ room.部屋番号 }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('property.index') }}">不動産管理</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.properties') }}">物件一覧</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.property_detail', id=property.id) }}">{{ property.物件名 }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.room_detail', id=room.id) }}">{{ room.部屋番号 }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.expense_list_room', room_id=room.id) }}">経費一覧</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{% if expense %}編集{% else %}登録{% endif %}</li>
+        </ol>
+    </nav>
+
+    <h2>{% if expense %}経費編集{% else %}経費登録{% endif %}</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">{{ property.物件名 }} - {{ room.部屋番号 }}</h5>
+            <p class="card-text">
+                <span class="badge bg-info">{{ room.間取り }}</span>
+                <span class="badge bg-secondary">{{ room.専有面積 }}㎡</span>
+                <span class="badge {% if room.入居状況 == '入居中' %}bg-success{% else %}bg-warning{% endif %}">
+                    {{ room.入居状況 }}
+                </span>
+            </p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="経費名" class="form-label">経費名 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="経費名" name="経費名" 
+                       value="{{ expense.経費名 if expense else '' }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="経費カテゴリ" class="form-label">経費カテゴリ <span class="text-danger">*</span></label>
+                <select class="form-select" id="経費カテゴリ" name="経費カテゴリ" required>
+                    <option value="">選択してください</option>
+                    {% for category in categories %}
+                    <option value="{{ category }}" {% if expense and expense.経費カテゴリ == category %}selected{% endif %}>
+                        {{ category }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="金額" class="form-label">金額（円） <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" id="金額" name="金額" 
+                       value="{{ expense.金額 if expense else '' }}" min="0" step="1" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="発生日" class="form-label">発生日 <span class="text-danger">*</span></label>
+                <input type="date" class="form-control" id="発生日" name="発生日" 
+                       value="{{ expense.発生日.strftime('%Y-%m-%d') if expense else '' }}" required>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="支払日" class="form-label">支払日</label>
+                <input type="date" class="form-control" id="支払日" name="支払日" 
+                       value="{{ expense.支払日.strftime('%Y-%m-%d') if expense and expense.支払日 else '' }}">
+                <div class="form-text">未払いの場合は空欄にしてください</div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="支払方法" class="form-label">支払方法</label>
+                <select class="form-select" id="支払方法" name="支払方法">
+                    <option value="">選択してください</option>
+                    {% for method in payment_methods %}
+                    <option value="{{ method }}" {% if expense and expense.支払方法 == method %}selected{% endif %}>
+                        {{ method }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="備考" class="form-label">備考</label>
+            <textarea class="form-control" id="備考" name="備考" rows="3">{{ expense.備考 if expense else '' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> {% if expense %}更新{% else %}登録{% endif %}
+            </button>
+            <a href="{{ url_for('property.expense_list_room', room_id=room.id) }}" class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> キャンセル
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

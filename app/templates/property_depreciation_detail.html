@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}減価償却詳細 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>減価償却詳細: {{ property.物件名 }}</h2>
+    <div class="card mb-4">
+        <div class="card-body">
+            <p><strong>取得価額:</strong> ¥{{ "{:,.0f}".format(property.取得価額) if property.取得価額 else '-' }}</p>
+            <p><strong>耐用年数:</strong> {{ property.耐用年数 or '-' }}年</p>
+            <p><strong>償却方法:</strong> {{ property.償却方法 or '-' }}</p>
+        </div>
+    </div>
+    <form method="POST" action="{{ url_for('property.depreciation_calculate', property_id=property.id) }}">
+        <div class="mb-3">
+            <label class="form-label">対象年度</label>
+            <input type="number" class="form-control" name="target_year" value="{{ current_year }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">減価償却を計算</button>
+    </form>
+    <h4 class="mt-4">償却履歴</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr><th>年度</th><th>期首帳簿価額</th><th>償却額</th><th>期末帳簿価額</th></tr>
+        </thead>
+        <tbody>
+            {% for dep in depreciation_history %}
+            <tr>
+                <td>{{ dep.年度 }}</td>
+                <td>¥{{ "{:,.0f}".format(dep.期首帳簿価額) if dep.期首帳簿価額 else '-' }}</td>
+                <td>¥{{ "{:,.0f}".format(dep.償却額) if dep.償却額 else '-' }}</td>
+                <td>¥{{ "{:,.0f}".format(dep.期末帳簿価額) if dep.期末帳簿価額 else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

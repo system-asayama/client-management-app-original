@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}契約登録 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>契約登録</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">部屋</label>
+            <select class="form-select" name="room_id" required>
+                {% for item in vacant_rooms %}
+                <option value="{{ item.room.id }}">{{ item.property.物件名 }} - {{ item.room.部屋番号 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">入居者</label>
+            <select class="form-select" name="tenant_person_id" required>
+                {% for tenant in tenants %}
+                <option value="{{ tenant.id }}">{{ tenant.氏名 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">契約開始日</label>
+            <input type="date" class="form-control" name="契約開始日" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">月額賃料</label>
+            <input type="number" class="form-control" name="月額賃料" required>
+        </div>
+        <button type="submit" class="btn btn-primary">登録</button>
+        <a href="{{ url_for('property.contracts') }}" class="btn btn-secondary">キャンセル</a>
+    </form>
+</div>
+{% endblock %}

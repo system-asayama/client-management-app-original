@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}物件編集 - 不動産管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>物件編集</h2>
+    
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('property.properties') }}">物件一覧</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.property_detail', id=property.id) }}">{{ property.物件名 }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">編集</li>
+        </ol>
+    </nav>
+    
+    <form method="POST" action="{{ url_for('property.property_edit', id=property.id) }}">
+        <!-- 基本情報（タブの外に配置） -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-info-circle"></i> 基本情報</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="物件名" class="form-label">物件名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="物件名" name="物件名" value="{{ property.物件名 }}" required>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="物件種別" class="form-label">物件種別</label>
+                        <select class="form-select" id="物件種別" name="物件種別">
+                            <option value="">選択してください</option>
+                            <option value="マンション" {% if property.物件種別 == 'マンション' %}selected{% endif %}>マンション</option>
+                            <option value="アパート" {% if property.物件種別 == 'アパート' %}selected{% endif %}>アパート</option>
+                            <option value="戸建て" {% if property.物件種別 == '戸建て' %}selected{% endif %}>戸建て</option>
+                            <option value="店舗" {% if property.物件種別 == '店舗' %}selected{% endif %}>店舗</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="郵便番号" class="form-label">郵便番号</label>
+                        <input type="text" class="form-control" id="郵便番号" name="郵便番号" value="{{ property.郵便番号 }}">
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="住所" class="form-label">住所</label>
+                        <input type="text" class="form-control" id="住所" name="住所" value="{{ property.住所 }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- タブナビゲーション -->
+        <ul class="nav nav-tabs" id="propertyTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="building-tab" data-bs-toggle="tab" data-bs-target="#building" type="button" role="tab" aria-controls="building" aria-selected="true">
+                    <i class="fas fa-building"></i> 建物本体
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment" type="button" role="tab" aria-controls="equipment" aria-selected="false">
+                    <i class="fas fa-tools"></i> 建物付属設備
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="structure-tab" data-bs-toggle="tab" data-bs-target="#structure" type="button" role="tab" aria-controls="structure" aria-selected="false">
+                    <i class="fas fa-road"></i> 構築物
+                </button>
+            </li>
+        </ul>
+        
+        <!-- タブコンテンツ -->
+        <div class="tab-content mt-3" id="propertyTabsContent">
+            <!-- 建物本体タブ -->
+            <div class="tab-pane fade show active" id="building" role="tabpanel" aria-labelledby="building-tab">
+                <h4 class="mb-3">建物情報</h4>
+                
+                <div class="mb-3">
+                    <label for="建築年月" class="form-label">建築年月</label>
+                    <input type="date" class="form-control" id="建築年月" name="建築年月" value="{{ property.建築年月 }}" onchange="calculateUsefulLife()" oninput="calculateUsefulLife()">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構造" class="form-label">構造</label>
+                    <select class="form-select" id="構造" name="構造" onchange="calculateUsefulLife()">
+                        <option value="">選択してください</option>
+                        <option value="RC造" {% if property.構造 == 'RC造' %}selected{% endif %}>RC造（鉄筋コンクリート造）- 耐用47年</option>
+                        <option value="重量鉄骨造" {% if property.構造 == '重量鉄骨造' %}selected{% endif %}>重量鉄骨造 - 耐用34年</option>
+                        <option value="軽量鉄骨造（肉厚3mm超4mm以下）" {% if property.構造 == '軽量鉄骨造（肉厚3mm超4mm以下）' %}selected{% endif %}>軽量鉄骨造（肉厚3mm超4mm以下）- 耐用27年</option>
+                        <option value="軽量鉄骨造（肉厚3mm以下）" {% if property.構造 == '軽量鉄骨造（肉厚3mm以下）' %}selected{% endif %}>軽量鉄骨造（肉厚3mm以下）- 耐用19年</option>
+                        <option value="木造" {% if property.構造 == '木造' %}selected{% endif %}>木造 - 耐用22年</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="階数" class="form-label">階数</label>
+                    <input type="number" class="form-control" id="階数" name="階数" value="{{ property.階数 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="延床面積" class="form-label">延床面積（㎡）</label>
+                    <input type="number" step="0.01" class="form-control" id="延床面積" name="延床面積" value="{{ property.延床面積 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="部屋数" class="form-label">部屋数</label>
+                    <input type="number" class="form-control" id="部屋数" name="部屋数" value="{{ property.部屋数 }}">
+                </div>
+                
+                <h4 class="mb-3 mt-4">減価償却情報</h4>
+                
+                <div class="mb-3">
+                    <label for="取得価額" class="form-label">取得価額（円）</label>
+                    <input type="number" step="0.01" class="form-control" id="取得価額" name="取得価額" value="{{ property.取得価額 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="取得年月日" class="form-label">取得年月日</label>
+                    <input type="date" class="form-control" id="取得年月日" name="取得年月日" value="{{ property.取得年月日 }}" onchange="calculateUsefulLife()" oninput="calculateUsefulLife()">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="耐用年数" class="form-label">耐用年数（年）</label>
+                    <input type="number" class="form-control" id="耐用年数" name="耐用年数" value="{{ property.耐用年数 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="償却方法" class="form-label">償却方法</label>
+                    <select class="form-select" id="償却方法" name="償却方法">
+                        <option value="">選択してください</option>
+                        <option value="定額法" {% if property.償却方法 == '定額法' %}selected{% endif %}>定額法</option>
+                        <option value="定率法" {% if property.償却方法 == '定率法' %}selected{% endif %}>定率法</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="残存価額" class="form-label">残存価額（円）</label>
+                    <input type="number" step="0.01" class="form-control" id="残存価額" name="残存価額" value="{{ property.残存価額 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="備考" class="form-label">備考</label>
+                    <textarea class="form-control" id="備考" name="備考" rows="3">{{ property.備考 }}</textarea>
+                </div>
+            </div>
+            
+            <!-- 建物付属設備タブ -->
+            <div class="tab-pane fade" id="equipment" role="tabpanel" aria-labelledby="equipment-tab">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 電気設備、給排水設備、冷暖房設備、昇降機設備などの建物付属設備を登録します。法定耐用年数は15年です。
+                </div>
+                
+                <div class="mb-3">
+                    <label for="付属設備_取得価額" class="form-label">取得価額（円）</label>
+                    <input type="number" step="0.01" class="form-control" id="付属設備_取得価額" name="付属設備_取得価額" value="{{ property.付属設備_取得価額 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="付属設備_取得年月日" class="form-label">取得年月日</label>
+                    <input type="date" class="form-control" id="付属設備_取得年月日" name="付属設備_取得年月日" value="{{ property.付属設備_取得年月日 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="付属設備_耐用年数" class="form-label">耐用年数（年）</label>
+                    <input type="number" class="form-control" id="付属設備_耐用年数" name="付属設備_耐用年数" value="{{ property.付属設備_耐用年数 or 15 }}">
+                    <small class="form-text text-muted">法定耐用年数: 15年</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="付属設備_償却方法" class="form-label">償却方法</label>
+                    <select class="form-select" id="付属設備_償却方法" name="付属設備_償却方法">
+                        <option value="">選択してください</option>
+                        <option value="定額法" {% if property.付属設備_償却方法 == '定額法' or not property.付属設備_償却方法 %}selected{% endif %}>定額法</option>
+                        <option value="定率法" {% if property.付属設備_償却方法 == '定率法' %}selected{% endif %}>定率法</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="付属設備_残存価額" class="form-label">残存価額（円）</label>
+                    <input type="number" step="0.01" class="form-control" id="付属設備_残存価額" name="付属設備_残存価額" value="{{ property.付属設備_残存価額 or 0 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="付属設備_備考" class="form-label">備考</label>
+                    <textarea class="form-control" id="付属設備_備考" name="付属設備_備考" rows="3">{{ property.付属設備_備考 }}</textarea>
+                </div>
+            </div>
+            
+            <!-- 構築物タブ -->
+            <div class="tab-pane fade" id="structure" role="tabpanel" aria-labelledby="structure-tab">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> アスファルト舗装、コンクリート舗装、門・塀、フェンスなどの構築物を登録します。法定耐用年数は種類により10〜20年です。
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構築物_取得価額" class="form-label">取得価額（円）</label>
+                    <input type="number" step="0.01" class="form-control" id="構築物_取得価額" name="構築物_取得価額" value="{{ property.構築物_取得価額 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構築物_取得年月日" class="form-label">取得年月日</label>
+                    <input type="date" class="form-control" id="構築物_取得年月日" name="構築物_取得年月日" value="{{ property.構築物_取得年月日 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構築物_耐用年数" class="form-label">耐用年数（年）</label>
+                    <input type="number" class="form-control" id="構築物_耐用年数" name="構築物_耐用年数" value="{{ property.構築物_耐用年数 or 15 }}">
+                    <small class="form-text text-muted">アスファルト舗装: 10年、コンクリート舗装: 15年、門・塀: 20年</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構築物_償却方法" class="form-label">償却方法</label>
+                    <select class="form-select" id="構築物_償却方法" name="構築物_償却方法">
+                        <option value="">選択してください</option>
+                        <option value="定額法" {% if property.構築物_償却方法 == '定額法' or not property.構築物_償却方法 %}selected{% endif %}>定額法</option>
+                        <option value="定率法" {% if property.構築物_償却方法 == '定率法' %}selected{% endif %}>定率法</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構築物_残存価額" class="form-label">残存価額（円）</label>
+                    <input type="number" step="0.01" class="form-control" id="構築物_残存価額" name="構築物_残存価額" value="{{ property.構築物_残存価額 or 0 }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="構築物_備考" class="form-label">備考</label>
+                    <textarea class="form-control" id="構築物_備考" name="構築物_備考" rows="3">{{ property.構築物_備考 }}</textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- フォーム送信ボタン -->
+        <div class="mt-4 mb-4">
+            <button type="submit" class="btn btn-primary">更新</button>
+            <a href="{{ url_for('property.property_detail', id=property.id) }}" class="btn btn-secondary">キャンセル</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// 耐用年数の自動計算
+function calculateUsefulLife() {
+    const structure = document.getElementById('構造').value;
+    const acquisitionDate = document.getElementById('取得年月日').value;
+    const constructionDate = document.getElementById('建築年月').value;
+    
+    // 構造に基づく法定耐用年数
+    const usefulLifeMap = {
+        'RC造': 47,
+        '重量鉄骨造': 34,
+        '軽量鉄骨造（肉厚3mm超4mm以下）': 27,
+        '軽量鉄骨造（肉厚3mm以下）': 19,
+        '木造': 22
+    };
+    
+    if (structure && structure in usefulLifeMap) {
+        let usefulLife = usefulLifeMap[structure];
+        
+        // 中古資産の場合の耐用年数計算
+        if (acquisitionDate && constructionDate) {
+            const acquisition = new Date(acquisitionDate);
+            const construction = new Date(constructionDate);
+            const monthsElapsed = (acquisition - construction) / (1000 * 60 * 60 * 24 * 30);
+            const yearsElapsed = Math.floor(monthsElapsed / 12);
+            
+            if (yearsElapsed > 0) {
+                // 簡便法: (法定耐用年数 - 経過年数) + 経過年数 × 0.2
+                const remainingLife = usefulLife - yearsElapsed;
+                const additionalLife = Math.floor(yearsElapsed * 0.2);
+                usefulLife = Math.max(2, remainingLife + additionalLife);
+            }
+        }
+        
+        document.getElementById('耐用年数').value = usefulLife;
+    }
+}
+</script>
+{% endblock %}

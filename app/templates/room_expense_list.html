@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}部屋経費一覧 - {{ property.物件名 }} {{ room.部屋番号 }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('property.index') }}">不動産管理</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.properties') }}">物件一覧</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.property_detail', id=property.id) }}">{{ property.物件名 }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('property.room_detail', id=room.id) }}">{{ room.部屋番号 }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">経費一覧</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>部屋経費一覧</h2>
+        <a href="{{ url_for('property.expense_new_room', room_id=room.id) }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> 新規経費登録
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">{{ property.物件名 }} - {{ room.部屋番号 }}</h5>
+            <p class="card-text">
+                <span class="badge bg-info">{{ room.間取り }}</span>
+                <span class="badge bg-secondary">{{ room.専有面積 }}㎡</span>
+                <span class="badge {% if room.入居状況 == '入居中' %}bg-success{% else %}bg-warning{% endif %}">
+                    {{ room.入居状況 }}
+                </span>
+            </p>
+        </div>
+    </div>
+
+    {% if expenses %}
+    <div class="alert alert-info">
+        <strong>合計金額:</strong> {{ "{:,.0f}".format(total_amount) }}円
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>発生日</th>
+                    <th>経費名</th>
+                    <th>カテゴリ</th>
+                    <th class="text-end">金額</th>
+                    <th>支払日</th>
+                    <th>支払方法</th>
+                    <th>備考</th>
+                    <th class="text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td>{{ expense.発生日.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ expense.経費名 }}</td>
+                    <td><span class="badge bg-secondary">{{ expense.経費カテゴリ }}</span></td>
+                    <td class="text-end">{{ "{:,.0f}".format(expense.金額) }}円</td>
+                    <td>
+                        {% if expense.支払日 %}
+                        {{ expense.支払日.strftime('%Y-%m-%d') }}
+                        <span class="badge bg-success">支払済</span>
+                        {% else %}
+                        <span class="badge bg-warning">未払い</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ expense.支払方法 or '-' }}</td>
+                    <td>{{ expense.備考 or '-' }}</td>
+                    <td class="text-center">
+                        <a href="{{ url_for('property.expense_edit_room', room_id=room.id, expense_id=expense.部屋経費id) }}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i> 編集
+                        </a>
+                        <form method="POST" 
+                              action="{{ url_for('property.expense_delete_room', room_id=room.id, expense_id=expense.部屋経費id) }}" 
+                              style="display:inline;"
+                              onsubmit="return confirm('本当に削除しますか？');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i> 削除
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-info-circle"></i> 経費が登録されていません。
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ url_for('property.room_detail', id=room.id) }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 部屋詳細に戻る
+        </a>
+    </div>
+</div>
+{% endblock %}

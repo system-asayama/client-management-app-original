@@ -13,6 +13,7 @@ try:
     from . import models_client_users  # noqa: F401
     from . import models_homepage  # noqa: F401
     from . import models_voucher  # noqa: F401
+    from . import models_property  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -409,6 +410,13 @@ def create_app() -> Flask:
         print("✅ teikan blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ teikan blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.property import property_bp
+        app.register_blueprint(property_bp)
+        print("✅ property blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ property blueprint 登録エラー: {e}")
 
     # エラーハンドラ
     @app.errorhandler(404)

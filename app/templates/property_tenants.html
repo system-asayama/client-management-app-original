@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}入居者一覧 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>入居者一覧</h2>
+    <a href="{{ url_for('property.tenant_new') }}" class="btn btn-primary mb-3">新規登録</a>
+    <table class="table table-striped">
+        <thead>
+            <tr><th>氏名</th><th>電話番号</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+            {% for tenant in tenants %}
+            <tr>
+                <td>{{ tenant.氏名 }}</td>
+                <td>{{ tenant.電話番号 or '-' }}</td>
+                <td><a href="{{ url_for('property.tenant_detail', id=tenant.id) }}" class="btn btn-sm btn-info">詳細</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}部屋詳細 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>部屋詳細: {{ property.物件名 }} - {{ room.部屋番号 }}</h2>
+    <div class="card">
+        <div class="card-body">
+            <p><strong>間取り:</strong> {{ room.間取り or '-' }}</p>
+            <p><strong>専有面積:</strong> {{ room.専有面積 or '-' }}㎡</p>
+            <p><strong>賃料:</strong> ¥{{ "{:,.0f}".format(room.賃料) if room.賃料 else '-' }}</p>
+            <p><strong>入居状況:</strong> {{ room.入居状況 }}</p>
+        </div>
+    </div>
+    <a href="{{ url_for('property.room_edit', id=room.id) }}" class="btn btn-warning mt-3">編集</a>
+    <a href="{{ url_for('property.expense_list_room', room_id=room.id) }}" class="btn btn-info mt-3">
+        <i class="bi bi-cash-stack"></i> 経費一覧
+    </a>
+    <a href="{{ url_for('property.property_detail', id=property.id) }}" class="btn btn-secondary mt-3">戻る</a>
+</div>
+{% endblock %}

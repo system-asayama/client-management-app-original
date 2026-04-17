@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}入居者編集 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>入居者編集: {{ tenant.氏名 }}</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">氏名</label>
+            <input type="text" class="form-control" name="氏名" value="{{ tenant.氏名 }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">電話番号</label>
+            <input type="text" class="form-control" name="電話番号" value="{{ tenant.電話番号 or '' }}">
+        </div>
+        <button type="submit" class="btn btn-primary">更新</button>
+        <a href="{{ url_for('property.tenant_detail', id=tenant.id) }}" class="btn btn-secondary">キャンセル</a>
+    </form>
+</div>
+{% endblock %}

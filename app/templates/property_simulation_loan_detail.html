@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}ローン詳細設定 - {{ simulation.名称 }} - 不動産管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>ローン詳細設定</h2>
+    <p class="text-muted">シミュレーション: {{ simulation.名称 }}</p>
+    
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> 
+        <strong>詳細モード</strong>では、借入日、返済日、金利変動、据置期間などを詳細に設定できます。
+    </div>
+    
+    <form method="POST" action="{{ url_for('property.simulation_loan_detail_save', simulation_id=simulation.id) }}">
+        <!-- ローン条件設定 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">ローン条件</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="借入日" class="form-label">借入日 <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="借入日" name="借入日" 
+                               value="{{ loan_condition.借入日 if loan_condition else '' }}" required>
+                        <div class="form-text">ローン契約日・融資実行日</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="返済日" class="form-label">返済日（毎月） <span class="text-danger">*</span></label>
+                        <select class="form-select" id="返済日" name="返済日" required>
+                            {% for day in range(1, 32) %}
+                            <option value="{{ day }}" {% if loan_condition and loan_condition.返済日 == day %}selected{% endif %}>
+                                {{ day }}日
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">毎月の返済日</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="返済開始年月" class="form-label">返済開始年月 <span class="text-danger">*</span></label>
+                        <input type="month" class="form-control" id="返済開始年月" name="返済開始年月" 
+                               value="{{ loan_condition.返済開始年月 if loan_condition else '' }}" required>
+                        <div class="form-text">初回返済の年月</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="据置期間終了年月" class="form-label">据置期間終了年月</label>
+                        <input type="month" class="form-control" id="据置期間終了年月" name="据置期間終了年月" 
+                               value="{{ loan_condition.据置期間終了年月 if loan_condition else '' }}">
+                        <div class="form-text">据置期間がある場合のみ入力（元本返済開始年月）</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="初回利息支払方法" class="form-label">初回利息支払方法 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="初回利息支払方法" name="初回利息支払方法" required>
+                            <option value="1" {% if loan_condition and loan_condition.初回利息支払方法 == 1 %}selected{% endif %}>
+                                初回返済時にまとめて支払う
+                            </option>
+                            <option value="2" {% if loan_condition and loan_condition.初回利息支払方法 == 2 %}selected{% endif %}>
+                                借入月末に利息のみ支払う
+                            </option>
+                            <option value="3" {% if loan_condition and loan_condition.初回利息支払方法 == 3 %}selected{% endif %}>
+                                利息は無視する
+                            </option>
+                        </select>
+                        <div class="form-text">借入日から初回返済日までの利息の扱い</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 金利スケジュール設定 -->
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">金利スケジュール</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">期間ごとに異なる金利を設定できます。金利変動に対応します。</p>
+                
+                <div id="interestScheduleContainer">
+                    {% if interest_schedules %}
+                        {% for schedule in interest_schedules %}
+                        <div class="border rounded p-3 mb-3 interest-schedule-item">
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">開始年月 <span class="text-danger">*</span></label>
+                                    <input type="month" class="form-control" name="開始年月[]" 
+                                           value="{{ schedule.開始年月 }}" required>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">終了年月</label>
+                                    <input type="month" class="form-control" name="終了年月[]" 
+                                           value="{{ schedule.終了年月 if schedule.終了年月 else '' }}">
+                                    <div class="form-text small">空欄=最終年度まで</div>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">金利（%） <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" name="金利[]" 
+                                           value="{{ schedule.金利 }}" min="0" max="100" step="0.01" required>
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">備考</label>
+                                    <input type="text" class="form-control" name="備考[]" 
+                                           value="{{ schedule.備考 if schedule.備考 else '' }}" placeholder="例: 当初3年">
+                                </div>
+                                <div class="col-md-1 mb-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeSchedule(this)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="border rounded p-3 mb-3 interest-schedule-item">
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">開始年月 <span class="text-danger">*</span></label>
+                                    <input type="month" class="form-control" name="開始年月[]" 
+                                           value="{{ simulation.開始年度 }}-01" required>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">終了年月</label>
+                                    <input type="month" class="form-control" name="終了年月[]">
+                                    <div class="form-text small">空欄=最終年度まで</div>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">金利（%） <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" name="金利[]" 
+                                           value="{{ simulation.ローン金利 }}" min="0" max="100" step="0.01" required>
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="form-label">備考</label>
+                                    <input type="text" class="form-control" name="備考[]" placeholder="例: 当初3年">
+                                </div>
+                                <div class="col-md-1 mb-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeSchedule(this)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <button type="button" class="btn btn-secondary" onclick="addSchedule()">
+                    <i class="fas fa-plus"></i> 金利スケジュールを追加
+                </button>
+            </div>
+        </div>
+        
+        <!-- 保存ボタン -->
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('property.simulation_detail', simulation_id=simulation.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> 戻る
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> 保存して再計算
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function addSchedule() {
+    const container = document.getElementById('interestScheduleContainer');
+    const newSchedule = document.createElement('div');
+    newSchedule.className = 'border rounded p-3 mb-3 interest-schedule-item';
+    newSchedule.innerHTML = `
+        <div class="row">
+            <div class="col-md-3 mb-2">
+                <label class="form-label">開始年月 <span class="text-danger">*</span></label>
+                <input type="month" class="form-control" name="開始年月[]" required>
+            </div>
+            <div class="col-md-3 mb-2">
+                <label class="form-label">終了年月</label>
+                <input type="month" class="form-control" name="終了年月[]">
+                <div class="form-text small">空欄=最終年度まで</div>
+            </div>
+            <div class="col-md-3 mb-2">
+                <label class="form-label">金利（%） <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" name="金利[]" min="0" max="100" step="0.01" required>
+            </div>
+            <div class="col-md-2 mb-2">
+                <label class="form-label">備考</label>
+                <input type="text" class="form-control" name="備考[]" placeholder="例: 当初3年">
+            </div>
+            <div class="col-md-1 mb-2 d-flex align-items-end">
+                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeSchedule(this)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.appendChild(newSchedule);
+}
+
+function removeSchedule(button) {
+    const scheduleItem = button.closest('.interest-schedule-item');
+    const container = document.getElementById('interestScheduleContainer');
+    
+    // 最低1つは残す
+    if (container.children.length > 1) {
+        scheduleItem.remove();
+    } else {
+        alert('金利スケジュールは最低1つ必要です。');
+    }
+}
+</script>
+{% endblock %}

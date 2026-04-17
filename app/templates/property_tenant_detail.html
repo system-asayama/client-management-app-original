@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}入居者詳細 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>入居者詳細: {{ tenant.氏名 }}</h2>
+    <div class="card">
+        <div class="card-body">
+            <p><strong>電話番号:</strong> {{ tenant.電話番号 or '-' }}</p>
+            <p><strong>メールアドレス:</strong> {{ tenant.メールアドレス or '-' }}</p>
+        </div>
+    </div>
+    <a href="{{ url_for('property.tenant_edit', id=tenant.id) }}" class="btn btn-warning mt-3">編集</a>
+    <a href="{{ url_for('property.tenants') }}" class="btn btn-secondary mt-3">戻る</a>
+</div>
+{% endblock %}

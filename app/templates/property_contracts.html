@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}契約一覧 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>契約一覧</h2>
+    <a href="{{ url_for('property.contract_new') }}" class="btn btn-primary mb-3">新規契約</a>
+    <table class="table table-striped">
+        <thead>
+            <tr><th>物件</th><th>部屋</th><th>入居者</th><th>契約状況</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+            {% for item in contracts %}
+            <tr>
+                <td>{{ item.property.物件名 }}</td>
+                <td>{{ item.room.部屋番号 }}</td>
+                <td>{{ item.tenant_person.氏名 if item.tenant_person else '-' }}</td>
+                <td>{{ item.contract.契約状況 }}</td>
+                <td><a href="{{ url_for('property.contract_detail', id=item.contract.id) }}" class="btn btn-sm btn-info">詳細</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

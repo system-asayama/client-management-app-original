@@ -1,0 +1,774 @@
+{% extends "base.html" %}
+
+{% block title %}シミュレーション編集 - 不動産管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>シミュレーション編集</h2>
+    
+    <form method="POST" action="{{ url_for('property.simulation_edit', simulation_id=simulation.id) }}" id="simulationForm">
+        <!-- 基本情報 -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">基本情報</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="名称" class="form-label">シミュレーション名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="名称" name="名称" value="{{ simulation.名称 }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="シミュレーション種別" class="form-label">シミュレーション種別 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="シミュレーション種別" name="シミュレーション種別" required onchange="toggleSimulationType()">
+                        <option value="物件ベース" {% if simulation.シミュレーション種別 == "物件ベース" %}selected{% endif %}>物件ベース（既存物件データを使用）</option>
+                        <option value="独立" {% if simulation.シミュレーション種別 == "独立" %}selected{% endif %}>独立シミュレーション（手動入力）</option>
+                    </select>
+                    <div class="form-text">
+                        <strong>物件ベース:</strong> 登録済みの物件データから家賃収入などを自動取得します。<br>
+                        <strong>独立シミュレーション:</strong> 物件データに依存せず、すべて手動で入力します。
+                    </div>
+                </div>
+                
+                <!-- 物件ベースシミュレーション用 -->
+                <div id="propertyBasedFields">
+                    <div class="mb-3">
+                        <label for="物件id" class="form-label">対象物件</label>
+                        <select class="form-select" id="物件id" name="物件id">
+                            <option value="" {% if not simulation.物件id %}selected{% endif %}>全物件</option>
+                            {% for property in properties %}
+                            <option value="{{ property.id }}" {% if simulation.物件id == property.id %}selected{% endif %}>{{ property.物件名 }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">物件を選択しない場合、全物件の合算でシミュレーションします。</div>
+                    </div>
+                </div>
+                
+                <!-- 独立シミュレーション用 -->
+                <div id="independentFields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="年間家賃収入" class="form-label">年間家賃収入（円） <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="年間家賃収入" name="年間家賃収入" value="{{ simulation.年間家賃収入 or '' }}" min="0" step="1">
+                        <div class="form-text">満室時の年間家賃収入を入力してください。</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="部屋数" class="form-label">部屋数</label>
+                        <input type="number" class="form-control" id="部屋数" name="部屋数" value="{{ simulation.部屋数 or '' }}" min="1" step="1">
+                        <div class="form-text">参考情報として入力してください。</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="開始年度" class="form-label">開始年度 <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="開始年度" name="開始年度" value="{{ simulation.開始年度 }}" min="2000" max="2100" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="期間" class="form-label">期間（年） <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="期間" name="期間" value="{{ simulation.期間 }}" min="1" max="50" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 収入設定 -->
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">収入設定</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="稼働率" class="form-label">稼働率（%）</label>
+                    <input type="number" class="form-control" id="稼働率" name="稼働率" value="{{ simulation.稼働率 }}" min="0" max="100" step="0.01">
+                    <div class="form-text">空室率を考慮した稼働率を入力してください。</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="その他収入" class="form-label">その他収入（年間、円）</label>
+                    <input type="number" class="form-control" id="その他収入" name="その他収入" value="{{ simulation.その他収入 or 0 }}" min="0" step="1">
+                    <div class="form-text">駐車場収入、礼金、更新料などの年間合計額を入力してください。</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 経費設定 -->
+        <div class="card mb-3">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">経費設定</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="管理費率" class="form-label">管理費率（%）</label>
+                        <input type="number" class="form-control" id="管理費率" name="管理費率" value="{{ simulation.管理費率 }}" min="0" max="100" step="0.01">
+                        <div class="form-text">家賃収入に対する管理費の割合</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="修繕費率" class="form-label">修繕費率（%）</label>
+                        <input type="number" class="form-control" id="修繕費率" name="修繕費率" value="{{ simulation.修繕費率 }}" min="0" max="100" step="0.01">
+                        <div class="form-text">家賃収入に対する修繕費の割合</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="固定資産税" class="form-label">固定資産税（年間、円）</label>
+                        <input type="number" class="form-control" id="固定資産税" name="固定資産税" value="{{ simulation.固定資産税 or 0 }}" min="0" step="1">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="損害保険料" class="form-label">損害保険料（年間、円）</label>
+                        <input type="number" class="form-control" id="損害保険料" name="損害保険料" value="{{ simulation.損害保険料 or 0 }}" min="0" step="1">
+                    </div>
+                </div>
+                
+                <!-- 耐用年数自動算定 -->
+                <div class="card mb-3 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">建物情報（耐用年数自動算定）</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">建築年月、取得年月日、構造を入力すると、税法に基づいて耐用年数が自動算定されます。</p>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="建築年月" class="form-label">建築年月</label>
+                                <input type="date" class="form-control" id="建築年月" name="建築年月" onchange="calculateUsefulLifeForSimulation()">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="取得年月日_sim" class="form-label">取得年月日</label>
+                                <input type="date" class="form-control" id="取得年月日_sim" name="取得年月日_sim" onchange="calculateUsefulLifeForSimulation()">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="構造_sim" class="form-label">構造</label>
+                                <select class="form-select" id="構造_sim" name="構造_sim" onchange="calculateUsefulLifeForSimulation()">
+                                    <option value="">選択してください</option>
+                                    <option value="RC造">RC造（鉄筋コンクリート造）- 耐用47年</option>
+                                    <option value="重量鉄骨造">重量鉄骨造 - 耐用34年</option>
+                                    <option value="軽量鉄骨造（肉厚3mm超3mm超）">軽量鉄骨造（肉厚3mm超3mm超）- 耐用27年</option>
+                                    <option value="軽量鉄骨造（肉厚3mm以下）">軽量鉄骨造（肉厚3mm以下）- 耐用19年</option>
+                                    <option value="木造">木造 - 耐用22年</option>
+                                    <option value="その他">その他</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>算定結果:</strong> 
+                            <span id="耐用年数算定結果">建築年月、取得年月日、構造を入力すると耐用年数が表示されます</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 減価償却設定 -->
+                <div class="card mb-3 border-info">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">減価償却設定</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">建物、建物付属設備、構築物と3つに分けて設定します。取得価額と耐用年数を入力すると、減価償却費が自動計算されます。</p>
+                        
+                        <!-- 建物部分 -->
+                        <div class="border rounded p-3 mb-3 bg-light">
+                            <h6 class="text-primary">建物部分</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="建物_取得価額" class="form-label">取得価額（円）</label>
+                                    <input type="number" class="form-control" id="建物_取得価額" name="建物_取得価額" value="{{ simulation.建物_取得価額 or 0 }}" min="0" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label for="建物_耐用年数" class="form-label">耐用年数（年）</label>
+                                    <input type="number" class="form-control" id="建物_耐用年数" name="建物_耐用年数" value="{{ simulation.建物_耐用年数 or 47 }}" min="1" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                    <div class="form-text small">RC造:47年</div>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label for="建物_償却方法" class="form-label">償却方法</label>
+                                    <select class="form-select" id="建物_償却方法" name="建物_償却方法" onchange="calculateDepreciation()">
+                                        <option value="定額法" {% if simulation.建物_償却方法 == "定額法" or not simulation.建物_償却方法 %}selected{% endif %}>定額法</option>
+                                        <option value="定率法" {% if simulation.建物_償却方法 == "定率法" %}selected{% endif %}>定率法</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="建物_残存価額" class="form-label">残存価額（円）</label>
+                                    <input type="number" class="form-control" id="建物_残存価額" name="建物_残存価額" value="{{ simulation.建物_残存価額 or 0 }}" min="0" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                    <div class="form-text small">通常は0円（平成19年以降の取得資産）</div>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">年間減価償却費（自動計算）</label>
+                                    <input type="text" class="form-control bg-light" id="建物_減価償却費_表示" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 建物付属設備 -->
+                        <div class="border rounded p-3 mb-3 bg-light">
+                            <h6 class="text-success">建物付属設備（電気・給排水・冷暖房設備など）</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="付属設備_取得価額" class="form-label">取得価額（円）</label>
+                                    <input type="number" class="form-control" id="付属設備_取得価額" name="付属設備_取得価額" value="{{ simulation.付属設備_取得価額 or 0 }}" min="0" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label for="付属設備_耐用年数" class="form-label">耐用年数（年）</label>
+                                    <input type="number" class="form-control" id="付属設備_耐用年数" name="付属設備_耐用年数" value="{{ simulation.付属設備_耐用年数 or 15 }}" min="1" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                    <div class="form-text small">標準:15年</div>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label for="付属設備_償却方法" class="form-label">償却方法</label>
+                                    <select class="form-select" id="付属設備_償却方法" name="付属設備_償却方法" onchange="calculateDepreciation()">
+                                        <option value="定額法" {% if simulation.付属設備_償却方法 == "定額法" or not simulation.付属設備_償却方法 %}selected{% endif %}>定額法</option>
+                                        <option value="定率法" {% if simulation.付属設備_償却方法 == "定率法" %}selected{% endif %}>定率法</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="付属設備_残存価額" class="form-label">残存価額（円）</label>
+                                    <input type="number" class="form-control" id="付属設備_残存価額" name="付属設備_残存価額" value="{{ simulation.付属設備_残存価額 or 0 }}" min="0" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">年間減価償却費（自動計算）</label>
+                                    <input type="text" class="form-control bg-light" id="付属設備_減価償却費_表示" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 構築物 -->
+                        <div class="border rounded p-3 mb-3 bg-light">
+                            <h6 class="text-warning">構築物（舗装・門・塁など）</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="構築物_取得価額" class="form-label">取得価額（円）</label>
+                                    <input type="number" class="form-control" id="構築物_取得価額" name="構築物_取得価額" value="{{ simulation.構築物_取得価額 or 0 }}" min="0" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label for="構築物_耐用年数" class="form-label">耐用年数（年）</label>
+                                    <input type="number" class="form-control" id="構築物_耐用年数" name="構築物_耐用年数" value="{{ simulation.構築物_耐用年数 or 20 }}" min="1" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                    <div class="form-text small">標準:20年</div>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label for="構築物_償却方法" class="form-label">償却方法</label>
+                                    <select class="form-select" id="構築物_償却方法" name="構築物_償却方法" onchange="calculateDepreciation()">
+                                        <option value="定額法" {% if simulation.構築物_償却方法 == "定額法" or not simulation.構築物_償却方法 %}selected{% endif %}>定額法</option>
+                                        <option value="定率法" {% if simulation.構築物_償却方法 == "定率法" %}selected{% endif %}>定率法</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label for="構築物_残存価額" class="form-label">残存価額（円）</label>
+                                    <input type="number" class="form-control" id="構築物_残存価額" name="構築物_残存価額" value="{{ simulation.構築物_残存価額 or 0 }}" min="0" step="1" oninput="calculateDepreciation()" onchange="calculateDepreciation()">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">年間減価償却費（自動計算）</label>
+                                    <input type="text" class="form-control bg-light" id="構築物_減価償却費_表示" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 合計 -->
+                        <div class="alert alert-info mb-0">
+                            <strong>年間減価償却費合計:</strong> <span id="減価償却費_合計_表示" class="fs-5">0円</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="その他経費" class="form-label">その他経費（年間、円）</label>
+                    <input type="number" class="form-control" id="その他経費" name="その他経費" value="{{ simulation.その他経費 or 0 }}" min="0" step="1">
+                    <div class="form-text">水道光熱費、通信費、交通費などの年間合計額を入力してください。</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ローン設定 -->
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">ローン設定</h5>
+            </div>
+            <div class="card-body">
+                <!-- ローン計算モード選択 -->
+                <div class="mb-4">
+                    <label for="ローン計算モード" class="form-label"><strong>ローン計算モード</strong> <span class="text-danger">*</span></label>
+                    <select class="form-select" id="ローン計算モード" name="ローン計算モード" onchange="toggleLoanMode()" required>
+                        <option value="1" {% if not simulation.ローン計算モード or simulation.ローン計算モード == 1 %}selected{% endif %}>簡易モード（毎年同じ返済額・金利）</option>
+                        <option value="2" {% if simulation.ローン計算モード == 2 %}selected{% endif %}>詳細モード（借入日・返済日・金利変動に対応）</option>
+                    </select>
+                    <div class="form-text">
+                        <strong>簡易モード:</strong> 入力が簡単、毎年同じ返済額で計算<br>
+                        <strong>詳細モード:</strong> 借入日、返済日、金利変動、据置期間などを詳細に設定可能
+                    </div>
+                </div>
+                
+                <!-- 簡易モード用フィールド -->
+                <div id="simpleLoanFields">
+                    <div class="alert alert-info">
+                        <i class="fas fa-calculator"></i> <strong>ローン返済額自動計算</strong>
+                        <p class="mb-0">以下の情報を入力すると、年間返済額が自動計算されます。</p>
+                    </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="借入金額" class="form-label">借入金額（円）</label>
+                        <input type="number" class="form-control" id="借入金額" name="借入金額" value="{{ simulation.借入金額 or '' }}" min="0" step="1" onchange="calculateLoanPayment()">
+                        <div class="form-text">ローンの総借入金額</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="返済期間_年" class="form-label">返済期間（年）</label>
+                        <input type="number" class="form-control" id="返済期間_年" name="返済期間_年" value="{{ simulation.返済期間_年 or '' }}" min="1" max="50" step="1" onchange="calculateLoanPayment()">
+                        <div class="form-text">例: 35年</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="返済方法" class="form-label">返済方法</label>
+                        <select class="form-select" id="返済方法" name="返済方法" onchange="calculateLoanPayment()">
+                            <option value="">選択してください</option>
+                            <option value="元利均等" {% if simulation.返済方法 == '元利均等' %}selected{% endif %}>元利均等返済</option>
+                            <option value="元金均等" {% if simulation.返済方法 == '元金均等' %}selected{% endif %}>元金均等返済</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>元利均等:</strong> 毎月の返済額が一定<br>
+                            <strong>元金均等:</strong> 元金部分が一定、利息が逓減
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="返済開始日" class="form-label">返済開始日</label>
+                        <input type="date" class="form-control" id="返済開始日" name="返済開始日" value="{{ simulation.返済開始日 or '' }}">
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <!-- ローン情報（手動入力または自動計算結果） -->
+                <div class="mb-3">
+                    <label for="ローン残高" class="form-label">ローン残高（円）</label>
+                    <input type="number" class="form-control" id="ローン残高" name="ローン残高" value="{{ simulation.ローン残高 or 0 }}" min="0" step="1" readonly>
+                    <div class="form-text">借入金額を入力すると自動設定されます</div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="ローン金利" class="form-label">ローン金利（%）</label>
+                        <input type="number" class="form-control" id="ローン金利" name="ローン金利" value="{{ simulation.ローン金利 or 0 }}" min="0" max="100" step="0.01" onchange="calculateLoanPayment()">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="ローン年間返済額" class="form-label">ローン年間返済額（円） <span class="badge bg-success">自動計算</span></label>
+                        <input type="number" class="form-control" id="ローン年間返済額" name="ローン年間返済額" value="{{ simulation.ローン年間返済額 or 0 }}" min="0" step="1" readonly>
+                        <div class="form-text">元本+利息の合計額（自動計算）</div>
+                    </div>
+                </div>
+                
+                <!-- 元本と利息の内訳 -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="年間元本返済額" class="form-label">└─ 元本返済額（円/年）</label>
+                        <input type="text" class="form-control bg-light" id="年間元本返済額" readonly>
+                        <div class="form-text">初年度の元本返済額</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="年間利息支払額" class="form-label">└─ 利息支払額（円/年）</label>
+                        <input type="text" class="form-control bg-light" id="年間利息支払額" readonly>
+                        <div class="form-text">初年度の利息支払額</div>
+                    </div>
+                </div>
+                </div>
+                
+                <!-- 詳細モード用フィールド -->
+                <div id="detailLoanFields" style="display: none;">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle"></i> <strong>詳細モード</strong>
+                        <p class="mb-0">借入日、返済日、金利変動などを詳細に設定できます。シミュレーション保存後、詳細設定ページで追加設定が可能です。</p>
+                    </div>
+                    
+                    <!-- 基本情報 -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="借入金額_詳細" class="form-label">借入金額（円） <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="借入金額_詳細" name="借入金額_詳細" value="{{ simulation.借入金額 or '' }}" min="0" step="1">
+                            <div class="form-text">ローンの総借入金額</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="返済期間_年_詳細" class="form-label">返済期間（年） <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="返済期間_年_詳細" name="返済期間_年_詳細" value="{{ simulation.返済期間_年 or '' }}" min="1" max="50" step="1">
+                            <div class="form-text">例: 35年</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 返済方法 -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="返済方法_詳細" class="form-label">返済方法 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="返済方法_詳細" name="返済方法">
+                                <option value="">選択してください</option>
+                                <option value="元利均等" {% if simulation.返済方法 == '元利均等' %}selected{% elif not simulation.返済方法 %}selected{% endif %}>元利均等返済</option>
+                                <option value="元金均等" {% if simulation.返済方法 == '元金均等' %}selected{% endif %}>元金均等返済</option>
+                            </select>
+                            <div class="form-text">
+                                <strong>元利均等:</strong> 毎月の返済額が一定<br>
+                                <strong>元金均等:</strong> 毎月の元金返済額が一定（利息は減少）
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 借入日・返済日 -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="借入日" class="form-label">借入日 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="借入日" name="借入日" value="{% if loan_condition %}{{ loan_condition.借入日 }}{% endif %}">
+                            <div class="form-text">ローン契約日・融資実行日</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="返済日" class="form-label">返済日（毎月） <span class="text-danger">*</span></label>
+                            <select class="form-select" id="返済日" name="返済日">
+                                <option value="">選択してください</option>
+                                <option value="1" {% if loan_condition and loan_condition.返済日 == 1 %}selected{% endif %}>1日</option>
+                                <option value="5" {% if loan_condition and loan_condition.返済日 == 5 %}selected{% endif %}>5日</option>
+                                <option value="10" {% if loan_condition and loan_condition.返済日 == 10 %}selected{% endif %}>10日</option>
+                                <option value="15" {% if loan_condition and loan_condition.返済日 == 15 %}selected{% endif %}>15日</option>
+                                <option value="20" {% if loan_condition and loan_condition.返済日 == 20 %}selected{% endif %}>20日</option>
+                                <option value="25" {% if loan_condition and loan_condition.返済日 == 25 %}selected{% endif %}>25日</option>
+                                <option value="27" {% if loan_condition and loan_condition.返済日 == 27 %}selected{% endif %}>27日</option>
+                                <option value="末日" {% if loan_condition and loan_condition.返済日 == '末日' %}selected{% endif %}>末日</option>
+                            </select>
+                            <div class="form-text">毎月の返済日</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="返済開始年月" class="form-label">返済開始年月 <span class="text-danger">*</span></label>
+                            <input type="month" class="form-control" id="返済開始年月" name="返済開始年月" value="{% if loan_condition %}{{ loan_condition.返済開始年月 }}{% endif %}">
+                            <div class="form-text">初回返済の年月</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 据置期間・初回利息支払方法 -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="据置期間終了年月" class="form-label">据置期間終了年月</label>
+                            <input type="month" class="form-control" id="据置期間終了年月" name="据置期間終了年月" value="{% if loan_condition and loan_condition.据置期間終了年月 %}{{ loan_condition.据置期間終了年月 }}{% endif %}">
+                            <div class="form-text">据置期間がある場合のみ入力（元本返済猶予期間）</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="初回利息支払方法" class="form-label">初回利息支払方法 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="初回利息支払方法" name="初回利息支払方法">
+                                <option value="1" {% if not loan_condition or loan_condition.初回利息支払方法 == 1 %}selected{% endif %}>初回返済時にまとめて支払う</option>
+                                <option value="2" {% if loan_condition and loan_condition.初回利息支払方法 == 2 %}selected{% endif %}>借入月末に利息のみ支払う</option>
+                                <option value="3" {% if loan_condition and loan_condition.初回利息支払方法 == 3 %}selected{% endif %}>利息は無視する</option>
+                            </select>
+                            <div class="form-text">借入日から初回返済日までの利息の扱い</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 金利設定 -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="ローン金利_詳細" class="form-label">初期金利（%） <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="ローン金利_詳細" name="ローン金利_詳細" value="{{ simulation.ローン金利 or 0 }}" min="0" max="100" step="0.01">
+                            <div class="form-text">初期の金利を設定してください。金利変動がある場合は、保存後に詳細設定ページで追加できます。</div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-arrow-right"></i> 金利変動がある場合は、保存後に「ローン詳細設定」ページで期間ごとの金利を追加設定できます。
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        function calculateLoanPayment() {
+            const principal = parseFloat(document.getElementById('借入金額').value) || 0;
+            const rate = parseFloat(document.getElementById('ローン金利').value) || 0;
+            const years = parseInt(document.getElementById('返済期間_年').value) || 0;
+            const method = document.getElementById('返済方法').value;
+            
+            if (principal > 0 && years > 0 && method) {
+                let annualPayment = 0;
+                let annualPrincipalPayment = 0;
+                let annualInterestPayment = 0;
+                
+                if (method === '元利均等') {
+                    // 元利均等返済
+                    if (rate === 0) {
+                        annualPayment = principal / years;
+                        annualPrincipalPayment = annualPayment;
+                        annualInterestPayment = 0;
+                    } else {
+                        const monthlyRate = rate / 100 / 12;
+                        const months = years * 12;
+                        const monthlyPayment = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
+                        
+                        // 初年度の元本と利息を計算
+                        let remainingPrincipal = principal;
+                        for (let month = 0; month < 12; month++) {
+                            const monthlyInterest = remainingPrincipal * monthlyRate;
+                            const monthlyPrincipal = monthlyPayment - monthlyInterest;
+                            annualPrincipalPayment += monthlyPrincipal;
+                            annualInterestPayment += monthlyInterest;
+                            remainingPrincipal -= monthlyPrincipal;
+                        }
+                        
+                        annualPayment = monthlyPayment * 12;
+                    }
+                } else if (method === '元金均等') {
+                    // 元金均等返済（初年度）
+                    const months = years * 12;
+                    const monthlyRate = rate / 100 / 12;
+                    const monthlyPrincipal = principal / months;
+                    
+                    let annualTotal = 0;
+                    let remainingPrincipal = principal;
+                    
+                    for (let month = 0; month < 12; month++) {
+                        const monthlyInterest = remainingPrincipal * monthlyRate;
+                        annualTotal += monthlyPrincipal + monthlyInterest;
+                        annualPrincipalPayment += monthlyPrincipal;
+                        annualInterestPayment += monthlyInterest;
+                        remainingPrincipal -= monthlyPrincipal;
+                    }
+                    
+                    annualPayment = annualTotal;
+                }
+                
+                document.getElementById('ローン年間返済額').value = Math.round(annualPayment);
+                document.getElementById('ローン残高').value = Math.round(principal);
+                document.getElementById('年間元本返済額').value = Math.round(annualPrincipalPayment).toLocaleString();
+                document.getElementById('年間利息支払額').value = Math.round(annualInterestPayment).toLocaleString();
+            }
+        }
+        
+        // ページ読み込み時に内訳を計算
+        window.addEventListener('DOMContentLoaded', function() {
+            calculateLoanPayment();
+        });
+        </script>
+        
+        <!-- 税金設定 -->
+        <div class="card mb-3">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">税金設定</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="その他所得" class="form-label">その他所得（年間、円）</label>
+                    <input type="number" class="form-control" id="その他所得" name="その他所得" value="{{ simulation.その他所得 or 0 }}" min="0" step="1">
+                    <div class="form-text">給与所得など、不動産所得以外の所得を入力してください。</div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <strong>税率について:</strong><br>
+                    税率は所得金額に応じて自動計算されます。<br>
+                    <small>
+                        • 195万円以下: 15%<br>
+                        • 195万円超〜330万円以下: 20%<br>
+                        • 330万円超〜695万円以下: 30%<br>
+                        • 695万円超〜900万円以下: 33%<br>
+                        • 900万円超〜1,800万円以下: 43%<br>
+                        • 1,800万円超〜4,000万円以下: 50%<br>
+                        • 4,000万円超: 55%
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{{ url_for('property.simulations') }}" class="btn btn-secondary">キャンセル</a>
+            <button type="submit" class="btn btn-primary">シミュレーションを更新</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleLoanMode() {
+    const loanMode = document.getElementById('ローン計算モード').value;
+    const simpleLoanFields = document.getElementById('simpleLoanFields');
+    const detailLoanFields = document.getElementById('detailLoanFields');
+    
+    if (loanMode === '2') {
+        // 詳細モード
+        simpleLoanFields.style.display = 'none';
+        detailLoanFields.style.display = 'block';
+    } else {
+        // 簡易モード
+        simpleLoanFields.style.display = 'block';
+        detailLoanFields.style.display = 'none';
+    }
+}
+
+function toggleSimulationType() {
+    const simulationType = document.getElementById('シミュレーション種別').value;
+    const propertyBasedFields = document.getElementById('propertyBasedFields');
+    const independentFields = document.getElementById('independentFields');
+    const 年間家賃収入Input = document.getElementById('年間家賃収入');
+    
+    if (simulationType === '独立') {
+        // 独立シミュレーション
+        propertyBasedFields.style.display = 'none';
+        independentFields.style.display = 'block';
+        年間家賃収入Input.required = true;
+        document.getElementById('物件id').value = '';
+    } else {
+        // 物件ベース
+        propertyBasedFields.style.display = 'block';
+        independentFields.style.display = 'none';
+        年間家賃収入Input.required = false;
+        document.getElementById('年間家賃収入').value = '';
+        document.getElementById('部屋数').value = '';
+    }
+}
+
+// 耐用年数を自動算定
+function calculateUsefulLifeForSimulation() {
+    const constructionDate = document.getElementById('建築年月').value;
+    const acquisitionDate = document.getElementById('取得年月日_sim').value;
+    const structure = document.getElementById('構造_sim').value;
+    const resultSpan = document.getElementById('耐用年数算定結果');
+    const usefulLifeInput = document.getElementById('建物_耐用年数');
+    
+    // すべての入力が揃っていない場合
+    if (!constructionDate || !acquisitionDate || !structure) {
+        resultSpan.textContent = '建築年月、取得年月日、構造を入力すると耐用年数が表示されます';
+        return;
+    }
+    
+    // 法定耐用年数（構造別）
+    const LEGAL_USEFUL_LIFE = {
+        'RC造': 47,
+        '重量鉄骨造': 34,
+        '軽量鉄骨造（肉厚3mm超3mm超）': 27,
+        '軽量鉄骨造（肉厚3mm以下）': 19,
+        '木造': 22
+    };
+    
+    // 法定耐用年数を取得
+    const legalLife = LEGAL_USEFUL_LIFE[structure];
+    if (!legalLife) {
+        resultSpan.textContent = '構造が不明なため、耐用年数を算定できません';
+        return;
+    }
+    
+    // 日付をDateオブジェクトに変換
+    const construction = new Date(constructionDate);
+    const acquisition = new Date(acquisitionDate);
+    
+    // 取得年月日が建築年月より前の場合はエラー
+    if (acquisition < construction) {
+        resultSpan.innerHTML = '<span class="text-danger">取得年月日は建築年月より後である必要があります</span>';
+        return;
+    }
+    
+    // 経過月数を計算
+    const elapsedMonths = (acquisition.getFullYear() - construction.getFullYear()) * 12 + (acquisition.getMonth() - construction.getMonth());
+    
+    // 経過年数を計算（月単位で計算し、1年未満切り捨て）
+    const elapsedYears = Math.floor(elapsedMonths / 12);
+    
+    let usefulLife;
+    let method;
+    
+    // 新築 or 中古を判定
+    if (elapsedYears < 1) {
+        // 新築の場合
+        usefulLife = legalLife;
+        method = '新築';
+    } else {
+        // 中古の場合（簡便法）
+        // 月単位で計算し、1年未満切り捨て
+        let usefulLifeMonths;
+        if (elapsedYears >= legalLife) {
+            // 法定耐用年数の全部を経過している場合
+            usefulLifeMonths = Math.floor(legalLife * 12 * 0.2);
+        } else {
+            // 法定耐用年数の一部を経過している場合
+            usefulLifeMonths = Math.floor((legalLife * 12 - elapsedMonths) + elapsedMonths * 0.2);
+        }
+        
+        // 月単位を年単位に変換（1年未満切り捨て）
+        usefulLife = Math.floor(usefulLifeMonths / 12);
+        
+        // 最低2年
+        usefulLife = Math.max(usefulLife, 2);
+        method = '中古（簡便法）';
+    }
+    
+    // 結果を表示
+    resultSpan.innerHTML = `<strong class="text-success">耐用年数: ${usefulLife}年</strong> <span class="text-muted">(算定方法: ${method}, 経過年数: ${elapsedYears}年)</span>`;
+    
+    // 建物_耐用年数フィールドに設定
+    usefulLifeInput.value = usefulLife;
+    
+    // 減価償却費を再計算
+    calculateDepreciation();
+}
+
+// 減価償却費を自動計算
+function calculateDepreciation() {
+    // 建物部分
+    const 建物_取得価額 = parseFloat(document.getElementById('建物_取得価額').value) || 0;
+    const 建物_耐用年数 = parseInt(document.getElementById('建物_耐用年数').value) || 1;
+    const 建物_償却方法 = document.getElementById('建物_償却方法').value;
+    const 建物_残存価額 = parseFloat(document.getElementById('建物_残存価額').value) || 0;
+    
+    let 建物_減価償却費 = 0;
+    if (建物_取得価額 > 0) {
+        if (建物_償却方法 === '定額法') {
+            建物_減価償却費 = (建物_取得価額 - 建物_残存価額) / 建物_耐用年数;
+        } else if (建物_償却方法 === '定率法') {
+            const 償却率 = 2.0 / 建物_耐用年数;
+            建物_減価償却費 = 建物_取得価額 * 償却率; // 初年度のみ
+        }
+    }
+    
+    // 建物付属設備
+    const 付属設備_取得価額 = parseFloat(document.getElementById('付属設備_取得価額').value) || 0;
+    const 付属設備_耐用年数 = parseInt(document.getElementById('付属設備_耐用年数').value) || 1;
+    const 付属設備_償却方法 = document.getElementById('付属設備_償却方法').value;
+    const 付属設備_残存価額 = parseFloat(document.getElementById('付属設備_残存価額').value) || 0;
+    
+    let 付属設備_減価償却費 = 0;
+    if (付属設備_取得価額 > 0) {
+        if (付属設備_償却方法 === '定額法') {
+            付属設備_減価償却費 = (付属設備_取得価額 - 付属設備_残存価額) / 付属設備_耐用年数;
+        } else if (付属設備_償却方法 === '定率法') {
+            const 償却率 = 2.0 / 付属設備_耐用年数;
+            付属設備_減価償却費 = 付属設備_取得価額 * 償却率;
+        }
+    }
+    
+    // 構築物
+    const 構築物_取得価額 = parseFloat(document.getElementById('構築物_取得価額').value) || 0;
+    const 構築物_耐用年数 = parseInt(document.getElementById('構築物_耐用年数').value) || 1;
+    const 構築物_償却方法 = document.getElementById('構築物_償却方法').value;
+    const 構築物_残存価額 = parseFloat(document.getElementById('構築物_残存価額').value) || 0;
+    
+    let 構築物_減価償却費 = 0;
+    if (構築物_取得価額 > 0) {
+        if (構築物_償却方法 === '定額法') {
+            構築物_減価償却費 = (構築物_取得価額 - 構築物_残存価額) / 構築物_耐用年数;
+        } else if (構築物_償却方法 === '定率法') {
+            const 償却率 = 2.0 / 構築物_耐用年数;
+            構築物_減価償却費 = 構築物_取得価額 * 償却率;
+        }
+    }
+    
+    // 合計
+    const 合計 = 建物_減価償却費 + 付属設備_減価償却費 + 構築物_減価償却費;
+    
+    // 表示更新
+    document.getElementById('建物_減価償却費_表示').value = 建物_減価償却費.toLocaleString('ja-JP') + '円';
+    document.getElementById('付属設備_減価償却費_表示').value = 付属設備_減価償却費.toLocaleString('ja-JP') + '円';
+    document.getElementById('構築物_減価償却費_表示').value = 構築物_減価償却費.toLocaleString('ja-JP') + '円';
+    document.getElementById('減価償却費_合計_表示').textContent = 合計.toLocaleString('ja-JP') + '円';
+}
+
+// ページ読み込み時に初期状態を設定
+document.addEventListener('DOMContentLoaded', function() {
+    toggleSimulationType();
+    toggleLoanMode();
+    calculateDepreciation();
+});
+</script>
+{% endblock %}

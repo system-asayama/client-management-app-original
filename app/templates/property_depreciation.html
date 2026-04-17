@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}減価償却一覧 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>減価償却一覧</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr><th>物件名</th><th>取得価額</th><th>耐用年数</th><th>償却方法</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+            {% for item in depreciation_list %}
+            <tr>
+                <td>{{ item.property.物件名 }}</td>
+                <td>¥{{ "{:,.0f}".format(item.property.取得価額) if item.property.取得価額 else '-' }}</td>
+                <td>{{ item.property.耐用年数 or '-' }}年</td>
+                <td>{{ item.property.償却方法 or '-' }}</td>
+                <td><a href="{{ url_for('property.depreciation_detail', property_id=item.property.id) }}" class="btn btn-sm btn-info">詳細</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

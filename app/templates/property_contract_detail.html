@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}契約詳細 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>契約詳細</h2>
+    <div class="card">
+        <div class="card-body">
+            <p><strong>物件:</strong> {{ property.物件名 }}</p>
+            <p><strong>部屋:</strong> {{ room.部屋番号 }}</p>
+            <p><strong>入居者:</strong> {{ tenant_person.氏名 if tenant_person else '-' }}</p>
+            <p><strong>契約開始日:</strong> {{ contract.契約開始日.strftime('%Y年%m月%d日') if contract.契約開始日 else '-' }}</p>
+            <p><strong>月額賃料:</strong> ¥{{ "{:,.0f}".format(contract.月額賃料) if contract.月額賃料 else '-' }}</p>
+            <p><strong>契約状況:</strong> {{ contract.契約状況 }}</p>
+        </div>
+    </div>
+    <a href="{{ url_for('property.contract_edit', id=contract.id) }}" class="btn btn-warning mt-3">編集</a>
+    {% if contract.契約状況 == '契約中' %}
+    <form method="POST" action="{{ url_for('property.contract_terminate', id=contract.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-danger mt-3" onclick="return confirm('契約を終了しますか？');">契約終了</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('property.contracts') }}" class="btn btn-secondary mt-3">戻る</a>
+</div>
+{% endblock %}

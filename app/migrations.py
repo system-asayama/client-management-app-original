@@ -31,7 +31,6 @@ def add_column_if_not_exists(db, table_name, column_name, column_definition):
     """カラムが存在しない場合は追加（PostgreSQL用）"""
     try:
         if not check_column_exists(db, table_name, column_name):
-            # PostgreSQLではダブルクォートを使用し、AFTER句は使用しない
             sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{column_name}" {column_definition}'
             logger.info(f"カラムを追加: {table_name}.{column_name}")
             db.execute(text(sql))
@@ -98,7 +97,6 @@ def run_migrations():
         # T_従業員_店舗テーブルを作成
         create_employee_store_table(db)
         # T_店舗テーブルに新しいカラムを追加
-        # PostgreSQLでは AFTER 句を使わず、カラムは末尾に追加される
         migrations = [
             ("T_店舗", "郵便番号", "VARCHAR(10) NULL"),
             ("T_店舗", "住所", "VARCHAR(500) NULL"),
@@ -106,25 +104,20 @@ def run_migrations():
             ("T_店舗", "email", "VARCHAR(255) NULL"),
             ("T_店舗", "openai_api_key", "VARCHAR(255) NULL"),
             ("T_店舗", "updated_at", "TIMESTAMP NULL"),
-            # T_管理者_店舗テーブルにオーナーと管理権限カラムを追加
             ("T_管理者_店舗", "is_owner", "INTEGER DEFAULT 0"),
             ("T_管理者_店舗", "can_manage_admins", "INTEGER DEFAULT 0"),
-            # T_テナントテーブルに設定カラムを追加
             ("T_テナント", "google_vision_api_key", "TEXT NULL"),
             ("T_テナント", "google_api_key", "TEXT NULL"),
             ("T_テナント", "anthropic_api_key", "TEXT NULL"),
             ("T_テナント", "ai_model", "VARCHAR(50) DEFAULT 'gemini-1.5-flash'"),
-            # T_店舗テーブルにも追加
             ("T_店舗", "google_vision_api_key", "TEXT NULL"),
             ("T_店舗", "google_api_key", "TEXT NULL"),
             ("T_店舗", "anthropic_api_key", "TEXT NULL"),
             ("T_店舗", "ai_model", "VARCHAR(50) DEFAULT 'gemini-1.5-flash'"),
-            # T_アプリ管理者グループテーブルにAPIキーカラムを追加
             ("T_アプリ管理者グループ", "openai_api_key", "TEXT NULL"),
             ("T_アプリ管理者グループ", "google_vision_api_key", "TEXT NULL"),
             ("T_アプリ管理者グループ", "google_api_key", "TEXT NULL"),
             ("T_アプリ管理者グループ", "anthropic_api_key", "TEXT NULL"),
-            # T_管理者テーブルにAPIキーカラムを追加
             ("T_管理者", "google_vision_api_key", "TEXT NULL"),
             ("T_管理者", "google_api_key", "TEXT NULL"),
             ("T_管理者", "anthropic_api_key", "TEXT NULL"),
@@ -145,6 +138,9 @@ def run_migrations():
 
         # 定款作成テーブルのマイグレーション
         migrate_teikan_table(db)
+
+        # 不動産マネジメントテーブルのマイグレーション
+        migrate_property_tables(db)
             
     except Exception as e:
         logger.error(f"マイグレーション実行エラー: {e}")
@@ -158,18 +154,15 @@ def migrate_store_admins_data(db):
     try:
         logger.info("店舗管理者データ移行開始")
         
-        # まず、中間テーブルに既にデータがあるか確認
         result = db.execute(text(
             'SELECT COUNT(*) FROM "T_管理者_店舗"'
         ))
         existing_count = result.scalar()
         logger.info(f"DEBUG: T_管理者_店舗テーブルの既存データ数: {existing_count}")
         
-        # 既存データがある場合、直接オーナー設定に進む
         if existing_count > 0:
             logger.info("中間テーブルに既にデータが存在するので、オーナー設定のみ実行します")
         else:
-            # 中間テーブルが空の場合、T_管理者テーブルから店舗管理者を取得して登録
             result = db.execute(text(
                 'SELECT "id", "tenant_id" FROM "T_管理者" WHERE "role" = \'admin\''
             ))
@@ -183,7 +176,6 @@ def migrate_store_admins_data(db):
                 logger.info(f"DEBUG: 処理中 admin_id={admin_id}, tenant_id={tenant_id}")
                 
                 try:
-                    # このテナントの店舗を取得
                     result = db.execute(text(
                         'SELECT "id" FROM "T_店舗" WHERE "tenant_id" = :tenant_id'
                     ), {"tenant_id": tenant_id})
@@ -194,30 +186,23 @@ def migrate_store_admins_data(db):
                         store_id = store[0]
                         logger.info(f"DEBUG: 店舗 store_id={store_id} を処理中")
                         
-                        # 中間テーブルに既に登録されているか確認
                         result = db.execute(text(
                             'SELECT COUNT(*) FROM "T_管理者_店舗" '
                             'WHERE "admin_id" = :admin_id AND "store_id" = :store_id'
                         ), {"admin_id": admin_id, "store_id": store_id})
                         exists = result.scalar()
-                        logger.info(f"DEBUG: admin_id={admin_id}, store_id={store_id} の存在チェック: exists={exists}")
                         
                         if exists == 0:
-                            # 中間テーブルに登録
                             logger.info(f"店舗管理者 admin_id={admin_id} を店舗 store_id={store_id} に登録します")
                             db.execute(text(
                                 'INSERT INTO "T_管理者_店舗" ("admin_id", "store_id", "is_owner", "can_manage_admins", "active") '
                                 'VALUES (:admin_id, :store_id, 0, 0, 1)'
                             ), {"admin_id": admin_id, "store_id": store_id})
                             db.commit()
-                            logger.info(f"DEBUG: 登録完了 admin_id={admin_id}, store_id={store_id}")
-                        else:
-                            logger.info(f"DEBUG: スキップ (既に登録済み) admin_id={admin_id}, store_id={store_id}")
                 except Exception as e:
                     logger.error(f"ERROR: admin_id={admin_id} の処理中にエラー: {e}")
                     db.rollback()
         
-        # T_管理者_店舗テーブルに既存データがあるか確認
         result = db.execute(text(
             'SELECT COUNT(*) FROM "T_管理者_店舗"'
         ))
@@ -226,35 +211,25 @@ def migrate_store_admins_data(db):
         if count > 0:
             logger.info(f"中間テーブルに既に{count}件のデータが存在します")
             
-            # 各店舗でオーナーが設定されているか確認
             result = db.execute(text(
                 'SELECT DISTINCT "store_id" FROM "T_管理者_店舗"'
             ))
             store_ids = [row[0] for row in result.fetchall()]
             
             for store_id in store_ids:
-                logger.info(f"DEBUG: 店舗ID {store_id} のオーナーチェック開始")
-                
                 try:
-                    # この店舗にオーナーがいるか確認
                     result = db.execute(text(
                         'SELECT COUNT(*) FROM "T_管理者_店舗" '
                         'WHERE "store_id" = :store_id AND "is_owner" = 1'
                     ), {"store_id": store_id})
                     owner_count = result.scalar()
-                    logger.info(f"DEBUG: 店舗ID {store_id} のオーナー数: {owner_count}")
                     
                     if owner_count == 0:
-                        # オーナーがいない場合、最初の管理者をオーナーに設定
-                        logger.info(f"店舗ID {store_id} にオーナーを設定します")
-                        
-                        # 最初の管理者IDを取得
                         result = db.execute(text(
                             'SELECT MIN("admin_id") FROM "T_管理者_店舗" '
                             'WHERE "store_id" = :store_id'
                         ), {"store_id": store_id})
                         first_admin_id = result.scalar()
-                        logger.info(f"DEBUG: 店舗ID {store_id} の最初の管理者ID: {first_admin_id}")
                         
                         if first_admin_id:
                             db.execute(text(
@@ -263,11 +238,6 @@ def migrate_store_admins_data(db):
                                 'WHERE "store_id" = :store_id AND "admin_id" = :admin_id'
                             ), {"store_id": store_id, "admin_id": first_admin_id})
                             db.commit()
-                            logger.info(f"店舗ID {store_id} のオーナー設定完了 (admin_id={first_admin_id})")
-                        else:
-                            logger.warning(f"WARNING: 店舗ID {store_id} に管理者がいません")
-                    else:
-                        logger.info(f"DEBUG: 店舗ID {store_id} には既にオーナーがいます")
                 except Exception as e:
                     logger.error(f"ERROR: 店舗ID {store_id} のオーナー設定中にエラー: {e}")
                     db.rollback()
@@ -301,10 +271,169 @@ def migrate_teikan_table(db):
             db.commit()
             logger.info("T_定款テーブル作成完了")
         else:
-            # store_idカラムが存在するか確認して追加
             add_column_if_not_exists(db, "T_定款", "store_id",
                 'INTEGER REFERENCES "T_店舗"(id) ON DELETE SET NULL')
             logger.info("T_定款テーブルは既に存在します")
     except Exception as e:
         logger.error(f"定款テーブルマイグレーションエラー: {e}")
+        db.rollback()
+
+
+def migrate_property_tables(db):
+    """不動産マネジメントテーブルのマイグレーション"""
+    try:
+        # T_物件テーブル
+        if not check_table_exists(db, "T_物件"):
+            logger.info("T_物件テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_物件" (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER REFERENCES "T_テナント"(id) ON DELETE SET NULL,
+                    物件名 VARCHAR(255) NOT NULL DEFAULT '',
+                    物件種別 VARCHAR(50) DEFAULT 'マンション',
+                    郵便番号 VARCHAR(10),
+                    住所 VARCHAR(500),
+                    建築年 INTEGER,
+                    構造 VARCHAR(50),
+                    建築面積 NUMERIC(10,2),
+                    土地面積 NUMERIC(10,2),
+                    取得価格 NUMERIC(15,2),
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_物件テーブル作成完了")
+
+        # T_部屋テーブル
+        if not check_table_exists(db, "T_部屋"):
+            logger.info("T_部屋テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_部屋" (
+                    id SERIAL PRIMARY KEY,
+                    property_id INTEGER NOT NULL REFERENCES "T_物件"(id) ON DELETE CASCADE,
+                    部屋番号 VARCHAR(50) NOT NULL DEFAULT '',
+                    面積 NUMERIC(10,2),
+                    間取り数 INTEGER,
+                    階数 INTEGER,
+                    向き VARCHAR(20),
+                    賃貸料 NUMERIC(12,2),
+                    管理費 NUMERIC(12,2),
+                    ステータス VARCHAR(20) DEFAULT '空室',
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_部屋テーブル作成完了")
+
+        # T_入居者テーブル
+        if not check_table_exists(db, "T_入居者"):
+            logger.info("T_入居者テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_入居者" (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER REFERENCES "T_テナント"(id) ON DELETE SET NULL,
+                    氏名 VARCHAR(100) NOT NULL DEFAULT '',
+                    フリガナ VARCHAR(100),
+                    生年月日 DATE,
+                    電話番号 VARCHAR(20),
+                    メール VARCHAR(255),
+                    緊急連絡先 VARCHAR(255),
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_入居者テーブル作成完了")
+
+        # T_契約テーブル
+        if not check_table_exists(db, "T_契約"):
+            logger.info("T_契約テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_契約" (
+                    id SERIAL PRIMARY KEY,
+                    room_id INTEGER NOT NULL REFERENCES "T_部屋"(id) ON DELETE CASCADE,
+                    tenant_person_id INTEGER NOT NULL REFERENCES "T_入居者"(id) ON DELETE CASCADE,
+                    契約開始日 DATE,
+                    契約終了日 DATE,
+                    賃貸料 NUMERIC(12,2),
+                    敷金 NUMERIC(12,2),
+                    契約ステータス VARCHAR(20) DEFAULT '入居中',
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_契約テーブル作成完了")
+
+        # T_家購収支テーブル
+        if not check_table_exists(db, "T_家購収支"):
+            logger.info("T_家購収支テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_家購収支" (
+                    id SERIAL PRIMARY KEY,
+                    property_id INTEGER NOT NULL REFERENCES "T_物件"(id) ON DELETE CASCADE,
+                    年月 VARCHAR(7) NOT NULL,
+                    収入合計 NUMERIC(15,2) DEFAULT 0,
+                    支出合計 NUMERIC(15,2) DEFAULT 0,
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_家購収支テーブル作成完了")
+
+        # T_減価償却テーブル
+        if not check_table_exists(db, "T_減価償却"):
+            logger.info("T_減価償却テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_減価償却" (
+                    id SERIAL PRIMARY KEY,
+                    property_id INTEGER REFERENCES "T_物件"(id) ON DELETE CASCADE,
+                    tenant_id INTEGER REFERENCES "T_テナント"(id) ON DELETE SET NULL,
+                    物件id INTEGER REFERENCES "T_物件"(id) ON DELETE SET NULL,
+                    資産名 VARCHAR(255) NOT NULL DEFAULT '',
+                    取得価格 NUMERIC(15,2),
+                    耐用年数 INTEGER,
+                    取得日 DATE,
+                    償却方法 VARCHAR(20) DEFAULT '定額法',
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_減価償却テーブル作成完了")
+
+        # T_シミュレーションテーブル
+        if not check_table_exists(db, "T_シミュレーション"):
+            logger.info("T_シミュレーションテーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_シミュレーション" (
+                    id SERIAL PRIMARY KEY,
+                    property_id INTEGER REFERENCES "T_物件"(id) ON DELETE CASCADE,
+                    tenant_id INTEGER REFERENCES "T_テナント"(id) ON DELETE SET NULL,
+                    シミュレーション名 VARCHAR(255) NOT NULL DEFAULT '',
+                    物件価格 NUMERIC(15,2),
+                    自己資金 NUMERIC(15,2),
+                    借入金利 NUMERIC(5,3),
+                    借入期間 INTEGER,
+                    想定賃貸料 NUMERIC(12,2),
+                    備考 TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_シミュレーションテーブル作成完了")
+
+        logger.info("不動産マネジメントテーブルマイグレーション完了")
+    except Exception as e:
+        logger.error(f"不動産テーブルマイグレーションエラー: {e}")
         db.rollback()

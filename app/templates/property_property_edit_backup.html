@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}物件編集 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-building"></i> 物件編集</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('property.index') }}">不動産管理</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('property.properties') }}">物件一覧</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('property.property_detail', id=property.id) }}">{{ property.物件名 }}</a></li>
+                    <li class="breadcrumb-item active">編集</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <h5 class="mb-3">基本情報</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="物件名" class="form-label">物件名 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="物件名" name="物件名" value="{{ property.物件名 }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="物件種別" class="form-label">物件種別</label>
+                                <select class="form-select" id="物件種別" name="物件種別">
+                                    <option value="">選択してください</option>
+                                    <option value="マンション" {% if property.物件種別 == 'マンション' %}selected{% endif %}>マンション</option>
+                                    <option value="アパート" {% if property.物件種別 == 'アパート' %}selected{% endif %}>アパート</option>
+                                    <option value="戸建て" {% if property.物件種別 == '戸建て' %}selected{% endif %}>戸建て</option>
+                                    <option value="店舗" {% if property.物件種別 == '店舗' %}selected{% endif %}>店舗</option>
+                                    <option value="事務所" {% if property.物件種別 == '事務所' %}selected{% endif %}>事務所</option>
+                                    <option value="その他" {% if property.物件種別 == 'その他' %}selected{% endif %}>その他</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="郵便番号" class="form-label">郵便番号</label>
+                                <input type="text" class="form-control" id="郵便番号" name="郵便番号" value="{{ property.郵便番号 or '' }}">
+                            </div>
+                            <div class="col-md-8">
+                                <label for="住所" class="form-label">住所</label>
+                                <input type="text" class="form-control" id="住所" name="住所" value="{{ property.住所 or '' }}">
+                            </div>
+                        </div>
+                        
+                        <h5 class="mb-3 mt-4">建物情報</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="建築年月" class="form-label">建築年月</label>
+                                <input type="date" class="form-control" id="建築年月" name="建築年月" value="{{ property.建築年月.strftime('%Y-%m-%d') if property.建築年月 else '' }}" onchange="calculateUsefulLifeForProperty()">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="構造" class="form-label">構造</label>
+                                <select class="form-select" id="構造" name="構造" onchange="calculateUsefulLifeForProperty()">
+                                    <option value="">選択してください</option>
+                                    <option value="RC造" {% if property.構造 == 'RC造' %}selected{% endif %}>RC造（鉄筋コンクリート造）- 耐用47年</option>
+                                    <option value="重量鉄骨造" {% if property.構造 == '重量鉄骨造' %}selected{% endif %}>重量鉄骨造 - 耐用34年</option>
+                                    <option value="軽量鉄骨造（肉厚3mm超3mm超）" {% if property.構造 == '軽量鉄骨造（肉厚3mm超3mm超）' %}selected{% endif %}>軽量鉄骨造（肉厚3mm超3mm超）- 耐用27年</option>
+                                    <option value="軽量鉄骨造（肉厚3mm以下）" {% if property.構造 == '軽量鉄骨造（肉厚3mm以下）' %}selected{% endif %}>軽量鉄骨造（肉厚3mm以下）- 耐用19年</option>
+                                    <option value="木造" {% if property.構造 == '木造' %}selected{% endif %}>木造 - 耐用22年</option>
+                                    <option value="その他" {% if property.構造 == 'その他' %}selected{% endif %}>その他</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="階数" class="form-label">階数</label>
+                                <input type="number" class="form-control" id="階数" name="階数" value="{{ property.階数 or '' }}" min="1">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="延床面積" class="form-label">延床面積（㎡）</label>
+                                <input type="number" class="form-control" id="延床面積" name="延床面積" value="{{ property.延床面積 or '' }}" step="0.01" min="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="部屋数" class="form-label">部屋数</label>
+                                <input type="number" class="form-control" id="部屋数" name="部屋数" value="{{ property.部屋数 or '' }}" min="1">
+                            </div>
+                        </div>
+                        
+                        <h5 class="mb-3 mt-4">減価償却情報</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="取得価額" class="form-label">取得価額（円）</label>
+                                <input type="number" class="form-control" id="取得価額" name="取得価額" value="{{ property.取得価額 or '' }}" min="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="取得年月日" class="form-label">取得年月日</label>
+                                <input type="date" class="form-control" id="取得年月日" name="取得年月日" value="{{ property.取得年月日.strftime('%Y-%m-%d') if property.取得年月日 else '' }}" onchange="calculateUsefulLifeForProperty()">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="耐用年数" class="form-label">耐用年数（年）</label>
+                                <input type="number" class="form-control" id="耐用年数" name="耐用年数" value="{{ property.耐用年数 or '' }}" min="1">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="償却方法" class="form-label">償却方法</label>
+                                <select class="form-select" id="償却方法" name="償却方法">
+                                    <option value="">選択してください</option>
+                                    <option value="定額法" {% if property.償却方法 == '定額法' %}selected{% endif %}>定額法</option>
+                                    <option value="定率法" {% if property.償却方法 == '定率法' %}selected{% endif %}>定率法</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="残存価額" class="form-label">残存価額（円）</label>
+                                <input type="number" class="form-control" id="残存価額" name="残存価額" value="{{ property.残存価額 or 0 }}" min="0">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="備考" class="form-label">備考</label>
+                            <textarea class="form-control" id="備考" name="備考" rows="3">{{ property.備考 or '' }}</textarea>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('property.property_detail', id=property.id) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> キャンセル
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 更新
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 法定耐用年数（構造別）
+const LEGAL_USEFUL_LIFE = {
+    'RC造': 47,
+    '重量鉄骨造': 34,
+    '軽量鉄骨造（肉厚3mm超3mm超）': 27,
+    '軽量鉄骨造（肉厚3mm以下）': 19,
+    '木造': 22
+};
+
+/**
+ * 耐用年数を自動算定する
+ */
+function calculateUsefulLifeForProperty() {
+    const constructionDate = document.getElementById('建築年月').value;
+    const acquisitionDate = document.getElementById('取得年月日').value;
+    const structure = document.getElementById('構造').value;
+    const usefulLifeInput = document.getElementById('耐用年数');
+    
+    // すべての入力が揃っていない場合は何もしない
+    if (!constructionDate || !acquisitionDate || !structure) {
+        return;
+    }
+    
+    // 法定耐用年数を取得
+    const legalLife = LEGAL_USEFUL_LIFE[structure];
+    if (!legalLife) {
+        // 法定耐用年数が不明な構造の場合は何もしない
+        return;
+    }
+    
+    // 日付をDateオブジェクトに変換
+    const construction = new Date(constructionDate);
+    const acquisition = new Date(acquisitionDate);
+    
+    // 取得年月日が建築年月より前の場合はエラー
+    if (acquisition < construction) {
+        alert('取得年月日は建築年月より後である必要があります');
+        usefulLifeInput.value = '';
+        return;
+    }
+    
+    // 経過月数を計算
+    const elapsedMonths = (acquisition.getFullYear() - construction.getFullYear()) * 12 + (acquisition.getMonth() - construction.getMonth());
+    
+    // 経過年数を計算（月単位で計算し、1年未満切り捨て）
+    const elapsedYears = Math.floor(elapsedMonths / 12);
+    
+    let usefulLife;
+    
+    // 新築 or 中古を判定
+    if (elapsedYears < 1) {
+        // 新築の場合
+        usefulLife = legalLife;
+    } else {
+        // 中古の場合（簡便法）
+        // 月単位で計算し、1年未満切り捨て
+        let usefulLifeMonths;
+        if (elapsedYears >= legalLife) {
+            // 法定耐用年数の全部を経過している場合
+            usefulLifeMonths = Math.floor(legalLife * 12 * 0.2);
+        } else {
+            // 法定耐用年数の一部を経過している場合
+            usefulLifeMonths = Math.floor((legalLife * 12 - elapsedMonths) + elapsedMonths * 0.2);
+        }
+        
+        // 月単位を年単位に変換（1年未満切り捨て）
+        usefulLife = Math.floor(usefulLifeMonths / 12);
+        
+        // 最低2年
+        usefulLife = Math.max(usefulLife, 2);
+    }
+    
+    // 耐用年数フィールドに設定
+    usefulLifeInput.value = usefulLife;
+}
+
+// ページ読み込み時に実行
+document.addEventListener('DOMContentLoaded', function() {
+    calculateUsefulLifeForProperty();
+});
+</script>
+{% endblock %}

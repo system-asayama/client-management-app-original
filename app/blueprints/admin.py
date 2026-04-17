@@ -55,6 +55,14 @@ AVAILABLE_APPS = [
         'description': '合同会社・株式会社の定款をステップ形式で簡単作成しPDFでダウンロードできる',
         'url': '/apps/teikan',
         'icon': '📜'
+    },
+    {
+        'name': 'property',
+        'display_name': '不動産マネジメント',
+        'scope': 'store',
+        'description': '物件・部屋・入居者・購貸契約管理、家購収支・減価償却・シミュレーションを一元管理',
+        'url': '/apps/property',
+        'icon': '🏠'
     }
 ]
 

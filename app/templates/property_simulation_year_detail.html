@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}{{ year }}年度詳細 - {{ simulation.名称 }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fas fa-chart-line"></i> {{ year }}年度詳細 - {{ simulation.名称 }}</h2>
+    
+    <div class="mb-3">
+        <a href="{{ url_for('property.simulation_detail', simulation_id=simulation.id) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> シミュレーション詳細に戻る
+        </a>
+    </div>
+    
+    <!-- 損益計算書 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-file-invoice-dollar"></i> 損益計算書</h4>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>項目</th>
+                        <th class="text-end">金額（円）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 収入の部 -->
+                    <tr class="table-info">
+                        <td colspan="2"><strong>【収入の部】</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">家賃収入</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['家賃収入']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">その他収入</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['その他収入']|int) }}</td>
+                    </tr>
+                    <tr class="table-secondary">
+                        <td><strong>総収入</strong></td>
+                        <td class="text-end"><strong>{{ "{:,}".format(year_data['総収入']|int) }}</strong></td>
+                    </tr>
+                    
+                    <!-- 経費の部 -->
+                    <tr class="table-warning">
+                        <td colspan="2"><strong>【経費の部】</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">管理費</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['管理費']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">修繕費</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['修繕費']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">固定資産税</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['固定資産税']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">損害保険料</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['損害保険料']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">借入金利息</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['借入金利息']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">減価償却費</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['減価償却費']|int) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">その他経費</td>
+                        <td class="text-end">{{ "{:,}".format(year_data['その他経費']|int) }}</td>
+                    </tr>
+                    <tr class="table-secondary">
+                        <td><strong>総経費</strong></td>
+                        <td class="text-end"><strong>{{ "{:,}".format(year_data['総経費']|int) }}</strong></td>
+                    </tr>
+                    
+                    <!-- 利益の部 -->
+                    <tr class="table-success">
+                        <td colspan="2"><strong>【利益の部】</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>不動産所得（税引前）</strong></td>
+                        <td class="text-end"><strong>{{ "{:,}".format(year_data['不動産所得']|int) }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="ps-4">税金</td>
+                        <td class="text-end text-danger">{{ "{:,}".format(year_data['税金']|int) }}</td>
+                    </tr>
+                    <tr class="table-primary">
+                        <td><strong>税引後利益</strong></td>
+                        <td class="text-end"><strong>{{ "{:,}".format(year_data['税引後利益']|int) }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- サマリー情報 -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">キャッシュフロー</h6>
+                    <p class="h4 text-primary">{{ "{:,}".format(year_data['キャッシュフロー']|int) }}円</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">累積キャッシュフロー</h6>
+                    <p class="h4 text-success">{{ "{:,}".format(year_data['累積キャッシュフロー']|int) }}円</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">ローン残高</h6>
+                    <p class="h4 text-info">{{ "{:,}".format(year_data['ローン残高']|int) }}円</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <p class="text-muted">
+            <i class="fas fa-info-circle"></i> 
+            <strong>注意事項：</strong>このシミュレーション結果はあくまで予測値です。実際の収支とは異なる可能性があります。
+        </p>
+    </div>
+</div>
+{% endblock %}

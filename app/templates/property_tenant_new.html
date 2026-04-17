@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}入居者登録 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>入居者登録</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">氏名</label>
+            <input type="text" class="form-control" name="氏名" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">電話番号</label>
+            <input type="text" class="form-control" name="電話番号">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">メールアドレス</label>
+            <input type="email" class="form-control" name="メールアドレス">
+        </div>
+        <button type="submit" class="btn btn-primary">登録</button>
+        <a href="{{ url_for('property.tenants') }}" class="btn btn-secondary">キャンセル</a>
+    </form>
+</div>
+{% endblock %}

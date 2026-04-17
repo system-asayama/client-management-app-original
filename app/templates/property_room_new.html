@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}部屋登録 - 不動産管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>部屋登録: {{ property.物件名 }}</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">部屋番号</label>
+            <input type="text" class="form-control" name="部屋番号" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">間取り</label>
+            <input type="text" class="form-control" name="間取り">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">専有面積（㎡）</label>
+            <input type="number" class="form-control" name="専有面積" step="0.01">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">賃料（円）</label>
+            <input type="number" class="form-control" name="賃料">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">管理費（円）</label>
+            <input type="number" class="form-control" name="管理費">
+        </div>
+        <button type="submit" class="btn btn-primary">登録</button>
+        <a href="{{ url_for('property.property_detail', id=property.id) }}" class="btn btn-secondary">キャンセル</a>
+    </form>
+</div>
+{% endblock %}

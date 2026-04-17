@@ -2289,9 +2289,8 @@ AVAILABLE_APPS = [
         'display_name': 'トラック運行管理アプリ',
         'scope': 'store',
         'description': 'トラックの運行状況・ドライバー・ルートを管理する店舗単位アプリ',
-        'url': 'https://truck.samurai-hub.com/login',
-        'icon': '🚛',
-        'external': True
+        'url': '/truck/',
+        'icon': '🚛'
     },
     {
         'name': 'e-contract',

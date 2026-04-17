@@ -1,0 +1,44 @@
+{% extends "truck/base.html" %}
+{% block title %}{% if action == 'new' %}ルート登録{% else %}ルート編集{% endif %} - トラック運行管理{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.routes') }}" class="back-link">← ルート一覧へ戻る</a>
+<div class="page-title">{% if action == 'new' %}🗺️ ルート登録{% else %}🗺️ ルート編集{% endif %}</div>
+<div class="page-subtitle">{% if action == 'new' %}新しいルートを登録します{% else %}ルート情報を編集します{% endif %}</div>
+<div class="form-card">
+  <form method="POST">
+    <div class="form-field">
+      <label>ルート名 <span class="required">*</span></label>
+      <input type="text" name="name" value="{{ route.name if route else '' }}" placeholder="例：東京→横浜ルート" required>
+    </div>
+    <div class="form-field">
+      <label>出発地</label>
+      <input type="text" name="origin" value="{{ route.origin if route else '' }}" placeholder="例：東京都江東区">
+    </div>
+    <div class="form-field">
+      <label>目的地</label>
+      <input type="text" name="destination" value="{{ route.destination if route else '' }}" placeholder="例：神奈川県横浜市">
+    </div>
+    <div class="form-field">
+      <label>距離 (km)</label>
+      <input type="number" name="distance_km" value="{{ route.distance_km if route and route.distance_km else '' }}" placeholder="例：35.5" step="0.1" min="0">
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note">{{ route.note if route else '' }}</textarea>
+    </div>
+    {% if action == 'edit' %}
+    <div class="form-field">
+      <label>ステータス</label>
+      <select name="active">
+        <option value="1" {% if route.active %}selected{% endif %}>有効</option>
+        <option value="0" {% if not route.active %}selected{% endif %}>無効</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if action == 'new' %}登録する{% else %}更新する{% endif %}</button>
+      <a href="{{ url_for('truck.routes') }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
+    </div>
+  </form>
+</div>
+{% endblock %}

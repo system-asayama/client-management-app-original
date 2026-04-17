@@ -1,0 +1,48 @@
+{% extends "truck/base.html" %}
+{% block title %}{% if action == 'new' %}ドライバー登録{% else %}ドライバー編集{% endif %} - トラック運行管理{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.drivers') }}" class="back-link">← ドライバー一覧へ戻る</a>
+<div class="page-title">{% if action == 'new' %}👤 ドライバー登録{% else %}👤 ドライバー編集{% endif %}</div>
+<div class="page-subtitle">{% if action == 'new' %}新しいドライバーを登録します{% else %}ドライバー情報を編集します{% endif %}</div>
+<div class="form-card">
+  <form method="POST">
+    <div class="form-field">
+      <label>ログインID <span class="required">*</span></label>
+      <input type="text" name="login_id" value="{{ driver.login_id if driver else '' }}" placeholder="例：driver001" required>
+    </div>
+    <div class="form-field">
+      <label>パスワード {% if action == 'new' %}<span class="required">*</span>{% else %}<span style="color:#6b7280;font-weight:400">（変更する場合のみ入力）</span>{% endif %}</label>
+      <input type="password" name="password" placeholder="パスワードを入力" {% if action == 'new' %}required{% endif %}>
+    </div>
+    <div class="form-field">
+      <label>氏名 <span class="required">*</span></label>
+      <input type="text" name="name" value="{{ driver.name if driver else '' }}" placeholder="例：山田 太郎" required>
+    </div>
+    <div class="form-field">
+      <label>電話番号</label>
+      <input type="text" name="phone" value="{{ driver.phone if driver else '' }}" placeholder="例：090-1234-5678">
+    </div>
+    <div class="form-field">
+      <label>免許番号</label>
+      <input type="text" name="license_number" value="{{ driver.license_number if driver else '' }}" placeholder="例：123456789012">
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note">{{ driver.note if driver else '' }}</textarea>
+    </div>
+    {% if action == 'edit' %}
+    <div class="form-field">
+      <label>ステータス</label>
+      <select name="active">
+        <option value="1" {% if driver.active %}selected{% endif %}>有効</option>
+        <option value="0" {% if not driver.active %}selected{% endif %}>無効</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if action == 'new' %}登録する{% else %}更新する{% endif %}</button>
+      <a href="{{ url_for('truck.drivers') }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
+    </div>
+  </form>
+</div>
+{% endblock %}

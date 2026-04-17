@@ -14,6 +14,7 @@ try:
     from . import models_homepage  # noqa: F401
     from . import models_voucher  # noqa: F401
     from . import models_property  # noqa: F401
+    from . import models_truck  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -417,6 +418,14 @@ def create_app() -> Flask:
         print("✅ property blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ property blueprint 登録エラー: {e}")
+
+    # トラック運行管理 blueprint登録
+    try:
+        from .blueprints.truck import bp as truck_bp
+        app.register_blueprint(truck_bp)
+        print("✅ truck blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ truck blueprint 登録エラー: {e}")
 
     # エラーハンドラ
     @app.errorhandler(404)

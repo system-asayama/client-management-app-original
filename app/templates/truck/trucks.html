@@ -1,0 +1,55 @@
+{% extends "truck/base.html" %}
+{% block title %}トラック管理 - トラック運行管理{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+  <div class="page-title">🚛 トラック管理</div>
+  <a href="{{ url_for('truck.truck_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
+</div>
+<div class="page-subtitle">車両の登録・管理を行います</div>
+<div class="card">
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>車両番号</th>
+          <th>車両名称</th>
+          <th>積載量</th>
+          <th>備考</th>
+          <th>ステータス</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for truck in trucks %}
+        <tr>
+          <td><strong>{{ truck.number }}</strong></td>
+          <td>{{ truck.name }}</td>
+          <td>{{ truck.capacity or '-' }}</td>
+          <td>{{ truck.note or '-' }}</td>
+          <td>
+            {% if truck.active %}
+            <span class="badge" style="background:#16a34a;">有効</span>
+            {% else %}
+            <span class="badge" style="background:#6b7280;">無効</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('truck.truck_edit', truck_id=truck.id) }}">
+              <button class="btn btn-secondary btn-sm">編集</button>
+            </a>
+            <form method="POST" action="{{ url_for('truck.truck_delete', truck_id=truck.id) }}" style="display:inline;" onsubmit="return confirm('このトラックを無効化しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">無効化</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty">トラックが登録されていません。「＋ 新規登録」から追加してください。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

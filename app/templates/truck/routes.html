@@ -1,0 +1,55 @@
+{% extends "truck/base.html" %}
+{% block title %}ルート管理 - トラック運行管理{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+  <div class="page-title">🗺️ ルート管理</div>
+  <a href="{{ url_for('truck.route_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
+</div>
+<div class="page-subtitle">配送ルートの登録・管理を行います</div>
+<div class="card">
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ルート名</th>
+          <th>出発地</th>
+          <th>目的地</th>
+          <th>距離</th>
+          <th>ステータス</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for route in routes %}
+        <tr>
+          <td><strong>{{ route.name }}</strong></td>
+          <td>{{ route.origin or '-' }}</td>
+          <td>{{ route.destination or '-' }}</td>
+          <td>{{ ('%.1f km' % route.distance_km) if route.distance_km else '-' }}</td>
+          <td>
+            {% if route.active %}
+            <span class="badge" style="background:#16a34a;">有効</span>
+            {% else %}
+            <span class="badge" style="background:#6b7280;">無効</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('truck.route_edit', route_id=route.id) }}">
+              <button class="btn btn-secondary btn-sm">編集</button>
+            </a>
+            <form method="POST" action="{{ url_for('truck.route_delete', route_id=route.id) }}" style="display:inline;" onsubmit="return confirm('このルートを無効化しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">無効化</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty">ルートが登録されていません。「＋ 新規登録」から追加してください。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

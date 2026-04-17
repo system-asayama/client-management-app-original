@@ -1,0 +1,40 @@
+{% extends "truck/base.html" %}
+{% block title %}{% if action == 'new' %}トラック登録{% else %}トラック編集{% endif %} - トラック運行管理{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.trucks') }}" class="back-link">← トラック一覧へ戻る</a>
+<div class="page-title">{% if action == 'new' %}🚛 トラック登録{% else %}🚛 トラック編集{% endif %}</div>
+<div class="page-subtitle">{% if action == 'new' %}新しいトラックを登録します{% else %}トラック情報を編集します{% endif %}</div>
+<div class="form-card">
+  <form method="POST">
+    <div class="form-field">
+      <label>車両番号 <span class="required">*</span></label>
+      <input type="text" name="number" value="{{ truck.number if truck else '' }}" placeholder="例：品川 100 あ 1234" required>
+    </div>
+    <div class="form-field">
+      <label>車両名称 <span class="required">*</span></label>
+      <input type="text" name="name" value="{{ truck.name if truck else '' }}" placeholder="例：2トン平ボディ" required>
+    </div>
+    <div class="form-field">
+      <label>積載量</label>
+      <input type="text" name="capacity" value="{{ truck.capacity if truck else '' }}" placeholder="例：2t">
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note">{{ truck.note if truck else '' }}</textarea>
+    </div>
+    {% if action == 'edit' %}
+    <div class="form-field">
+      <label>ステータス</label>
+      <select name="active">
+        <option value="1" {% if truck.active %}selected{% endif %}>有効</option>
+        <option value="0" {% if not truck.active %}selected{% endif %}>無効</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if action == 'new' %}登録する{% else %}更新する{% endif %}</button>
+      <a href="{{ url_for('truck.trucks') }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
+    </div>
+  </form>
+</div>
+{% endblock %}

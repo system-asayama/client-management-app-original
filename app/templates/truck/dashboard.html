@@ -1,0 +1,97 @@
+{% extends "truck/base.html" %}
+{% block title %}ダッシュボード - トラック運行管理{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:4px;">
+  <div>
+    <div class="page-title">本日の運行状況</div>
+    <div class="page-subtitle">{{ today_str }}</div>
+  </div>
+  <a href="{{ url_for('truck.gps_map') }}" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 2px 8px rgba(26,58,92,0.2);">
+    <span style="font-size:16px;">📍</span> GPS位置確認
+  </a>
+</div>
+{% if error %}
+<div class="error-box">⚠ {{ error }}</div>
+{% endif %}
+<!-- ステータス集計 -->
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap:14px; margin-bottom:24px;">
+  {% set status_list = [
+    ('driving', '🚛', '運行中', '#16a34a'),
+    ('break', '☕', '休憩中', '#d97706'),
+    ('loading', '📦', '荷積み中', '#2563eb'),
+    ('unloading', '📤', '荷下ろし中', '#7c3aed'),
+    ('finished', '🏁', '運行終了', '#dc2626'),
+    ('off', '⏸', '未出発', '#6b7280'),
+  ] %}
+  {% for key, icon, label, color in status_list %}
+  <div style="background:#fff; border-radius:12px; padding:18px 14px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.07); border-top:4px solid {{ color }};">
+    <div style="font-size:26px; margin-bottom:6px;">{{ icon }}</div>
+    <div style="font-size:28px; font-weight:800; color:{{ color }}; line-height:1;">{{ status_counts.get(key, 0) }}</div>
+    <div style="font-size:12px; color:#6b7280; margin-top:5px;">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
+<!-- 運行一覧 -->
+<div class="card">
+  <div class="card-title">運行一覧（{{ operations|length }}件）</div>
+  {% if operations %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ステータス</th>
+          <th>ドライバー</th>
+          <th>トラック</th>
+          <th>ルート</th>
+          <th>出発時刻</th>
+          <th>経過時間</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for op in operations %}
+        <tr>
+          <td><span class="badge" style="background:{{ truck_status_color(op.status) }}">{{ truck_format_status(op.status) }}</span></td>
+          <td>{{ op.driver_name or '-' }}</td>
+          <td>{{ op.truck_name or '-' }}</td>
+          <td>{{ op.route_name or '-' }}</td>
+          <td>{{ truck_format_time(op.start_time) }}</td>
+          <td>{{ truck_calc_duration(op.start_time, op.end_time) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">本日の運行記録はありません</div>
+  {% endif %}
+</div>
+<!-- トラック・ドライバー一覧 -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+  <div class="card">
+    <div class="card-title">トラック一覧（{{ trucks|length }}台）</div>
+    {% if trucks %}
+    {% for t in trucks %}
+    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6;">
+      <span style="font-size:14px; font-weight:500;">🚛 {{ t.name }}</span>
+      <span style="font-size:12px; color:#9ca3af;">{{ t.number }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty">データなし</div>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-title">ドライバー一覧（{{ drivers|length }}名）</div>
+    {% if drivers %}
+    {% for d in drivers %}
+    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6;">
+      <span style="font-size:14px; font-weight:500;">👤 {{ d.name }}</span>
+      <span style="font-size:12px; color:#9ca3af;">{{ d.login_id }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty">データなし</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

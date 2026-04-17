@@ -1,0 +1,169 @@
+{% extends "truck/base.html" %}
+{% block title %}GPS位置確認 - トラック運行管理{% endblock %}
+{% block extra_style %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  #map { width: 100%; height: 60vh; min-height: 320px; border-radius: 12px; overflow: hidden; }
+  .filter-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 16px; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+  .filter-group label { font-size: 12px; font-weight: 600; color: #374151; }
+  .filter-group select, .filter-group input { padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 13px; background: #fff; font-family: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 16px; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 14px; font-size: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .realtime-badge { display: inline-flex; align-items: center; gap: 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 20px; padding: 4px 12px; font-size: 12px; color: #dc2626; font-weight: 600; }
+  .realtime-badge.on { background: #fef2f2; }
+  .realtime-badge.off { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .blink { animation: blink 1.2s infinite; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .btn-realtime { padding: 8px 16px; border-radius: 20px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-realtime.on { background: #dc2626; color: #fff; }
+  .btn-realtime.off { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
+  .auto-update-badge { display: inline-flex; align-items: center; gap: 5px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 20px; padding: 4px 10px; font-size: 11px; color: #16a34a; font-weight: 600; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="header-row">
+  <div>
+    <div class="page-title">📍 GPS位置確認</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div class="auto-update-badge" id="auto-update-badge" style="display:none;">
+      <span class="blink">⟳</span> 自動更新中
+    </div>
+    <button class="btn-realtime off" id="realtime-btn" onclick="toggleRealtime()">
+      ● リアルタイム OFF
+    </button>
+    <a href="{{ url_for('truck.dashboard') }}"><button class="btn btn-secondary btn-sm">← ダッシュボードへ</button></a>
+  </div>
+</div>
+<!-- フィルター -->
+<div class="filter-card">
+  <div class="filter-row">
+    <div class="filter-group">
+      <label>日付</label>
+      <input type="date" id="filter-date" value="{{ today_str }}" onchange="loadMap()">
+    </div>
+    <div class="filter-group">
+      <label>ドライバー</label>
+      <select id="filter-driver" onchange="loadMap()">
+        <option value="">全員</option>
+        {% for d in drivers %}
+        <option value="{{ d.id }}">{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex;align-items:flex-end;">
+      <button class="btn btn-primary btn-sm" onclick="loadMap()">絞り込む</button>
+    </div>
+  </div>
+</div>
+<!-- 凡例 -->
+<div class="legend">
+  <div class="legend-item"><span class="legend-dot" style="background:#2563eb;border-radius:2px;width:28px;height:4px;"></span> 移動経路</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> 出勤地点</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#d97706;"></span> 休憩開始</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#7c3aed;"></span> 休憩終了</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span> 退勤地点</div>
+</div>
+<!-- 地図 -->
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var map = L.map('map').setView([35.6812, 139.7671], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19
+}).addTo(map);
+
+var layers = [];
+var realtimeInterval = null;
+var isRealtime = false;
+
+function clearLayers() {
+  layers.forEach(function(l) { map.removeLayer(l); });
+  layers = [];
+}
+
+function colorForType(type) {
+  if (type === 'clock_in') return '#16a34a';
+  if (type === 'break_start') return '#d97706';
+  if (type === 'break_end') return '#7c3aed';
+  if (type === 'clock_out') return '#dc2626';
+  return '#2563eb';
+}
+
+function labelForType(type) {
+  if (type === 'clock_in') return '出勤';
+  if (type === 'break_start') return '休憩開始';
+  if (type === 'break_end') return '休憩終了';
+  if (type === 'clock_out') return '退勤';
+  return '';
+}
+
+function loadMap() {
+  var date = document.getElementById('filter-date').value;
+  var driverId = document.getElementById('filter-driver').value;
+  var url = '{{ url_for("truck.gps_map_realtime_data") }}?date=' + date;
+  if (driverId) url += '&driver_id=' + driverId;
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      clearLayers();
+      if (!data.drivers || data.drivers.length === 0) return;
+      var allPoints = [];
+      data.drivers.forEach(function(driver) {
+        if (!driver.locations || driver.locations.length === 0) return;
+        var coords = driver.locations.map(function(loc) { return [loc.lat, loc.lng]; });
+        allPoints = allPoints.concat(coords);
+        // 経路ライン
+        var line = L.polyline(coords, { color: '#2563eb', weight: 3, opacity: 0.7 }).addTo(map);
+        layers.push(line);
+        // 特殊地点マーカー
+        driver.locations.forEach(function(loc) {
+          if (loc.type && loc.type !== 'location') {
+            var color = colorForType(loc.type);
+            var label = labelForType(loc.type);
+            var circle = L.circleMarker([loc.lat, loc.lng], {
+              radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
+            }).addTo(map);
+            circle.bindPopup('<strong>' + driver.name + '</strong><br>' + label + '<br>' + loc.time);
+            layers.push(circle);
+          }
+        });
+        // 最新位置マーカー
+        var last = driver.locations[driver.locations.length - 1];
+        var marker = L.marker([last.lat, last.lng]).addTo(map);
+        marker.bindPopup('<strong>' + driver.name + '</strong><br>最終更新: ' + last.time);
+        layers.push(marker);
+      });
+      if (allPoints.length > 0) {
+        map.fitBounds(allPoints, { padding: [30, 30] });
+      }
+    })
+    .catch(function(e) { console.error(e); });
+}
+
+function toggleRealtime() {
+  isRealtime = !isRealtime;
+  var btn = document.getElementById('realtime-btn');
+  var badge = document.getElementById('auto-update-badge');
+  if (isRealtime) {
+    btn.textContent = '● リアルタイム ON';
+    btn.className = 'btn-realtime on';
+    badge.style.display = 'inline-flex';
+    loadMap();
+    realtimeInterval = setInterval(loadMap, 15000);
+  } else {
+    btn.textContent = '● リアルタイム OFF';
+    btn.className = 'btn-realtime off';
+    badge.style.display = 'none';
+    if (realtimeInterval) { clearInterval(realtimeInterval); realtimeInterval = null; }
+  }
+}
+
+// 初回ロード
+loadMap();
+</script>
+{% endblock %}

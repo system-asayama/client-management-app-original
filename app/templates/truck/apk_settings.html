@@ -1,0 +1,39 @@
+{% extends "truck/base.html" %}
+{% block title %}APK配布設定 - トラック運行管理{% endblock %}
+{% block content %}
+<div class="page-title">📱 APK配布設定</div>
+<div class="page-subtitle">ドライバーマイページに表示するAndroidアプリのダウンロードURLを設定します</div>
+<div class="form-card">
+  <form method="post">
+    <div class="form-field">
+      <label for="apk_url">APKダウンロードURL</label>
+      <input type="text" id="apk_url" name="apk_url" value="{{ apk_url }}" placeholder="https://expo.dev/artifacts/eas/xxxxx.apk">
+      <div style="font-size:12px; color:#6b7280; margin-top:4px;">EASビルドのAPKダウンロードURLを入力してください。空欄にするとドライバーマイページにダウンロードボタンが表示されません。</div>
+    </div>
+    <div class="form-field">
+      <label for="apk_version">バージョン</label>
+      <input type="text" id="apk_version" name="apk_version" value="{{ apk_version }}" placeholder="例: v1.0.0">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+    </div>
+  </form>
+</div>
+{% if apk_url %}
+<div class="card" style="margin-top:16px;">
+  <div class="card-title">現在の設定</div>
+  <div style="font-size:13px; color:#374151; margin-bottom:8px;">
+    <strong>URL:</strong> <a href="{{ apk_url }}" target="_blank" style="color:#2563eb; word-break:break-all;">{{ apk_url }}</a>
+  </div>
+  {% if apk_version %}
+  <div style="font-size:13px; color:#374151; margin-bottom:8px;">
+    <strong>バージョン:</strong> {{ apk_version }}
+  </div>
+  {% endif %}
+  <div style="font-size:13px; color:#374151;">
+    <strong>ドライバー向けダウンロードURL:</strong>
+    <a href="{{ url_for('truck.driver_apk_download') }}" target="_blank" style="color:#2563eb;">{{ request.host_url }}truck/driver/apk_download</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

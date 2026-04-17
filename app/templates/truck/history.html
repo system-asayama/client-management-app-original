@@ -1,0 +1,99 @@
+{% extends "truck/base.html" %}
+{% block title %}運行履歴 - トラック運行管理{% endblock %}
+{% block content %}
+<div class="page-title">📋 運行履歴</div>
+<div class="page-subtitle">過去の運行記録を確認できます</div>
+<!-- 絞り込みフォーム -->
+<div class="card" style="margin-bottom:16px;">
+  <form method="GET" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+    <div class="form-group" style="display:flex; flex-direction:column; gap:4px; min-width:80px;">
+      <label class="form-label" style="font-size:12px; font-weight:600; color:#374151;">年</label>
+      <select name="year">
+        {% for y in years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}年</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display:flex; flex-direction:column; gap:4px; min-width:70px;">
+      <label class="form-label" style="font-size:12px; font-weight:600; color:#374151;">月</label>
+      <select name="month">
+        {% for m in months %}
+        <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>{{ m }}月</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display:flex; flex-direction:column; gap:4px; min-width:120px;">
+      <label class="form-label" style="font-size:12px; font-weight:600; color:#374151;">ドライバー</label>
+      <select name="driver_id">
+        <option value="">全員</option>
+        {% for d in drivers %}
+        <option value="{{ d.id }}" {% if selected_driver_id == d.id|string %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display:flex; flex-direction:column; gap:4px; min-width:120px;">
+      <label class="form-label" style="font-size:12px; font-weight:600; color:#374151;">トラック</label>
+      <select name="truck_id">
+        <option value="">全台</option>
+        {% for t in trucks %}
+        <option value="{{ t.id }}" {% if selected_truck_id == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex; align-items:flex-end;">
+      <button type="submit" class="btn btn-primary">絞り込み</button>
+    </div>
+  </form>
+</div>
+<!-- サマリー -->
+<div style="display:flex; gap:14px; margin-bottom:20px;">
+  {% set finished = operations|selectattr('status','equalto','finished')|list %}
+  <div style="background:#fff; border-radius:12px; padding:16px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.07); text-align:center;">
+    <div style="font-size:26px; font-weight:800; color:#0f2744;">{{ operations|length }}</div>
+    <div style="font-size:12px; color:#6b7280;">総運行数</div>
+  </div>
+  <div style="background:#fff; border-radius:12px; padding:16px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.07); text-align:center;">
+    <div style="font-size:26px; font-weight:800; color:#16a34a;">{{ finished|length }}</div>
+    <div style="font-size:12px; color:#6b7280;">完了</div>
+  </div>
+</div>
+{% if error %}
+<div class="error-box">⚠ {{ error }}</div>
+{% endif %}
+<div class="card">
+  {% if operations %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>ステータス</th>
+          <th>ドライバー</th>
+          <th>トラック</th>
+          <th>ルート</th>
+          <th>出発</th>
+          <th>到着</th>
+          <th>所要時間</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for op in operations %}
+        <tr>
+          <td>{{ op.operation_date }}</td>
+          <td><span class="badge" style="background:{{ truck_status_color(op.status) }}">{{ truck_format_status(op.status) }}</span></td>
+          <td>{{ op.driver_name or '-' }}</td>
+          <td>{{ op.truck_name or '-' }}</td>
+          <td>{{ op.route_name or '-' }}</td>
+          <td>{{ truck_format_time(op.start_time) }}</td>
+          <td>{{ truck_format_time(op.end_time) }}</td>
+          <td>{{ truck_calc_duration(op.start_time, op.end_time) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">該当する運行記録がありません</div>
+  {% endif %}
+</div>
+{% endblock %}

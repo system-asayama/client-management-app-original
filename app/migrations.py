@@ -142,6 +142,9 @@ def run_migrations():
         
         # 既存の店舗管理者データを中間テーブルに移行
         migrate_store_admins_data(db)
+
+        # 定款作成テーブルのマイグレーション
+        migrate_teikan_table(db)
             
     except Exception as e:
         logger.error(f"マイグレーション実行エラー: {e}")
@@ -273,4 +276,35 @@ def migrate_store_admins_data(db):
         
     except Exception as e:
         logger.error(f"店舗管理者データ移行エラー: {e}")
+        db.rollback()
+
+
+def migrate_teikan_table(db):
+    """定款作成テーブルのマイグレーション"""
+    try:
+        if not check_table_exists(db, "T_定款"):
+            logger.info("T_定款テーブルを作成します")
+            db.execute(text('''
+                CREATE TABLE "T_定款" (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER REFERENCES "T_テナント"(id) ON DELETE SET NULL,
+                    store_id INTEGER REFERENCES "T_店舗"(id) ON DELETE SET NULL,
+                    created_by INTEGER REFERENCES "T_管理者"(id) ON DELETE SET NULL,
+                    company_name VARCHAR(255) NOT NULL DEFAULT '',
+                    company_type VARCHAR(50) DEFAULT '合同会社',
+                    status VARCHAR(20) DEFAULT 'draft',
+                    data_json TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            '''))
+            db.commit()
+            logger.info("T_定款テーブル作成完了")
+        else:
+            # store_idカラムが存在するか確認して追加
+            add_column_if_not_exists(db, "T_定款", "store_id",
+                'INTEGER REFERENCES "T_店舗"(id) ON DELETE SET NULL')
+            logger.info("T_定款テーブルは既に存在します")
+    except Exception as e:
+        logger.error(f"定款テーブルマイグレーションエラー: {e}")
         db.rollback()

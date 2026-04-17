@@ -1,0 +1,197 @@
+{% extends 'teikan/base.html' %}
+
+{% block title %}作成済み定款一覧 - 法人設立{% endblock %}
+
+{% block content %}
+<style>
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.history-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.history-card:hover {
+  box-shadow: 0 2px 12px rgba(74,144,226,0.12);
+  border-color: #4A90E2;
+}
+.history-card.is-draft {
+  border-left: 4px solid #f39c12;
+}
+.history-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+.history-card-meta {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 12px;
+}
+.history-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-weight: 600;
+}
+.btn-view {
+  background: #4A90E2;
+  color: #fff;
+}
+.btn-view:hover { background: #357abd; color: #fff; }
+.btn-dl {
+  background: #27ae60;
+  color: #fff;
+}
+.btn-dl:hover { background: #1e8449; color: #fff; }
+.btn-edit {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+.btn-edit:hover { background: #e8e8e8; color: #333; }
+.btn-del {
+  background: #fff;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+}
+.btn-del:hover { background: #fdecea; color: #e74c3c; }
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888;
+}
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.empty-state p {
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+.badge-type {
+  display: inline-block;
+  background: #eef4fc;
+  color: #4A90E2;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+.badge-draft {
+  display: inline-block;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+.badge-completed {
+  display: inline-block;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+</style>
+
+<div class="history-header">
+  <div>
+    <h1 class="section-title" style="margin-bottom:4px;">作成済み定款一覧</h1>
+    <p style="font-size:13px;color:#888;margin:0;">保存した定款の確認・再ダウンロードができます</p>
+  </div>
+  <a href="{{ url_for('teikan.new_corporation') }}" class="btn btn-primary" style="text-decoration:none;width:auto;padding:10px 20px;">
+    ＋ 新しい法人を設立する
+  </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:16px;">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% if docs %}
+  <p style="font-size:13px;color:#666;margin-bottom:16px;">全 {{ docs|length }} 件</p>
+  {% for doc in docs %}
+  <div class="history-card {% if doc.status == 'draft' %}is-draft{% endif %}">
+    <a href="{{ url_for('teikan.history_edit', doc_id=doc.id) }}" style="text-decoration:none;color:inherit;display:block;">
+    <div class="history-card-title" style="cursor:pointer;">
+      <span class="badge-type">{{ doc.company_type }}</span>
+      {% if doc.status == 'draft' %}
+        <span class="badge-draft">📝 下書き</span>
+      {% else %}
+        <span class="badge-completed">✅ 完成</span>
+      {% endif %}
+      {{ doc.company_name if doc.company_name else '（未入力）' }}
+      <span style="float:right;color:#4A90E2;font-size:18px;">›</span>
+    </div>
+    </a>
+    <div class="history-card-meta">
+      {% if doc.status == 'draft' %}
+        下書き保存日時：
+      {% else %}
+        保存日時：
+      {% endif %}
+      {{ doc.created_at.strftime('%Y年%m月%d日 %H:%M') if doc.created_at else '不明' }}
+      {% if doc.updated_at and doc.updated_at != doc.created_at %}
+        ／ 最終更新：{{ doc.updated_at.strftime('%Y年%m月%d日 %H:%M') }}
+      {% endif %}
+    </div>
+    <div class="history-card-actions">
+      {% if doc.status != 'draft' %}
+      <a href="{{ url_for('teikan.history_detail', doc_id=doc.id) }}" class="btn-sm btn-view">
+        📄 プレビュー
+      </a>
+      <a href="{{ url_for('teikan.history_download', doc_id=doc.id) }}" class="btn-sm btn-dl">
+        ⬇️ PDFダウンロード
+      </a>
+      {% endif %}
+      <a href="{{ url_for('teikan.history_edit', doc_id=doc.id) }}" class="btn-sm btn-edit">
+        {% if doc.status == 'draft' %}✏️ 続きを編集{% else %}✏️ 編集{% endif %}
+      </a>
+      <form method="POST" action="{{ url_for('teikan.history_delete', doc_id=doc.id) }}"
+            style="display:inline;"
+            onsubmit="return confirm('「{{ doc.company_type }}{{ doc.company_name }}」の定款を削除しますか？');">
+        <button type="submit" class="btn-sm btn-del">🗑 削除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <p>まだ定款が保存されていません。</p>
+    <a href="{{ url_for('teikan.new_document') }}" class="btn btn-primary" style="text-decoration:none;width:auto;padding:12px 24px;">
+      最初の定款を作成する
+    </a>
+  </div>
+{% endif %}
+{% endblock %}

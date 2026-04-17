@@ -1,0 +1,54 @@
+{% extends 'teikan/base.html' %}
+
+{% block title %}法人設立アプリ{% endblock %}
+
+{% block content %}
+<div style="text-align:center;padding:40px 0 20px;">
+  <div style="font-size:56px;margin-bottom:16px;">📜</div>
+  <h1 style="font-size:24px;font-weight:700;color:#1a1a2e;margin-bottom:8px;">法人設立アプリ</h1>
+  <p style="font-size:14px;color:#666;margin-bottom:32px;">
+    法人形態を選んで必要事項を入力するだけで、定款・登記書類を自動作成します。<br>
+    作成された書類はPDFでダウンロードできます。
+  </p>
+</div>
+
+<!-- 対応法人形態 -->
+<div class="card" style="margin-bottom:12px;">
+  <div style="font-weight:700;font-size:15px;margin-bottom:12px;color:#444;">対応している法人形態</div>
+  <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+    <div style="width:36px;height:36px;background:#fff3e0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🏢</div>
+    <div>
+      <div style="font-weight:600;font-size:15px;">株式会社</div>
+      <div style="font-size:13px;color:#888;">取締役・株主総会・株式に関する条項</div>
+    </div>
+  </div>
+  <hr class="divider" style="margin:8px 0;">
+  <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+    <div style="width:36px;height:36px;background:#e8f5e9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤝</div>
+    <div>
+      <div style="font-weight:600;font-size:15px;">合同会社（LLC）</div>
+      <div style="font-size:13px;color:#888;">社員・業務執行・出資に関する条項</div>
+    </div>
+  </div>
+  <hr class="divider" style="margin:8px 0;">
+  <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+    <div style="width:36px;height:36px;background:#e3f2fd;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🌐</div>
+    <div>
+      <div style="font-weight:600;font-size:15px;">一般社団法人</div>
+      <div style="font-size:13px;color:#888;">理事・社員総会・非営利に関する条項</div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px;">
+  <a href="{{ url_for('teikan.select_type') }}" class="btn btn-primary" style="text-decoration:none;">
+    法人設立を始める →
+  </a>
+</div>
+
+<div style="margin-top:12px;text-align:center;">
+  <a href="{{ url_for('teikan.history') }}" class="btn btn-secondary" style="text-decoration:none;margin-bottom:10px;">
+    📝 設立済み法人一覧
+  </a>
+</div>
+{% endblock %}

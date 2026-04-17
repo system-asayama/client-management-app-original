@@ -1,0 +1,123 @@
+{% extends "teikan/base.html" %}
+
+{% block title %}新しい法人を設立する - 法人設立{% endblock %}
+
+{% block content %}
+<style>
+.setup-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  padding: 20px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.setup-card:hover {
+  box-shadow: 0 4px 16px rgba(74,144,226,0.12);
+  border-color: #4A90E2;
+}
+.setup-card-icon {
+  font-size: 36px;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #f0f5ff;
+}
+.setup-card-body {
+  flex: 1;
+}
+.setup-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+.setup-card-desc {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.5;
+}
+.setup-card-arrow {
+  font-size: 20px;
+  color: #4A90E2;
+  flex-shrink: 0;
+}
+.step-badge {
+  display: inline-block;
+  background: #4A90E2;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+.step-line {
+  width: 2px;
+  height: 16px;
+  background: #e0e0e0;
+  margin: 0 auto 0 25px;
+}
+</style>
+
+<h1 class="section-title">新しい法人を設立する</h1>
+<p style="font-size:13px;color:#666;margin-bottom:24px;">以下の3ステップで法人設立に必要な書類を作成できます。順番に進めることをおすすめします。</p>
+
+<!-- ステップ1 -->
+<div class="step-badge">STEP 1</div>
+<a href="{% if has_data %}{{ url_for('teikan.confirm') }}{% else %}{{ url_for('teikan.new_document') }}{% endif %}" class="setup-card">
+  <div class="setup-card-icon">📋</div>
+  <div class="setup-card-body">
+    <div class="setup-card-title">法人基本情報を入力する</div>
+    <div class="setup-card-desc">商号・住所・社員情報・事業目的・決算期などを入力します。入力内容をもとに定款・登記書類が自動生成されます。</div>
+  </div>
+  <div class="setup-card-arrow">›</div>
+</a>
+
+<div class="step-line"></div>
+
+<!-- ステップ2 -->
+<div class="step-badge" style="background:{% if has_data %}#4A90E2{% else %}#bbb{% endif %};">STEP 2</div>
+<a href="{{ url_for('teikan.preview') }}" class="setup-card" {% if not has_data %}style="opacity:0.5;pointer-events:none;"{% endif %}>
+  <div class="setup-card-icon">📄</div>
+  <div class="setup-card-body">
+    <div class="setup-card-title">定款を作成する</div>
+    <div class="setup-card-desc">入力した情報をもとに定款を自動生成します。内容を確認してPDFでダウンロードできます。</div>
+  </div>
+  <div class="setup-card-arrow">›</div>
+</a>
+
+<div class="step-line"></div>
+
+<!-- ステップ3 -->
+<div class="step-badge" style="background:{% if has_data %}#4A90E2{% else %}#bbb{% endif %};">STEP 3</div>
+<a href="{{ url_for('teikan.registration_docs') }}" class="setup-card" {% if not has_data %}style="opacity:0.5;pointer-events:none;"{% endif %}>
+  <div class="setup-card-icon">🏛️</div>
+  <div class="setup-card-body">
+    <div class="setup-card-title">登記書類を作成する</div>
+    <div class="setup-card-desc">設立登記申請書・払込証明書・就任承諾書・印鑑届出書など、法務局への申請に必要な書類を一括生成します。</div>
+  </div>
+  <div class="setup-card-arrow">›</div>
+</a>
+
+{% if not has_data %}
+<p style="font-size:12px;color:#aaa;text-align:center;margin-top:8px;">※ STEP 2・3はSTEP 1の情報入力後に利用できます</p>
+{% endif %}
+
+<!-- 戻るリンク -->
+<div style="margin-top:28px;">
+  <a href="{{ url_for('teikan.history') }}" style="font-size:13px;color:#4A90E2;text-decoration:none;">
+    ← 一覧に戻る
+  </a>
+</div>
+
+{% endblock %}

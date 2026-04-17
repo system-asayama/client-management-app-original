@@ -47,6 +47,14 @@ AVAILABLE_APPS = [
         'description': '電子契約の作成、署名、契約確定を行う',
         'url': '/e-contract',
         'icon': '✍️'
+    },
+    {
+        'name': 'teikan',
+        'display_name': '定款作成アプリ',
+        'scope': 'store',
+        'description': '合同会社・株式会社の定款をステップ形式で簡単作成しPDFでダウンロードできる',
+        'url': '/apps/teikan',
+        'icon': '📜'
     }
 ]
 

@@ -1,0 +1,127 @@
+{% extends 'teikan/base.html' %}
+
+{% block title %}決算期の設定 - 法人設立{% endblock %}
+
+{% block step_indicator %}
+<nav class="step-indicator">
+  <div class="step-indicator-inner">
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>情報入力</span>
+    </div>
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>社員情報</span>
+    </div>
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>事業目的</span>
+    </div>
+    <div class="step-item active">
+      <span class="step-num">4</span>
+      <span>決算期</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">5</span>
+      <span>確認</span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="section-title">決算期を設定しましょう</h1>
+<p class="section-subtitle">事業年度の開始日・終了日と設立日を設定します。</p>
+
+<form method="POST" action="{{ url_for('teikan.step4') }}" id="step4-form">
+
+  <!-- 決算期 -->
+  <div class="card">
+    <div class="card-title">決算期（事業年度）</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <select name="fiscal_start_month" class="form-control" style="width:80px;" onchange="updateFiscalDisplay()">
+        {% for m in range(1, 13) %}
+        <option value="{{ m }}" {% if data.get('fiscal_start_month', '3')|int == m %}selected{% endif %}>{{ m }}月</option>
+        {% endfor %}
+      </select>
+      <select name="fiscal_start_day" class="form-control" style="width:80px;" onchange="updateFiscalDisplay()">
+        <option value="1" {% if data.get('fiscal_start_day', '1') == '1' %}selected{% endif %}>1日</option>
+        <option value="15" {% if data.get('fiscal_start_day') == '15' %}selected{% endif %}>15日</option>
+      </select>
+      <span style="color:#666;">〜</span>
+      <select name="fiscal_end_month" class="form-control" style="width:80px;" onchange="updateFiscalDisplay()">
+        {% for m in range(1, 13) %}
+        <option value="{{ m }}" {% if data.get('fiscal_end_month', '2')|int == m %}selected{% endif %}>{{ m }}月</option>
+        {% endfor %}
+      </select>
+      <select name="fiscal_end_day" class="form-control" style="width:80px;" onchange="updateFiscalDisplay()">
+        <option value="末日" {% if data.get('fiscal_end_day', '末日') == '末日' %}selected{% endif %}>末日</option>
+        <option value="15" {% if data.get('fiscal_end_day') == '15' %}selected{% endif %}>15日</option>
+        <option value="20" {% if data.get('fiscal_end_day') == '20' %}selected{% endif %}>20日</option>
+      </select>
+    </div>
+    <div id="fiscal-display" style="font-size:18px;font-weight:700;color:#1a1a2e;"></div>
+    <p class="form-hint" style="margin-top:8px;">
+      設立月の前月を決算月にすると、最初の事業年度が約1年になります。
+      例：3月設立 → 2月末日決算
+    </p>
+  </div>
+
+  <!-- よく使われる決算期 -->
+  <div class="card" style="margin-bottom:20px;">
+    <div style="font-weight:600;font-size:14px;margin-bottom:10px;">よく使われる決算期</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <button type="button" class="btn btn-secondary" style="width:auto;font-size:13px;padding:8px 14px;"
+        onclick="setFiscal(3,1,2,'末日')">3月〜翌2月末</button>
+      <button type="button" class="btn btn-secondary" style="width:auto;font-size:13px;padding:8px 14px;"
+        onclick="setFiscal(4,1,3,'末日')">4月〜翌3月末</button>
+      <button type="button" class="btn btn-secondary" style="width:auto;font-size:13px;padding:8px 14px;"
+        onclick="setFiscal(1,1,12,'末日')">1月〜12月末</button>
+      <button type="button" class="btn btn-secondary" style="width:auto;font-size:13px;padding:8px 14px;"
+        onclick="setFiscal(7,1,6,'末日')">7月〜翌6月末</button>
+      <button type="button" class="btn btn-secondary" style="width:auto;font-size:13px;padding:8px 14px;"
+        onclick="setFiscal(10,1,9,'末日')">10月〜翌9月末</button>
+    </div>
+  </div>
+
+  <!-- 設立日 -->
+  <div class="form-group">
+    <label class="form-label" for="established_date">設立予定日 <span class="optional">任意</span></label>
+    <input type="text" id="established_date" name="established_date" class="form-control"
+      placeholder="例：令和7年3月1日" value="{{ data.get('established_date', '') }}"
+      style="max-width:280px;">
+    <p class="form-hint">定款の作成日として記載されます。未定の場合は空欄でも構いません。</p>
+  </div>
+
+  <!-- ナビゲーション -->
+  <div class="page-nav">
+    <a href="{{ url_for('teikan.confirm') }}" class="btn btn-secondary" style="text-decoration:none;">← 確認画面に戻る</a>
+    <button type="submit" class="btn btn-primary">保存して戻る →</button>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateFiscalDisplay() {
+  const sm = document.querySelector('[name=fiscal_start_month]').value;
+  const sd = document.querySelector('[name=fiscal_start_day]').value;
+  const em = document.querySelector('[name=fiscal_end_month]').value;
+  const ed = document.querySelector('[name=fiscal_end_day]').value;
+  const endStr = ed === '末日' ? `${em}月末日` : `${em}月${ed}日`;
+  document.getElementById('fiscal-display').textContent = `${sm}月${sd}日〜翌年${endStr}`;
+}
+
+function setFiscal(sm, sd, em, ed) {
+  document.querySelector('[name=fiscal_start_month]').value = sm;
+  document.querySelector('[name=fiscal_start_day]').value = sd;
+  document.querySelector('[name=fiscal_end_month]').value = em;
+  document.querySelector('[name=fiscal_end_day]').value = ed;
+  updateFiscalDisplay();
+}
+
+// 初期表示
+updateFiscalDisplay();
+</script>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends 'teikan/base.html' %}
+
+{% block title %}法人形態を選択 - 法人設立{% endblock %}
+
+{% block content %}
+<style>
+  .type-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 20px;
+  }
+  .type-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 14px;
+    padding: 20px 18px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.12s;
+    cursor: pointer;
+    position: relative;
+  }
+  .type-card:hover, .type-card:active {
+    border-color: #1976d2;
+    box-shadow: 0 4px 18px rgba(25,118,210,0.13);
+    transform: translateY(-2px);
+    text-decoration: none;
+    color: inherit;
+  }
+  .type-card .type-icon {
+    font-size: 36px;
+    flex-shrink: 0;
+    width: 52px;
+    text-align: center;
+  }
+  .type-card .type-info { flex: 1; }
+  .type-card .type-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+  .type-card .type-desc {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.6;
+  }
+  .type-card .type-arrow {
+    font-size: 20px;
+    color: #bbb;
+    flex-shrink: 0;
+  }
+  .type-card:hover .type-arrow { color: #1976d2; }
+  .type-card .type-badge {
+    position: absolute;
+    top: 12px;
+    right: 44px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .badge-popular { background: #fff3e0; color: #e65100; }
+  .badge-standard { background: #e3f2fd; color: #1565c0; }
+  .badge-npo { background: #e8f5e9; color: #2e7d32; }
+  .page-lead {
+    font-size: 14px;
+    color: #555;
+    margin: 12px 0 4px;
+    line-height: 1.7;
+  }
+</style>
+
+<h1 class="section-title">法人形態を選択してください</h1>
+<p class="page-lead">設立する会社・法人の種類を選んでください。<br>選択した形態に合った定款の雛形が自動的に適用されます。</p>
+
+<div class="type-grid">
+
+  <a href="{{ url_for('teikan.start_with_type', company_type='合同会社') }}" class="type-card">
+    <span class="type-badge badge-popular">人気</span>
+    <div class="type-icon">🏢</div>
+    <div class="type-info">
+      <div class="type-name">合同会社（LLC）</div>
+      <div class="type-desc">設立費用が安く手続きが簡単。小規模ビジネスや個人事業の法人化に最適。</div>
+    </div>
+    <div class="type-arrow">›</div>
+  </a>
+
+  <a href="{{ url_for('teikan.start_with_type', company_type='株式会社') }}" class="type-card">
+    <span class="type-badge badge-standard">スタンダード</span>
+    <div class="type-icon">📈</div>
+    <div class="type-info">
+      <div class="type-name">株式会社</div>
+      <div class="type-desc">社会的信用が高く資金調達がしやすい。事業拡大を目指す場合に最適。</div>
+    </div>
+    <div class="type-arrow">›</div>
+  </a>
+
+  <a href="{{ url_for('teikan.start_with_type', company_type='一般社団法人') }}" class="type-card">
+    <span class="type-badge badge-npo">非営利</span>
+    <div class="type-icon">🌐</div>
+    <div class="type-info">
+      <div class="type-name">一般社団法人</div>
+      <div class="type-desc">非営利活動や業界団体・同窓会など。2名以上の社員で設立可能。</div>
+    </div>
+    <div class="type-arrow">›</div>
+  </a>
+
+</div>
+
+<div style="margin-top:28px;text-align:center;">
+  <a href="{{ url_for('teikan.history') }}" style="color:#888;font-size:13px;text-decoration:none;">
+    ← 作成済み定款一覧に戻る
+  </a>
+</div>
+{% endblock %}

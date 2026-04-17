@@ -1,0 +1,598 @@
+{% extends "teikan/base.html" %}
+
+{% block title %}登記書類の作成 - 法人設立{% endblock %}
+
+{% block step_indicator %}
+<nav class="step-indicator">
+  <div class="step-indicator-inner">
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>情報入力</span>
+    </div>
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>定款作成</span>
+    </div>
+    <div class="step-item active">
+      <span class="step-num">3</span>
+      <span>登記書類</span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<style>
+.doc-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.doc-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.doc-card-desc {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+}
+.doc-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.badge-auto {
+  display: inline-block;
+  background: #4A90E2;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.badge-manual {
+  display: inline-block;
+  background: #888;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.section-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 20px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eee;
+}
+/* PDFプレビューモーダル */
+#pdf-preview-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 9999;
+  overflow: hidden;
+  padding: 0;
+}
+#pdf-preview-modal.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+#pdf-preview-inner {
+  background: #fff;
+  border-radius: 12px;
+  width: calc(100% - 32px);
+  max-width: 700px;
+  margin: 16px auto;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+}
+#pdf-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #1a1a2e;
+  color: #fff;
+}
+#pdf-preview-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+#pdf-preview-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+#pdf-preview-body {
+  padding: 16px;
+  background: #f0f0f0;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+}
+#pdf-preview-loading {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+#pdf-preview-error {
+  padding: 20px;
+  text-align: center;
+  color: #c00;
+  font-size: 14px;
+  display: none;
+}
+.pdf-preview-page {
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+#pdf-preview-footer {
+  padding: 12px 18px;
+  background: #f5f7fa;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #888;
+}
+.btn-preview {
+  display: inline-block;
+  background: #f0f4ff;
+  color: #4A90E2;
+  border: 1px solid #4A90E2;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.btn-preview:hover {
+  background: #e0eaff;
+}
+</style>
+
+<!-- PDFプレビューモーダル -->
+<div id="pdf-preview-modal">
+  <div id="pdf-preview-inner">
+    <div id="pdf-preview-header">
+      <span id="pdf-preview-title">PDFプレビュー</span>
+      <button id="pdf-preview-close" onclick="closePdfPreview()">✕</button>
+    </div>
+    <div id="pdf-preview-body">
+      <div id="pdf-preview-loading">PDFを生成中...</div>
+      <div id="pdf-preview-error"></div>
+    </div>
+    <div id="pdf-preview-footer">
+      <span id="pdf-preview-page-info"></span>
+      <span style="color:#4A90E2;font-size:11px;">実際のPDFをレンダリングしています</span>
+    </div>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:16px;">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<h1 class="section-title">登記書類を作成する</h1>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+  <span style="font-size:14px;color:#666;">📋 ステップ 3：登記書類作成</span>
+</div>
+<p style="font-size:13px;color:#666;margin-bottom:20px;">
+  法務局への設立登記申請に必要な書類を自動生成します。<br>
+  <span style="color:#4A90E2;font-weight:700;">自動生成</span> の書類はボタンからPDFをダウンロードできます。<span style="color:#888;font-weight:700;">自分で用意</span> の書類は取得方法をご案内します。
+</p>
+
+<!-- 会社情報サマリー -->
+<div style="background:#f5f7fa;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+  <div style="font-size:12px;color:#888;margin-bottom:4px;">作成対象</div>
+  <div style="font-size:16px;font-weight:700;color:#1a1a2e;">
+    {% if data.get('company_type_position') == 'before' %}
+    {{ data.get('company_type', '合同会社') }}{{ data.get('company_name', '') }}
+    {% else %}
+    {{ data.get('company_name', '') }}{{ data.get('company_type', '合同会社') }}
+    {% endif %}
+  </div>
+  <div style="font-size:13px;color:#666;margin-top:4px;">{{ data.get('address', '') }}</div>
+</div>
+
+{% set company_type = data.get('company_type', '合同会社') %}
+
+<!-- 自動生成できる書類 -->
+<div class="section-header">自動生成できる書類</div>
+
+<!-- 定款 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    定款
+  </div>
+  <div class="doc-card-desc">会社の基本規則を定めた文書です。法務局への登記申請に必要です。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_pdf') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('teikan', '定款')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 設立登記申請書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    {% if company_type == '株式会社' %}株式会社{% elif company_type == '一般社団法人' %}一般社団法人{% else %}合同会社{% endif %}設立登記申請書
+  </div>
+  <div class="doc-card-desc">法務局に提出する設立登記申請書です。会社の基本情報・登記すべき事項が記載されます。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_registration_application') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('application', '設立登記申請書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+{% if company_type != '一般社団法人' %}
+<!-- 払込証明書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    払込みがあったことを証する書面（払込証明書）
+  </div>
+  <div class="doc-card-desc">資本金の払込みを証明する書面です。通帳のコピーと合わせて提出します。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_payment_certificate') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('payment_certificate', '払込証明書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 資本金の額の決定を証する書面 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    資本金の額の決定を証する書面
+  </div>
+  <div class="doc-card-desc">出資財産のうち資本金として計上する金額を証明する書面です。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_capital_certificate') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('capital_certificate', '資本金の額の決定を証する書面')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+{% endif %}
+
+{% if company_type == '合同会社' %}
+<!-- 本店所在場所の決定を証する書面 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    本店所在場所の決定を証する書面
+  </div>
+  <div class="doc-card-desc">定款で本店所在場所を最小行政区画のみ記載した場合に必要な書面です。社員全員の同意書として作成します。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_office_location') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('office_location', '本店所在場所の決定を証する書面')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 代表社員・業務執行社員の就任承諾書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    代表社員・業務執行社員の就任承諾書
+  </div>
+  <div class="doc-card-desc">代表社員・業務執行社員として就任することを承諾する書面です。各社員分が生成されます。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_acceptance_letter') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('acceptance_letter', '就任承諾書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+{% elif company_type == '株式会社' %}
+<!-- 発起人の決定書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    発起人の決定書
+  </div>
+  <div class="doc-card-desc">本店所在場所・設立時役員の選任等を決定した書面です。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_founder_resolution') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('founder_resolution', '発起人の決定書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 就任承諾書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    設立時取締役・代表取締役の就任承諾書
+  </div>
+  <div class="doc-card-desc">設立時取締役・代表取締役として就任することを承諾する書面です。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_acceptance_letter') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('acceptance_letter', '就任承諾書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+{% elif company_type == '一般社団法人' %}
+<!-- 設立時社員の決議書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    設立時社員の決議書
+  </div>
+  <div class="doc-card-desc">設立時理事・代表理事の選任等を決議した書面です。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_founder_resolution') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('founder_resolution', '設立時社員の決議書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 就任承諾書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    設立時理事・代表理事の就任承諾書
+  </div>
+  <div class="doc-card-desc">設立時理事・代表理事として就任することを承諾する書面です。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_acceptance_letter') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('acceptance_letter', '就任承諾書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+{% endif %}
+
+<!-- 登録免許税納付用台紙 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    登録免許税納付用台紙
+  </div>
+  <div class="doc-card-desc">
+    {% if company_type == '株式会社' %}
+    資本金の1000劆1・7（最低15万円）の収入印紙を貼付する台紙です。収入印紙は消印しないでください。
+    {% elif company_type == '一般社団法人' %}
+    6万円の収入印紙を貼付する台紙です。収入印紙は消印しないでください。
+    {% else %}
+    資本金の1000劆1・7（最低6万円）の収入印紙を貼付する台紙です。収入印紙は消印しないでください。
+    {% endif %}
+  </div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_stamp_duty_sheet') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('stamp_duty_sheet', '登録免許税納付用台紙')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 別紙（登記すべき事項） -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    別紙（登記すべき事項）
+  </div>
+  <div class="doc-card-desc">設立登記申請書に添付する別紙です。商号・本店・目的・資本金・社員情報など登記すべき事項を一覧形式で記載します。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_registration_items') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('registration_items', '別紙（登記すべき事項）')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 印鑑届出書 -->
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    印鑑届出書
+  </div>
+  <div class="doc-card-desc">代表者の印鑑（代表印）を法務局に届け出るための書面です。代表者の印鑑証明書と合わせて提出します。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_seal_registration') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('seal_registration', '印鑑届出書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 自分で用意する書類 -->
+<div class="section-header">自分で用意する書類</div>
+
+<div class="doc-card" style="background:#fafafa;">
+  <div class="doc-card-title">
+    <span class="badge-manual">自分で用意</span>
+    代表者の印鑑登録証明書
+  </div>
+  <div class="doc-card-desc">代表者個人の印鑑証明書です。市区町村の窓口またはコンビニで取得できます（発行から3ヶ月以内のもの）。</div>
+</div>
+
+{% if company_type != '合同会社' %}
+<div class="doc-card" style="background:#fafafa;">
+  <div class="doc-card-title">
+    <span class="badge-manual">自分で用意</span>
+    定款の公証人認証
+  </div>
+  <div class="doc-card-desc">
+    {% if company_type == '株式会社' %}
+    株式会社の定款は公証役場での認証が必要です（費用：約5万円）。電子定款の場合は印紙税4万円が不要になります。
+    {% elif company_type == '一般社団法人' %}
+    一般社団法人の定款は公証役場での認証が必要です（費用：約5万円）。
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="doc-card">
+  <div class="doc-card-title">
+    <span class="badge-auto">自動生成</span>
+    印鑑カード交付申請書
+  </div>
+  <div class="doc-card-desc">法務局で印鑑証明書の交付を受けるためのカードを申請する書面です。設立登記完了後に法務局に提出します。</div>
+  <div class="doc-card-actions">
+    <a href="{{ url_for('teikan.download_inkan_card') }}" class="btn btn-primary" style="text-decoration:none;padding:10px 16px;font-size:13px;">
+      ⬇️ PDFをダウンロード
+    </a>
+    <button class="btn-preview" onclick="openPdfPreview('inkan_card', '印鑑カード交付申請書')">
+      👁 PDFプレビュー
+    </button>
+  </div>
+</div>
+
+<!-- 一括ダウンロード -->
+<div style="margin-top:28px;background:#1a1a2e;border-radius:12px;padding:20px;">
+  <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:8px;">📦 全書類を一括ダウンロード</div>
+  <div style="font-size:12px;color:#aaa;margin-bottom:14px;">自動生成できる書類を全てまとめてZIPファイルでダウンロードします。</div>
+  <a href="{{ url_for('teikan.download_all_docs') }}" class="btn" style="text-decoration:none;background:#4A90E2;color:#fff;font-size:15px;padding:14px 20px;">
+    ⬇️ 全書類をまとめてダウンロード（ZIP）
+  </a>
+</div>
+
+<!-- ナビゲーション -->
+<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+  <a href="{{ url_for('teikan.preview') }}" class="btn btn-secondary" style="text-decoration:none;padding:12px 20px;">
+    ← 定款に戻る
+  </a>
+  <a href="{{ url_for('teikan.history') }}" style="display:flex;align-items:center;font-size:13px;color:#4A90E2;text-decoration:none;padding:12px 0;">
+    一覧を見る →
+  </a>
+</div>
+
+<script>
+const PREVIEW_BASE_URL = "{{ url_for('teikan.preview_pdf', doc_type='__DOC_TYPE__') }}";
+
+function openPdfPreview(docType, title) {
+  const modal = document.getElementById('pdf-preview-modal');
+  const body = document.getElementById('pdf-preview-body');
+  const loading = document.getElementById('pdf-preview-loading');
+  const errorDiv = document.getElementById('pdf-preview-error');
+  const titleEl = document.getElementById('pdf-preview-title');
+  const pageInfo = document.getElementById('pdf-preview-page-info');
+
+  // 初期化
+  titleEl.textContent = title + ' — PDFプレビュー';
+  loading.style.display = 'block';
+  errorDiv.style.display = 'none';
+  errorDiv.textContent = '';
+  pageInfo.textContent = '';
+  // 既存の画像を削除
+  Array.from(body.querySelectorAll('.pdf-preview-page')).forEach(el => el.remove());
+
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  const url = PREVIEW_BASE_URL.replace('__DOC_TYPE__', docType);
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      loading.style.display = 'none';
+      if (data.error) {
+        errorDiv.textContent = 'エラー: ' + data.error;
+        errorDiv.style.display = 'block';
+        return;
+      }
+      pageInfo.textContent = data.page_count + 'ページ';
+      data.images.forEach((src, i) => {
+        const img = document.createElement('img');
+        img.src = src;
+        img.className = 'pdf-preview-page';
+        img.alt = title + ' ' + (i + 1) + 'ページ目';
+        body.appendChild(img);
+      });
+    })
+    .catch(err => {
+      loading.style.display = 'none';
+      errorDiv.textContent = 'プレビューの取得に失敗しました: ' + err.message;
+      errorDiv.style.display = 'block';
+    });
+}
+
+function closePdfPreview() {
+  const modal = document.getElementById('pdf-preview-modal');
+  modal.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// モーダル外クリックで閉じる
+document.getElementById('pdf-preview-modal').addEventListener('click', function(e) {
+  if (e.target === this) closePdfPreview();
+});
+</script>
+
+{% endblock %}

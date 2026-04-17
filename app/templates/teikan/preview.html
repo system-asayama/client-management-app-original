@@ -1,0 +1,600 @@
+{% extends 'teikan/base.html' %}
+
+{% block title %}定款プレビュー - 法人設立{% endblock %}
+
+{% block extra_head %}
+<style>
+  .teikan-doc {
+    background: #fff;
+    border: 1px solid #e0e4ea;
+    border-radius: 8px;
+    padding: 40px 48px;
+    font-family: 'Noto Serif JP', 'Yu Mincho', 'MS Mincho', serif;
+    font-size: 14px;
+    line-height: 1.9;
+    color: #111;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .teikan-title {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    margin-bottom: 8px;
+  }
+  .teikan-company {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 32px;
+  }
+  .teikan-chapter {
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+    margin: 28px 0 16px;
+    letter-spacing: 0.1em;
+  }
+  .teikan-article {
+    margin-bottom: 16px;
+  }
+  .teikan-article-header {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .teikan-article-body {
+    padding-left: 1em;
+  }
+  .teikan-article-body p {
+    margin: 2px 0;
+  }
+  .teikan-article-body ol {
+    margin: 4px 0;
+    padding-left: 2em;
+  }
+  .teikan-article-body ol li {
+    margin-bottom: 2px;
+  }
+  .teikan-sign {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ccc;
+  }
+  .teikan-sign-line {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+  }
+  .teikan-sign-member {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+    gap: 20px;
+  }
+  @media print {
+    .no-print { display: none !important; }
+    .teikan-doc { box-shadow: none; border: none; padding: 20px; }
+    body { background: #fff; }
+    .app-header, .step-indicator { display: none; }
+  }
+  @media (max-width: 480px) {
+    .teikan-doc { padding: 20px 16px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- アクションバー -->
+<div class="no-print" style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+  {% if readonly and doc %}
+  <a href="{{ url_for('teikan.history') }}" class="btn btn-secondary" style="text-decoration:none;width:auto;padding:10px 16px;">← 一覧に戻る</a>
+  <a href="{{ url_for('teikan.history_download', doc_id=doc.id) }}" class="btn btn-primary" style="text-decoration:none;width:auto;padding:10px 16px;">⬇️ PDFダウンロード</a>
+  {% else %}
+  <a href="{{ url_for('teikan.confirm') }}" class="btn btn-secondary" style="text-decoration:none;width:auto;padding:10px 16px;">← 確認画面に戻る</a>
+  <a href="{{ url_for('teikan.download_pdf') }}" class="btn btn-primary" style="text-decoration:none;width:auto;padding:10px 16px;">⬇️ PDFダウンロード</a>
+  {% endif %}
+  <button onclick="window.print()" class="btn btn-outline-primary" style="width:auto;padding:10px 16px;">🖨️ 印刷</button>
+</div>
+
+{% set company_type = data.get('company_type', '合同会社') %}
+{% set company_name = data.get('company_name', '') %}
+{% set company_type_position = data.get('company_type_position', 'after') %}
+{% if company_type_position == 'before' %}
+  {% set full_company_name = company_type ~ company_name %}
+{% else %}
+  {% set full_company_name = company_name ~ company_type %}
+{% endif %}
+{% set address = data.get('address', '') ~ data.get('address_detail', '') %}
+{% set members = data.get('members', []) %}
+{% set purposes = data.get('purposes', []) %}
+{% set capital = data.get('capital', '0') %}
+{% set fiscal_start_month = data.get('fiscal_start_month', '3') %}
+{% set fiscal_start_day = data.get('fiscal_start_day', '1') %}
+{% set fiscal_end_month = data.get('fiscal_end_month', '2') %}
+{% set fiscal_end_day = data.get('fiscal_end_day', '末日') %}
+{% set established_date = data.get('established_date') or '令和　　年　　月　　日' %}
+{% set rep_members = members|selectattr('is_representative')|list %}
+{% if not rep_members and members %}{% set rep_members = [members[0]] %}{% endif %}
+
+<!-- 定款本文 -->
+<div class="teikan-doc">
+  <div class="teikan-title">定　　款</div>
+  <div class="teikan-company">{{ full_company_name }}</div>
+
+  {# ========== 合同会社 ========== #}
+  {% if company_type == '合同会社' %}
+
+  <div class="teikan-chapter">第一章　総則</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１条（商号）</div>
+    <div class="teikan-article-body">
+      <p>当会社は、{{ full_company_name }}と称する。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第２条（目的）</div>
+    <div class="teikan-article-body">
+      <p>当会社は、次の事業を営むことを目的とする。</p>
+      <ol>{% for p in purposes %}<li>{{ p }}</li>{% endfor %}</ol>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第３条（本店の所在地）</div>
+    <div class="teikan-article-body"><p>当会社は、本店を{{ address }}に置く。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第４条（公告方法）</div>
+    <div class="teikan-article-body"><p>当会社の公告は、官報に掲載する方法により行う。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第二章　社員及び出資</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第５条（社員の出資）</div>
+    <div class="teikan-article-body">
+      <p>社員の氏名、住所及び出資の目的並びにその価額は、次のとおりである。</p>
+      {% for member in members %}
+      <p style="margin-top:8px;">
+        氏名：{{ member.get('name', '') }}<br>
+        住所：{{ member.get('address', '') }}<br>
+        出資の価額：金{% if member.get('contribution') %}{{ '{:,}'.format(member.get('contribution', 0)|int) }}{% else %}0{% endif %}円
+      </p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第６条（資本金の額）</div>
+    <div class="teikan-article-body">
+      <p>当会社の資本金の額は、金{% if capital %}{{ '{:,}'.format(capital|int) }}{% else %}0{% endif %}円とする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-chapter">第三章　業務執行及び代表</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第７条（業務執行社員）</div>
+    <div class="teikan-article-body">
+      <p>当会社の業務は、社員全員が執行する。</p>
+      <p>業務を執行する社員は、当会社を代表する。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第８条（代表社員）</div>
+    <div class="teikan-article-body">
+      <p>当会社を代表する社員は、次のとおりとする。</p>
+      {% for m in rep_members %}<p>　{{ m.get('name', '') }}</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第９条（業務執行の決定）</div>
+    <div class="teikan-article-body"><p>当会社の業務執行は、社員の過半数をもって決定する。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第四章　計算</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１０条（事業年度）</div>
+    <div class="teikan-article-body">
+      <p>当会社の事業年度は、毎年{{ fiscal_start_month }}月{{ fiscal_start_day }}日から翌年{{ fiscal_end_month }}月{% if fiscal_end_day == '末日' %}末日{% else %}{{ fiscal_end_day }}日{% endif %}までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１１条（利益の配当）</div>
+    <div class="teikan-article-body"><p>当会社は、毎事業年度終了後、社員の出資の価額に応じて利益の配当を行う。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第五章　附則</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１２条（設立に際して出資される財産の価額）</div>
+    <div class="teikan-article-body">
+      <p>当会社の設立に際して出資される財産の価額は、金{% if capital %}{{ '{:,}'.format(capital|int) }}{% else %}0{% endif %}円とする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１３条（最初の事業年度）</div>
+    <div class="teikan-article-body">
+      <p>当会社の最初の事業年度は、当会社成立の日から{{ fiscal_end_month }}月{% if fiscal_end_day == '末日' %}末日{% else %}{{ fiscal_end_day }}日{% endif %}までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１４条（設立時代表社員）</div>
+    <div class="teikan-article-body">
+      <p>当会社の設立時の代表社員は、次のとおりとする。</p>
+      {% for m in rep_members %}<p>　{{ m.get('name', '') }}</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１５条（附則）</div>
+    <div class="teikan-article-body"><p>当会社の定款は、{{ established_date }}に作成した。</p></div>
+  </div>
+
+  <div class="teikan-sign">
+    <p>以上、合同会社設立のため、この定款を作成し、社員が記名押印する。</p>
+    <br>
+    <div class="teikan-sign-line"><span>{{ established_date }}</span></div>
+    <br>
+    {% for member in members %}
+    <div class="teikan-sign-member">
+      <span>社員　{{ member.get('name', '') }}</span>
+      <span>　　　　　　　　　　印</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ========== 株式会社 ========== #}
+  {% elif company_type == '株式会社' %}
+
+  <div class="teikan-chapter">第一章　総則</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１条（商号）</div>
+    <div class="teikan-article-body"><p>当会社は、{{ full_company_name }}と称する。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第２条（目的）</div>
+    <div class="teikan-article-body">
+      <p>当会社は、次の事業を営むことを目的とする。</p>
+      <ol>{% for p in purposes %}<li>{{ p }}</li>{% endfor %}</ol>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第３条（本店の所在地）</div>
+    <div class="teikan-article-body"><p>当会社は、本店を{{ address }}に置く。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第４条（公告方法）</div>
+    <div class="teikan-article-body"><p>当会社の公告は、官報に掲載する方法により行う。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第二章　株式</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第５条（発行可能株式総数）</div>
+    <div class="teikan-article-body">
+      <p>当会社の発行可能株式総数は、{{ data.get('total_shares', '400') }}株とする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第６条（株券の不発行）</div>
+    <div class="teikan-article-body"><p>当会社の株式については、株券を発行しない。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第７条（株式の譲渡制限）</div>
+    <div class="teikan-article-body"><p>当会社の株式を譲渡するには、取締役会の承認を要する。ただし、当会社の株主に譲渡する場合は、この限りでない。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第三章　株主総会</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第８条（招集）</div>
+    <div class="teikan-article-body">
+      <p>当会社の定時株主総会は、毎事業年度終了後３ヶ月以内に招集し、臨時株主総会は、必要に応じて招集する。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第９条（議長）</div>
+    <div class="teikan-article-body"><p>株主総会の議長は、代表取締役社長がこれに当たる。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１０条（決議）</div>
+    <div class="teikan-article-body">
+      <p>株主総会の普通決議は、法令に別段の定めがある場合を除き、議決権を行使することができる株主の議決権の過半数を有する株主が出席し、出席した当該株主の議決権の過半数をもって行う。</p>
+    </div>
+  </div>
+
+  <div class="teikan-chapter">第四章　取締役</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１１条（取締役の員数）</div>
+    <div class="teikan-article-body"><p>当会社の取締役は、１名以上とする。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１２条（取締役の選任）</div>
+    <div class="teikan-article-body"><p>取締役は、株主総会の決議によって選任する。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１３条（代表取締役）</div>
+    <div class="teikan-article-body">
+      <p>当会社の代表取締役は、取締役の互選によって定める。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１４条（取締役の任期）</div>
+    <div class="teikan-article-body">
+      <p>取締役の任期は、選任後２年以内に終了する事業年度のうち最終のものに関する定時株主総会の終結の時までとする。ただし、定款変更その他正当な事由がある場合には、株主総会の決議によって短縮することができる。</p>
+    </div>
+  </div>
+
+  <div class="teikan-chapter">第五章　計算</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１５条（事業年度）</div>
+    <div class="teikan-article-body">
+      <p>当会社の事業年度は、毎年{{ fiscal_start_month }}月{{ fiscal_start_day }}日から翌年{{ fiscal_end_month }}月{% if fiscal_end_day == '末日' %}末日{% else %}{{ fiscal_end_day }}日{% endif %}までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１６条（剰余金の配当）</div>
+    <div class="teikan-article-body"><p>当会社の剰余金の配当は、毎事業年度末日の最終の株主名簿に記載された株主又は登録株式質権者に対して行う。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第六章　附則</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１７条（設立に際して出資される財産の価額）</div>
+    <div class="teikan-article-body">
+      <p>当会社の設立に際して出資される財産の価額は、金{% if capital %}{{ '{:,}'.format(capital|int) }}{% else %}0{% endif %}円とする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１８条（最初の事業年度）</div>
+    <div class="teikan-article-body">
+      <p>当会社の最初の事業年度は、当会社成立の日から{{ fiscal_end_month }}月{% if fiscal_end_day == '末日' %}末日{% else %}{{ fiscal_end_day }}日{% endif %}までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１９条（設立時取締役）</div>
+    <div class="teikan-article-body">
+      <p>当会社の設立時取締役は、次のとおりとする。</p>
+      {% for m in rep_members %}<p>　{{ m.get('name', '') }}</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第２０条（附則）</div>
+    <div class="teikan-article-body"><p>当会社の定款は、{{ established_date }}に作成した。</p></div>
+  </div>
+
+  <div class="teikan-sign">
+    <p>以上、株式会社設立のため、この定款を作成し、発起人が記名押印する。</p>
+    <br>
+    <div class="teikan-sign-line"><span>{{ established_date }}</span></div>
+    <br>
+    {% for member in members %}
+    <div class="teikan-sign-member">
+      <span>発起人　{{ member.get('name', '') }}</span>
+      <span>　　　　　　　　　　印</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ========== 一般社団法人 ========== #}
+  {% elif company_type == '一般社団法人' %}
+
+  <div class="teikan-chapter">第一章　総則</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１条（名称）</div>
+    <div class="teikan-article-body"><p>当法人は、{{ full_company_name }}と称する。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第２条（目的）</div>
+    <div class="teikan-article-body">
+      <p>当法人は、次の事業を行うことを目的とする。</p>
+      <ol>{% for p in purposes %}<li>{{ p }}</li>{% endfor %}</ol>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第３条（主たる事務所の所在地）</div>
+    <div class="teikan-article-body"><p>当法人は、主たる事務所を{{ address }}に置く。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第４条（公告方法）</div>
+    <div class="teikan-article-body"><p>当法人の公告は、官報に掲載する方法により行う。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第二章　会員</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第５条（会員の種別）</div>
+    <div class="teikan-article-body">
+      <p>当法人の会員は、次の２種とする。</p>
+      <ol>
+        <li>正会員　当法人の目的に賛同して入会した個人又は団体</li>
+        <li>賛助会員　当法人の事業を賛助するために入会した個人又は団体</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第６条（入会）</div>
+    <div class="teikan-article-body">
+      <p>当法人の会員になろうとする者は、理事会が別に定める入会申込書を提出し、理事会の承認を得なければならない。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第７条（会費）</div>
+    <div class="teikan-article-body">
+      <p>会員は、社員総会において別に定める会費を納入しなければならない。</p>
+    </div>
+  </div>
+
+  <div class="teikan-chapter">第三章　社員総会</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第８条（社員総会の構成）</div>
+    <div class="teikan-article-body"><p>当法人の社員総会は、正会員をもって構成する。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第９条（社員総会の開催）</div>
+    <div class="teikan-article-body">
+      <p>当法人の定時社員総会は、毎事業年度終了後３ヶ月以内に開催し、臨時社員総会は、必要に応じて開催する。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１０条（社員総会の決議）</div>
+    <div class="teikan-article-body">
+      <p>社員総会の決議は、法令又はこの定款に別段の定めがある場合を除き、総社員の議決権の過半数を有する社員が出席し、出席した当該社員の議決権の過半数をもって行う。</p>
+    </div>
+  </div>
+
+  <div class="teikan-chapter">第四章　役員</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１１条（役員の設置）</div>
+    <div class="teikan-article-body"><p>当法人に、理事１名以上及び監事１名を置く。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１２条（役員の選任）</div>
+    <div class="teikan-article-body"><p>理事及び監事は、社員総会の決議によって選任する。</p></div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１３条（代表理事）</div>
+    <div class="teikan-article-body">
+      <p>当法人の代表理事は、理事の互選によって定める。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１４条（役員の任期）</div>
+    <div class="teikan-article-body">
+      <p>理事の任期は、選任後２年以内に終了する事業年度のうち最終のものに関する定時社員総会の終結の時までとする。</p>
+      <p>監事の任期は、選任後２年以内に終了する事業年度のうち最終のものに関する定時社員総会の終結の時までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-chapter">第五章　計算</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１５条（事業年度）</div>
+    <div class="teikan-article-body">
+      <p>当法人の事業年度は、毎年{{ fiscal_start_month }}月{{ fiscal_start_day }}日から翌年{{ fiscal_end_month }}月{% if fiscal_end_day == '末日' %}末日{% else %}{{ fiscal_end_day }}日{% endif %}までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１６条（剰余金の分配の禁止）</div>
+    <div class="teikan-article-body"><p>当法人は、剰余金の分配を行わない。</p></div>
+  </div>
+
+  <div class="teikan-chapter">第六章　附則</div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１７条（最初の事業年度）</div>
+    <div class="teikan-article-body">
+      <p>当法人の最初の事業年度は、当法人成立の日から{{ fiscal_end_month }}月{% if fiscal_end_day == '末日' %}末日{% else %}{{ fiscal_end_day }}日{% endif %}までとする。</p>
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１８条（設立時役員）</div>
+    <div class="teikan-article-body">
+      <p>当法人の設立時理事は、次のとおりとする。</p>
+      {% for m in rep_members %}<p>　{{ m.get('name', '') }}</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="teikan-article">
+    <div class="teikan-article-header">第１９条（附則）</div>
+    <div class="teikan-article-body"><p>当法人の定款は、{{ established_date }}に作成した。</p></div>
+  </div>
+
+  <div class="teikan-sign">
+    <p>以上、一般社団法人設立のため、この定款を作成し、設立時社員が記名押印する。</p>
+    <br>
+    <div class="teikan-sign-line"><span>{{ established_date }}</span></div>
+    <br>
+    {% for member in members %}
+    <div class="teikan-sign-member">
+      <span>設立時社員　{{ member.get('name', '') }}</span>
+      <span>　　　　　　　　　　印</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <p style="color:#999;">法人形態が選択されていません。</p>
+  {% endif %}
+
+</div>
+
+<!-- 下部アクション -->
+<div class="no-print" style="margin-top:24px;">
+  {% if readonly and doc %}
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="{{ url_for('teikan.history_download', doc_id=doc.id) }}" class="btn btn-primary" style="text-decoration:none;">
+      ⬇️ PDFダウンロード
+    </a>
+    <a href="{{ url_for('teikan.history') }}" class="btn btn-secondary" style="text-decoration:none;width:auto;padding:13px 24px;">
+      ← 一覧に戻る
+    </a>
+  </div>
+  {% else %}
+  <!-- 3段階フローのナビゲーション -->
+  <div style="background:#e3f2fd;border:1px solid #2196f3;border-radius:10px;padding:16px;margin-bottom:16px;">
+    <div style="font-size:13px;color:#1565c0;font-weight:700;margin-bottom:6px;">📄 ステップ 2：定欻作成</div>
+    <div style="font-size:12px;color:#1976d2;margin-bottom:12px;">定欻の内容を確認し、PDFをダウンロードしてください。確認後、登記書類作成へ進むことができます。</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('teikan.download_pdf') }}" class="btn btn-primary" style="text-decoration:none;">
+        ⬇️ 定欻 PDFをダウンロード
+      </a>
+      <a href="{{ url_for('teikan.confirm') }}" class="btn btn-secondary" style="text-decoration:none;width:auto;padding:13px 24px;">
+        ← 確認画面に戻る
+      </a>
+    </div>
+  </div>
+  <a href="{{ url_for('teikan.registration_docs') }}" class="btn" style="text-decoration:none;background:#1a1a2e;color:#fff;font-size:16px;padding:16px;margin-bottom:12px;">
+    次のステップへ：登記書類を作成する →
+  </a>
+  <form method="POST" action="{{ url_for('teikan.save') }}" style="margin-bottom:12px;">
+    <button type="submit" class="btn" style="background:#4A90E2;color:#fff;width:100%;border:none;cursor:pointer;padding:12px;">
+      💾 定欻を保存する
+    </button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

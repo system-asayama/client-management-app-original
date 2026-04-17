@@ -402,6 +402,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ e_contract_service blueprints 登録エラー: {e}")
 
+    # 定款作成アプリ blueprint
+    try:
+        from .blueprints.teikan import bp as teikan_bp
+        app.register_blueprint(teikan_bp)
+        print("✅ teikan blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ teikan blueprint 登録エラー: {e}")
+
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

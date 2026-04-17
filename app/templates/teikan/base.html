@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}法人設立アプリ{% endblock %}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* ヘッダー */
+    .app-header {
+      background: #fff;
+      border-bottom: 1px solid #e0e4ea;
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .app-header .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a6fc4;
+      text-decoration: none;
+    }
+    .app-header .logo-icon {
+      font-size: 22px;
+    }
+    .app-header .nav-back {
+      font-size: 13px;
+      color: #666;
+      text-decoration: none;
+    }
+    .app-header .nav-back:hover { color: #1a6fc4; }
+
+    /* ステップインジケーター */
+    .step-indicator {
+      background: #fff;
+      border-bottom: 1px solid #e0e4ea;
+      padding: 0 20px;
+      overflow-x: auto;
+    }
+    .step-indicator-inner {
+      display: flex;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .step-item {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 8px;
+      font-size: 12px;
+      color: #999;
+      white-space: nowrap;
+      gap: 6px;
+      border-bottom: 3px solid transparent;
+      min-width: 80px;
+    }
+    .step-item.active {
+      color: #1a6fc4;
+      border-bottom-color: #1a6fc4;
+      font-weight: 600;
+    }
+    .step-item.done {
+      color: #2e7d32;
+    }
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #e0e4ea;
+      color: #666;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-item.active .step-num {
+      background: #1a6fc4;
+      color: #fff;
+    }
+    .step-item.done .step-num {
+      background: #2e7d32;
+      color: #fff;
+    }
+
+    /* メインコンテンツ */
+    .main-content {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
+
+    /* セクションタイトル */
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+    .section-subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+
+    /* カード */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1px solid #e8ecf0;
+    }
+    .card-title {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .card-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .card-value.small {
+      font-size: 15px;
+    }
+
+    /* フォーム */
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 6px;
+    }
+    .form-label .required {
+      color: #e53935;
+      margin-left: 4px;
+      font-size: 12px;
+    }
+    .form-label .optional {
+      color: #999;
+      margin-left: 4px;
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .form-hint {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #333;
+      background: #fff;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: #1a6fc4;
+      box-shadow: 0 0 0 3px rgba(26,111,196,0.1);
+    }
+    textarea.form-control {
+      resize: vertical;
+      min-height: 80px;
+    }
+    select.form-control {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+
+    /* ラジオ・チェックボックス */
+    .radio-group, .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .radio-item, .checkbox-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .radio-item:hover, .checkbox-item:hover {
+      border-color: #1a6fc4;
+      background: #f0f6ff;
+    }
+    .radio-item input, .checkbox-item input {
+      margin-top: 2px;
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      accent-color: #1a6fc4;
+    }
+    .radio-item.selected, .checkbox-item.selected {
+      border-color: #1a6fc4;
+      background: #f0f6ff;
+    }
+    .radio-label, .checkbox-label {
+      font-size: 15px;
+      color: #333;
+      font-weight: 500;
+    }
+    .radio-desc, .checkbox-desc {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    /* ボタン */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 13px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: #1a6fc4;
+      color: #fff;
+      width: 100%;
+    }
+    .btn-primary:hover { background: #155fa0; }
+    .btn-secondary {
+      background: #fff;
+      color: #444;
+      border: 1.5px solid #d0d5dd;
+    }
+    .btn-secondary:hover { background: #f5f7fa; }
+    .btn-danger {
+      background: #fff;
+      color: #e53935;
+      border: 1.5px solid #e53935;
+      font-size: 13px;
+      padding: 6px 12px;
+    }
+    .btn-danger:hover { background: #fff0f0; }
+    .btn-success {
+      background: #2e7d32;
+      color: #fff;
+      width: 100%;
+    }
+    .btn-success:hover { background: #1b5e20; }
+    .btn-outline-primary {
+      background: #fff;
+      color: #1a6fc4;
+      border: 1.5px solid #1a6fc4;
+    }
+    .btn-outline-primary:hover { background: #f0f6ff; }
+
+    /* ボタン行 */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn-row .btn { flex: 1; }
+
+    /* メンバーカード */
+    .member-card {
+      background: #f8fafc;
+      border: 1.5px solid #e0e4ea;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .member-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .member-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-rep {
+      background: #1a6fc4;
+      color: #fff;
+    }
+    .badge-contrib {
+      background: #333;
+      color: #fff;
+    }
+
+    /* 目的リスト */
+    .purpose-item {
+      background: #f8fafc;
+      border: 1.5px solid #e0e4ea;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .purpose-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .purpose-num {
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+    }
+
+    /* アラート */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .alert-warning { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+    .alert-error { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+    .alert-info { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+
+    /* 確認カード */
+    .confirm-item {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 16px;
+    }
+    .confirm-item:last-child { border-bottom: none; }
+    .confirm-label {
+      font-size: 13px;
+      color: #888;
+      min-width: 120px;
+      flex-shrink: 0;
+    }
+    .confirm-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a2e;
+      text-align: right;
+      flex: 1;
+    }
+    .confirm-edit {
+      font-size: 12px;
+      color: #1a6fc4;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .confirm-edit:hover { text-decoration: underline; }
+
+    /* チェックマーク付きカード */
+    .checked-card {
+      position: relative;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 50px 16px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1px solid #e8ecf0;
+    }
+    .checked-card .check-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      background: #1a6fc4;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 14px;
+    }
+    .checked-card .card-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .checked-card .card-val {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+
+    /* フローティングボタン */
+    .floating-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid #e0e4ea;
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    /* ページネーション */
+    .page-nav {
+      margin-top: 32px;
+      display: flex;
+      gap: 12px;
+    }
+    .page-nav .btn { flex: 1; }
+
+    /* 区切り線 */
+    .divider {
+      border: none;
+      border-top: 1px solid #e8ecf0;
+      margin: 20px 0;
+    }
+
+    /* タグ */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .tag-blue { background: #1a6fc4; color: #fff; }
+    .tag-dark { background: #333; color: #fff; }
+    .tag-green { background: #2e7d32; color: #fff; }
+
+    /* レスポンシブ */
+    @media (max-width: 480px) {
+      .main-content { padding: 16px 12px 80px; }
+      .section-title { font-size: 18px; }
+      .form-control { font-size: 16px; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <a href="{{ url_for('teikan.index') }}" class="logo">
+      <span class="logo-icon">📜</span>
+      <span>法人設立</span>
+    </a>
+    <a href="{{ mypage_url }}" class="nav-back">マイページ</a>
+  </header>
+
+  {% block step_indicator %}{% endblock %}
+
+  <!-- フラッシュメッセージ -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div style="max-width:700px;margin:12px auto;padding:0 16px;">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% endwith %}
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

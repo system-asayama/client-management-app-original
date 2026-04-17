@@ -1,0 +1,211 @@
+{% extends 'teikan/base.html' %}
+
+{% block title %}基本情報の入力 - 法人設立{% endblock %}
+
+{% block step_indicator %}
+<nav class="step-indicator">
+  <div class="step-indicator-inner">
+    <div class="step-item active">
+      <span class="step-num">1</span>
+      <span>情報入力</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">2</span>
+      <span>{% if data.get('company_type') == '株式会社' %}株主情報{% elif data.get('company_type') == '一般社団法人' %}理事情報{% else %}社員情報{% endif %}</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">3</span>
+      <span>事業目的</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">4</span>
+      <span>決算期</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">5</span>
+      <span>確認</span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="section-title">基本情報を入力しましょう</h1>
+<p class="section-subtitle">
+  {% if data.get('company_type') == '一般社団法人' %}
+  法人名・主たる事務所の所在地を設定します。
+  {% else %}
+  商号・本店所在地を設定します。
+  {% endif %}
+</p>
+
+<form method="POST" action="{{ url_for('teikan.step1') }}" id="step1-form">
+
+  <!-- 法人形態（表示のみ・変更不可） -->
+  <div class="form-group">
+    <label class="form-label">法人形態</label>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#f5f7fa;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        {% if data.get('company_type') == '株式会社' %}
+        <span style="font-size:22px;">📈</span>
+        {% elif data.get('company_type') == '一般社団法人' %}
+        <span style="font-size:22px;">🌐</span>
+        {% else %}
+        <span style="font-size:22px;">🏢</span>
+        {% endif %}
+        <span style="font-size:16px;font-weight:700;color:#1a1a2e;">{{ data.get('company_type', '合同会社') }}</span>
+      </div>
+      <a href="{{ url_for('teikan.select_type') }}" style="font-size:12px;color:#4A90E2;text-decoration:none;">変更</a>
+    </div>
+    <input type="hidden" name="company_type" value="{{ data.get('company_type', '合同会社') }}">
+    <input type="hidden" name="registration_method" value="{{ data.get('registration_method', '法務局に直接提出') }}">
+    <input type="hidden" name="capital_from_step1" value="1">
+  </div>
+
+  {% if data.get('company_type') != '一般社団法人' %}
+  <!-- 法人種別の前後選択 -->
+  <div class="form-group">
+    <label class="form-label">法人種別の位置 <span class="required">必須</span></label>
+    <p class="form-hint" style="margin-bottom:10px;">商号に対して「{{ data.get('company_type', '合同会社') }}」を前後どちらに付けるか選択してください。</p>
+    {% set pos = data.get('company_type_position', 'before') %}
+    <label class="checkbox-item {% if pos == 'before' %}selected{% endif %}" style="border:1.5px solid #d0d5dd;border-radius:8px;padding:12px 14px;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+      <input type="radio" name="company_type_position" value="before" {% if pos == 'before' %}checked{% endif %} onchange="updatePreview()">
+      <div>
+        <div class="checkbox-label" id="preview-before">前に付ける（例：{{ data.get('company_type', '合同会社') }}○○商事）</div>
+      </div>
+    </label>
+    <label class="checkbox-item {% if pos == 'after' %}selected{% endif %}" style="border:1.5px solid #d0d5dd;border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <input type="radio" name="company_type_position" value="after" {% if pos == 'after' %}checked{% endif %} onchange="updatePreview()">
+      <div>
+        <div class="checkbox-label" id="preview-after">後ろに付ける（例：○○商事{{ data.get('company_type', '合同会社') }}）</div>
+      </div>
+    </label>
+  </div>
+  {% else %}
+  <input type="hidden" name="company_type_position" value="before">
+  {% endif %}
+
+  <!-- 商号 -->
+  <div class="form-group">
+    <label class="form-label" for="company_name">
+      {% if data.get('company_type') == '一般社団法人' %}法人名{% else %}商号（会社名）{% endif %}
+      <span class="required">必須</span>
+    </label>
+    <input type="text" id="company_name" name="company_name" class="form-control"
+      placeholder="{% if data.get('company_type') == '一般社団法人' %}例：日本支援ネットワーク{% else %}例：サクラコンサルティング{% endif %}"      value="{{ data.get('company_name', '') }}" required>
+    <p class="form-hint">
+      {% if data.get('company_type') == '株式会社' %}
+      「株式会社」の文字は自動で付与されます。商号のみ入力してください。
+      {% elif data.get('company_type') == '一般社団法人' %}
+      「一般社団法人」の文字は自動で付与されます。法人名のみ入力してください。
+      {% else %}
+      「合同会社」の文字は自動で付与されます。商号のみ入力してください。
+      {% endif %}
+    </p>
+  </div>
+
+  <!-- 商号（フリガナ） -->
+  <div class="form-group">
+    <label class="form-label" for="company_name_kana">
+      {% if data.get('company_type') == '一般社団法人' %}法人名フリガナ{% else %}商号フリガナ{% endif %}
+      <span class="optional">任意</span>
+    </label>
+    <input type="text" id="company_name_kana" name="company_name_kana" class="form-control"
+      placeholder="{% if data.get('company_type') == '一般社団法人' %}例：ニホンシエンネットワーク{% else %}例：サクラコンサルティング{% endif %}" value="{{ data.get('company_name_kana', '') }}">
+  </div>
+
+  <!-- 資本金（一般社団法人以外） -->
+  {% if data.get('company_type') != '一般社団法人' %}
+  <div class="form-group">
+    <label class="form-label" for="capital">資本金（円）<span class="required">必須</span></label>
+    <input type="number" id="capital" name="capital" class="form-control"
+      placeholder="例：1000000" value="{{ data.get('capital', '') }}" min="1" required>
+    <p class="form-hint">社員の出資金の合計と同額になります</p>
+  </div>
+  {% else %}
+  <input type="hidden" name="capital" value="0">
+  {% endif %}
+
+  <!-- 本店所在地 -->
+  <div class="form-group">
+    <label class="form-label" for="postal_code">郵便番号 <span class="required">必須</span></label>
+    <input type="text" id="postal_code" name="postal_code" class="form-control"
+      placeholder="例：100-0001" value="{{ data.get('postal_code', '') }}"
+      style="max-width:180px;" oninput="lookupPostal(this.value)">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="address">
+      {% if data.get('company_type') == '一般社団法人' %}主たる事務所の所在地{% else %}本店所在地（都道府県〜番地）{% endif %}
+      <span class="required">必須</span>
+    </label>
+    <input type="text" id="address" name="address" class="form-control"
+      placeholder="例：東京都千代田区千代田１－１" value="{{ data.get('address', '') }}" required>
+    <p class="form-hint">定款には「最小行政区画」（市区町村）のみ記載することも可能です</p>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="address_detail">建物名・部屋番号 <span class="optional">任意</span></label>
+    <input type="text" id="address_detail" name="address_detail" class="form-control"
+      placeholder="例：○○ビル101号" value="{{ data.get('address_detail', '') }}">
+  </div>
+
+  <!-- 取締役会設置の有無（株式会社のみ） -->
+  {% if data.get('company_type') == '株式会社' %}
+  <div class="form-group">
+    <label class="form-label">取締役会の設置 <span class="required">必須</span></label>
+    <p class="form-hint" style="margin-bottom:10px;">取締役会を設置するかどうかを選択してください。設置・非設置によって登記申請書の添付書類が異なります。</p>
+    {% set has_board = data.get('has_board_of_directors', 'false') %}
+    <label class="checkbox-item {% if has_board == 'false' %}selected{% endif %}" style="border:1.5px solid #d0d5dd;border-radius:8px;padding:12px 14px;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+      <input type="radio" name="has_board_of_directors" value="false" {% if has_board == 'false' %}checked{% endif %}>
+      <div>
+        <div class="checkbox-label" style="font-weight:600;">設置しない（取締役会なし）</div>
+        <div class="form-hint" style="margin:2px 0 0;">取締役1名以上で設立できます。小規模な会社に適しています。</div>
+      </div>
+    </label>
+    <label class="checkbox-item {% if has_board == 'true' %}selected{% endif %}" style="border:1.5px solid #d0d5dd;border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <input type="radio" name="has_board_of_directors" value="true" {% if has_board == 'true' %}checked{% endif %}>
+      <div>
+        <div class="checkbox-label" style="font-weight:600;">設置する（取締役会あり）</div>
+        <div class="form-hint" style="margin:2px 0 0;">取締役3名以上・監査役1名以上が必要です。大規模な会社や上場を目指す場合に適しています。</div>
+      </div>
+    </label>
+  </div>
+  {% else %}
+  <input type="hidden" name="has_board_of_directors" value="false">
+  {% endif %}
+
+  <!-- 連絡先電話番号 -->
+  <div class="form-group">
+    <label class="form-label" for="phone">連絡先電話番号 <span class="optional">任意</span></label>
+    <input type="tel" id="phone" name="phone" class="form-control"
+      placeholder="例：03-0000-0000" value="{{ data.get('phone', '') }}">
+  </div>
+
+  <!-- ナビゲーション -->
+  <div class="page-nav">
+    <a href="{{ url_for('teikan.confirm') }}" class="btn btn-secondary" style="text-decoration:none;">← 確認画面に戻る</a>
+    <button type="submit" class="btn btn-primary">保存して戻る →</button>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function lookupPostal(value) {
+  const cleaned = value.replace(/[^0-9]/g, '');
+  if (cleaned.length === 7) {
+    try {
+      const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${cleaned}`);
+      const json = await res.json();
+      if (json.results && json.results[0]) {
+        const r = json.results[0];
+        const addr = r.address1 + r.address2 + r.address3;
+        document.getElementById('address').value = addr;
+      }
+    } catch(e) {}
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "teikan/base.html" %}
+
+{% block title %}払込証明書プレビュー - 法人設立{% endblock %}
+
+{% block step_indicator %}
+<nav class="step-indicator">
+  <div class="step-indicator-inner">
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>情報入力</span>
+    </div>
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>定款作成</span>
+    </div>
+    <div class="step-item active">
+      <span class="step-num">3</span>
+      <span>登記書類</span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+{% set company_type = data.get('company_type', '合同会社') %}
+{% set company_name = data.get('company_name', '') %}
+{% set position = data.get('company_type_position', 'before') %}
+{% if position == 'before' %}
+  {% set full_name = company_type + company_name %}
+{% else %}
+  {% set full_name = company_name + company_type %}
+{% endif %}
+{% set capital = data.get('capital', '0') %}
+{% set established_date = data.get('established_date', '') or '令和　　年　　月　　日' %}
+{% set members = data.get('members', []) %}
+
+<style>
+.preview-doc {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 40px 48px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 2.0;
+}
+.preview-doc h1 {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 40px;
+  letter-spacing: 0.1em;
+}
+.seal-box {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #999;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 40px;
+  font-size: 10px;
+  color: #999;
+}
+</style>
+
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+  <a href="{{ url_for('teikan.registration_docs') }}" style="font-size:13px;color:#666;text-decoration:none;">← 登記書類一覧に戻る</a>
+</div>
+
+<h1 class="section-title">払込証明書プレビュー</h1>
+<p style="font-size:13px;color:#666;margin-bottom:20px;">以下の内容でPDFが生成されます。</p>
+
+<div class="preview-doc">
+  <h1>払込みがあったことを証する書面</h1>
+
+  <p style="text-indent:2em;">
+    当{% if company_type == '一般社団法人' %}法人{% else %}会社{% endif %}の設立に際して、<br>
+    次のとおり出資の払込みがあったことを証明します。
+  </p>
+
+  <p style="margin-top:24px;text-indent:2em;">
+    払込みを受けた金額　　金{{ '{:,}'.format(capital | int) }}円
+  </p>
+
+  <p style="text-align:right;margin-top:24px;">{{ established_date }}</p>
+
+  <div style="text-align:right;margin-top:16px;">
+    <p>{{ full_name }}</p>
+    {% set rep_members = [] %}
+    {% for m in members %}
+      {% if m.get('is_representative') %}
+        {% set _ = rep_members.append(m) %}
+      {% endif %}
+    {% endfor %}
+    {% if not rep_members and members %}
+      {% set _ = rep_members.append(members[0]) %}
+    {% endif %}
+    {% for m in rep_members %}
+    <p>
+      {% if company_type == '合同会社' %}代表社員{% elif company_type == '株式会社' %}代表取締役{% else %}代表理事{% endif %}
+      　{{ m.get('name', '') }}　<span class="seal-box">印</span>
+    </p>
+    {% endfor %}
+  </div>
+
+  {% if members %}
+  <div style="margin-top:32px;border-top:1px solid #eee;padding-top:16px;">
+    <p style="font-weight:700;margin-bottom:12px;">【払込明細】</p>
+    {% for m in members %}
+    {% set contrib = m.get('contribution', '0') %}
+    <p style="font-size:13px;">{{ m.get('name', '') }}　　金{{ '{:,}'.format(contrib | int) }}円</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+  <a href="{{ url_for('teikan.download_payment_certificate') }}" class="btn btn-primary" style="text-decoration:none;max-width:280px;">
+    ⬇️ PDFをダウンロード
+  </a>
+  <a href="{{ url_for('teikan.registration_docs') }}" class="btn btn-secondary" style="text-decoration:none;">
+    ← 一覧に戻る
+  </a>
+</div>
+
+{% endblock %}

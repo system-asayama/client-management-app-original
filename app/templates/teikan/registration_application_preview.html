@@ -1,0 +1,217 @@
+{% extends "teikan/base.html" %}
+
+{% block title %}設立登記申請書プレビュー - 法人設立{% endblock %}
+
+{% block step_indicator %}
+<nav class="step-indicator">
+  <div class="step-indicator-inner">
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>情報入力</span>
+    </div>
+    <div class="step-item done">
+      <span class="step-num">✓</span>
+      <span>定款作成</span>
+    </div>
+    <div class="step-item active">
+      <span class="step-num">3</span>
+      <span>登記書類</span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+{% set company_type = data.get('company_type', '合同会社') %}
+{% set company_name = data.get('company_name', '') %}
+{% set position = data.get('company_type_position', 'before') %}
+{% if position == 'before' %}
+  {% set full_name = company_type + company_name %}
+{% else %}
+  {% set full_name = company_name + company_type %}
+{% endif %}
+{% set address = data.get('address', '') + ((' ' + data.get('address_detail', '')) if data.get('address_detail') else '') %}
+{% set capital = data.get('capital', '0') %}
+{% set established_date = data.get('established_date', '') or '令和　　年　　月　　日' %}
+{% set members = data.get('members', []) %}
+
+<style>
+.preview-doc {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 40px 48px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.preview-doc h1 {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 32px;
+  letter-spacing: 0.1em;
+}
+.preview-field {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+.preview-field:last-child { border-bottom: none; }
+.preview-field-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+.preview-field-value {
+  font-size: 14px;
+  color: #1a1a2e;
+  font-weight: 500;
+}
+.preview-doc ul {
+  list-style: none;
+  padding-left: 16px;
+}
+.preview-doc ul li::before {
+  content: "・";
+}
+.signature-area {
+  margin-top: 32px;
+  padding-top: 16px;
+}
+.signature-line {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 16px;
+}
+.seal-box {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #999;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 40px;
+  font-size: 10px;
+  color: #999;
+  flex-shrink: 0;
+}
+</style>
+
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+  <a href="{{ url_for('teikan.registration_docs') }}" style="font-size:13px;color:#666;text-decoration:none;">← 登記書類一覧に戻る</a>
+</div>
+
+<h1 class="section-title">設立登記申請書プレビュー</h1>
+<p style="font-size:13px;color:#666;margin-bottom:20px;">以下の内容でPDFが生成されます。</p>
+
+<div class="preview-doc">
+  <h1>
+    {% if company_type == '株式会社' %}株式会社{% elif company_type == '一般社団法人' %}一般社団法人{% else %}合同会社{% endif %}設立登記申請書
+  </h1>
+
+  <div class="preview-field">
+    <div class="preview-field-label">申請年月日</div>
+    <div class="preview-field-value">{{ established_date }}</div>
+  </div>
+
+  <div class="preview-field">
+    <div class="preview-field-label">{% if company_type == '一般社団法人' %}名称{% else %}商号{% endif %}</div>
+    <div class="preview-field-value">{{ full_name }}</div>
+  </div>
+
+  <div class="preview-field">
+    <div class="preview-field-label">{% if company_type == '一般社団法人' %}主たる事務所{% else %}本店{% endif %}</div>
+    <div class="preview-field-value">{{ address }}</div>
+  </div>
+
+  {% if company_type != '一般社団法人' %}
+  <div class="preview-field">
+    <div class="preview-field-label">資本金の額</div>
+    <div class="preview-field-value">金{{ '{:,}'.format(capital | int) }}円</div>
+  </div>
+  {% endif %}
+
+  <div class="preview-field">
+    <div class="preview-field-label">登記すべき事項</div>
+    <div class="preview-field-value">（別紙または電磁的記録媒体に記録して添付）</div>
+  </div>
+
+  <div class="preview-field">
+    <div class="preview-field-label">登録免許税</div>
+    <div class="preview-field-value">
+      {% if company_type == '株式会社' %}
+        {% set tax = [150000, (capital | int * 7 // 1000)] | max %}
+        金{{ '{:,}'.format(tax) }}円
+      {% elif company_type == '一般社団法人' %}
+        金60,000円
+      {% else %}
+        {% set tax = [60000, (capital | int * 7 // 1000)] | max %}
+        金{{ '{:,}'.format(tax) }}円
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="preview-field">
+    <div class="preview-field-label">添付書類</div>
+    <div class="preview-field-value">
+      <ul>
+        <li>定款　１通</li>
+        {% if company_type == '合同会社' %}
+        <li>代表社員・業務執行社員の就任承諾書　各１通</li>
+        <li>払込みがあったことを証する書面　１通</li>
+        <li>資本金の額の決定を証する書面　１通</li>
+        <li>本店所在場所の決定を証する書面　１通</li>
+        <li>代表社員の印鑑証明書　１通</li>
+        <li>印鑑届出書　１通</li>
+        {% elif company_type == '株式会社' %}
+        <li>発起人の決定書　１通</li>
+        <li>設立時取締役・代表取締役の就任承諾書　各１通</li>
+        <li>払込みがあったことを証する書面　１通</li>
+        <li>資本金の額の決定を証する書面　１通</li>
+        <li>代表取締役の印鑑証明書　１通</li>
+        <li>印鑑届出書　１通</li>
+        {% else %}
+        <li>設立時社員の決議書　１通</li>
+        <li>設立時理事・代表理事の就任承諾書　各１通</li>
+        <li>代表理事の印鑑証明書　１通</li>
+        <li>印鑑届出書　１通</li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="signature-area">
+    <div style="font-size:13px;margin-bottom:16px;">申請人（代表者）</div>
+    {% set rep_members = [] %}
+    {% for m in members %}
+      {% if m.get('is_representative') %}
+        {% set _ = rep_members.append(m) %}
+      {% endif %}
+    {% endfor %}
+    {% if not rep_members and members %}
+      {% set _ = rep_members.append(members[0]) %}
+    {% endif %}
+    {% for m in rep_members %}
+    <div style="margin-bottom:8px;font-size:13px;">住所　{{ m.get('address', '') }}</div>
+    <div class="signature-line">
+      <span style="font-size:13px;">氏名　{{ m.get('name', '') }}</span>
+      <div class="seal-box">印</div>
+    </div>
+    {% endfor %}
+    <div style="margin-top:16px;font-size:13px;">上記のとおり登記の申請をします。</div>
+    <div style="margin-top:12px;font-size:13px;">　　　　法務局　御中</div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+  <a href="{{ url_for('teikan.download_registration_application') }}" class="btn btn-primary" style="text-decoration:none;max-width:280px;">
+    ⬇️ PDFをダウンロード
+  </a>
+  <a href="{{ url_for('teikan.registration_docs') }}" class="btn btn-secondary" style="text-decoration:none;">
+    ← 一覧に戻る
+  </a>
+</div>
+
+{% endblock %}

@@ -3,7 +3,8 @@
 管理者ダッシュボード（SQLAlchemy版）
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, abort
+import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenpoAppSetting, TTenantAdminTenant
@@ -1745,6 +1746,21 @@ def employee_toggle_active(employee_id):
 # ========================================
 # SMTPメール設定（店舗単位）
 # ========================================
+
+@bp.route('/smtp_guides/<service>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def smtp_guide_download(service):
+    """SMTP設定手順書PDFのダウンロード"""
+    allowed = {'gmail', 'outlook', 'yahoo', 'sendgrid', 'custom'}
+    if service not in allowed:
+        abort(404)
+    filename = f"{service}_smtp_guide.pdf"
+    pdf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            'static', 'smtp_guides', filename)
+    if not os.path.exists(pdf_path):
+        abort(404)
+    return send_file(pdf_path, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
 
 @bp.route('/smtp_settings', methods=['GET', 'POST'])
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])

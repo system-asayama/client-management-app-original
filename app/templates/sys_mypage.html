@@ -76,6 +76,44 @@
     margin-bottom: 1.5rem;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
+  /* 設定ナビゲーションボタン */
+  .settings-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .settings-nav-btn {
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .settings-nav-btn:hover {
+    border-color: #2563a8;
+    box-shadow: 0 4px 12px rgba(37,99,168,0.12);
+    transform: translateY(-1px);
+  }
+  .settings-nav-btn .nav-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+  }
+  .settings-nav-btn .nav-text .nav-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 0.2rem;
+  }
+  .settings-nav-btn .nav-text .nav-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
   .btn-action {
     background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
     padding: 0.55rem 1.25rem; border-radius: 8px;
@@ -98,7 +136,6 @@
     outline: none; border-color: #2563a8;
     box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
   }
-  .form-group small { font-size: 0.78rem; color: #9ca3af; margin-top: 0.25rem; display: block; }
   .access-section {
     background: #f9fafb;
     border: 1px solid #e5e7eb;
@@ -108,12 +145,59 @@
   }
   .access-section h3 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.5rem; }
   .access-section p { font-size: 0.85rem; color: #6b7280; margin: 0 0 1rem; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  /* アクセス先選択ボタン（横並びリスト形式） */
+  .access-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s;
+  }
+  .access-nav-btn:hover {
+    border-color: #2563a8;
+    background: #eff6ff;
+    box-shadow: 0 2px 8px rgba(37,99,168,0.1);
+  }
+  .access-nav-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+    width: 2.25rem;
+    text-align: center;
+  }
+  .access-nav-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .access-nav-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 0.15rem;
+  }
+  .access-nav-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .access-nav-arrow {
+    color: #9ca3af;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    margin-left: 0.25rem;
+  }
   @media (max-width: 640px) {
     .page-header { padding: 1.5rem 1.25rem 1.25rem; }
     .page-header h1 { font-size: 1.4rem; }
     .info-grid { grid-template-columns: 1fr 1fr; }
-    .form-row { grid-template-columns: 1fr; }
+    .settings-nav { grid-template-columns: 1fr; }
+    .access-nav-desc { white-space: normal; }
   }
 </style>
 
@@ -128,6 +212,15 @@
   </div>
 </div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- プロフィールサマリーカード -->
 <div class="profile-card">
   <div class="profile-avatar">{{ user.name[0] if user.name else 'S' }}</div>
   <div class="profile-info">
@@ -167,250 +260,48 @@
   </div>
 </div>
 
-<div class="section-card">
-  <p class="section-title">プロフィール編集</p>
-  <form method="POST">
-    <input type="hidden" name="action" value="update_profile">
-    <div class="form-row">
-      <div class="form-group">
-        <label>ログインID <span style="color:#dc2626">*</span></label>
-        <input type="text" name="login_id" value="{{ user.login_id }}" required>
-      </div>
-      <div class="form-group">
-        <label>氏名 <span style="color:#dc2626">*</span></label>
-        <input type="text" name="name" value="{{ user.name }}" required>
-      </div>
+<!-- 設定ナビゲーション -->
+<div class="settings-nav">
+  <a href="{{ url_for('system_admin.mypage_profile') }}" class="settings-nav-btn">
+    <div class="nav-icon">👤</div>
+    <div class="nav-text">
+      <div class="nav-title">プロフィール設定</div>
+      <div class="nav-desc">名前・ログインID・メール・パスワード変更</div>
     </div>
-    <div class="form-group">
-      <label>メールアドレス</label>
-      <input type="email" name="email" value="{{ user.email or '' }}" placeholder="example@example.com">
-    </div>
-    <button type="submit" class="btn-action primary">プロフィールを更新</button>
-  </form>
+  </a>
+
 </div>
 
-<div class="section-card">
-  <p class="section-title">APIキー設定</p>
-  <p style="color:#666; font-size:0.9em; margin-bottom:16px">証憑データ化処理に使用するAPIキーを設定してください。テナント・店舗側の設定が優先されますが、未設定の場合はここの設定がフォールバックとして使用されます。</p>
-  <form method="POST">
-    <input type="hidden" name="action" value="update_api_keys">
-    <div class="form-group">
-      <label>🔍 Google Cloud Vision APIキー（OCR用）★ 推奨</label>
-      <input type="password" name="google_vision_api_key" value="{{ user.google_vision_api_key or '' }}" placeholder="AIza...">
-      <small>日本語（漢字）の認識精度99%以上。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">Google Cloud Console</a>で取得</small>
-    </div>
-    <div class="form-group">
-      <label>OpenAI APIキー（GPT-4o / GPT-4o-mini用）</label>
-      <input type="password" name="openai_api_key" value="{{ user.openai_api_key or '' }}" placeholder="sk-...">
-      <small><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>で取得</small>
-    </div>
-    <div class="form-group">
-      <label>Google APIキー（Gemini用）</label>
-      <input type="password" name="google_api_key" value="{{ user.google_api_key or '' }}" placeholder="AIza...">
-      <small><a href="https://ai.google.dev/" target="_blank">Google AI Studio</a>で取得</small>
-    </div>
-    <div class="form-group">
-      <label>Anthropic APIキー（Claude用・将来対応）</label>
-      <input type="password" name="anthropic_api_key" value="{{ user.anthropic_api_key or '' }}" placeholder="sk-ant-...">
-      <small><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
-    </div>
-    <div class="form-group" style="padding:15px; background:#f0f7ff; border:1px solid #b3d7ff; border-radius:6px">
-      <label style="font-weight:bold">📄 Azure Document Intelligence（高精度通帳OCR用）</label>
-      <div style="margin-bottom:10px">
-        <label style="display:block; margin-bottom:5px; font-weight:normal">エンドポイントURL</label>
-        <input type="text" name="azure_document_intelligence_endpoint" value="{{ user.azure_document_intelligence_endpoint or '' }}" placeholder="https://samurai-ocr.cognitiveservices.azure.com/" style="width:100%">
-      </div>
-      <div>
-        <label style="display:block; margin-bottom:5px; font-weight:normal">APIキー</label>
-        <input type="password" name="azure_document_intelligence_key" value="{{ user.azure_document_intelligence_key or '' }}" placeholder="Azureポータルの「キーとエンドポイント」からコピー" style="width:100%">
-      </div>
-      <small style="display:block; margin-top:8px"><a href="https://portal.azure.com" target="_blank">Azureポータル</a>でDocument Intelligenceリソースを作成後、「キーとエンドポイント」から取得。テナント・店舗側が未設定の場合のフォールバックとして使用されます。</small>
-    </div>
-    <button type="submit" class="btn-action primary">APIキーを保存</button>
-  </form>
-</div>
-
-<div class="section-card">
-  <p class="section-title">パスワード変更</p>
-  <form method="POST">
-    <input type="hidden" name="action" value="change_password">
-    <div class="form-group">
-      <label>現在のパスワード <span style="color:#dc2626">*</span></label>
-      <input type="password" name="current_password" required placeholder="現在のパスワード">
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>新しいパスワード <span style="color:#dc2626">*</span></label>
-        <input type="password" name="new_password" required placeholder="8文字以上">
-      </div>
-      <div class="form-group">
-        <label>新しいパスワード（確認） <span style="color:#dc2626">*</span></label>
-        <input type="password" name="new_password_confirm" required placeholder="もう一度入力">
-      </div>
-    </div>
-    <button type="submit" class="btn-action primary">パスワードを変更</button>
-  </form>
-</div>
-
+<!-- アクセス先を選択 -->
 <div class="section-card">
   <p class="section-title">アクセス先を選択</p>
-
-  <div class="access-section">
-    <h3>🏢 アプリ管理者グループ</h3>
-    <p>アプリ管理者グループを選択してアプリ管理者ダッシュボードにアクセスできます。</p>
-    <form method="POST" action="{{ url_for('system_admin.select_app_manager_group_from_mypage') }}">
-      <div class="form-group">
-        <label>グループを検索</label>
-        <input type="text" id="group_search" placeholder="グループ名で検索..." oninput="filterGroups()">
+  <div style="display:flex; flex-direction:column; gap:0.75rem">
+    <a href="{{ url_for('system_admin.mypage_select_group') }}" class="access-nav-btn">
+      <span class="access-nav-icon">🏢</span>
+      <div class="access-nav-text">
+        <div class="access-nav-title">アプリ管理者グループ</div>
+        <div class="access-nav-desc">グループを選択してアプリ管理者ダッシュボードへ</div>
       </div>
-      <div class="form-group">
-        <label>グループを選択</label>
-        <select id="group_id" name="group_id" required>
-          <option value="">-- グループを選択してください --</option>
-          {% for group in app_manager_groups %}
-            <option value="{{ group.id }}" data-name="{{ group.name }}">{{ group.name }}</option>
-          {% endfor %}
-        </select>
+      <span class="access-nav-arrow">›</span>
+    </a>
+    <a href="{{ url_for('system_admin.mypage_select_tenant') }}" class="access-nav-btn">
+      <span class="access-nav-icon">🏬</span>
+      <div class="access-nav-text">
+        <div class="access-nav-title">テナント</div>
+        <div class="access-nav-desc">テナントを選択してテナント管理者ダッシュボードへ</div>
       </div>
-      <button type="submit" class="btn-action primary">アプリ管理者ダッシュボードへ進む</button>
-    </form>
-  </div>
-
-  <div class="access-section">
-    <h3>🏬 テナント（テナント管理者として）</h3>
-    <p>テナントを選択してテナント管理者ダッシュボードにアクセスできます。</p>
-    <form method="POST" action="{{ url_for('system_admin.select_tenant_from_mypage') }}">
-      <div class="form-group">
-        <label>テナントを検索</label>
-        <input type="text" id="tenant_search" placeholder="テナント名で検索..." oninput="filterTenants()">
+      <span class="access-nav-arrow">›</span>
+    </a>
+    <a href="{{ url_for('system_admin.mypage_select_store') }}" class="access-nav-btn">
+      <span class="access-nav-icon">🏪</span>
+      <div class="access-nav-text">
+        <div class="access-nav-title">店舗</div>
+        <div class="access-nav-desc">店舗を選択して店舗管理者ダッシュボードへ</div>
       </div>
-      <div class="form-group">
-        <label>テナントを選択</label>
-        <select id="tenant_id" name="tenant_id" required>
-          <option value="">-- テナントを選択してください --</option>
-          {% for tenant in tenant_list %}
-            <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn-action primary">テナントダッシュボードへ進む</button>
-    </form>
-  </div>
-
-  <div class="access-section" style="margin-bottom:0">
-    <h3>🏪 店舗（店舗管理者として）</h3>
-    <p>店舗を選択して店舗管理者ダッシュボードにアクセスできます。</p>
-    <form method="POST" action="{{ url_for('system_admin.select_store_from_mypage') }}">
-      <div class="form-group">
-        <label>テナントを検索</label>
-        <input type="text" id="store_tenant_search" placeholder="テナント名で検索..." oninput="filterStoreTenants()">
-      </div>
-      <div class="form-group">
-        <label>テナントを選択</label>
-        <select id="store_tenant_id" onchange="filterStores()">
-          <option value="">-- テナントを選択してください --</option>
-          {% for tenant in tenant_list %}
-            <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>店舗を検索</label>
-        <input type="text" id="store_search" placeholder="店舗名で検索..." oninput="filterStoresBySearch()">
-      </div>
-      <div class="form-group">
-        <label>店舗を選択</label>
-        <select id="store_id" name="store_id" required>
-          <option value="">-- まずテナントを選択してください --</option>
-          {% for store in store_list %}
-            <option value="{{ store.id }}" data-tenant-id="{{ store.tenant_id }}" data-name="{{ store.name }}" style="display:none">{{ store.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn-action primary">店舗ダッシュボードへ進む</button>
-    </form>
+      <span class="access-nav-arrow">›</span>
+    </a>
   </div>
 </div>
 
-{% if get_flashed_messages() %}
-<div style="margin-top:1rem">
-  {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
-  {% endfor %}
-</div>
-{% endif %}
 
-<script>
-  function filterGroups() {
-    const searchText = document.getElementById('group_search').value.toLowerCase();
-    const groupSelect = document.getElementById('group_id');
-    const options = groupSelect.querySelectorAll('option');
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const match = options[i].dataset.name.toLowerCase().includes(searchText);
-      options[i].style.display = match ? '' : 'none';
-      if (match) visibleCount++;
-    }
-    options[0].textContent = visibleCount === 0 && searchText ? '-- 検索結果がありません --' : '-- グループを選択してください --';
-  }
-  function filterTenants() {
-    const searchText = document.getElementById('tenant_search').value.toLowerCase();
-    const tenantSelect = document.getElementById('tenant_id');
-    const options = tenantSelect.querySelectorAll('option');
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const match = options[i].dataset.name.toLowerCase().includes(searchText);
-      options[i].style.display = match ? '' : 'none';
-      if (match) visibleCount++;
-    }
-    options[0].textContent = visibleCount === 0 && searchText ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
-  }
-  function filterStoreTenants() {
-    const searchText = document.getElementById('store_tenant_search').value.toLowerCase();
-    const tenantSelect = document.getElementById('store_tenant_id');
-    const options = tenantSelect.querySelectorAll('option');
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const match = options[i].dataset.name.toLowerCase().includes(searchText);
-      options[i].style.display = match ? '' : 'none';
-      if (match) visibleCount++;
-    }
-    options[0].textContent = visibleCount === 0 && searchText ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
-  }
-  function filterStoresBySearch() {
-    const searchText = document.getElementById('store_search').value.toLowerCase();
-    const tenantId = document.getElementById('store_tenant_id').value;
-    const storeSelect = document.getElementById('store_id');
-    const options = storeSelect.querySelectorAll('option');
-    if (!tenantId) return;
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const match = options[i].dataset.tenantId === tenantId && options[i].dataset.name.toLowerCase().includes(searchText);
-      options[i].style.display = match ? '' : 'none';
-      if (match) visibleCount++;
-    }
-    options[0].textContent = visibleCount === 0 && searchText ? '-- 検索結果がありません --' : '-- 店舗を選択してください --';
-  }
-  function filterStores() {
-    const tenantId = document.getElementById('store_tenant_id').value;
-    const storeSelect = document.getElementById('store_id');
-    const storeSearch = document.getElementById('store_search');
-    const options = storeSelect.querySelectorAll('option');
-    storeSelect.value = '';
-    storeSearch.value = '';
-    if (!tenantId) {
-      options[0].textContent = '-- まずテナントを選択してください --';
-      for (let i = 1; i < options.length; i++) options[i].style.display = 'none';
-    } else {
-      options[0].textContent = '-- 店舗を選択してください --';
-      let hasStores = false;
-      for (let i = 1; i < options.length; i++) {
-        const show = options[i].dataset.tenantId === tenantId;
-        options[i].style.display = show ? '' : 'none';
-        if (show) hasStores = true;
-      }
-      if (!hasStores) options[0].textContent = '-- 選択したテナントに店舗がありません --';
-    }
-  }
-</script>
 {% endblock %}

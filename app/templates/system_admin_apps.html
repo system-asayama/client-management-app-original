@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}アプリ一覧{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 0 0 1rem;
+  }
+
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .app-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: all 0.18s;
+  }
+  .app-card:hover {
+    border-color: #2563a8;
+    box-shadow: 0 6px 20px rgba(37,99,168,0.1);
+    transform: translateY(-2px);
+  }
+
+  .app-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+  .app-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+    width: 2.5rem;
+    text-align: center;
+  }
+  .app-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin: 0;
+  }
+  .app-id {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-family: monospace;
+    margin-top: 2px;
+  }
+
+  .app-desc {
+    font-size: 0.85rem;
+    color: #6b7280;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .app-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-store { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+  .badge-tenant { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+  .app-url {
+    font-size: 0.8rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .app-url code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    color: #374151;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  }
+  .stat-value { font-size: 1.75rem; font-weight: 700; color: #1a3a5c; }
+  .stat-label { font-size: 0.78rem; color: #9ca3af; margin-top: 2px; }
+
+  @media (max-width: 640px) {
+    .page-header { padding: 1.5rem 1.25rem 1.25rem; }
+    .page-header h1 { font-size: 1.4rem; }
+    .apps-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <h1>📱 アプリ一覧</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('system_admin.dashboard') }}">← ダッシュボード</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for category, message in messages %}
+  <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
+
+<!-- 統計 -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-value">{{ apps | length }}</div>
+    <div class="stat-label">総アプリ数</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ apps | selectattr('scope', 'equalto', 'store') | list | length }}</div>
+    <div class="stat-label">店舗単位アプリ</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ apps | selectattr('scope', 'equalto', 'tenant') | list | length }}</div>
+    <div class="stat-label">テナント単位アプリ</div>
+  </div>
+</div>
+
+<!-- アプリ一覧 -->
+<p class="section-title">配布可能アプリ一覧</p>
+<div class="apps-grid">
+  {% for app in apps %}
+  <div class="app-card">
+    <div class="app-card-header">
+      <span class="app-icon">{{ app.icon }}</span>
+      <div>
+        <p class="app-name">{{ app.display_name }}</p>
+        <p class="app-id">{{ app.name }}</p>
+      </div>
+    </div>
+    <p class="app-desc">{{ app.description }}</p>
+    <div class="app-meta">
+      {% if app.scope == 'store' %}
+        <span class="badge badge-store">🏪 店舗単位</span>
+      {% elif app.scope == 'tenant' %}
+        <span class="badge badge-tenant">🏬 テナント単位</span>
+      {% endif %}
+    </div>
+    <div class="app-url">
+      <span>URL:</span>
+      <code>{{ app.url }}</code>
+    </div>
+  </div>
+  {% else %}
+  <p style="color:#9ca3af;font-size:0.9em">アプリが登録されていません</p>
+  {% endfor %}
+</div>
+
+<!-- テナント別アプリ配布管理へのリンク -->
+<p class="section-title">関連管理機能</p>
+<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">
+  <a href="{{ url_for('system_admin.app_management') }}"
+     style="display:flex;align-items:center;gap:0.75rem;background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;padding:1rem 1.25rem;text-decoration:none;color:inherit;transition:all 0.15s;min-width:220px"
+     onmouseover="this.style.borderColor='#2563a8'" onmouseout="this.style.borderColor='#e5e7eb'">
+    <span style="font-size:1.4rem">⚙️</span>
+    <div>
+      <div style="font-size:0.9rem;font-weight:700;color:#1a3a5c">テナント別アプリ配布管理</div>
+      <div style="font-size:0.78rem;color:#6b7280">テナントへのアプリ有効化・無効化設定</div>
+    </div>
+  </a>
+  <a href="{{ url_for('system_admin.app_limit_management') }}"
+     style="display:flex;align-items:center;gap:0.75rem;background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;padding:1rem 1.25rem;text-decoration:none;color:inherit;transition:all 0.15s;min-width:220px"
+     onmouseover="this.style.borderColor='#2563a8'" onmouseout="this.style.borderColor='#e5e7eb'">
+    <span style="font-size:1.4rem">📊</span>
+    <div>
+      <div style="font-size:0.9rem;font-weight:700;color:#1a3a5c">利用可能アプリ管理</div>
+      <div style="font-size:0.78rem;color:#6b7280">アプリ管理者のアプリ配布数上限設定</div>
+    </div>
+  </a>
+</div>
+
+{% endblock %}

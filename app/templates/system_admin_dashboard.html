@@ -181,11 +181,17 @@
     <h4>ドキュメント</h4>
     <p>移植ガイド・開発ドキュメント</p>
   </a>
-  <a class="mgmt-card" href="{{ url_for('system_admin.settings') }}">
-    <div class="card-icon">⚙️</div>
-    <h4>システム設定</h4>
-    <p>OpenAI APIキーなどの設定</p>
+  <a class="mgmt-card" href="{{ url_for('system_admin.apps') }}">
+    <div class="card-icon">📱</div>
+    <h4>アプリ一覧</h4>
+    <p>配布可能なアプリの一覧・詳細</p>
   </a>
+  <a class="mgmt-card" href="{{ url_for('system_admin.mypage_api_settings') }}">
+    <div class="card-icon">🔑</div>
+    <h4>API設定</h4>
+    <p>OpenAI・Google・Azure等のAPIキー管理</p>
+  </a>
+
 </div>
 
 {% if get_flashed_messages() %}

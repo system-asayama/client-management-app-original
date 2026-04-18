@@ -395,6 +395,162 @@ def change_password():
         db.close()
 
 
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def mypage_profile():
+    """プロフィール設定ページ（プロフィール編集＋パスワード変更）"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            and_(TKanrisha.id == user_id, TKanrisha.role == ROLES["SYSTEM_ADMIN"])
+        ).first()
+        if not admin:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('system_admin.mypage'))
+
+        user = {
+            'id': admin.id,
+            'login_id': admin.login_id,
+            'name': admin.name,
+            'email': admin.email,
+        }
+
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip()
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                    return render_template('sys_mypage_profile.html', user=user)
+                existing = db.query(TKanrisha).filter(
+                    and_(TKanrisha.login_id == login_id, TKanrisha.id != user_id)
+                ).first()
+                if existing:
+                    flash('このログインIDは既に使用されています', 'error')
+                    return render_template('sys_mypage_profile.html', user=user)
+                admin.login_id = login_id
+                admin.name = name
+                admin.email = email
+                db.commit()
+                flash('プロフィール情報を更新しました', 'success')
+                return redirect(url_for('system_admin.mypage_profile'))
+
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if not current_password or not new_password or not new_password_confirm:
+                    flash('全ての項目を入力してください', 'error')
+                    return render_template('sys_mypage_profile.html', user=user)
+                if new_password != new_password_confirm:
+                    flash('新しいパスワードが一致しません', 'error')
+                    return render_template('sys_mypage_profile.html', user=user)
+                if len(new_password) < 8:
+                    flash('パスワードは8文字以上で入力してください', 'error')
+                    return render_template('sys_mypage_profile.html', user=user)
+                if not check_password_hash(admin.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                    return render_template('sys_mypage_profile.html', user=user)
+                admin.password_hash = generate_password_hash(new_password)
+                db.commit()
+                flash('パスワードを変更しました', 'success')
+                return redirect(url_for('system_admin.mypage_profile'))
+
+        return render_template('sys_mypage_profile.html', user=user)
+    finally:
+        db.close()
+
+
+@bp.route('/mypage/api-settings', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def mypage_api_settings():
+    """API設定ページ（各種APIキー管理）"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            and_(TKanrisha.id == user_id, TKanrisha.role == ROLES["SYSTEM_ADMIN"])
+        ).first()
+        if not admin:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('system_admin.mypage'))
+
+        user = {
+            'id': admin.id,
+            'login_id': admin.login_id,
+            'name': admin.name,
+            'email': admin.email,
+            'openai_api_key': getattr(admin, 'openai_api_key', None),
+            'google_vision_api_key': getattr(admin, 'google_vision_api_key', None),
+            'google_api_key': getattr(admin, 'google_api_key', None),
+            'anthropic_api_key': getattr(admin, 'anthropic_api_key', None),
+            'azure_document_intelligence_endpoint': getattr(admin, 'azure_document_intelligence_endpoint', None),
+            'azure_document_intelligence_key': getattr(admin, 'azure_document_intelligence_key', None),
+        }
+
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
+
+                try:
+                    from sqlalchemy import text
+                    try:
+                        db.execute(text(
+                            'UPDATE "T_管理者" SET '
+                            'openai_api_key = :openai_api_key, '
+                            'google_vision_api_key = :google_vision_api_key, '
+                            'google_api_key = :google_api_key, '
+                            'anthropic_api_key = :anthropic_api_key, '
+                            'azure_document_intelligence_endpoint = :azure_document_intelligence_endpoint, '
+                            'azure_document_intelligence_key = :azure_document_intelligence_key '
+                            'WHERE id = :id'
+                        ), {
+                            'openai_api_key': openai_api_key,
+                            'google_vision_api_key': google_vision_api_key,
+                            'google_api_key': google_api_key,
+                            'anthropic_api_key': anthropic_api_key,
+                            'azure_document_intelligence_endpoint': azure_document_intelligence_endpoint,
+                            'azure_document_intelligence_key': azure_document_intelligence_key,
+                            'id': user_id
+                        })
+                    except Exception:
+                        db.rollback()
+                        db.execute(text(
+                            'UPDATE "T_管理者" SET '
+                            'openai_api_key = :openai_api_key, '
+                            'google_vision_api_key = :google_vision_api_key, '
+                            'google_api_key = :google_api_key, '
+                            'anthropic_api_key = :anthropic_api_key '
+                            'WHERE id = :id'
+                        ), {
+                            'openai_api_key': openai_api_key,
+                            'google_vision_api_key': google_vision_api_key,
+                            'google_api_key': google_api_key,
+                            'anthropic_api_key': anthropic_api_key,
+                            'id': user_id
+                        })
+                    db.commit()
+                    flash('APIキー設定を更新しました', 'success')
+                except Exception as e:
+                    db.rollback()
+                    flash(f'APIキーの保存に失敗しました: {str(e)}', 'error')
+                return redirect(url_for('system_admin.mypage_api_settings'))
+
+        return render_template('sys_mypage_api_settings.html', user=user)
+    finally:
+        db.close()
+
+
 @bp.route('/settings', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def settings():
@@ -1887,6 +2043,13 @@ def transfer_ownership(admin_id):
         db.close()
 
 
+@bp.route('/apps')
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def apps():
+    """アプリ一覧ページ"""
+    from ..blueprints.tenant_admin import AVAILABLE_APPS
+    return render_template('system_admin_apps.html', apps=AVAILABLE_APPS)
+
 @bp.route('/app_management', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def app_management():
@@ -2071,6 +2234,74 @@ def select_store_from_mypage():
         
         # 店舗管理者ダッシュボードへリダイレクト
         return redirect('/admin/')
+    finally:
+        db.close()
+
+
+# ========================================
+# マイページ アクセス先選択 専用検索ページ
+# ========================================
+
+@bp.route('/mypage/select-group')
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def mypage_select_group():
+    """アプリ管理者グループ選択専用検索ページ"""
+    from app.models_login import TAppManagerGroup
+    db = SessionLocal()
+    try:
+        groups_raw = db.query(TAppManagerGroup).filter(
+            TAppManagerGroup.active == 1
+        ).order_by(TAppManagerGroup.group_name).all()
+        groups = []
+        for g in groups_raw:
+            member_count = db.query(TKanrisha).filter(
+                and_(TKanrisha.app_manager_group_id == g.id, TKanrisha.role == 'app_manager')
+            ).count()
+            groups.append({'id': g.id, 'name': g.group_name, 'member_count': member_count})
+        return render_template('sys_mypage_select_group.html', groups=groups)
+    finally:
+        db.close()
+
+
+@bp.route('/mypage/select-tenant')
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def mypage_select_tenant():
+    """テナント選択専用検索ページ"""
+    db = SessionLocal()
+    try:
+        tenants_raw = db.query(TTenant).filter(
+            TTenant.有効 == 1
+        ).order_by(TTenant.名称).all()
+        tenants = [{'id': t.id, 'name': t.名称} for t in tenants_raw]
+        return render_template('sys_mypage_select_tenant.html', tenants=tenants)
+    finally:
+        db.close()
+
+
+@bp.route('/mypage/select-store')
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def mypage_select_store():
+    """店舗選択専用検索ページ"""
+    db = SessionLocal()
+    try:
+        tenants_raw = db.query(TTenant).filter(
+            TTenant.有効 == 1
+        ).order_by(TTenant.名称).all()
+        tenants = [{'id': t.id, 'name': t.名称} for t in tenants_raw]
+
+        stores_raw = db.query(TTenpo).filter(
+            TTenpo.有効 == 1
+        ).order_by(TTenpo.名称).all()
+        stores = []
+        for s in stores_raw:
+            tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
+            stores.append({
+                'id': s.id,
+                'name': s.名称,
+                'tenant_id': s.tenant_id,
+                'tenant_name': tenant.名称 if tenant else ''
+            })
+        return render_template('sys_mypage_select_store.html', tenants=tenants, stores=stores)
     finally:
         db.close()
 

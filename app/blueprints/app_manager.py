@@ -562,7 +562,7 @@ def app_manager_new():
 
 
 @bp.route('/app_managers/<int:admin_id>/edit', methods=['GET', 'POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def app_manager_edit(admin_id):
     """アプリ管理者編集（アプリ管理者管理権限が必要）"""
     # アプリ管理者管理権限チェック
@@ -570,16 +570,15 @@ def app_manager_edit(admin_id):
         flash('アプリ管理者を編集する権限がありません', 'error')
         return redirect(url_for('app_manager.app_managers'))
     
-    current_app_manager = get_current_app_manager()
-    if not current_app_manager:
-        return redirect(url_for('app_manager.login'))
+    role = session.get('role')
+    group_id = session.get('app_manager_group_id')
+    
+    if not group_id:
+        flash('アプリ管理者グループが選択されていません', 'error')
+        return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.login'))
     
     db = SessionLocal()
     try:
-        app_manager = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
-        if not app_manager:
-            return redirect(url_for('app_manager.login'))
-        
         if request.method == 'POST':
             login_id = request.form.get('login_id', '').strip()
             name = request.form.get('name', '').strip()

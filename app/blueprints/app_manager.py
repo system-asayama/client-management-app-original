@@ -12,6 +12,24 @@ from ..utils.decorators import require_roles
 bp = Blueprint('app_manager', __name__, url_prefix='/app_manager')
 
 
+def get_current_app_manager():
+    """現在のセッションユーザーのTKanrishaオブジェクトを返す。
+    system_adminの場合はuser_idがTKanrishaに存在しないためNoneを返すが、
+    呼び出し元でNoneを許容する場合はそのまま続行する。"""
+    user_id = session.get('user_id')
+    role = session.get('role')
+    if not user_id:
+        return None
+    # system_adminはTKanrishaに存在しないのでNoneを返す（呼び出し元で許容）
+    if role == 'system_admin':
+        return None
+    db = SessionLocal()
+    try:
+        return db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+    finally:
+        db.close()
+
+
 def can_manage_app_managers():
     """現在のユーザーがアプリ管理者管理権限を持つかどうかを判定"""
     user_id = session.get('user_id')
@@ -167,7 +185,7 @@ def dashboard():
 
 
 @bp.route('/mypage', methods=['GET', 'POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def mypage():
     """アプリ管理者マイページ"""
     user_id = session.get('user_id')
@@ -266,7 +284,7 @@ def mypage():
 
 
 @bp.route('/mypage/edit_profile', methods=['GET', 'POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def edit_profile():
     """プロフィール編集"""
     user_id = session.get('user_id')
@@ -314,7 +332,7 @@ def edit_profile():
 
 
 @bp.route('/mypage/change_password', methods=['GET', 'POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def change_password():
     """パスワード変更"""
     user_id = session.get('user_id')
@@ -736,7 +754,7 @@ def app_manager_toggle(admin_id):
 
 
 @bp.route('/app_managers/<int:admin_id>/toggle_manage_permission', methods=['POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def toggle_manage_permission(admin_id):
     """アプリ管理者管理権限の付与・剥奪（オーナーのみ）"""
     if not is_owner():
@@ -748,8 +766,9 @@ def toggle_manage_permission(admin_id):
         flash('自分自身の権限は変更できません', 'error')
         return redirect(url_for('app_manager.app_managers'))
     
+    role = session.get('role')
     current_app_manager = get_current_app_manager()
-    if not current_app_manager:
+    if not current_app_manager and role != 'system_admin':
         return redirect(url_for('app_manager.login'))
     
     db = SessionLocal()
@@ -781,7 +800,7 @@ def toggle_manage_permission(admin_id):
 
 
 @bp.route('/app_managers/<int:admin_id>/toggle_distribute_apps_permission', methods=['POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def toggle_distribute_apps_permission(admin_id):
     """アプリ配布権限の付与・剥奪（オーナーのみ）"""
     if not is_owner():
@@ -793,8 +812,9 @@ def toggle_distribute_apps_permission(admin_id):
         flash('自分自身の権限は変更できません', 'error')
         return redirect(url_for('app_manager.app_managers'))
     
+    role = session.get('role')
     current_app_manager = get_current_app_manager()
-    if not current_app_manager:
+    if not current_app_manager and role != 'system_admin':
         return redirect(url_for('app_manager.login'))
     
     db = SessionLocal()
@@ -827,7 +847,7 @@ def toggle_distribute_apps_permission(admin_id):
 
 
 @bp.route('/app_managers/<int:admin_id>/transfer_ownership', methods=['POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def transfer_ownership(admin_id):
     """オーナー権限を他のアプリ管理者に移譲"""
     # オーナーのみ実行可能
@@ -840,8 +860,9 @@ def transfer_ownership(admin_id):
         flash('自分自身にオーナー権限を移譲することはできません', 'error')
         return redirect(url_for('app_manager.app_managers'))
     
+    role = session.get('role')
     current_app_manager = get_current_app_manager()
-    if not current_app_manager:
+    if not current_app_manager and role != 'system_admin':
         return redirect(url_for('app_manager.login'))
     
     db = SessionLocal()
@@ -897,11 +918,12 @@ def tenants():
 
 
 @bp.route('/tenants/new', methods=['GET', 'POST'])
-@require_roles('app_manager')
+@require_roles('app_manager', 'system_admin')
 def tenant_new():
     """テナント新規作成"""
+    role = session.get('role')
     app_manager = get_current_app_manager()
-    if not app_manager:
+    if not app_manager and role != 'system_admin':
         return redirect(url_for('app_manager.login'))
     
     if request.method == 'POST':

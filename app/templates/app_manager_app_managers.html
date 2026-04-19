@@ -188,7 +188,7 @@
     {% if (is_owner or can_manage_app_managers) and (is_system_admin_view or am.is_owner != 1) %}
     <div class="admin-actions">
       <a class="btn-edit" href="{{ url_for('app_manager.app_manager_edit', admin_id=am.id) }}">編集</a>
-      {% if am.is_owner != 1 %}
+      {% if am.is_owner != 1 or is_system_admin_view %}
       <form method="post" action="{{ url_for('app_manager.app_manager_toggle', admin_id=am.id) }}" style="display:inline">
         {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
         {% if am.active == 1 %}

@@ -679,9 +679,10 @@ def app_manager_delete(admin_id):
             TKanrisha.app_manager_group_id == group_id
         ).first()
         
+        role = session.get('role')
         if admin:
-            # オーナーは削除できない
-            if admin.is_owner == 1:
+            # オーナーはシステム管理者のみ削除可能
+            if admin.is_owner == 1 and role != 'system_admin':
                 flash('オーナーは削除できません', 'error')
             # 自分自身は削除できない
             elif admin.id == user_id:

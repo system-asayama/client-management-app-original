@@ -170,11 +170,11 @@
     <div class="stat-label">総アプリ数</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">{{ apps | selectattr('scope', 'equalto', 'store') | list | length }}</div>
+    <div class="stat-value">{{ apps | selectattr('scope', 'in', ['store', 'both']) | list | length }}</div>
     <div class="stat-label">店舗単位アプリ</div>
   </div>
   <div class="stat-card">
-    <div class="stat-value">{{ apps | selectattr('scope', 'equalto', 'tenant') | list | length }}</div>
+    <div class="stat-value">{{ apps | selectattr('scope', 'in', ['tenant', 'both']) | list | length }}</div>
     <div class="stat-label">テナント単位アプリ</div>
   </div>
 </div>
@@ -197,6 +197,9 @@
         <span class="badge badge-store">🏪 店舗単位</span>
       {% elif app.scope == 'tenant' %}
         <span class="badge badge-tenant">🏬 テナント単位</span>
+      {% elif app.scope == 'both' %}
+        <span class="badge badge-tenant">🏬 テナント単位</span>
+        <span class="badge badge-store">🏪 店舗単位</span>
       {% endif %}
     </div>
     <div class="app-url">

@@ -2255,8 +2255,8 @@ AVAILABLE_APPS = [
     {
         'name': 'client-management-tenant',
         'display_name': '事務所運営アプリ',
-        'scope': 'tenant',
-        'description': '顧問先・クライアント管理システム（事務所全体）',
+        'scope': 'both',
+        'description': '顧問先・クライアント管理システム（テナント・店舗両対応）',
         'url': '/tenant_admin/jimusho',
         'icon': '🏢'
     },

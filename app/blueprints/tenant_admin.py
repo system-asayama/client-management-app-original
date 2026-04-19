@@ -2291,6 +2291,22 @@ AVAILABLE_APPS = [
         'description': '電子契約の作成、署名、契約確定を行う店舗単位アプリ',
         'url': '/e-contract',
         'icon': '✍️'
+    },
+    {
+        'name': 'real-estate',
+        'display_name': '不動産管理アプリ',
+        'scope': 'both',
+        'description': '不動産物件の管理・購買・購買支援を行うアプリ（テナント・店舗両対応）',
+        'url': '/real-estate',
+        'icon': '🏠'
+    },
+    {
+        'name': 'company-incorporation',
+        'display_name': '法人設立アプリ',
+        'scope': 'both',
+        'description': '法人設立の手続き・書類作成・進捗管理をサポートするアプリ（テナント・店舗両対応）',
+        'url': '/company-incorporation',
+        'icon': '🏢'
     }
 ]
 

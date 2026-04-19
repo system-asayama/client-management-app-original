@@ -645,10 +645,14 @@ def employee_new():
                 flash('パスワードは8文字以上にしてください', 'error')
                 return render_template('admin_employee_new.html', stores=stores_list, from_store_id=store_id, back_url=url_for('admin.employees'), tenant=tenant, store=store)
             
-            # ログインID重複チェック
+            # ログインID重複チェック（従業員・管理者両テーブル）
             existing = db.query(TJugyoin).filter(TJugyoin.login_id == login_id).first()
             if existing:
                 flash(f'ログインID "{login_id}" は既に使用されています', 'error')
+                return render_template('admin_employee_new.html', stores=stores_list, from_store_id=store_id, back_url=url_for('admin.employees'), tenant=tenant, store=store)
+            existing_admin = db.query(TKanrisha).filter(TKanrisha.login_id == login_id).first()
+            if existing_admin:
+                flash(f'ログインID "{login_id}" は既に店舗管理者として登録されています。従業員として登録できません。', 'error')
                 return render_template('admin_employee_new.html', stores=stores_list, from_store_id=store_id, back_url=url_for('admin.employees'), tenant=tenant, store=store)
             
             # 従業員作成
@@ -1570,13 +1574,23 @@ def admin_new():
                     stores_list = [store]
                 return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
             
-            # ログインID重複チェック
+            # ログインID重複チェック（管理者・従業員両テーブル）
             existing = db.query(TKanrisha).filter(TKanrisha.login_id == login_id).first()
             if existing:
                 flash(f'ログインID "{login_id}" は既に使用されています', 'error')
                 tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
                 store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
                 # 店舗リストのフィルタリング
+                if role == ROLES["SYSTEM_ADMIN"] or role == ROLES["TENANT_ADMIN"]:
+                    stores_list = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id).order_by(TTenpo.id).all()
+                else:
+                    stores_list = [store]
+                return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
+            existing_employee = db.query(TJugyoin).filter(TJugyoin.login_id == login_id).first()
+            if existing_employee:
+                flash(f'ログインID "{login_id}" は既に従業員として登録されています。店舗管理者として登録できません。', 'error')
+                tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+                store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
                 if role == ROLES["SYSTEM_ADMIN"] or role == ROLES["TENANT_ADMIN"]:
                     stores_list = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id).order_by(TTenpo.id).all()
                 else:

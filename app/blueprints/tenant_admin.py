@@ -2279,8 +2279,8 @@ AVAILABLE_APPS = [
     {
         'name': 'truck-operation',
         'display_name': 'トラック運行管理アプリ',
-        'scope': 'store',
-        'description': 'トラックの運行状況・ドライバー・ルートを管理する店舗単位アプリ',
+        'scope': 'both',
+        'description': 'トラックの運行状況・ドライバー・ルートを管理するアプリ（テナント・店舗両対応）',
         'url': '/truck/',
         'icon': '🚛'
     },

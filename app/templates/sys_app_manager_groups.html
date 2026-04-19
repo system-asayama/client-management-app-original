@@ -3,145 +3,119 @@
 {% block header %}{% endblock %}
 {% block content %}
 <style>
-  .page-header {
-    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
-    color: #fff; border-radius: 16px; padding: 2rem 2rem 1.5rem;
-    margin-bottom: 2rem; display: flex; justify-content: space-between;
-    align-items: flex-end; flex-wrap: wrap; gap: 1rem;
-  }
-  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
-  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
-  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-  .page-header .header-actions a {
-    background: rgba(255,255,255,0.15); color: #fff;
-    border: 1px solid rgba(255,255,255,0.3); padding: 0.45rem 1rem;
-    border-radius: 8px; text-decoration: none; font-size: 0.875rem; transition: background 0.15s;
-  }
-  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
-  .page-header .header-actions a.btn-create {
-    background: rgba(255,255,255,0.9); color: #1a3a5c; font-weight: 600; border-color: transparent;
-  }
-  .page-header .header-actions a.btn-create:hover { background: #fff; }
-  .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  .data-table thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
-  .data-table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
-  .data-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
-  .data-table tbody tr:last-child { border-bottom: none; }
-  .data-table tbody tr:hover { background: #f9fafb; }
-  .data-table td { padding: 0.75rem 1rem; color: #374151; white-space: nowrap; }
-  .badge { display: inline-block; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
-  .badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-  .badge-yes { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-  .badge-no  { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
-  .badge-active { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-  .badge-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-  .action-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
-  .btn-sm { padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.15s; }
-  .btn-sm:hover { opacity: 0.85; }
-  .btn-sm.edit    { background: #2563a8; color: #fff; }
-  .btn-sm.delete  { background: #dc2626; color: #fff; }
-  .btn-sm.disable { background: #f59e0b; color: #fff; }
-  .btn-sm.enable  { background: #059669; color: #fff; }
-  .btn-sm.grant   { background: #059669; color: #fff; }
-  .btn-sm.revoke  { background: #6b7280; color: #fff; }
-  .btn-sm.transfer { background: #ea580c; color: #fff; }
-  .btn-sm.detail  { background: #2563a8; color: #fff; }
-  .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.75rem; max-width: 700px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
-  .form-group { margin-bottom: 1.25rem; }
-  .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.875rem; font-weight: 600; color: #374151; }
-  .form-group label .req { color: #dc2626; margin-left: 2px; }
-  .form-group input[type=text], .form-group input[type=email], .form-group input[type=password], .form-group input[type=number], .form-group select, .form-group textarea {
-    width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;
-    font-size: 0.9rem; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-    outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
-  }
-  .form-group .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.3rem; }
-  .checkbox-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
-  .checkbox-card label { display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; margin: 0; font-weight: 600; color: #374151; font-size: 0.9rem; }
-  .checkbox-card input[type=checkbox] { width: auto; margin-top: 2px; flex-shrink: 0; }
-  .checkbox-card .hint { font-size: 0.78rem; color: #9ca3af; margin-top: 0.35rem; margin-left: 1.5rem; }
-  .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
-  .btn-primary-form { background: #2563a8; color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
-  .btn-primary-form:hover { opacity: 0.88; }
-  .btn-cancel-form { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500; text-decoration: none; transition: background 0.15s; }
-  .btn-cancel-form:hover { background: #e5e7eb; }
-  .empty-state { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
-  .empty-state p { color: #9ca3af; margin-bottom: 1rem; }
-  .toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-  .search-box { position: relative; flex: 1; max-width: 400px; }
-  .search-box input { width: 100%; padding: 0.55rem 0.75rem 0.55rem 2.25rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
-  .search-box input:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
-  .search-box .search-icon { position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
-  #searchResult { font-size: 0.85rem; color: #6b7280; }
-  .section-title { font-size: 0.875rem; font-weight: 700; color: #1a3a5c; border-left: 4px solid #2563a8; padding-left: 0.75rem; margin: 0 0 1rem; }
-  .doc-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
-  .doc-card h4 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.5rem; }
-  .doc-card p { font-size: 0.875rem; color: #6b7280; margin: 0 0 1rem; }
-  .doc-card .doc-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-  .mobile-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
-  .mobile-card.owner-card { background: #fffbf0; border-color: #fde68a; }
-  .mobile-card-row { display: flex; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
-  .mobile-card-row:last-of-type { border-bottom: none; }
-  .mobile-card-label { font-size: 0.78rem; font-weight: 600; color: #9ca3af; min-width: 110px; }
-  .mobile-card-value { font-size: 0.875rem; color: #374151; flex: 1; word-break: break-all; }
-  .mobile-card-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  /* グループ一覧テーブルのモバイル対応 */
-  @media (max-width: 768px) {
-    .desktop-table { display: none; }
-    .mobile-cards { display: block; }
-    .group-table thead { display: none; }
-    .group-table tbody tr {
-      display: block;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      padding: 14px;
-      background: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-    }
-    .group-table tbody tr td {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 5px 0;
-      border: none;
-      font-size: 0.88em;
-      white-space: normal;
-    }
-    .group-table tbody tr td::before {
-      content: attr(data-label);
-      font-weight: 600;
-      color: #9ca3af;
-      font-size: 0.8em;
-      margin-right: 8px;
-      flex-shrink: 0;
-      min-width: 80px;
-    }
-    .group-table tbody tr td.no-label::before { display: none; }
-    .group-table tbody tr td.name-cell {
-      border-bottom: 1px solid #f0f0f0;
-      padding-bottom: 8px;
-      margin-bottom: 4px;
-      font-size: 1em;
-    }
-    .group-table tbody tr td.name-cell::before { display: none; }
-    .action-btns { justify-content: flex-end; }
-  }
-  @media (min-width: 769px) { .desktop-table { display: block; } .mobile-cards { display: none; } }
-  @media (max-width: 640px) { .page-header { padding: 1.5rem 1.25rem 1.25rem; } .page-header h1 { font-size: 1.4rem; } }
+.page-header {
+  background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+  color: #fff; border-radius: 16px; padding: 1.75rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.page-header .page-subtitle { font-size: 0.78rem; opacity: 0.7; margin-bottom: 0.3rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.page-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 1rem; color: #fff; line-height: 1.2; }
+.header-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.header-actions a {
+  display: block; text-align: center;
+  padding: 0.55rem 1rem; border-radius: 8px;
+  text-decoration: none; font-size: 0.875rem; font-weight: 600;
+  transition: opacity 0.15s;
+}
+.header-actions a:hover { opacity: 0.88; }
+.btn-create-primary { background: #fff; color: #1a3a5c; }
+.btn-create-secondary { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+.btn-back { background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.3); font-weight: 400; }
+
+/* グループカード */
+.group-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  text-decoration: none;
+  display: block;
+}
+.group-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.group-card-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.3;
+  flex: 1;
+  margin-right: 0.75rem;
+}
+.group-card-desc {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 0.2rem;
+}
+.badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.badge-active { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+.badge-inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+.group-card-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.9rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #f3f4f6;
+  border-bottom: 1px solid #f3f4f6;
+}
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label { font-size: 0.72rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; }
+.meta-value { font-size: 0.875rem; color: #374151; word-break: break-all; }
+.meta-value.count { font-size: 1.1rem; font-weight: 700; color: #2563a8; }
+
+.group-card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-sm { padding: 0.4rem 0.9rem; border-radius: 7px; font-size: 0.82rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-block; transition: opacity 0.15s; }
+.btn-sm:hover { opacity: 0.85; }
+.btn-sm.detail  { background: #2563a8; color: #fff; }
+.btn-sm.edit    { background: #f1f5f9; color: #374151; border: 1px solid #d1d5db; }
+.btn-sm.delete  { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.btn-sm.disabled-btn { background: #f3f4f6; color: #d1d5db; cursor: not-allowed; border: 1px solid #e5e7eb; }
+
+.empty-state { text-align: center; padding: 3rem 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; }
+.empty-state p { color: #9ca3af; margin-bottom: 0.75rem; }
+
+/* PC: テーブル形式 */
+.table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.data-table thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+.data-table th { padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.data-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr:hover { background: #f9fafb; }
+.data-table td { padding: 0.75rem 1rem; color: #374151; }
+.action-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+
+@media (max-width: 768px) {
+  .desktop-view { display: none; }
+  .mobile-view { display: block; }
+  .header-actions { flex-direction: column; }
+}
+@media (min-width: 769px) {
+  .desktop-view { display: block; }
+  .mobile-view { display: none; }
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .page-header h1 { margin-bottom: 0; }
+  .header-actions { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
+  .header-actions a { display: inline-block; }
+}
 </style>
+
 <div class="page-header">
   <div>
     <div class="page-subtitle">LOGIN SYSTEM</div>
     <h1>アプリ管理者グループ管理</h1>
   </div>
   <div class="header-actions">
-    <a class="btn-create" href="{{ url_for('system_admin.app_manager_group_new') }}">＋ 新しいグループを作成</a>
-    <a class="btn-create" href="{{ url_for('system_admin.app_manager_new') }}" style="background:rgba(255,255,255,0.75);color:#1a3a5c">＋ アプリ管理者を追加</a>
-    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+    <a class="btn-create-primary" href="{{ url_for('system_admin.app_manager_group_new') }}">＋ 新しいグループを作成</a>
+    <a class="btn-create-secondary" href="{{ url_for('system_admin.app_manager_new') }}">＋ アプリ管理者を追加</a>
+    <a class="btn-back" href="{{ url_for('system_admin.dashboard') }}">← ダッシュボードに戻る</a>
   </div>
 </div>
 
@@ -154,9 +128,68 @@
 {% endif %}
 
 {% if groups %}
+
+<!-- モバイル: カード形式 -->
+<div class="mobile-view">
+  {% for group in groups %}
+  <div class="group-card">
+    <div class="group-card-header">
+      <div>
+        <div class="group-card-name">{{ group.group_name }}</div>
+        {% if group.description %}
+        <div class="group-card-desc">{{ group.description[:60] }}{% if group.description|length > 60 %}...{% endif %}</div>
+        {% endif %}
+      </div>
+      {% if group.active == 1 %}
+        <span class="badge badge-active">有効</span>
+      {% else %}
+        <span class="badge badge-inactive">無効</span>
+      {% endif %}
+    </div>
+
+    <div class="group-card-meta">
+      <div class="meta-item">
+        <span class="meta-label">管理者数</span>
+        <span class="meta-value count">{{ group.manager_count }} 人</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">作成日時</span>
+        <span class="meta-value">{{ group.created_at.strftime('%Y-%m-%d') if group.created_at else '—' }}</span>
+      </div>
+      {% if group.contact_email %}
+      <div class="meta-item" style="grid-column: span 2">
+        <span class="meta-label">メール</span>
+        <span class="meta-value">{{ group.contact_email }}</span>
+      </div>
+      {% endif %}
+      {% if group.contact_phone %}
+      <div class="meta-item" style="grid-column: span 2">
+        <span class="meta-label">電話</span>
+        <span class="meta-value">{{ group.contact_phone }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="group-card-actions">
+      <a class="btn-sm detail" href="{{ url_for('system_admin.app_manager_group_detail', group_id=group.id) }}">詳細</a>
+      <a class="btn-sm edit" href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}">編集</a>
+      {% if group.manager_count == 0 %}
+      <form method="post" action="{{ url_for('system_admin.app_manager_group_delete', group_id=group.id) }}" onsubmit="return confirm('本当に削除しますか？');" style="display:inline">
+        <button class="btn-sm delete" type="submit">削除</button>
+      </form>
+      {% else %}
+      <span class="btn-sm disabled-btn" title="管理者が所属しているため削除できません">削除</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- PC: テーブル形式 -->
+<div class="desktop-view">
 <div class="table-card">
   <div style="overflow-x:auto">
-  <table class="data-table group-table">
+  <table class="data-table">
     <thead>
       <tr>
         <th>ID</th><th>グループ名</th><th>連絡先</th>
@@ -166,22 +199,22 @@
     <tbody>
       {% for group in groups %}
       <tr>
-        <td data-label="ID" style="color:#9ca3af">{{ group.id }}</td>
-        <td class="name-cell">
+        <td style="color:#9ca3af">{{ group.id }}</td>
+        <td>
           <strong>{{ group.group_name }}</strong>
           {% if group.description %}
           <br><small style="color:#9ca3af">{{ group.description[:50] }}{% if group.description|length > 50 %}...{% endif %}</small>
           {% endif %}
         </td>
-        <td data-label="連絡先">
+        <td>
           {% if group.contact_email %}<div style="font-size:0.85rem">📧 {{ group.contact_email }}</div>{% endif %}
           {% if group.contact_phone %}<div style="font-size:0.85rem">📞 {{ group.contact_phone }}</div>{% endif %}
           {% if not group.contact_email and not group.contact_phone %}<span style="color:#d1d5db">未設定</span>{% endif %}
         </td>
-        <td data-label="管理者数"><span style="font-size:1.1rem;font-weight:700;color:#2563a8">{{ group.manager_count }}</span> <span style="color:#9ca3af;font-size:0.85rem">人</span></td>
-        <td data-label="状態">{% if group.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</td>
-        <td data-label="作成日時" style="color:#9ca3af;font-size:0.8rem">{{ group.created_at.strftime('%Y-%m-%d %H:%M') if group.created_at else '—' }}</td>
-        <td class="no-label">
+        <td><span style="font-size:1.1rem;font-weight:700;color:#2563a8">{{ group.manager_count }}</span> <span style="color:#9ca3af;font-size:0.85rem">人</span></td>
+        <td>{% if group.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</td>
+        <td style="color:#9ca3af;font-size:0.8rem">{{ group.created_at.strftime('%Y-%m-%d %H:%M') if group.created_at else '—' }}</td>
+        <td>
           <div class="action-btns">
             <a class="btn-sm detail" href="{{ url_for('system_admin.app_manager_group_detail', group_id=group.id) }}">詳細</a>
             <a class="btn-sm edit" href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}">編集</a>
@@ -190,7 +223,7 @@
               <button class="btn-sm delete" type="submit">削除</button>
             </form>
             {% else %}
-            <button class="btn-sm" type="button" style="background:#e5e7eb;color:#9ca3af;cursor:not-allowed" disabled title="アプリ管理者が所属しているため削除できません">削除</button>
+            <span class="btn-sm disabled-btn" title="管理者が所属しているため削除できません">削除</span>
             {% endif %}
           </div>
         </td>
@@ -200,11 +233,13 @@
   </table>
   </div>
 </div>
+</div>
+
 {% else %}
 <div class="empty-state">
   <p>アプリ管理者グループがまだ登録されていません</p>
   <p style="font-size:0.85rem;color:#9ca3af;margin-bottom:1.25rem">「新しいグループを作成」ボタンから最初のグループを作成してください</p>
-  <a class="btn-sm edit" href="{{ url_for('system_admin.app_manager_group_new') }}" style="font-size:0.9rem;padding:0.5rem 1.25rem">＋ 新しいグループを作成</a>
+  <a class="btn-sm detail" href="{{ url_for('system_admin.app_manager_group_new') }}" style="font-size:0.9rem;padding:0.5rem 1.25rem">＋ 新しいグループを作成</a>
 </div>
 {% endif %}
 {% endblock %}

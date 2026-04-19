@@ -196,12 +196,12 @@
         <input type="hidden" name="group_id" value="{{ group.group_id }}">
         <input type="hidden" name="action" value="update_plan">
         <div class="plan-options">
-          <label class="plan-option" id="planOpt_{{ loop.index }}_unlimited"
+          <label class="plan-option" id="planOpt{{ loop.index }}unlimited"
             style="{% if group.plan == 'unlimited' %}border-color:#10b981;background:#f0fdf4{% endif %}">
             <input type="radio" name="plan" value="unlimited"
               {% if group.plan == 'unlimited' %}checked{% endif %}
               onchange="onPlanChange({{ loop.index }}, 'unlimited')">
-            <div class="plan-check" id="planCheck_{{ loop.index }}_unlimited"
+            <div class="plan-check" id="planCheck{{ loop.index }}unlimited"
               style="{% if group.plan == 'unlimited' %}background:#10b981;border-color:#10b981{% endif %}">
               {% if group.plan == 'unlimited' %}✓{% endif %}
             </div>
@@ -209,12 +209,12 @@
             <div class="plan-name">無制限プラン</div>
             <div class="plan-desc">全アプリを制限なく利用</div>
           </label>
-          <label class="plan-option" id="planOpt_{{ loop.index }}_10app_pack"
+          <label class="plan-option" id="planOpt{{ loop.index }}tenapp"
             style="{% if group.plan == '10app_pack' %}border-color:#3b82f6;background:#eff6ff{% endif %}">
             <input type="radio" name="plan" value="10app_pack"
               {% if group.plan == '10app_pack' %}checked{% endif %}
               onchange="onPlanChange({{ loop.index }}, '10app_pack')">
-            <div class="plan-check" id="planCheck_{{ loop.index }}_10app_pack"
+            <div class="plan-check" id="planCheck{{ loop.index }}tenapp"
               style="{% if group.plan == '10app_pack' %}background:#3b82f6;border-color:#3b82f6{% endif %}">
               {% if group.plan == '10app_pack' %}✓{% endif %}
             </div>
@@ -222,12 +222,12 @@
             <div class="plan-name">10アプリパック</div>
             <div class="plan-desc">最大10アプリを選択</div>
           </label>
-          <label class="plan-option" id="planOpt_{{ loop.index }}_individual"
+          <label class="plan-option" id="planOpt{{ loop.index }}individual"
             style="{% if group.plan == 'individual' %}border-color:#6b7280;background:#f9fafb{% endif %}">
             <input type="radio" name="plan" value="individual"
               {% if group.plan == 'individual' %}checked{% endif %}
               onchange="onPlanChange({{ loop.index }}, 'individual')">
-            <div class="plan-check" id="planCheck_{{ loop.index }}_individual"
+            <div class="plan-check" id="planCheck{{ loop.index }}individual"
               style="{% if group.plan == 'individual' %}background:#6b7280;border-color:#6b7280{% endif %}">
               {% if group.plan == 'individual' %}✓{% endif %}
             </div>
@@ -308,14 +308,17 @@ function toggleGroup(idx) {
 }
 
 function onPlanChange(idx, plan) {
+  // IDキーマッピング（アンダースコアを含まない安全なIDに変換）
+  var planIdMap = { unlimited: 'unlimited', '10app_pack': 'tenapp', individual: 'individual' };
   var plans = ['unlimited', '10app_pack', 'individual'];
   var colors = { unlimited: '#10b981', '10app_pack': '#3b82f6', individual: '#6b7280' };
   var bgs = { unlimited: '#f0fdf4', '10app_pack': '#eff6ff', individual: '#f9fafb' };
   var borders = { unlimited: '#10b981', '10app_pack': '#3b82f6', individual: '#6b7280' };
 
   plans.forEach(function(p) {
-    var opt = document.getElementById('planOpt_' + idx + '_' + p);
-    var chk = document.getElementById('planCheck_' + idx + '_' + p);
+    var safeId = planIdMap[p];
+    var opt = document.getElementById('planOpt' + idx + safeId);
+    var chk = document.getElementById('planCheck' + idx + safeId);
     if (!opt || !chk) return;
     if (p === plan) {
       opt.style.borderColor = borders[p];

@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}テナント管理{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .action-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
+  }
+  .btn-primary:hover { background: #1a4f8a; }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  .search-box { margin-bottom: 1.5rem; }
+  .search-box input {
+    width: 100%; max-width: 400px;
+    padding: 0.6rem 1rem; border: 1px solid #e5e7eb;
+    border-radius: 8px; font-size: 0.875rem; outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-box input:focus { border-color: #2563a8; }
+  .search-result { font-size: 0.8rem; color: #6b7280; margin-left: 0.75rem; }
+
+  .section-title {
+    font-size: 0.8rem; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;
+  }
+
+  .tenant-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .tenant-card-top { display: flex; align-items: center; gap: 0.75rem; }
+  .tenant-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #dbeafe; display: flex; align-items: center;
+    justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+  }
+  .tenant-info { flex: 1; min-width: 0; }
+  .tenant-name { font-size: 0.95rem; font-weight: 600; color: #111827; }
+  .tenant-sub { font-size: 0.78rem; color: #6b7280; margin-top: 0.1rem; line-height: 1.4; }
+
+  .tenant-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .tenant-actions a {
+    padding: 0.35rem 0.85rem; border-radius: 6px;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    text-decoration: none; border: 1px solid transparent;
+    transition: opacity 0.15s;
+  }
+  .tenant-actions a:hover { opacity: 0.8; }
+  .btn-detail { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .btn-distribute { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.9rem; }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+</style>
+
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">アプリ管理者ポータル</div>
+    <h1>テナント管理</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('app_manager.mypage') }}">← ダッシュボードへ</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<!-- アクションバー -->
+<div class="action-bar">
+  <a class="btn-primary" href="{{ url_for('app_manager.tenant_new') }}">＋ テナント新規作成</a>
+  <a class="btn-secondary" href="{{ url_for('app_manager.distribute') }}">📦 アプリ配布設定</a>
+</div>
+
+<!-- 検索 -->
+<div class="search-box">
+  <input type="text" id="searchInput" placeholder="テナント名またはslugで検索...">
+  <span id="searchResult" class="search-result"></span>
+</div>
+
+<!-- テナント一覧 -->
+<div class="section-title">テナント一覧（{{ tenants|length if tenants else 0 }}件）</div>
+
+{% if tenants %}
+  {% for t in tenants %}
+  <div class="tenant-card tenant-row" data-name="{{ t.名称 }}" data-slug="{{ t.slug }}">
+    <div class="tenant-card-top">
+      <div class="tenant-avatar">🏢</div>
+      <div class="tenant-info">
+        <div class="tenant-name">{{ t.名称 }}</div>
+        <div class="tenant-sub">
+          slug: {{ t.slug }}
+          {% if t.email %} &nbsp;|&nbsp; {{ t.email }}{% endif %}
+          {% if t.電話番号 %} &nbsp;|&nbsp; {{ t.電話番号 }}{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="tenant-actions">
+      <a class="btn-distribute" href="{{ url_for('app_manager.distribute') }}">アプリ配布設定</a>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🏢</div>
+    <div>テナントが登録されていません。</div>
+    <div style="margin-top:1rem">
+      <a class="btn-primary" href="{{ url_for('app_manager.tenant_new') }}">最初のテナントを作成</a>
+    </div>
+  </div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('searchInput');
+  const searchResult = document.getElementById('searchResult');
+  const rows = document.querySelectorAll('.tenant-row');
+
+  function performSearch() {
+    const query = searchInput.value.toLowerCase().trim();
+    let visible = 0;
+    rows.forEach(function(row) {
+      const match = query === '' ||
+        row.dataset.name.toLowerCase().includes(query) ||
+        row.dataset.slug.toLowerCase().includes(query);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    searchResult.textContent = query ? visible + ' / ' + rows.length + ' 件表示中' : '';
+  }
+
+  searchInput.addEventListener('input', performSearch);
+});
+</script>
+{% endblock %}

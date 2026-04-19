@@ -121,9 +121,9 @@
   </div>
   <div class="header-actions">
     {% if is_system_admin_view %}
-      <a href="{{ url_for('system_admin.mypage') }}">← ダッシュボードへ</a>
+      <a href="{{ url_for('system_admin.dashboard') }}">← ダッシュボードへ</a>
     {% else %}
-      <a href="{{ url_for('app_manager.mypage') }}">← ダッシュボードへ</a>
+      <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ</a>
     {% endif %}
   </div>
 </div>

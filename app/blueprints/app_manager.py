@@ -934,6 +934,11 @@ def tenant_new():
         phone = request.form.get('phone', '').strip()
         email = request.form.get('email', '').strip()
         openai_api_key = request.form.get('openai_api_key', '').strip()
+        google_api_key = request.form.get('google_api_key', '').strip()
+        anthropic_api_key = request.form.get('anthropic_api_key', '').strip()
+        google_vision_api_key = request.form.get('google_vision_api_key', '').strip()
+        azure_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip()
+        azure_key = request.form.get('azure_document_intelligence_key', '').strip()
         
         if not name or not slug:
             flash('名称とslugは必須です', 'error')
@@ -959,6 +964,11 @@ def tenant_new():
                 電話番号=phone or None,
                 email=email or None,
                 openai_api_key=openai_api_key or None,
+                google_api_key=google_api_key or None,
+                anthropic_api_key=anthropic_api_key or None,
+                google_vision_api_key=google_vision_api_key or None,
+                azure_document_intelligence_endpoint=azure_endpoint or None,
+                azure_document_intelligence_key=azure_key or None,
                 有効=1
             )
             db.add(new_tenant)

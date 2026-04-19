@@ -87,6 +87,20 @@
     cursor: pointer; transition: background 0.15s; display: inline-block;
   }
   .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  /* APIキー入力欄 */
+  .api-key-wrap {
+    display: flex; gap: 0.5rem; align-items: stretch;
+  }
+  .api-key-wrap .form-control { flex: 1; }
+  .btn-eye {
+    background: #f3f4f6; border: 1px solid #d1d5db;
+    border-radius: 8px; padding: 0 0.75rem;
+    cursor: pointer; font-size: 1rem; color: #6b7280;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-eye:hover { background: #e5e7eb; }
 </style>
 
 <!-- ヘッダー -->
@@ -169,12 +183,74 @@
   <div class="section-card">
     <div class="section-card-title">API設定（任意）</div>
 
+    <!-- OpenAI -->
     <div class="form-group">
       <label class="form-label" for="openai_api_key">OpenAI APIキー</label>
-      <input type="password" id="openai_api_key" name="openai_api_key" class="form-control"
-             placeholder="sk-..." autocomplete="off"
-             value="{{ request.form.get('openai_api_key', '') if request.form else '' }}">
-      <div class="form-hint">AI機能を使用する場合に設定します。</div>
+      <div class="api-key-wrap">
+        <input type="password" id="openai_api_key" name="openai_api_key" class="form-control"
+               placeholder="sk-..." autocomplete="new-password"
+               value="{{ request.form.get('openai_api_key', '') if request.form else '' }}">
+        <button type="button" class="btn-eye" onclick="toggleKey('openai_api_key')">&#128065;</button>
+      </div>
+      <div class="form-hint">ChatGPT / GPT-4o などのAI機能に使用します。</div>
+    </div>
+
+    <!-- Google Gemini -->
+    <div class="form-group">
+      <label class="form-label" for="google_api_key">Google Gemini APIキー</label>
+      <div class="api-key-wrap">
+        <input type="password" id="google_api_key" name="google_api_key" class="form-control"
+               placeholder="AIza..." autocomplete="new-password"
+               value="{{ request.form.get('google_api_key', '') if request.form else '' }}">
+        <button type="button" class="btn-eye" onclick="toggleKey('google_api_key')">&#128065;</button>
+      </div>
+      <div class="form-hint">Google Gemini AIを使用する場合に設定します。</div>
+    </div>
+
+    <!-- Anthropic -->
+    <div class="form-group">
+      <label class="form-label" for="anthropic_api_key">Anthropic APIキー（Claude）</label>
+      <div class="api-key-wrap">
+        <input type="password" id="anthropic_api_key" name="anthropic_api_key" class="form-control"
+               placeholder="sk-ant-..." autocomplete="new-password"
+               value="{{ request.form.get('anthropic_api_key', '') if request.form else '' }}">
+        <button type="button" class="btn-eye" onclick="toggleKey('anthropic_api_key')">&#128065;</button>
+      </div>
+      <div class="form-hint">Claude AIを使用する場合に設定します。</div>
+    </div>
+
+    <!-- Google Vision -->
+    <div class="form-group">
+      <label class="form-label" for="google_vision_api_key">Google Cloud Vision APIキー（OCR）</label>
+      <div class="api-key-wrap">
+        <input type="password" id="google_vision_api_key" name="google_vision_api_key" class="form-control"
+               placeholder="AIza..." autocomplete="new-password"
+               value="{{ request.form.get('google_vision_api_key', '') if request.form else '' }}">
+        <button type="button" class="btn-eye" onclick="toggleKey('google_vision_api_key')">&#128065;</button>
+      </div>
+      <div class="form-hint">OCR（文字認識）機能に使用します。</div>
+    </div>
+
+    <!-- Azure Endpoint -->
+    <div class="form-group">
+      <label class="form-label" for="azure_document_intelligence_endpoint">Azure Document Intelligence エンドポイント</label>
+      <input type="text" id="azure_document_intelligence_endpoint" name="azure_document_intelligence_endpoint" class="form-control"
+             placeholder="https://xxx.cognitiveservices.azure.com/"
+             autocomplete="off"
+             value="{{ request.form.get('azure_document_intelligence_endpoint', '') if request.form else '' }}">
+      <div class="form-hint">Azure Document Intelligence のエンドポイントURLです。</div>
+    </div>
+
+    <!-- Azure Key -->
+    <div class="form-group">
+      <label class="form-label" for="azure_document_intelligence_key">Azure Document Intelligence APIキー</label>
+      <div class="api-key-wrap">
+        <input type="password" id="azure_document_intelligence_key" name="azure_document_intelligence_key" class="form-control"
+               placeholder="" autocomplete="new-password"
+               value="{{ request.form.get('azure_document_intelligence_key', '') if request.form else '' }}">
+        <button type="button" class="btn-eye" onclick="toggleKey('azure_document_intelligence_key')">&#128065;</button>
+      </div>
+      <div class="form-hint">Azure Document Intelligence のAPIキーです。</div>
     </div>
   </div>
 
@@ -186,6 +262,12 @@
 </form>
 
 <script>
+function toggleKey(fieldId) {
+  var input = document.getElementById(fieldId);
+  if (input) {
+    input.type = (input.type === 'password') ? 'text' : 'password';
+  }
+}
 // slugの自動生成（テナント名入力時）
 document.getElementById('name').addEventListener('input', function() {
   const slugField = document.getElementById('slug');

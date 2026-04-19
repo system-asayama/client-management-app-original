@@ -104,8 +104,6 @@
     font-size: 0.75rem;
     font-weight: 600;
   }
-  .badge-store { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-  .badge-tenant { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
 
   .app-url {
     font-size: 0.8rem;
@@ -169,14 +167,6 @@
     <div class="stat-value">{{ apps | length }}</div>
     <div class="stat-label">総アプリ数</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-value">{{ apps | selectattr('scope', 'in', ['store', 'both']) | list | length }}</div>
-    <div class="stat-label">店舗単位アプリ</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-value">{{ apps | selectattr('scope', 'in', ['tenant', 'both']) | list | length }}</div>
-    <div class="stat-label">テナント単位アプリ</div>
-  </div>
 </div>
 
 <!-- アプリ一覧 -->
@@ -192,16 +182,7 @@
       </div>
     </div>
     <p class="app-desc">{{ app.description }}</p>
-    <div class="app-meta">
-      {% if app.scope == 'store' %}
-        <span class="badge badge-store">🏪 店舗単位</span>
-      {% elif app.scope == 'tenant' %}
-        <span class="badge badge-tenant">🏬 テナント単位</span>
-      {% elif app.scope == 'both' %}
-        <span class="badge badge-tenant">🏬 テナント単位</span>
-        <span class="badge badge-store">🏪 店舗単位</span>
-      {% endif %}
-    </div>
+
     <div class="app-url">
       <span>URL:</span>
       <code>{{ app.url }}</code>

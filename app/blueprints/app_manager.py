@@ -138,12 +138,29 @@ def dashboard():
         # ユーザー情報を取得
         user_id = session.get('user_id')
         app_manager = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
-        
+
+        # プラン・利用アプリ数を計算
+        from app.blueprints.tenant_admin import AVAILABLE_APPS
+        import json
+        total_app_count = len(AVAILABLE_APPS)
+        if group.plan == 'unlimited':
+            enabled_app_count = total_app_count
+        elif group.enabled_apps:
+            try:
+                enabled_app_ids = json.loads(group.enabled_apps)
+                enabled_app_count = len(enabled_app_ids)
+            except Exception:
+                enabled_app_count = 0
+        else:
+            enabled_app_count = 0
+
         return render_template(
             'app_manager_dashboard.html',
             app_manager=app_manager,
             group=group,
-            is_system_admin_view=(role == 'system_admin')
+            is_system_admin_view=(role == 'system_admin'),
+            enabled_app_count=enabled_app_count,
+            total_app_count=total_app_count
         )
     finally:
         db.close()
@@ -951,6 +968,165 @@ def app_management():
             'app_manager_app_management.html',
             tenants=tenants,
             stores=stores
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/plan', methods=['GET', 'POST'])
+@require_roles('app_manager', 'system_admin')
+def plan():
+    """プラン管理・利用アプリ選択"""
+    import json
+    role = session.get('role')
+    group_id = session.get('app_manager_group_id')
+
+    if not group_id:
+        flash('アプリ管理者グループが選択されていません', 'error')
+        return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.login'))
+
+    db = SessionLocal()
+    try:
+        from app.blueprints.tenant_admin import AVAILABLE_APPS
+
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        if not group:
+            flash('グループが見つかりません', 'error')
+            return redirect(url_for('app_manager.dashboard'))
+
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+
+            if action == 'update_plan':
+                new_plan = request.form.get('plan', 'individual')
+                if new_plan in ('unlimited', '10app_pack', 'individual'):
+                    group.plan = new_plan
+                    # 無制限プランは全アプリを自動選択
+                    if new_plan == 'unlimited':
+                        group.enabled_apps = json.dumps([app['name'] for app in AVAILABLE_APPS])
+                    db.commit()
+                    flash('プランを更新しました', 'success')
+                else:
+                    flash('無効なプランです', 'error')
+                return redirect(url_for('app_manager.plan'))
+
+            elif action == 'update_apps':
+                selected = request.form.getlist('selected_apps')
+                current_plan = getattr(group, 'plan', 'individual') or 'individual'
+                # 10アプリパックは最大10アプリ
+                if current_plan == '10app_pack' and len(selected) > 10:
+                    flash('10アプリパックプランは最大10アプリまで選択できます', 'error')
+                    return redirect(url_for('app_manager.plan'))
+                group.enabled_apps = json.dumps(selected)
+                db.commit()
+                flash('利用アプリを更新しました', 'success')
+                return redirect(url_for('app_manager.plan'))
+
+        current_plan = getattr(group, 'plan', 'individual') or 'individual'
+        enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+        try:
+            enabled_app_ids = json.loads(enabled_apps_raw)
+        except Exception:
+            enabled_app_ids = []
+
+        plan_labels = {
+            'unlimited': '無制限プラン',
+            '10app_pack': '10アプリパックプラン',
+            'individual': '個別プラン',
+        }
+
+        return render_template(
+            'app_manager_plan.html',
+            group=group,
+            available_apps=AVAILABLE_APPS,
+            enabled_app_ids=enabled_app_ids,
+            current_plan=current_plan,
+            plan_labels=plan_labels,
+            is_system_admin_view=(role == 'system_admin')
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/distribute', methods=['GET', 'POST'])
+@require_roles('app_manager', 'system_admin')
+def distribute():
+    """テナントへのアプリ配布管理"""
+    import json
+    role = session.get('role')
+    group_id = session.get('app_manager_group_id')
+
+    if not group_id:
+        flash('アプリ管理者グループが選択されていません', 'error')
+        return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.login'))
+
+    db = SessionLocal()
+    try:
+        from app.models_login import TTenant, TTenantAppSetting
+        from app.blueprints.tenant_admin import AVAILABLE_APPS
+
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        if not group:
+            flash('グループが見つかりません', 'error')
+            return redirect(url_for('app_manager.dashboard'))
+
+        # グループが選択した利用可能アプリを取得
+        enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+        try:
+            enabled_app_ids = json.loads(enabled_apps_raw)
+        except Exception:
+            enabled_app_ids = []
+
+        # 利用可能アプリの詳細情報
+        enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
+
+        # テナント一覧（全テナント）
+        tenants = db.query(TTenant).filter(
+            TTenant.有効 == 1
+        ).order_by(TTenant.id).all()
+
+        if request.method == 'POST':
+            tenant_id = request.form.get('tenant_id')
+            selected_apps = request.form.getlist('apps')
+
+            if not tenant_id:
+                flash('テナントを選択してください', 'error')
+                return redirect(url_for('app_manager.distribute'))
+
+            # 既存の配布設定を削除して再登録
+            db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant_id
+            ).delete()
+
+            for app_id in selected_apps:
+                if app_id in enabled_app_ids:
+                    setting = TTenantAppSetting(
+                        tenant_id=tenant_id,
+                        app_id=app_id,
+                        enabled=1
+                    )
+                    db.add(setting)
+
+            db.commit()
+            flash('アプリ配布設定を更新しました', 'success')
+            return redirect(url_for('app_manager.distribute'))
+
+        # 各テナントの現在の配布設定を取得
+        tenant_app_settings = {}
+        for tenant in tenants:
+            settings = db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant.id,
+                TTenantAppSetting.enabled == 1
+            ).all()
+            tenant_app_settings[tenant.id] = [s.app_id for s in settings]
+
+        return render_template(
+            'app_manager_distribute.html',
+            group=group,
+            tenants=tenants,
+            enabled_apps=enabled_apps,
+            tenant_app_settings=tenant_app_settings,
+            is_system_admin_view=(role == 'system_admin')
         )
     finally:
         db.close()

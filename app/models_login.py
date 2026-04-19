@@ -342,6 +342,8 @@ class TAppManagerGroup(Base):
     contact_phone = Column(String(50), nullable=True, comment='連絡先電話番号')
     description = Column(Text, nullable=True, comment='グループの説明')
     active = Column(Integer, default=1, comment='有効/無効')
+    plan = Column(String(50), default='individual', comment='プラン種別: unlimited / 10app_pack / individual')
+    enabled_apps = Column(Text, nullable=True, comment='選択済みアプリIDのJSON配列')
     openai_api_key = Column(Text, nullable=True, comment='OpenAI APIキー')
     google_vision_api_key = Column(Text, nullable=True, comment='Google Cloud Vision APIキー（OCR用）')
     google_api_key = Column(Text, nullable=True, comment='Google Gemini APIキー')

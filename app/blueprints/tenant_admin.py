@@ -2255,56 +2255,49 @@ AVAILABLE_APPS = [
     {
         'name': 'client-management-tenant',
         'display_name': '事務所運営アプリ',
-        'scope': 'both',
-        'description': '顧問先・クライアント管理システム（テナント・店舗両対応）',
+        'description': '顧問先・クライアント管理システム',
         'url': '/tenant_admin/jimusho',
         'icon': '🏢'
     },
     {
         'name': 'homepage-builder',
         'display_name': 'ホームページ制作アプリ',
-        'scope': 'both',
-        'description': 'ホームページを作成・編集・公開できるアプリ（テナント・店舗両対応）',
+        'description': 'ホームページを作成・編集・公開できるアプリ',
         'url': '/homepage',
         'icon': '🌐'
     },
     {
         'name': 'voucher-digitization',
-        'display_name': '証憑データ化アプリ',
-        'scope': 'both',
-        'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化するアプリ（テナント・店舗両対応）',
+        'display_name': '証憎データ化アプリ',
+        'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化するアプリ',
         'url': '/voucher',
         'icon': '🧾'
     },
     {
         'name': 'truck-operation',
         'display_name': 'トラック運行管理アプリ',
-        'scope': 'both',
-        'description': 'トラックの運行状況・ドライバー・ルートを管理するアプリ（テナント・店舗両対応）',
+        'description': 'トラックの運行状況・ドライバー・ルートを管理するアプリ',
         'url': '/truck/',
         'icon': '🚛'
     },
     {
         'name': 'e-contract',
         'display_name': '電子契約アプリ',
-        'scope': 'both',
-        'description': '電子契約の作成、署名、契約確定を行うアプリ（テナント・店舗両対応）',
+        'description': '電子契約の作成、署名、契約確定を行うアプリ',
         'url': '/e-contract',
         'icon': '✍️'
     },
     {
         'name': 'real-estate',
         'display_name': '不動産管理アプリ',
-        'scope': 'both',
-        'description': '不動産物件の管理・購買・購買支援を行うアプリ（テナント・店舗両対応）',
+        'description': '不動産物件の管理・購買・購買支援を行うアプリ',
         'url': '/real-estate',
         'icon': '🏠'
     },
     {
         'name': 'company-incorporation',
         'display_name': '法人設立アプリ',
-        'scope': 'both',
-        'description': '法人設立の手続き・書類作成・進捗管理をサポートするアプリ（テナント・店舗両対応）',
+        'description': '法人設立の手続き・書類作成・進捗管理をサポートするアプリ',
         'url': '/company-incorporation',
         'icon': '🏢'
     }

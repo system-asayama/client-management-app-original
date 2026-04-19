@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}アプリ配布管理{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 0 0 1rem;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+
+  /* テナント選択 */
+  .tenant-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .tenant-card {
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .tenant-card:hover { border-color: #93c5fd; background: #f0f9ff; }
+  .tenant-card.selected { border-color: #2563a8; background: #eff6ff; }
+  .tenant-card .tenant-name { font-size: 0.9rem; font-weight: 700; color: #1a3a5c; }
+  .tenant-card .tenant-apps {
+    font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;
+  }
+  .tenant-card .tenant-check {
+    position: absolute; top: 0.6rem; right: 0.6rem;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid #d1d5db;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; color: #fff;
+  }
+  .tenant-card.selected .tenant-check { background: #2563a8; border-color: #2563a8; }
+
+  /* アプリ選択 */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .app-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .app-item:hover { border-color: #93c5fd; background: #f0f9ff; }
+  .app-item.app-checked { border-color: #3b82f6; background: #eff6ff; }
+  .app-item input[type=checkbox] { margin-top: 2px; flex-shrink: 0; }
+  .app-item .app-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .app-item .app-label { font-size: 0.875rem; font-weight: 600; color: #1a3a5c; }
+  .app-item .app-desc { font-size: 0.75rem; color: #6b7280; margin-top: 2px; line-height: 1.3; }
+
+  /* 現在の配布設定テーブル */
+  .dist-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .dist-table th {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    padding: 0.6rem 0.9rem;
+    text-align: left;
+    font-weight: 700;
+    color: #374151;
+  }
+  .dist-table td {
+    border: 1px solid #e5e7eb;
+    padding: 0.6rem 0.9rem;
+    vertical-align: top;
+  }
+  .dist-table tr:hover td { background: #f9fafb; }
+  .app-tag {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    margin: 2px;
+  }
+  .no-app-tag {
+    color: #9ca3af;
+    font-size: 0.8rem;
+    font-style: italic;
+  }
+
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.65rem 1.75rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    transition: background 0.15s; display: inline-block;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+</style>
+
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">{{ group.group_name }}</div>
+    <h1>📲 アプリ配布管理</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('app_manager.dashboard') }}">&#8592; ダッシュボードへ戻る</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for category, message in messages %}
+  <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
+
+{% if is_system_admin_view %}
+<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:0.75rem 1.25rem;margin-bottom:1.25rem;font-size:0.875rem;color:#92400e">
+  <strong>システム管理者として閲覧中</strong> — グループ「{{ group.group_name }}」のアプリ配布設定を表示しています
+</div>
+{% endif %}
+
+{% if not enabled_apps %}
+<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.875rem;color:#92400e">
+  ⚠️ 利用可能なアプリが設定されていません。先に<a href="{{ url_for('app_manager.plan') }}" style="color:#1d4ed8">プラン・アプリ設定</a>で利用アプリを選択してください。
+</div>
+{% endif %}
+
+<!-- テナントへのアプリ配布設定フォーム -->
+<div class="section-title">テナントへのアプリ配布設定</div>
+<div class="card">
+  {% if tenants %}
+  <form method="POST" id="distributeForm">
+    <div style="margin-bottom:1rem;">
+      <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.5rem">
+        配布先テナントを選択
+      </label>
+      <select name="tenant_id" id="tenantSelect" class="form-control"
+        style="width:100%;max-width:400px;padding:0.5rem 0.75rem;border:1px solid #d1d5db;border-radius:8px;font-size:0.875rem;"
+        onchange="loadTenantApps(this.value)">
+        <option value="">-- テナントを選択してください --</option>
+        {% for tenant in tenants %}
+        <option value="{{ tenant.id }}">{{ tenant.名称 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="appSelectSection" style="display:none;">
+      <div style="font-size:0.875rem;font-weight:600;color:#374151;margin-bottom:0.75rem">
+        配布するアプリを選択
+      </div>
+      {% if enabled_apps %}
+      <div class="app-grid" id="appGrid">
+        {% for app in enabled_apps %}
+        <label class="app-item" id="appItem_{{ app.name }}">
+          <input type="checkbox" name="apps" value="{{ app.name }}" id="appCb_{{ app.name }}">
+          <div class="app-icon">{{ app.icon }}</div>
+          <div>
+            <div class="app-label">{{ app.label }}</div>
+            <div class="app-desc">{{ app.description }}</div>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:#9ca3af;font-size:0.875rem">利用可能なアプリがありません。</p>
+      {% endif %}
+      <button type="submit" class="btn-primary">配布設定を保存する</button>
+    </div>
+  </form>
+  {% else %}
+  <p style="color:#9ca3af;font-size:0.875rem">テナントが登録されていません。</p>
+  {% endif %}
+</div>
+
+<!-- 現在の配布設定一覧 -->
+<div class="section-title">現在の配布設定一覧</div>
+<div class="card" style="padding:0;overflow:hidden;">
+  {% if tenants %}
+  <table class="dist-table">
+    <thead>
+      <tr>
+        <th style="width:30%">テナント名</th>
+        <th>配布中のアプリ</th>
+        <th style="width:15%;text-align:center">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tenant in tenants %}
+      <tr>
+        <td>
+          <div style="font-weight:600;color:#1a3a5c">{{ tenant.名称 }}</div>
+          <div style="font-size:0.75rem;color:#9ca3af">ID: {{ tenant.id }}</div>
+        </td>
+        <td>
+          {% set apps_for_tenant = tenant_app_settings.get(tenant.id, []) %}
+          {% if apps_for_tenant %}
+            {% for app_id in apps_for_tenant %}
+              {% for app in enabled_apps %}
+                {% if app.name == app_id %}
+                  <span class="app-tag">{{ app.icon }} {{ app.label }}</span>
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+          {% else %}
+            <span class="no-app-tag">配布なし</span>
+          {% endif %}
+        </td>
+        <td style="text-align:center">
+          <button type="button" onclick="selectTenant('{{ tenant.id }}')"
+            style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 12px;border-radius:6px;font-size:0.8rem;cursor:pointer;">
+            編集
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:1.5rem;text-align:center;color:#9ca3af;font-size:0.875rem">テナントが登録されていません。</div>
+  {% endif %}
+</div>
+
+<!-- フッター -->
+<div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+  <a class="btn-secondary" href="{{ url_for('app_manager.dashboard') }}">&#8592; ダッシュボードへ戻る</a>
+  <a class="btn-secondary" href="{{ url_for('app_manager.plan') }}">⚙️ プラン・アプリ設定</a>
+</div>
+
+<script>
+// テナントの現在の配布設定（JSON）
+var tenantAppSettings = {{ tenant_app_settings | tojson }};
+
+function selectTenant(tenantId) {
+  var select = document.getElementById('tenantSelect');
+  select.value = tenantId;
+  loadTenantApps(tenantId);
+  // フォームまでスクロール
+  document.getElementById('distributeForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function loadTenantApps(tenantId) {
+  var section = document.getElementById('appSelectSection');
+  if (!tenantId) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+
+  // チェックボックスをリセット
+  document.querySelectorAll('#appGrid input[type=checkbox]').forEach(function(cb) {
+    cb.checked = false;
+    cb.closest('.app-item').classList.remove('app-checked');
+  });
+
+  // テナントの現在の設定を反映
+  var currentApps = tenantAppSettings[tenantId] || [];
+  currentApps.forEach(function(appId) {
+    var cb = document.getElementById('appCb_' + appId);
+    if (cb) {
+      cb.checked = true;
+      cb.closest('.app-item').classList.add('app-checked');
+    }
+  });
+}
+
+// チェックボックスのスタイル切り替え
+document.querySelectorAll('#appGrid input[type=checkbox]').forEach(function(cb) {
+  cb.addEventListener('change', function() {
+    var item = this.closest('.app-item');
+    if (this.checked) {
+      item.classList.add('app-checked');
+    } else {
+      item.classList.remove('app-checked');
+    }
+  });
+});
+</script>
+{% endblock %}

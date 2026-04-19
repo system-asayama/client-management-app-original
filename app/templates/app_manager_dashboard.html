@@ -3,7 +3,6 @@
 {% block header %}{% endblock %}
 {% block content %}
 <style>
-  /* ── ヘッダー ── */
   .office-header {
     background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
     color: #fff;
@@ -31,7 +30,6 @@
   }
   .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
 
-  /* ── ウェルカムカード ── */
   .welcome-card {
     background: #fff;
     border: 1px solid #e5e7eb;
@@ -72,7 +70,6 @@
     margin-left: 0.5rem;
   }
 
-  /* ── ロール情報 ── */
   .info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -88,14 +85,12 @@
   .info-item .info-label { font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem; }
   .info-item .info-value { font-size: 0.95rem; font-weight: 600; color: #1a3a5c; }
 
-  /* ── セクションタイトル ── */
   .section-title {
     font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
     border-left: 4px solid #2563a8; padding-left: 0.75rem;
     margin: 0 0 1rem;
   }
 
-  /* ── 管理機能カード ── */
   .mgmt-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -122,7 +117,30 @@
   .mgmt-card h4 { font-size: 0.95rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.4rem; }
   .mgmt-card p { font-size: 0.8rem; color: #6b7280; margin: 0; line-height: 1.4; }
 
-  /* ── フッターボタン ── */
+  /* プランカード */
+  .plan-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .plan-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+  .plan-badge-unlimited { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+  .plan-badge-10app { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .plan-badge-individual { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+
   .footer-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
   .btn-mypage {
     background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
@@ -204,33 +222,25 @@
 </div>
 {% endif %}
 
-<!-- 配布可能アプリ一覧 -->
-<div class="section-title">配布可能アプリ一覧</div>
-<div class="mgmt-grid" style="margin-bottom:1.75rem;">
-  <div class="mgmt-card" style="cursor:default;">
-    <div class="card-icon">🤖</div>
-    <h4>勤怠管理アプリ (Android)</h4>
-    {% if group.android_apk_version %}
-      <p style="margin-bottom:0.5rem">バージョン: {{ group.android_apk_version }}</p>
-    {% endif %}
-    {% if group.android_apk_url %}
-      <a href="{{ group.android_apk_url }}" target="_blank" style="font-size:0.8rem;color:#2563a8;text-decoration:none">📥 APKをダウンロード</a>
+<!-- プラン情報 -->
+<div class="section-title">プラン・利用アプリ</div>
+<div class="plan-card">
+  <div>
+    <div style="font-size:0.8rem;color:#9ca3af;margin-bottom:0.4rem">現在のプラン</div>
+    {% if group.plan == 'unlimited' %}
+      <span class="plan-badge plan-badge-unlimited">♾️ 無制限プラン</span>
+    {% elif group.plan == '10app_pack' %}
+      <span class="plan-badge plan-badge-10app">📦 10アプリパックプラン</span>
     {% else %}
-      <p>APK URLが未設定です</p>
+      <span class="plan-badge plan-badge-individual">📋 個別プラン</span>
     {% endif %}
+    <div style="font-size:0.8rem;color:#6b7280;margin-top:0.5rem">
+      利用可能アプリ数: <strong>{{ enabled_app_count }}</strong> / {{ total_app_count }}
+    </div>
   </div>
-  <div class="mgmt-card" style="cursor:default;">
-    <div class="card-icon">🚚</div>
-    <h4>トラック運行管理アプリ</h4>
-    {% if group.truck_apk_version %}
-      <p style="margin-bottom:0.5rem">バージョン: {{ group.truck_apk_version }}</p>
-    {% endif %}
-    {% if group.truck_apk_url %}
-      <a href="{{ group.truck_apk_url }}" target="_blank" style="font-size:0.8rem;color:#2563a8;text-decoration:none">📥 APKをダウンロード</a>
-    {% else %}
-      <p>APK URLが未設定です</p>
-    {% endif %}
-  </div>
+  <a href="{{ url_for('app_manager.plan') }}" class="btn-mypage" style="white-space:nowrap">
+    ⚙️ プラン・アプリ設定
+  </a>
 </div>
 
 <!-- アプリ管理者管理 -->
@@ -248,18 +258,18 @@
   </a>
 </div>
 
-<!-- テナントアプリ管理 -->
-<div class="section-title">テナントアプリ管理</div>
+<!-- テナント管理 -->
+<div class="section-title">テナント管理</div>
 <div class="mgmt-grid">
   <a class="mgmt-card" href="{{ url_for('app_manager.tenants') }}">
     <div class="card-icon">🏬</div>
     <h4>テナント一覧</h4>
     <p>担当テナントの一覧・管理・新規作成</p>
   </a>
-  <a class="mgmt-card" href="{{ url_for('app_manager.app_management') }}">
+  <a class="mgmt-card" href="{{ url_for('app_manager.distribute') }}">
     <div class="card-icon">📲</div>
     <h4>アプリ配布管理</h4>
-    <p>テナント・店舗別のアプリ配布設定</p>
+    <p>テナントへのアプリ配布設定</p>
   </a>
 </div>
 

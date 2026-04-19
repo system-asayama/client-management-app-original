@@ -2253,14 +2253,6 @@ def employee_new():
 # 顧問先管理システムのアプリ定義
 AVAILABLE_APPS = [
     {
-        'name': 'client-management',
-        'display_name': '顧問先管理アプリ',
-        'scope': 'store',
-        'description': '顧問先・クライアント管理システム（店舗単位）',
-        'url': '/tenant_admin/jimusho',
-        'icon': '📋'
-    },
-    {
         'name': 'client-management-tenant',
         'display_name': '事務所運営アプリ',
         'scope': 'tenant',

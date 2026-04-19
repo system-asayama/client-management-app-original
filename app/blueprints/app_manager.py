@@ -950,6 +950,64 @@ def tenant_new():
     return render_template('app_manager_tenant_new.html')
 
 
+@bp.route('/tenants/<int:tenant_id>/edit', methods=['GET', 'POST'])
+@require_roles('app_manager', 'system_admin')
+def tenant_edit(tenant_id):
+    """テナント編集"""
+    from app.models_login import TTenant
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if not tenant:
+            flash('テナントが見つかりません', 'error')
+            return redirect(url_for('app_manager.tenants'))
+
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            postal_code = request.form.get('postal_code', '').strip()
+            address = request.form.get('address', '').strip()
+            phone = request.form.get('phone', '').strip()
+            email = request.form.get('email', '').strip()
+            openai_api_key = request.form.get('openai_api_key', '').strip()
+
+            if not name:
+                flash('名称は必須です', 'error')
+                return render_template('app_manager_tenant_edit.html', tenant=tenant)
+
+            tenant.名称 = name
+            tenant.郵便番号 = postal_code or None
+            tenant.住所 = address or None
+            tenant.電話番号 = phone or None
+            tenant.email = email or None
+            tenant.openai_api_key = openai_api_key or None
+            db.commit()
+            flash(f'テナント "{name}" を更新しました', 'success')
+            return redirect(url_for('app_manager.tenants'))
+
+        return render_template('app_manager_tenant_edit.html', tenant=tenant)
+    finally:
+        db.close()
+
+
+@bp.route('/tenants/<int:tenant_id>/delete', methods=['POST'])
+@require_roles('app_manager', 'system_admin')
+def tenant_delete(tenant_id):
+    """テナント削除（無効化）"""
+    from app.models_login import TTenant
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if tenant:
+            tenant.有効 = 0
+            db.commit()
+            flash(f'テナント "{tenant.名称}" を無効化しました', 'success')
+        else:
+            flash('テナントが見つかりません', 'error')
+        return redirect(url_for('app_manager.tenants'))
+    finally:
+        db.close()
+
+
 @bp.route('/app_management')
 @require_roles('app_manager', 'system_admin')
 def app_management():

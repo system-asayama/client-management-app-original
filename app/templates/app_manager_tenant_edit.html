@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}テナント編集{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .section-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-card-title {
+    font-size: 0.85rem; font-weight: 700; color: #374151;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 1.25rem; padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .form-group { margin-bottom: 1.25rem; }
+  .form-label {
+    display: block; font-size: 0.875rem; font-weight: 600;
+    color: #374151; margin-bottom: 0.4rem;
+  }
+  .form-label .required { color: #dc2626; font-size: 0.75rem; margin-left: 0.25rem; }
+  .form-control {
+    width: 100%; padding: 0.6rem 0.875rem;
+    border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.875rem; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .form-control:focus {
+    border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .form-hint { font-size: 0.78rem; color: #6b7280; margin-top: 0.35rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+  .form-actions {
+    display: flex; gap: 0.75rem; flex-wrap: wrap;
+    padding-top: 1rem; border-top: 1px solid #f3f4f6;
+    margin-top: 0.5rem;
+  }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.65rem 1.5rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #1a4f8a; }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.65rem 1.5rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  .slug-badge {
+    display: inline-block; background: #f3f4f6; color: #6b7280;
+    padding: 0.25rem 0.75rem; border-radius: 6px;
+    font-size: 0.8rem; font-family: monospace; margin-top: 0.25rem;
+  }
+</style>
+
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">テナント管理</div>
+    <h1>テナント編集</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('app_manager.tenants') }}">← 一覧へ戻る</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+<form method="post" action="{{ url_for('app_manager.tenant_edit', tenant_id=tenant.id) }}">
+  {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+
+  <!-- 基本情報 -->
+  <div class="section-card">
+    <div class="section-card-title">基本情報</div>
+
+    <div class="form-group">
+      <label class="form-label">slug（変更不可）</label>
+      <div class="slug-badge">{{ tenant.slug }}</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="name">
+        テナント名 <span class="required">*必須</span>
+      </label>
+      <input type="text" id="name" name="name" class="form-control"
+             placeholder="例: 田中税理士事務所" required
+             value="{{ tenant.名称 }}">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="email">メールアドレス</label>
+        <input type="email" id="email" name="email" class="form-control"
+               placeholder="例: info@example.com"
+               value="{{ tenant.email or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="phone">電話番号</label>
+        <input type="text" id="phone" name="phone" class="form-control"
+               placeholder="例: 03-1234-5678"
+               value="{{ tenant.電話番号 or '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="postal_code">郵便番号</label>
+        <input type="text" id="postal_code" name="postal_code" class="form-control"
+               placeholder="例: 100-0001"
+               value="{{ tenant.郵便番号 or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="address">住所</label>
+        <input type="text" id="address" name="address" class="form-control"
+               placeholder="例: 東京都千代田区..."
+               value="{{ tenant.住所 or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- API設定 -->
+  <div class="section-card">
+    <div class="section-card-title">API設定（任意）</div>
+
+    <div class="form-group">
+      <label class="form-label" for="openai_api_key">OpenAI APIキー</label>
+      <input type="password" id="openai_api_key" name="openai_api_key" class="form-control"
+             placeholder="{{ '設定済み（変更する場合のみ入力）' if tenant.openai_api_key else 'sk-...' }}"
+             autocomplete="off" value="">
+      <div class="form-hint">
+        {% if tenant.openai_api_key %}
+          現在設定済みです。変更する場合のみ入力してください。空欄のままにすると現在の値が保持されます。
+        {% else %}
+          AI機能を使用する場合に設定します。
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 送信ボタン -->
+  <div class="form-actions">
+    <button type="submit" class="btn-primary">更新する</button>
+    <a href="{{ url_for('app_manager.tenants') }}" class="btn-secondary">キャンセル</a>
+  </div>
+</form>
+{% endblock %}

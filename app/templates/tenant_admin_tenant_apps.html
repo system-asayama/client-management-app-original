@@ -15,8 +15,9 @@
     flex-wrap: wrap;
     gap: 1rem;
   }
-  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
-  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .office-title  { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.2rem; }
+  .office-header h1             { font-size: 1.6rem;  font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
   .office-header .header-actions a {
     background: rgba(255,255,255,0.15);
     color: #fff;
@@ -28,48 +29,85 @@
     transition: background 0.15s;
   }
   .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
-
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 0 0 1.25rem;
+  }
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
   .app-card {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 14px;
-    padding: 1.5rem 1.75rem;
-    margin-bottom: 1rem;
+    padding: 1.5rem;
     text-decoration: none;
-    color: inherit;
-    display: block;
-    transition: all 0.18s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .app-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--app-color, #2563a8);
   }
   .app-card:hover {
-    border-color: #2563a8;
-    box-shadow: 0 6px 20px rgba(37,99,168,0.12);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(37,99,168,0.12);
+    border-color: #93c5fd;
   }
-  .app-card h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #1a3a5c;
-    margin: 0 0 0.5rem;
+  .app-card-icon { font-size: 2rem; margin-bottom: 0.25rem; }
+  .app-card-name { font-size: 1rem; font-weight: 700; color: #1a3a5c; }
+  .app-card-desc { font-size: 0.85rem; color: #6b7280; line-height: 1.5; }
+  .app-card-arrow {
+    margin-top: auto;
+    font-size: 0.8rem;
+    color: #2563a8;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
   }
-  .app-card p {
-    font-size: 0.875rem;
-    color: #6b7280;
-    margin: 0;
-    line-height: 1.5;
-  }
-  .no-apps {
+  .empty-state {
     text-align: center;
-    padding: 3rem 1rem;
+    padding: 3rem 1.5rem;
     color: #9ca3af;
-    font-size: 0.9rem;
+    background: #f9fafb;
+    border-radius: 14px;
+    border: 1px dashed #d1d5db;
+    margin-bottom: 1.5rem;
   }
+  .empty-state p { margin: 0; font-size: 0.95rem; }
+  .footer-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f3f4f6;
+  }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500;
+    text-decoration: none; cursor: pointer; display: inline-block;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
 </style>
 
-<!-- ヘッダー -->
 <div class="office-header">
   <div>
-    <div class="office-title">{{ tenant.名称 if tenant else 'テナント名' }}</div>
+    {% if tenant %}<div class="office-title">{{ tenant.名称 }}</div>{% endif %}
     <h1>📱 利用可能アプリ一覧</h1>
   </div>
   <div class="header-actions">
@@ -77,14 +115,60 @@
   </div>
 </div>
 
+{% set icon_map = {
+  'client-management': '📋',
+  'client-management-tenant': '🏢',
+  'homepage-builder': '🌐',
+  'kintai': '⏰',
+  'finance': '💰',
+  'chat': '💬',
+  'files': '📁',
+  'voucher-digitization': '🧾',
+  'truck-operation': '🚛',
+  'e-contract': '✍️',
+  'teikan': '📜',
+  'property': '🏠',
+  'real-estate': '🏠',
+  'company-incorporation': '🏦'
+} %}
+{% set color_map = {
+  'client-management': '#2563a8',
+  'client-management-tenant': '#2563a8',
+  'homepage-builder': '#0891b2',
+  'kintai': '#059669',
+  'finance': '#d97706',
+  'chat': '#7c3aed',
+  'files': '#0891b2',
+  'voucher-digitization': '#d97706',
+  'truck-operation': '#1a3a5c',
+  'e-contract': '#7c3aed',
+  'teikan': '#b45309',
+  'property': '#16a34a',
+  'real-estate': '#16a34a',
+  'company-incorporation': '#1d4ed8'
+} %}
+
+<div class="section-title">利用可能なアプリ</div>
+
 {% if apps and apps|length > 0 %}
+<div class="apps-grid">
   {% for app in apps %}
-  <a href="{{ app.url if app.url else '#' }}" class="app-card">
-    <h3>{{ app.display_name }}</h3>
-    <p>{{ app.description or '顧問先・クライアント管理システム' }}</p>
+  <a class="app-card" href="{{ app.url if app.url else '#' }}" style="--app-color: {{ color_map.get(app.name, app.color if app.color else '#2563a8') }}">
+    <div class="app-card-icon">{{ app.icon if app.icon else icon_map.get(app.name, '📦') }}</div>
+    <div class="app-card-name">{{ app.display_name }}</div>
+    <div class="app-card-desc">{{ app.description }}</div>
+    <div class="app-card-arrow">開く →</div>
   </a>
   {% endfor %}
+</div>
 {% else %}
-  <div class="no-apps">利用可能なアプリはありません</div>
+<div class="empty-state">
+  <p>現在利用可能なアプリはありません。</p>
+</div>
 {% endif %}
+
+<div class="footer-actions">
+  <a class="btn-secondary" href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードに戻る</a>
+</div>
+
 {% endblock %}

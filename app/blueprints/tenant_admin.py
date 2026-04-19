@@ -2562,31 +2562,23 @@ def tenant_apps():
             'created_at': tenant.created_at
         }
         
-        # テナントレベルで有効なアプリを取得
-        enabled_apps = []
-        
-        for app in AVAILABLE_APPS:
-            if app['scope'] == 'tenant':
-                # urlフィールドがあるアプリ（外部アプリ）は常に表示
-                if app.get('url'):
-                    enabled_apps.append(app)
-                    continue
-                try:
-                    app_setting = db.query(TTenantAppSetting).filter(
-                        and_(
-                            TTenantAppSetting.tenant_id == tenant_id,
-                            TTenantAppSetting.app_id == app['name']
-                        )
-                    ).first()
-                    enabled = app_setting.enabled if app_setting else 0  # デフォルトは無効
-                except Exception:
-                    # テーブルが存在しない場合はデフォルトで無効
-                    enabled = 0
-                
-                if enabled:
-                    enabled_apps.append(app)
-        
-        apps = enabled_apps
+        # テナントへの配布設定を取得（app_manager/distributeで設定されたもの）
+        try:
+            tenant_app_settings_rows = db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant_id,
+                TTenantAppSetting.enabled == 1
+            ).all()
+            tenant_distributed_app_ids = {s.app_id for s in tenant_app_settings_rows}
+            has_distribution_settings = len(tenant_distributed_app_ids) > 0
+        except Exception:
+            tenant_distributed_app_ids = set()
+            has_distribution_settings = False
+
+        # 配布設定がある場合は配布されたアプリのみ、ない場合は全アプリを表示
+        if has_distribution_settings:
+            apps = [app for app in AVAILABLE_APPS if app['name'] in tenant_distributed_app_ids]
+        else:
+            apps = list(AVAILABLE_APPS)
         
         # 店舗情報を取得（現在選択中の店舗）
         store_id = session.get('store_id')

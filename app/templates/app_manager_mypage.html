@@ -1,344 +1,444 @@
 {% extends "base.html" %}
-{% block head %}
-<style>
-.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
-.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.page-header-title{margin:0;font-size:1.6em;font-weight:700}
-.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
-.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn:hover{background:#e8f0fe}
-.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
-.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
-.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
-.data-table{width:100%;border-collapse:collapse;margin-top:8px}
-.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
-.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
-.data-table tr:hover td{background:#f8fafc}
-.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
-.form-group{margin-bottom:20px}
-.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
-.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
-.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-primary:hover{background:#1a4f8a}
-.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-secondary:hover{background:#e2e8f0}
-.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-danger:hover{background:#dc2626}
-.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
-.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
-.search-bar{margin-bottom:20px}
-.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
-@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
-</style>
-{% endblock %}
-{% block title %}マイページ{% endblock %}
+{% block title %}アプリ管理者マイページ{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
 <style>
-  .profile-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  
-  .profile-table tr {
-    border-bottom: 1px solid #eee;
-  }
-  
-  .profile-table th {
-    text-align: left;
-    padding: 8px;
-    width: 40%;
-    white-space: nowrap;
-  }
-  
-  .profile-table td {
-    padding: 8px;
-    word-break: break-word;
-  }
-  
-  @media (max-width: 768px) {
-    .profile-table th {
-      width: auto;
-      min-width: 120px;
-    }
-  }
+.page-header {
+  background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 2rem 2rem 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+.page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+.page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.page-header .header-actions a {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background 0.15s;
+}
+.page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+.profile-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.profile-avatar {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a3a5c, #2563a8);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 700; flex-shrink: 0;
+}
+.profile-info h2 { font-size: 1.2rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.25rem; }
+.profile-info p { font-size: 0.85rem; color: #6b7280; margin: 0; }
+.badge { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
+.badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.badge-role  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.info-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.75rem 1rem; }
+.info-item .info-label { font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem; }
+.info-item .info-value { font-size: 0.95rem; font-weight: 600; color: #1a3a5c; word-break: break-all; }
+.section-title {
+  font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+  border-left: 4px solid #2563a8; padding-left: 0.75rem;
+  margin: 0 0 1rem;
+}
+.section-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+/* 設定ナビゲーションボタン */
+.settings-nav {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.settings-nav-btn {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.15s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.settings-nav-btn:hover {
+  border-color: #2563a8;
+  box-shadow: 0 4px 12px rgba(37,99,168,0.12);
+  transform: translateY(-1px);
+}
+.settings-nav-btn .nav-icon { font-size: 1.75rem; flex-shrink: 0; }
+.settings-nav-btn .nav-text .nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.2rem; }
+.settings-nav-btn .nav-text .nav-desc { font-size: 0.8rem; color: #6b7280; }
+/* アクセス先選択ボタン */
+.access-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #f9fafb;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.15s;
+}
+.access-nav-btn:hover {
+  border-color: #2563a8;
+  background: #eff6ff;
+  box-shadow: 0 2px 8px rgba(37,99,168,0.1);
+}
+.access-nav-icon { font-size: 1.75rem; flex-shrink: 0; width: 2.25rem; text-align: center; }
+.access-nav-text { flex: 1; min-width: 0; }
+.access-nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; }
+.access-nav-desc { font-size: 0.8rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.access-nav-arrow { color: #9ca3af; font-size: 1.25rem; flex-shrink: 0; margin-left: 0.25rem; }
+/* APIキーフォーム */
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.4rem; }
+.form-group input {
+  width: 100%; padding: 0.55rem 0.75rem;
+  border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 0.9rem; color: #1f2937;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+.form-group input:focus {
+  outline: none; border-color: #2563a8;
+  box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+}
+.form-group small { display: block; margin-top: 0.3rem; color: #6b7280; font-size: 0.8rem; }
+.azure-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.azure-box .azure-title { font-size: 0.9rem; font-weight: 700; color: #1d4ed8; margin-bottom: 0.75rem; }
+.btn-action {
+  background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+  padding: 0.55rem 1.25rem; border-radius: 8px;
+  text-decoration: none; font-size: 0.875rem; font-weight: 500;
+  transition: all 0.15s; cursor: pointer; display: inline-block;
+}
+.btn-action:hover { background: #f3f4f6; border-color: #d1d5db; }
+.btn-action.primary { background: #2563a8; color: #fff; border-color: #2563a8; }
+.btn-action.primary:hover { background: #1d4ed8; }
+.btn-action.danger { background: rgba(220,38,38,0.1); color: #dc2626; border-color: rgba(220,38,38,0.3); }
+.btn-action.danger:hover { background: rgba(220,38,38,0.2); }
+/* テナント・店舗選択セクション */
+.select-section { margin-bottom: 1.25rem; }
+.select-section label { display: block; font-size: 0.8rem; font-weight: 600; color: #6b7280; margin-bottom: 0.35rem; }
+.select-section input[type=text], .select-section select {
+  width: 100%; padding: 0.55rem 0.75rem;
+  border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 0.9rem; color: #1f2937;
+  box-sizing: border-box; margin-bottom: 0.5rem;
+  transition: border-color 0.15s;
+}
+.select-section input[type=text]:focus, .select-section select:focus {
+  outline: none; border-color: #2563a8;
+  box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+}
+@media (max-width: 640px) {
+  .page-header { padding: 1.5rem 1.25rem 1.25rem; }
+  .page-header h1 { font-size: 1.4rem; }
+  .info-grid { grid-template-columns: 1fr 1fr; }
+  .access-nav-desc { white-space: normal; }
+}
 </style>
-<h1>アプリ管理者マイページ</h1>
 
-<div class="card" style="max-width:640px">
-  <h2>プロフィール情報</h2>
-  
-  <div style="margin-top:20px">
-    <table class="profile-table">
-      <tr>
-        <th>ユーザーID</th>
-        <td>{{ user.id }}</td>
-      </tr>
-      <tr>
-        <th>ログインID</th>
-        <td>{{ user.login_id }}</td>
-      </tr>
-      <tr>
-        <th>氏名</th>
-        <td>{{ user.name }}</td>
-      </tr>
-      <tr>
-        <th>メールアドレス</th>
-        <td>{{ user.email or '未設定' }}</td>
-      </tr>
-      <tr>
-        <th>ロール</th>
-        <td>{{ user.role }}</td>
-      </tr>
-      <tr>
-        <th>所属グループ</th>
-        <td>{{ user.group_name }}</td>
-      </tr>
-      <tr>
-        <th>作成日時</th>
-        <td>{{ user.created_at }}</td>
-      </tr>
-      <tr>
-        <th>更新日時</th>
-        <td>{{ user.updated_at }}</td>
-      </tr>
-    </table>
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <h1>アプリ管理者マイページ</h1>
   </div>
-
-  <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap">
-    <a class="btn sub" href="{{ url_for('app_manager.dashboard') }}">アプリ管理者ダッシュボードへ進む</a>
-    <a class="btn" href="{{ url_for('app_manager.edit_profile') }}">プロフィール編集</a>
-    <a class="btn" href="{{ url_for('app_manager.change_password') }}">パスワード変更</a>
+  <div class="header-actions">
+    <a href="{{ url_for('app_manager.dashboard') }}">ダッシュボード</a>
+    <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
+</div>
 
-  {% if group_api is not none %}
-  <h2 style="margin-top:30px">APIキー設定（グループ共通）</h2>
-  <p style="color:#666; margin-top:5px">証憑データ化処理に使用するAPIキーを設定してください。グループ内の全テナント・店舗で共通利用されます（店舗・テナント側の設定が優先されます）。</p>
-  <form method="POST" action="{{ url_for('app_manager.mypage') }}" style="margin-top:20px">
-    <input type="hidden" name="action" value="update_api_keys">
-    <div style="margin-bottom:15px">
-      <label for="google_vision_api_key" style="display:block; margin-bottom:5px">🔍 Google Cloud Vision APIキー（OCR用）★ 推奨</label>
-      <input type="password" id="google_vision_api_key" name="google_vision_api_key" value="{{ group_api.google_vision_api_key or '' }}" placeholder="AIza..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-      <small style="color:#666; display:block; margin-top:5px">日本語（漢字）の認識精度99%以上。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">Google Cloud Console</a>で取得</small>
-    </div>
-    <div style="margin-bottom:15px">
-      <label for="openai_api_key" style="display:block; margin-bottom:5px">OpenAI APIキー（GPT-4o / GPT-4o-mini用）</label>
-      <input type="password" id="openai_api_key" name="openai_api_key" value="{{ group_api.openai_api_key or '' }}" placeholder="sk-..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-      <small style="color:#666; display:block; margin-top:5px"><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>で取得</small>
-    </div>
-    <div style="margin-bottom:15px">
-      <label for="google_api_key" style="display:block; margin-bottom:5px">Google APIキー（Gemini用）</label>
-      <input type="password" id="google_api_key" name="google_api_key" value="{{ group_api.google_api_key or '' }}" placeholder="AIza..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-      <small style="color:#666; display:block; margin-top:5px"><a href="https://ai.google.dev/" target="_blank">Google AI Studio</a>で取得</small>
-    </div>
-    <div style="margin-bottom:15px">
-      <label for="anthropic_api_key" style="display:block; margin-bottom:5px">Anthropic APIキー（Claude用・将来対応）</label>
-      <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ group_api.anthropic_api_key or '' }}" placeholder="sk-ant-..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-      <small style="color:#666; display:block; margin-top:5px"><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
-    </div>
-    <div style="margin-bottom:15px; padding:15px; background:#f0f7ff; border:1px solid #b3d7ff; border-radius:6px">
-      <label style="display:block; margin-bottom:8px; font-weight:bold">📄 Azure Document Intelligence（高精度通帳OCR用）</label>
-      <div style="margin-bottom:10px">
-        <label for="azure_document_intelligence_endpoint" style="display:block; margin-bottom:5px">エンドポイントURL</label>
-        <input type="text" id="azure_document_intelligence_endpoint" name="azure_document_intelligence_endpoint" value="{{ group_api.azure_document_intelligence_endpoint or '' }}" placeholder="https://samurai-ocr.cognitiveservices.azure.com/" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-      </div>
-      <div style="margin-bottom:5px">
-        <label for="azure_document_intelligence_key" style="display:block; margin-bottom:5px">APIキー</label>
-        <input type="password" id="azure_document_intelligence_key" name="azure_document_intelligence_key" value="{{ group_api.azure_document_intelligence_key or '' }}" placeholder="Azureポータルの「キーとエンドポイント」からコピー" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
-      </div>
-      <small style="color:#666; display:block; margin-top:5px"><a href="https://portal.azure.com" target="_blank">Azureポータル</a>でDocument Intelligenceリソースを作成後、「キーとエンドポイント」から取得。グループ内の全テナント・店舗で共通利用されます（店舗・テナント側設定が優先）。</small>
-    </div>
-    <button type="submit" class="btn">APIキーを保存</button>
-  </form>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
+    {% endfor %}
   {% endif %}
+{% endwith %}
 
-  <h2 style="margin-top:30px">テナント選択</h2>
-  <p style="margin-top:10px; color:#666">テナントを選択してテナント管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('app_manager.select_tenant_from_mypage') }}" style="margin-top:20px">
-    <div style="margin-bottom:15px">
-      <label for="tenant_search" style="display:block; margin-bottom:5px">テナントを検索</label>
-      <input type="text" id="tenant_search" placeholder="テナント名で検索..." oninput="filterTenants()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px">
-      <label for="tenant_id" style="display:block; margin-bottom:5px">テナントを選択</label>
-      <select id="tenant_id" name="tenant_id" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+<!-- プロフィールサマリーカード -->
+<div class="profile-card">
+  <div class="profile-avatar">{{ user.name[0] if user.name else 'A' }}</div>
+  <div class="profile-info">
+    <h2>
+      {{ user.name }}
+      {% if user.is_owner %}<span class="badge badge-owner">オーナー</span>{% endif %}
+      <span class="badge badge-role">アプリ管理者</span>
+    </h2>
+    <p>{{ user.login_id }} ／ {{ user.email or 'メール未設定' }}{% if user.group_name %} ／ {{ user.group_name }}{% endif %}</p>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-item">
+    <div class="info-label">ユーザーID</div>
+    <div class="info-value">{{ user.id }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">ログインID</div>
+    <div class="info-value">{{ user.login_id }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">所属グループ</div>
+    <div class="info-value">{{ user.group_name or '未設定' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">オーナー権限</div>
+    <div class="info-value" style="color:{{ '#059669' if user.is_owner else '#9ca3af' }}">{{ 'あり' if user.is_owner else 'なし' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">作成日時</div>
+    <div class="info-value" style="font-size:0.85rem">{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at and user.created_at.__class__.__name__ != 'str' else (user.created_at or '-') }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">更新日時</div>
+    <div class="info-value" style="font-size:0.85rem">{{ user.updated_at.strftime('%Y-%m-%d %H:%M') if user.updated_at and user.updated_at.__class__.__name__ != 'str' else (user.updated_at or '-') }}</div>
+  </div>
+</div>
+
+<!-- 設定ナビゲーション -->
+<div class="settings-nav">
+  <a href="{{ url_for('app_manager.edit_profile') }}" class="settings-nav-btn">
+    <div class="nav-icon">👤</div>
+    <div class="nav-text">
+      <div class="nav-title">プロフィール設定</div>
+      <div class="nav-desc">名前・ログインID・メール・パスワード変更</div>
+    </div>
+  </a>
+</div>
+
+<!-- アクセス先を選択 -->
+<div class="section-card">
+  <p class="section-title">アクセス先を選択</p>
+  <div style="display:flex; flex-direction:column; gap:0.75rem">
+    <a href="{{ url_for('app_manager.dashboard') }}" class="access-nav-btn">
+      <span class="access-nav-icon">🖥️</span>
+      <div class="access-nav-text">
+        <div class="access-nav-title">アプリ管理者ダッシュボード</div>
+        <div class="access-nav-desc">テナント・アプリ配布・設定管理</div>
+      </div>
+      <span class="access-nav-arrow">›</span>
+    </a>
+    <button type="button" onclick="document.getElementById('tenant-select-section').scrollIntoView({behavior:'smooth'})" class="access-nav-btn" style="background:#f9fafb;border:1.5px solid #e5e7eb;cursor:pointer;text-align:left;width:100%">
+      <span class="access-nav-icon">🏬</span>
+      <div class="access-nav-text">
+        <div class="access-nav-title">テナント</div>
+        <div class="access-nav-desc">テナントを選択してテナント管理者ダッシュボードへ</div>
+      </div>
+      <span class="access-nav-arrow">›</span>
+    </button>
+    <button type="button" onclick="document.getElementById('store-select-section').scrollIntoView({behavior:'smooth'})" class="access-nav-btn" style="background:#f9fafb;border:1.5px solid #e5e7eb;cursor:pointer;text-align:left;width:100%">
+      <span class="access-nav-icon">🏪</span>
+      <div class="access-nav-text">
+        <div class="access-nav-title">店舗</div>
+        <div class="access-nav-desc">店舗を選択して店舗管理者ダッシュボードへ</div>
+      </div>
+      <span class="access-nav-arrow">›</span>
+    </button>
+  </div>
+</div>
+
+<!-- テナント選択 -->
+<div class="section-card" id="tenant-select-section">
+  <p class="section-title">テナントを選択</p>
+  <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1rem">テナントを選択してテナント管理者ダッシュボードにアクセスできます。</p>
+  <form method="POST" action="{{ url_for('app_manager.select_tenant_from_mypage') }}">
+    <div class="select-section">
+      <label>テナントを検索</label>
+      <input type="text" id="tenant_search" placeholder="テナント名で検索..." oninput="filterTenants()">
+      <label>テナントを選択</label>
+      <select id="tenant_id" name="tenant_id" required>
         <option value="">-- テナントを選択してください --</option>
         {% for tenant in tenant_list %}
           <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn">テナントダッシュボードへ進む</button>
+    <button type="submit" class="btn-action primary">テナントダッシュボードへ進む</button>
   </form>
+</div>
 
-  <h2 style="margin-top:30px">店舗選択</h2>
-  <p style="margin-top:10px; color:#666">店舗を選択して店舗管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('app_manager.select_store_from_mypage') }}" style="margin-top:20px">
-    <div style="margin-bottom:15px">
-      <label for="store_tenant_search" style="display:block; margin-bottom:5px">テナントを検索</label>
-      <input type="text" id="store_tenant_search" placeholder="テナント名で検索..." oninput="filterStoreTenants()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px">
-      <label for="store_tenant_id" style="display:block; margin-bottom:5px">テナントを選択</label>
-      <select id="store_tenant_id" onchange="filterStores()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+<!-- 店舗選択 -->
+<div class="section-card" id="store-select-section">
+  <p class="section-title">店舗を選択</p>
+  <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1rem">店舗を選択して店舗管理者ダッシュボードにアクセスできます。</p>
+  <form method="POST" action="{{ url_for('app_manager.select_store_from_mypage') }}">
+    <div class="select-section">
+      <label>テナントを検索</label>
+      <input type="text" id="store_tenant_search" placeholder="テナント名で検索..." oninput="filterStoreTenants()">
+      <label>テナントを選択</label>
+      <select id="store_tenant_id" onchange="filterStores()">
         <option value="">-- テナントを選択してください --</option>
         {% for tenant in tenant_list %}
           <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
         {% endfor %}
       </select>
-    </div>
-    <div style="margin-bottom:15px">
-      <label for="store_search" style="display:block; margin-bottom:5px">店舗を検索</label>
-      <input type="text" id="store_search" placeholder="店舗名で検索..." oninput="filterStoresBySearch()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px">
-      <label for="store_id" style="display:block; margin-bottom:5px">店舗を選択</label>
-      <select id="store_id" name="store_id" required style="width:100%; padding:8px; border:1px solid #ddd; border-radius:3px">
+      <label>店舗を検索</label>
+      <input type="text" id="store_search" placeholder="店舗名で検索..." oninput="filterStoresBySearch()">
+      <label>店舗を選択</label>
+      <select id="store_id" name="store_id" required>
         <option value="">-- まずテナントを選択してください --</option>
         {% for store in store_list %}
           <option value="{{ store.id }}" data-tenant-id="{{ store.tenant_id }}" data-name="{{ store.name }}" style="display:none">{{ store.name }}</option>
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn">店舗ダッシュボードへ進む</button>
+    <button type="submit" class="btn-action primary">店舗ダッシュボードへ進む</button>
   </form>
-
-  <script>
-  // テナント選択の検索機能
-  function filterTenants() {
-    const searchText = document.getElementById('tenant_search').value.toLowerCase();
-    const tenantSelect = document.getElementById('tenant_id');
-    const options = tenantSelect.querySelectorAll('option');
-    
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const option = options[i];
-      const tenantName = option.dataset.name.toLowerCase();
-      
-      if (tenantName.includes(searchText)) {
-        option.style.display = '';
-        visibleCount++;
-      } else {
-        option.style.display = 'none';
-      }
-    }
-    
-    if (visibleCount === 0 && searchText) {
-      options[0].textContent = '-- 検索結果がありません --';
-    } else {
-      options[0].textContent = '-- テナントを選択してください --';
-    }
-  }
-  
-  // 店舗選択のテナント検索機能
-  function filterStoreTenants() {
-    const searchText = document.getElementById('store_tenant_search').value.toLowerCase();
-    const tenantSelect = document.getElementById('store_tenant_id');
-    const options = tenantSelect.querySelectorAll('option');
-    
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const option = options[i];
-      const tenantName = option.dataset.name.toLowerCase();
-      
-      if (tenantName.includes(searchText)) {
-        option.style.display = '';
-        visibleCount++;
-      } else {
-        option.style.display = 'none';
-      }
-    }
-    
-    if (visibleCount === 0 && searchText) {
-      options[0].textContent = '-- 検索結果がありません --';
-    } else {
-      options[0].textContent = '-- テナントを選択してください --';
-    }
-  }
-  
-  // 店舗検索機能
-  function filterStoresBySearch() {
-    const searchText = document.getElementById('store_search').value.toLowerCase();
-    const tenantId = document.getElementById('store_tenant_id').value;
-    const storeSelect = document.getElementById('store_id');
-    const options = storeSelect.querySelectorAll('option');
-    
-    if (!tenantId) {
-      return; // テナントが未選択の場合は何もしない
-    }
-    
-    let visibleCount = 0;
-    for (let i = 1; i < options.length; i++) {
-      const option = options[i];
-      const storeName = option.dataset.name.toLowerCase();
-      const storeTenanId = option.dataset.tenantId;
-      
-      // テナントが一致し、かつ検索テキストにマッチする場合のみ表示
-      if (storeTenanId === tenantId && storeName.includes(searchText)) {
-        option.style.display = '';
-        visibleCount++;
-      } else {
-        option.style.display = 'none';
-      }
-    }
-    
-    if (visibleCount === 0 && searchText) {
-      options[0].textContent = '-- 検索結果がありません --';
-    } else if (visibleCount === 0) {
-      options[0].textContent = '-- 選択したテナントに店舗がありません --';
-    } else {
-      options[0].textContent = '-- 店舗を選択してください --';
-    }
-  }
-  
-  function filterStores() {
-    const tenantId = document.getElementById('store_tenant_id').value;
-    const storeSelect = document.getElementById('store_id');
-    const storeSearch = document.getElementById('store_search');
-    const options = storeSelect.querySelectorAll('option');
-    
-    // 全てのオプションを非表示にして選択をクリア
-    storeSelect.value = '';
-    storeSearch.value = ''; // 検索ボックスもクリア
-    
-    if (!tenantId) {
-      // テナントが未選択の場合
-      options[0].textContent = '-- まずテナントを選択してください --';
-      for (let i = 1; i < options.length; i++) {
-        options[i].style.display = 'none';
-      }
-    } else {
-      // テナントが選択されている場合
-      options[0].textContent = '-- 店舗を選択してください --';
-      let hasStores = false;
-      for (let i = 1; i < options.length; i++) {
-        const option = options[i];
-        if (option.dataset.tenantId === tenantId) {
-          option.style.display = '';
-          hasStores = true;
-        } else {
-          option.style.display = 'none';
-        }
-      }
-      
-      if (!hasStores) {
-        options[0].textContent = '-- 選択したテナントに店舗がありません --';
-      }
-    }
-  }
-  </script>
-
-  <div style="margin-top:30px; display:flex; gap:12px; flex-wrap:wrap">
-    <a class="btn" href="{{ url_for('auth.logout') }}" style="background-color:#dc3545">ログアウト</a>
-  </div>
 </div>
 
-{% if get_flashed_messages() %}
-<div style="margin-top:20px">
-  {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
-  {% endfor %}
+{% if group_api is not none %}
+<!-- APIキー設定 -->
+<div class="section-card">
+  <p class="section-title">APIキー設定（グループ共通）</p>
+  <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1.25rem">証憑データ化処理に使用するAPIキーを設定してください。グループ内の全テナント・店舗で共通利用されます（店舗・テナント側の設定が優先されます）。</p>
+  <form method="POST" action="{{ url_for('app_manager.mypage') }}">
+    <input type="hidden" name="action" value="update_api_keys">
+    <div class="form-group">
+      <label>🔍 Google Cloud Vision APIキー（OCR用）★ 推奨</label>
+      <input type="password" name="google_vision_api_key" value="{{ group_api.google_vision_api_key or '' }}" placeholder="AIza...">
+      <small>日本語（漢字）の認識精度99%以上。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">Google Cloud Console</a>で取得</small>
+    </div>
+    <div class="form-group">
+      <label>OpenAI APIキー（GPT-4o / GPT-4o-mini用）</label>
+      <input type="password" name="openai_api_key" value="{{ group_api.openai_api_key or '' }}" placeholder="sk-...">
+      <small><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>で取得</small>
+    </div>
+    <div class="form-group">
+      <label>Google APIキー（Gemini用）</label>
+      <input type="password" name="google_api_key" value="{{ group_api.google_api_key or '' }}" placeholder="AIza...">
+      <small><a href="https://ai.google.dev/" target="_blank">Google AI Studio</a>で取得</small>
+    </div>
+    <div class="form-group">
+      <label>Anthropic APIキー（Claude用・将来対応）</label>
+      <input type="password" name="anthropic_api_key" value="{{ group_api.anthropic_api_key or '' }}" placeholder="sk-ant-...">
+      <small><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
+    </div>
+    <div class="azure-box">
+      <div class="azure-title">📄 Azure Document Intelligence（高精度通帳OCR用）</div>
+      <div class="form-group">
+        <label>エンドポイントURL</label>
+        <input type="text" name="azure_document_intelligence_endpoint" value="{{ group_api.azure_document_intelligence_endpoint or '' }}" placeholder="https://samurai-ocr.cognitiveservices.azure.com/">
+      </div>
+      <div class="form-group">
+        <label>APIキー</label>
+        <input type="password" name="azure_document_intelligence_key" value="{{ group_api.azure_document_intelligence_key or '' }}" placeholder="Azureポータルの「キーとエンドポイント」からコピー">
+        <small><a href="https://portal.azure.com" target="_blank">Azureポータル</a>でDocument Intelligenceリソースを作成後、「キーとエンドポイント」から取得。</small>
+      </div>
+    </div>
+    <button type="submit" class="btn-action primary">APIキーを保存</button>
+  </form>
 </div>
 {% endif %}
+
+<script>
+function filterTenants() {
+  const searchText = document.getElementById('tenant_search').value.toLowerCase();
+  const tenantSelect = document.getElementById('tenant_id');
+  const options = tenantSelect.querySelectorAll('option');
+  let visibleCount = 0;
+  for (let i = 1; i < options.length; i++) {
+    const option = options[i];
+    const tenantName = option.dataset.name.toLowerCase();
+    if (tenantName.includes(searchText)) { option.style.display = ''; visibleCount++; }
+    else { option.style.display = 'none'; }
+  }
+  options[0].textContent = (visibleCount === 0 && searchText) ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
+}
+
+function filterStoreTenants() {
+  const searchText = document.getElementById('store_tenant_search').value.toLowerCase();
+  const tenantSelect = document.getElementById('store_tenant_id');
+  const options = tenantSelect.querySelectorAll('option');
+  let visibleCount = 0;
+  for (let i = 1; i < options.length; i++) {
+    const option = options[i];
+    const tenantName = option.dataset.name.toLowerCase();
+    if (tenantName.includes(searchText)) { option.style.display = ''; visibleCount++; }
+    else { option.style.display = 'none'; }
+  }
+  options[0].textContent = (visibleCount === 0 && searchText) ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
+}
+
+function filterStoresBySearch() {
+  const searchText = document.getElementById('store_search').value.toLowerCase();
+  const tenantId = document.getElementById('store_tenant_id').value;
+  const storeSelect = document.getElementById('store_id');
+  const options = storeSelect.querySelectorAll('option');
+  if (!tenantId) return;
+  let visibleCount = 0;
+  for (let i = 1; i < options.length; i++) {
+    const option = options[i];
+    const storeName = option.dataset.name.toLowerCase();
+    const storeTenantId = option.dataset.tenantId;
+    if (storeTenantId === tenantId && storeName.includes(searchText)) { option.style.display = ''; visibleCount++; }
+    else { option.style.display = 'none'; }
+  }
+  if (visibleCount === 0 && searchText) options[0].textContent = '-- 検索結果がありません --';
+  else if (visibleCount === 0) options[0].textContent = '-- 選択したテナントに店舗がありません --';
+  else options[0].textContent = '-- 店舗を選択してください --';
+}
+
+function filterStores() {
+  const tenantId = document.getElementById('store_tenant_id').value;
+  const storeSelect = document.getElementById('store_id');
+  const storeSearch = document.getElementById('store_search');
+  const options = storeSelect.querySelectorAll('option');
+  storeSelect.value = '';
+  storeSearch.value = '';
+  if (!tenantId) {
+    options[0].textContent = '-- まずテナントを選択してください --';
+    for (let i = 1; i < options.length; i++) options[i].style.display = 'none';
+  } else {
+    options[0].textContent = '-- 店舗を選択してください --';
+    let hasStores = false;
+    for (let i = 1; i < options.length; i++) {
+      const option = options[i];
+      if (option.dataset.tenantId === tenantId) { option.style.display = ''; hasStores = true; }
+      else { option.style.display = 'none'; }
+    }
+    if (!hasStores) options[0].textContent = '-- 選択したテナントに店舗がありません --';
+  }
+}
+</script>
+
 {% endblock %}

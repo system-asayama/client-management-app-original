@@ -91,26 +91,27 @@
   /* アプリ選択 */
   .app-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.6rem;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.4rem;
     margin-bottom: 1rem;
   }
   .app-item {
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 0.6rem 0.75rem;
+    border-radius: 7px;
+    padding: 0.4rem 0.6rem;
     display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
+    align-items: center;
+    gap: 0.4rem;
     cursor: pointer;
     transition: all 0.15s;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
   }
   .app-item:hover { border-color: #93c5fd; background: #f0f9ff; }
   .app-item.app-checked { border-color: #3b82f6; background: #eff6ff; }
-  .app-item input[type=checkbox] { margin-top: 2px; flex-shrink: 0; }
-  .app-item .app-icon { font-size: 1.2rem; flex-shrink: 0; }
-  .app-item .app-label { font-weight: 600; color: #1a3a5c; }
+  .app-item input[type=checkbox] { flex-shrink: 0; width: 14px; height: 14px; }
+  .app-item .app-icon { font-size: 1rem; flex-shrink: 0; }
+  .app-item .app-label { font-weight: 600; color: #1a3a5c; font-size: 0.78rem; }
 
   .btn-primary {
     background: #2563a8; color: #fff; border: none;
@@ -250,7 +251,7 @@
           {% for app in available_apps %}
           <div class="app-item app-checked" style="cursor:default;opacity:0.8">
             <div class="app-icon">{{ app.icon }}</div>
-            <div class="app-label">{{ app.label }}</div>
+            <div class="app-label">{{ app.display_name }}</div>
           </div>
           {% endfor %}
         </div>
@@ -270,7 +271,7 @@
                 {% if app.name in group.enabled_app_ids %}checked{% endif %}
                 onchange="onAppCheck({{ loop.index }}, '{{ group.plan }}')">
               <div class="app-icon">{{ app.icon }}</div>
-              <div class="app-label">{{ app.label }}</div>
+              <div class="app-label">{{ app.display_name }}</div>
             </label>
             {% endfor %}
           </div>

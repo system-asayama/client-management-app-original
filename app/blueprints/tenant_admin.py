@@ -2258,49 +2258,56 @@ AVAILABLE_APPS = [
         'display_name': '事務所運営アプリ',
         'description': '顧問先・クライアント管理システム',
         'url': '/tenant_admin/jimusho',
-        'icon': '🏢'
+        'icon': '🏢',
+        'scope': 'store'
     },
     {
         'name': 'homepage-builder',
         'display_name': 'ホームページ制作アプリ',
         'description': 'ホームページを作成・編集・公開できるアプリ',
         'url': '/homepage',
-        'icon': '🌐'
+        'icon': '🌐',
+        'scope': 'store'
     },
     {
         'name': 'voucher-digitization',
         'display_name': '証憎データ化アプリ',
         'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化するアプリ',
         'url': '/voucher',
-        'icon': '🧾'
+        'icon': '🧾',
+        'scope': 'store'
     },
     {
         'name': 'truck-operation',
         'display_name': 'トラック運行管理アプリ',
         'description': 'トラックの運行状況・ドライバー・ルートを管理するアプリ',
         'url': '/truck/',
-        'icon': '🚛'
+        'icon': '🚛',
+        'scope': 'store'
     },
     {
         'name': 'e-contract',
         'display_name': '電子契約アプリ',
         'description': '電子契約の作成、署名、契約確定を行うアプリ',
         'url': '/e-contract',
-        'icon': '✍️'
+        'icon': '✍️',
+        'scope': 'store'
     },
     {
         'name': 'real-estate',
         'display_name': '不動産管理アプリ',
         'description': '不動産物件の管理・購買・購買支援を行うアプリ',
         'url': '/real-estate',
-        'icon': '🏠'
+        'icon': '🏠',
+        'scope': 'store'
     },
     {
         'name': 'company-incorporation',
         'display_name': '法人設立アプリ',
         'description': '法人設立の手続き・書類作成・進捗管理をサポートするアプリ',
         'url': '/company-incorporation',
-        'icon': '🏢'
+        'icon': '🏢',
+        'scope': 'store'
     }
 ]
 
@@ -2532,6 +2539,21 @@ def app_management():
                              store_apps=store_apps,
                              session_has_tenant=session_has_tenant,
                              selected_tenant_name=selected_tenant_name)
+    except Exception as e:
+        import traceback
+        import logging
+        _logger = logging.getLogger(__name__)
+        _logger.error(f'app_management error: {e}\n{traceback.format_exc()}')
+        flash(f'エラーが発生しました: {str(e)}', 'error')
+        return render_template('tenant_admin_app_management.html',
+                             tenant=None,
+                             tenants=[],
+                             stores=[],
+                             selected_tenant_id=None,
+                             selected_store_id=None,
+                             store_apps=[],
+                             session_has_tenant=False,
+                             selected_tenant_name=None)
     finally:
         db.close()
 

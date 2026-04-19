@@ -173,7 +173,7 @@
     </div>
     <div class="admin-actions">
       <a class="btn-edit" href="{{ url_for('tenant_admin.tenant_admin_edit', admin_id=ta.id) }}">編集</a>
-      {% if ta.is_owner != 1 %}
+      {% if ta.is_owner != 1 or is_system_admin %}
         <form method="post" action="{{ url_for('tenant_admin.tenant_admin_toggle_active', admin_id=ta.id) }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           {% if ta.active == 1 %}

@@ -1044,7 +1044,8 @@ def tenant_admins():
                              tenant_admins=admins_data, 
                              tenant=tenant,
                              is_owner=is_owner,
-                             can_manage_tenant_admins=can_manage_tenant_admins)
+                             can_manage_tenant_admins=can_manage_tenant_admins,
+                             is_system_admin=is_system_admin)
     finally:
         db.close()
 

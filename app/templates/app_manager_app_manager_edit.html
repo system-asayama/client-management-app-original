@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}アプリ管理者 編集{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .office-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .office-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .section-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-card-title {
+    font-size: 0.85rem; font-weight: 700; color: #374151;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 1.25rem; padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .form-group { margin-bottom: 1.25rem; }
+  .form-label {
+    display: block; font-size: 0.875rem; font-weight: 600;
+    color: #374151; margin-bottom: 0.4rem;
+  }
+  .form-label .required {
+    color: #dc2626; font-size: 0.75rem; margin-left: 0.25rem;
+  }
+  .form-control {
+    width: 100%; padding: 0.6rem 0.875rem;
+    border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.875rem; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .form-control:focus {
+    border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .form-hint { font-size: 0.78rem; color: #6b7280; margin-top: 0.35rem; }
+
+  .checkbox-group { display: flex; flex-direction: column; gap: 0.75rem; }
+  .checkbox-item {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: #f9fafb; border: 1px solid #e5e7eb;
+    border-radius: 8px; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .checkbox-item:hover { background: #eff6ff; border-color: #bfdbfe; }
+  .checkbox-item.disabled-item { opacity: 0.6; cursor: not-allowed; }
+  .checkbox-item input[type="checkbox"] {
+    width: 16px; height: 16px; margin-top: 2px;
+    accent-color: #2563a8; flex-shrink: 0; cursor: pointer;
+  }
+  .checkbox-item-label { flex: 1; }
+  .checkbox-item-label strong { display: block; font-size: 0.875rem; color: #111827; font-weight: 600; }
+  .checkbox-item-label span { font-size: 0.78rem; color: #6b7280; }
+
+  .form-actions {
+    display: flex; gap: 0.75rem; flex-wrap: wrap;
+    padding-top: 1rem; border-top: 1px solid #f3f4f6;
+    margin-top: 0.5rem;
+  }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.65rem 1.5rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #1a4f8a; }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.65rem 1.5rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  .owner-notice {
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: 8px; padding: 0.875rem 1rem;
+    font-size: 0.825rem; color: #92400e; margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+</style>
+
+<!-- ヘッダー -->
+<div class="office-header">
+  <div>
+    <div class="office-title">アプリ管理者管理</div>
+    <h1>{{ admin.name }} を編集</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('app_manager.app_managers') }}">← 一覧へ戻る</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
+{% if admin.is_owner == 1 %}
+<div class="owner-notice">
+  ★ このアカウントはオーナーです。権限設定は変更できません。
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('app_manager.app_manager_edit', admin_id=admin.id) }}">
+  {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+
+  <!-- 基本情報 -->
+  <div class="section-card">
+    <div class="section-card-title">基本情報</div>
+
+    <div class="form-group">
+      <label class="form-label" for="login_id">
+        ログインID <span class="required">*必須</span>
+      </label>
+      <input type="text" id="login_id" name="login_id" class="form-control"
+             placeholder="例: tanaka_taro" required autocomplete="off"
+             value="{{ admin.login_id }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="name">
+        氏名 <span class="required">*必須</span>
+      </label>
+      <input type="text" id="name" name="name" class="form-control"
+             placeholder="例: 田中 太郎" required
+             value="{{ admin.name }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="email">メールアドレス</label>
+      <input type="email" id="email" name="email" class="form-control"
+             placeholder="例: tanaka@example.com"
+             value="{{ admin.email or '' }}">
+    </div>
+  </div>
+
+  <!-- パスワード変更 -->
+  <div class="section-card">
+    <div class="section-card-title">パスワード変更（変更する場合のみ入力）</div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">新しいパスワード</label>
+      <input type="password" id="password" name="password" class="form-control"
+             placeholder="8文字以上（変更しない場合は空欄）" autocomplete="new-password">
+      <div class="form-hint">変更しない場合は空欄のままにしてください。</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password_confirm">新しいパスワード（確認）</label>
+      <input type="password" id="password_confirm" name="password_confirm" class="form-control"
+             placeholder="もう一度入力" autocomplete="new-password">
+    </div>
+  </div>
+
+  <!-- 権限設定 -->
+  <div class="section-card">
+    <div class="section-card-title">権限・ステータス設定</div>
+
+    <div class="checkbox-group">
+      <label class="checkbox-item {% if admin.is_owner == 1 %}disabled-item{% endif %}">
+        <input type="checkbox" name="active" value="1"
+               {% if admin.active == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>有効</strong>
+          <span>チェックを外すと、このアプリ管理者はログインできなくなります。</span>
+        </div>
+      </label>
+
+      <label class="checkbox-item {% if admin.is_owner == 1 %}disabled-item{% endif %}">
+        <input type="checkbox" name="can_manage_admins" value="1"
+               {% if admin.can_manage_admins == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>管理者権限</strong>
+          <span>他のアプリ管理者の作成・編集・削除ができます。</span>
+        </div>
+      </label>
+
+      <label class="checkbox-item {% if admin.is_owner == 1 %}disabled-item{% endif %}">
+        <input type="checkbox" name="can_distribute_apps" value="1"
+               {% if admin.can_distribute_apps == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>アプリ配布権限</strong>
+          <span>テナントへのアプリ配布設定ができます。</span>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- 送信ボタン -->
+  <div class="form-actions">
+    <button type="submit" class="btn-primary">更新する</button>
+    <a href="{{ url_for('app_manager.app_managers') }}" class="btn-secondary">キャンセル</a>
+  </div>
+</form>
+
+<script>
+// パスワード一致チェック（入力した場合のみ）
+document.querySelector('form').addEventListener('submit', function(e) {
+  const pw = document.getElementById('password').value;
+  const pwc = document.getElementById('password_confirm').value;
+  if (pw && pw !== pwc) {
+    e.preventDefault();
+    alert('パスワードが一致しません。');
+    document.getElementById('password_confirm').focus();
+  }
+});
+</script>
+{% endblock %}

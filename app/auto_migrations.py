@@ -656,6 +656,52 @@ def run_auto_migrations():
             else:
                 logger.info(f"- T_店舗.{col_name} カラムは既に存在します（スキップ）")
 
+        # T_アプリ管理者グループテーブルにplanカラムを追加
+        if not column_exists(session, 'T_アプリ管理者グループ', 'plan'):
+            logger.info("T_アプリ管理者グループテーブルに plan カラムを追加中...")
+            try:
+                if db_type == 'postgresql':
+                    session.execute(text("""
+                        ALTER TABLE "T_アプリ管理者グループ"
+                        ADD COLUMN plan VARCHAR(50) DEFAULT 'individual'
+                    """))
+                else:
+                    session.execute(text("""
+                        ALTER TABLE `T_アプリ管理者グループ`
+                        ADD COLUMN `plan` VARCHAR(50) DEFAULT 'individual'
+                        COMMENT 'プラン種別: unlimited / 10app_pack / individual'
+                    """))
+                session.commit()
+                logger.info("✓ T_アプリ管理者グループ.plan カラムを追加しました")
+            except Exception as col_err:
+                session.rollback()
+                logger.error(f"カラム追加エラー: T_アプリ管理者グループ.plan - {col_err}")
+        else:
+            logger.info("- T_アプリ管理者グループ.plan カラムは既に存在します（スキップ）")
+
+        # T_アプリ管理者グループテーブルにenabled_appsカラムを追加
+        if not column_exists(session, 'T_アプリ管理者グループ', 'enabled_apps'):
+            logger.info("T_アプリ管理者グループテーブルに enabled_apps カラムを追加中...")
+            try:
+                if db_type == 'postgresql':
+                    session.execute(text("""
+                        ALTER TABLE "T_アプリ管理者グループ"
+                        ADD COLUMN enabled_apps TEXT NULL
+                    """))
+                else:
+                    session.execute(text("""
+                        ALTER TABLE `T_アプリ管理者グループ`
+                        ADD COLUMN `enabled_apps` TEXT NULL
+                        COMMENT '選択済みアプリIDのJSON配列'
+                    """))
+                session.commit()
+                logger.info("✓ T_アプリ管理者グループ.enabled_apps カラムを追加しました")
+            except Exception as col_err:
+                session.rollback()
+                logger.error(f"カラム追加エラー: T_アプリ管理者グループ.enabled_apps - {col_err}")
+        else:
+            logger.info("- T_アプリ管理者グループ.enabled_apps カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

@@ -2960,17 +2960,28 @@ def app_limit_management():
             # TODO: TTenantAppSettingから、このグループが配布したユニークなアプリ種類をカウント
             distributed_app_types = 0  # 一時的に0
             
+            # プラン情報を取得
+            import json
+            current_plan = getattr(group, 'plan', 'individual') or 'individual'
+            enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+            try:
+                enabled_app_ids = json.loads(enabled_apps_raw)
+            except Exception:
+                enabled_app_ids = []
+
             group_data.append({
                 'group_id': group.id,
                 'group_name': group.group_name,
                 'owner_name': owner.name if owner else 'なし',
                 'member_count': member_count,
-                # 'app_limit': group.app_limit,  # マイグレーション008実行後に有効化
-                'app_limit': None,  # 一時的にNone
-                'distributed_app_types': distributed_app_types
+                'app_limit': None,
+                'distributed_app_types': distributed_app_types,
+                'plan': current_plan,
+                'enabled_app_ids': enabled_app_ids,
             })
         
-        return render_template('sys_app_limit_management.html', groups=group_data)
+        from app.blueprints.tenant_admin import AVAILABLE_APPS
+        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=AVAILABLE_APPS)
     
     finally:
         db.close()
@@ -3001,26 +3012,38 @@ def update_app_limit():
             flash('アプリ管理者グループが見つかりません', 'error')
             return redirect(url_for('system_admin.app_limit_management'))
         
-        # app_limitの処理
-        # app_limit_value = None
-        # if app_limit:
-        #     try:
-        #         app_limit_value = int(app_limit)
-        #         if app_limit_value < 1:
-        #             flash('アプリ種類数上限は1以上を指定してください', 'error')
-        #             return redirect(url_for('system_admin.app_limit_management'))
-        #     except ValueError:
-        #         flash('アプリ種類数上限は数値で入力してください', 'error')
-        #         return redirect(url_for('system_admin.app_limit_management'))
-        
-        # group.app_limit = app_limit_value  # マイグレーション008実行後に有効化
-        # db.commit()
-        # 
-        # limit_text = f'{app_limit_value}種類' if app_limit_value else '無制限'
-        # flash(f'{group.group_name} のアプリ種類数上限を「{limit_text}」に設定しました', 'success')
-        
-        # 一時的なメッセージ
-        flash('アプリ種類数上限機能は現在準備中です（マイグレーション008実行待ち）', 'warning')
+        import json
+        action = request.form.get('action', 'update_plan')
+
+        if action == 'update_plan':
+            # プラン更新
+            new_plan = request.form.get('plan', 'individual')
+            if new_plan not in ('unlimited', '10app_pack', 'individual'):
+                flash('無効なプランです', 'error')
+                return redirect(url_for('system_admin.app_limit_management'))
+            group.plan = new_plan
+            # 無制限プランは全アプリを自動選択
+            if new_plan == 'unlimited':
+                from app.blueprints.tenant_admin import AVAILABLE_APPS
+                group.enabled_apps = json.dumps([app['name'] for app in AVAILABLE_APPS])
+            db.commit()
+            plan_labels = {'unlimited': '無制限プラン', '10app_pack': '10アプリパックプラン', 'individual': '個別プラン'}
+            flash(f'{group.group_name} のプランを「{plan_labels.get(new_plan, new_plan)}」に変更しました', 'success')
+
+        elif action == 'update_apps':
+            # 利用アプリ更新
+            selected_apps = request.form.getlist('selected_apps')
+            current_plan = getattr(group, 'plan', 'individual') or 'individual'
+            if current_plan == '10app_pack' and len(selected_apps) > 10:
+                flash('10アプリパックプランは最大10アプリまで選択できます', 'error')
+                return redirect(url_for('system_admin.app_limit_management'))
+            group.enabled_apps = json.dumps(selected_apps)
+            db.commit()
+            flash(f'{group.group_name} の利用アプリを更新しました（{len(selected_apps)}アプリ）', 'success')
+
+        else:
+            flash('不明なアクションです', 'error')
+
         return redirect(url_for('system_admin.app_limit_management'))
         
     except Exception as e:

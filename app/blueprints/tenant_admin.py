@@ -2414,10 +2414,17 @@ def app_management():
                         flash('この店舗を管理する権限がありません', 'error')
                         return redirect(url_for('tenant_admin.app_management'))
                     
-                    # 店舗単位のアプリ一覧を取得
+                    # テナントに配布されたアプリIDを取得
+                    tenant_distributed_rows = db.query(TTenantAppSetting).filter(
+                        TTenantAppSetting.tenant_id == selected_tenant_id,
+                        TTenantAppSetting.enabled == 1
+                    ).all()
+                    tenant_distributed_ids = {r.app_id for r in tenant_distributed_rows}
+                    
+                    # 店舗単位のアプリ一覧を取得（配布済みアプリのみ）
                     store_apps_data = {}
                     for app in AVAILABLE_APPS:
-                        if app['scope'] == 'store':
+                        if app['scope'] in ('store', 'both') and app['name'] in tenant_distributed_ids:
                             app_setting = db.query(TTenpoAppSetting).filter(
                                 and_(
                                     TTenpoAppSetting.store_id == selected_store_id,
@@ -2433,7 +2440,8 @@ def app_management():
                             'display_name': app['display_name'],
                             'enabled': store_apps_data.get(app['name'], 1)
                         }
-                        for app in AVAILABLE_APPS if app['scope'] == 'store'
+                        for app in AVAILABLE_APPS
+                        if app['scope'] in ('store', 'both') and app['name'] in tenant_distributed_ids
                     ]
             
             elif action == 'update_apps':
@@ -2467,8 +2475,15 @@ def app_management():
                         flash('この店舗を管理する権限がありません', 'error')
                         return redirect(url_for('tenant_admin.app_management'))
                     
+                    # テナントに配布されたアプリIDを取得
+                    tenant_distributed_rows = db.query(TTenantAppSetting).filter(
+                        TTenantAppSetting.tenant_id == selected_tenant_id,
+                        TTenantAppSetting.enabled == 1
+                    ).all()
+                    tenant_distributed_ids = {r.app_id for r in tenant_distributed_rows}
+                    
                     for app in AVAILABLE_APPS:
-                        if app['scope'] == 'store':
+                        if app['scope'] in ('store', 'both') and app['name'] in tenant_distributed_ids:
                             enabled = 1 if request.form.get(f'app_{app["name"]}') == 'on' else 0
                             
                             # UPSERT処理
@@ -2494,10 +2509,10 @@ def app_management():
                     db.commit()
                     flash('店舗のアプリ設定を更新しました', 'success')
                     
-                    # 更新後のデータを再取得
+                    # 更新後のデータを再取得（配布済みアプリのみ）
                     store_apps_data = {}
                     for app in AVAILABLE_APPS:
-                        if app['scope'] == 'store':
+                        if app['scope'] in ('store', 'both') and app['name'] in tenant_distributed_ids:
                             app_setting = db.query(TTenpoAppSetting).filter(
                                 and_(
                                     TTenpoAppSetting.store_id == selected_store_id,
@@ -2513,7 +2528,8 @@ def app_management():
                             'display_name': app['display_name'],
                             'enabled': store_apps_data.get(app['name'], 1)
                         }
-                        for app in AVAILABLE_APPS if app['scope'] == 'store'
+                        for app in AVAILABLE_APPS
+                        if app['scope'] in ('store', 'both') and app['name'] in tenant_distributed_ids
                     ]
         
         # セッションにtenant_idがあるかどうかをテンプレートに渡す

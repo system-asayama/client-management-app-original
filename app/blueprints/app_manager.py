@@ -969,6 +969,11 @@ def tenant_edit(tenant_id):
             phone = request.form.get('phone', '').strip()
             email = request.form.get('email', '').strip()
             openai_api_key = request.form.get('openai_api_key', '').strip()
+            google_api_key = request.form.get('google_api_key', '').strip()
+            anthropic_api_key = request.form.get('anthropic_api_key', '').strip()
+            google_vision_api_key = request.form.get('google_vision_api_key', '').strip()
+            azure_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip()
+            azure_key = request.form.get('azure_document_intelligence_key', '').strip()
 
             if not name:
                 flash('名称は必須です', 'error')
@@ -979,7 +984,19 @@ def tenant_edit(tenant_id):
             tenant.住所 = address or None
             tenant.電話番号 = phone or None
             tenant.email = email or None
-            tenant.openai_api_key = openai_api_key or None
+            # 空欄の場合は現在値を保持する
+            if openai_api_key:
+                tenant.openai_api_key = openai_api_key
+            if google_api_key:
+                tenant.google_api_key = google_api_key
+            if anthropic_api_key:
+                tenant.anthropic_api_key = anthropic_api_key
+            if google_vision_api_key:
+                tenant.google_vision_api_key = google_vision_api_key
+            # Azureはエンドポイントはテキストなので常に更新
+            tenant.azure_document_intelligence_endpoint = azure_endpoint or None
+            if azure_key:
+                tenant.azure_document_intelligence_key = azure_key
             db.commit()
             flash(f'テナント "{name}" を更新しました', 'success')
             return redirect(url_for('app_manager.tenants'))

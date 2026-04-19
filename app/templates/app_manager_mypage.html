@@ -126,48 +126,6 @@
 .access-nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; }
 .access-nav-desc { font-size: 0.8rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .access-nav-arrow { color: #9ca3af; font-size: 1.25rem; flex-shrink: 0; margin-left: 0.25rem; }
-/* APIキーフォーム */
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.4rem; }
-.form-group input {
-  width: 100%; padding: 0.55rem 0.75rem;
-  border: 1px solid #d1d5db; border-radius: 8px;
-  font-size: 0.9rem; color: #1f2937;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  box-sizing: border-box;
-}
-.form-group input:focus {
-  outline: none; border-color: #2563a8;
-  box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
-}
-.form-group small { display: block; margin-top: 0.3rem; color: #6b7280; font-size: 0.8rem; }
-.azure-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
-.azure-box .azure-title { font-size: 0.9rem; font-weight: 700; color: #1d4ed8; margin-bottom: 0.75rem; }
-.btn-action {
-  background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
-  padding: 0.55rem 1.25rem; border-radius: 8px;
-  text-decoration: none; font-size: 0.875rem; font-weight: 500;
-  transition: all 0.15s; cursor: pointer; display: inline-block;
-}
-.btn-action:hover { background: #f3f4f6; border-color: #d1d5db; }
-.btn-action.primary { background: #2563a8; color: #fff; border-color: #2563a8; }
-.btn-action.primary:hover { background: #1d4ed8; }
-.btn-action.danger { background: rgba(220,38,38,0.1); color: #dc2626; border-color: rgba(220,38,38,0.3); }
-.btn-action.danger:hover { background: rgba(220,38,38,0.2); }
-/* テナント・店舗選択セクション */
-.select-section { margin-bottom: 1.25rem; }
-.select-section label { display: block; font-size: 0.8rem; font-weight: 600; color: #6b7280; margin-bottom: 0.35rem; }
-.select-section input[type=text], .select-section select {
-  width: 100%; padding: 0.55rem 0.75rem;
-  border: 1px solid #d1d5db; border-radius: 8px;
-  font-size: 0.9rem; color: #1f2937;
-  box-sizing: border-box; margin-bottom: 0.5rem;
-  transition: border-color 0.15s;
-}
-.select-section input[type=text]:focus, .select-section select:focus {
-  outline: none; border-color: #2563a8;
-  box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
-}
 @media (max-width: 640px) {
   .page-header { padding: 1.5rem 1.25rem 1.25rem; }
   .page-header h1 { font-size: 1.4rem; }
@@ -178,7 +136,7 @@
 
 <div class="page-header">
   <div>
-    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <div class="page-subtitle">APP MANAGER</div>
     <h1>アプリ管理者マイページ</h1>
   </div>
   <div class="header-actions">
@@ -258,187 +216,23 @@
       </div>
       <span class="access-nav-arrow">›</span>
     </a>
-    <button type="button" onclick="document.getElementById('tenant-select-section').scrollIntoView({behavior:'smooth'})" class="access-nav-btn" style="background:#f9fafb;border:1.5px solid #e5e7eb;cursor:pointer;text-align:left;width:100%">
+    <a href="{{ url_for('app_manager.mypage_select_tenant') }}" class="access-nav-btn">
       <span class="access-nav-icon">🏬</span>
       <div class="access-nav-text">
-        <div class="access-nav-title">テナント</div>
+        <div class="access-nav-title">テナント管理者として操作</div>
         <div class="access-nav-desc">テナントを選択してテナント管理者ダッシュボードへ</div>
       </div>
       <span class="access-nav-arrow">›</span>
-    </button>
-    <button type="button" onclick="document.getElementById('store-select-section').scrollIntoView({behavior:'smooth'})" class="access-nav-btn" style="background:#f9fafb;border:1.5px solid #e5e7eb;cursor:pointer;text-align:left;width:100%">
+    </a>
+    <a href="{{ url_for('app_manager.mypage_select_store') }}" class="access-nav-btn">
       <span class="access-nav-icon">🏪</span>
       <div class="access-nav-text">
-        <div class="access-nav-title">店舗</div>
+        <div class="access-nav-title">店舗管理者として操作</div>
         <div class="access-nav-desc">店舗を選択して店舗管理者ダッシュボードへ</div>
       </div>
       <span class="access-nav-arrow">›</span>
-    </button>
+    </a>
   </div>
 </div>
-
-<!-- テナント選択 -->
-<div class="section-card" id="tenant-select-section">
-  <p class="section-title">テナントを選択</p>
-  <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1rem">テナントを選択してテナント管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('app_manager.select_tenant_from_mypage') }}">
-    <div class="select-section">
-      <label>テナントを検索</label>
-      <input type="text" id="tenant_search" placeholder="テナント名で検索..." oninput="filterTenants()">
-      <label>テナントを選択</label>
-      <select id="tenant_id" name="tenant_id" required>
-        <option value="">-- テナントを選択してください --</option>
-        {% for tenant in tenant_list %}
-          <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn-action primary">テナントダッシュボードへ進む</button>
-  </form>
-</div>
-
-<!-- 店舗選択 -->
-<div class="section-card" id="store-select-section">
-  <p class="section-title">店舗を選択</p>
-  <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1rem">店舗を選択して店舗管理者ダッシュボードにアクセスできます。</p>
-  <form method="POST" action="{{ url_for('app_manager.select_store_from_mypage') }}">
-    <div class="select-section">
-      <label>テナントを検索</label>
-      <input type="text" id="store_tenant_search" placeholder="テナント名で検索..." oninput="filterStoreTenants()">
-      <label>テナントを選択</label>
-      <select id="store_tenant_id" onchange="filterStores()">
-        <option value="">-- テナントを選択してください --</option>
-        {% for tenant in tenant_list %}
-          <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
-        {% endfor %}
-      </select>
-      <label>店舗を検索</label>
-      <input type="text" id="store_search" placeholder="店舗名で検索..." oninput="filterStoresBySearch()">
-      <label>店舗を選択</label>
-      <select id="store_id" name="store_id" required>
-        <option value="">-- まずテナントを選択してください --</option>
-        {% for store in store_list %}
-          <option value="{{ store.id }}" data-tenant-id="{{ store.tenant_id }}" data-name="{{ store.name }}" style="display:none">{{ store.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn-action primary">店舗ダッシュボードへ進む</button>
-  </form>
-</div>
-
-{% if group_api is not none %}
-<!-- APIキー設定 -->
-<div class="section-card">
-  <p class="section-title">APIキー設定（グループ共通）</p>
-  <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1.25rem">証憑データ化処理に使用するAPIキーを設定してください。グループ内の全テナント・店舗で共通利用されます（店舗・テナント側の設定が優先されます）。</p>
-  <form method="POST" action="{{ url_for('app_manager.mypage') }}">
-    <input type="hidden" name="action" value="update_api_keys">
-    <div class="form-group">
-      <label>🔍 Google Cloud Vision APIキー（OCR用）★ 推奨</label>
-      <input type="password" name="google_vision_api_key" value="{{ group_api.google_vision_api_key or '' }}" placeholder="AIza...">
-      <small>日本語（漢字）の認識精度99%以上。<a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank">Google Cloud Console</a>で取得</small>
-    </div>
-    <div class="form-group">
-      <label>OpenAI APIキー（GPT-4o / GPT-4o-mini用）</label>
-      <input type="password" name="openai_api_key" value="{{ group_api.openai_api_key or '' }}" placeholder="sk-...">
-      <small><a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>で取得</small>
-    </div>
-    <div class="form-group">
-      <label>Google APIキー（Gemini用）</label>
-      <input type="password" name="google_api_key" value="{{ group_api.google_api_key or '' }}" placeholder="AIza...">
-      <small><a href="https://ai.google.dev/" target="_blank">Google AI Studio</a>で取得</small>
-    </div>
-    <div class="form-group">
-      <label>Anthropic APIキー（Claude用・将来対応）</label>
-      <input type="password" name="anthropic_api_key" value="{{ group_api.anthropic_api_key or '' }}" placeholder="sk-ant-...">
-      <small><a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>で取得</small>
-    </div>
-    <div class="azure-box">
-      <div class="azure-title">📄 Azure Document Intelligence（高精度通帳OCR用）</div>
-      <div class="form-group">
-        <label>エンドポイントURL</label>
-        <input type="text" name="azure_document_intelligence_endpoint" value="{{ group_api.azure_document_intelligence_endpoint or '' }}" placeholder="https://samurai-ocr.cognitiveservices.azure.com/">
-      </div>
-      <div class="form-group">
-        <label>APIキー</label>
-        <input type="password" name="azure_document_intelligence_key" value="{{ group_api.azure_document_intelligence_key or '' }}" placeholder="Azureポータルの「キーとエンドポイント」からコピー">
-        <small><a href="https://portal.azure.com" target="_blank">Azureポータル</a>でDocument Intelligenceリソースを作成後、「キーとエンドポイント」から取得。</small>
-      </div>
-    </div>
-    <button type="submit" class="btn-action primary">APIキーを保存</button>
-  </form>
-</div>
-{% endif %}
-
-<script>
-function filterTenants() {
-  const searchText = document.getElementById('tenant_search').value.toLowerCase();
-  const tenantSelect = document.getElementById('tenant_id');
-  const options = tenantSelect.querySelectorAll('option');
-  let visibleCount = 0;
-  for (let i = 1; i < options.length; i++) {
-    const option = options[i];
-    const tenantName = option.dataset.name.toLowerCase();
-    if (tenantName.includes(searchText)) { option.style.display = ''; visibleCount++; }
-    else { option.style.display = 'none'; }
-  }
-  options[0].textContent = (visibleCount === 0 && searchText) ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
-}
-
-function filterStoreTenants() {
-  const searchText = document.getElementById('store_tenant_search').value.toLowerCase();
-  const tenantSelect = document.getElementById('store_tenant_id');
-  const options = tenantSelect.querySelectorAll('option');
-  let visibleCount = 0;
-  for (let i = 1; i < options.length; i++) {
-    const option = options[i];
-    const tenantName = option.dataset.name.toLowerCase();
-    if (tenantName.includes(searchText)) { option.style.display = ''; visibleCount++; }
-    else { option.style.display = 'none'; }
-  }
-  options[0].textContent = (visibleCount === 0 && searchText) ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
-}
-
-function filterStoresBySearch() {
-  const searchText = document.getElementById('store_search').value.toLowerCase();
-  const tenantId = document.getElementById('store_tenant_id').value;
-  const storeSelect = document.getElementById('store_id');
-  const options = storeSelect.querySelectorAll('option');
-  if (!tenantId) return;
-  let visibleCount = 0;
-  for (let i = 1; i < options.length; i++) {
-    const option = options[i];
-    const storeName = option.dataset.name.toLowerCase();
-    const storeTenantId = option.dataset.tenantId;
-    if (storeTenantId === tenantId && storeName.includes(searchText)) { option.style.display = ''; visibleCount++; }
-    else { option.style.display = 'none'; }
-  }
-  if (visibleCount === 0 && searchText) options[0].textContent = '-- 検索結果がありません --';
-  else if (visibleCount === 0) options[0].textContent = '-- 選択したテナントに店舗がありません --';
-  else options[0].textContent = '-- 店舗を選択してください --';
-}
-
-function filterStores() {
-  const tenantId = document.getElementById('store_tenant_id').value;
-  const storeSelect = document.getElementById('store_id');
-  const storeSearch = document.getElementById('store_search');
-  const options = storeSelect.querySelectorAll('option');
-  storeSelect.value = '';
-  storeSearch.value = '';
-  if (!tenantId) {
-    options[0].textContent = '-- まずテナントを選択してください --';
-    for (let i = 1; i < options.length; i++) options[i].style.display = 'none';
-  } else {
-    options[0].textContent = '-- 店舗を選択してください --';
-    let hasStores = false;
-    for (let i = 1; i < options.length; i++) {
-      const option = options[i];
-      if (option.dataset.tenantId === tenantId) { option.style.display = ''; hasStores = true; }
-      else { option.style.display = 'none'; }
-    }
-    if (!hasStores) options[0].textContent = '-- 選択したテナントに店舗がありません --';
-  }
-}
-</script>
 
 {% endblock %}

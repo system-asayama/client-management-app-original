@@ -372,6 +372,36 @@ def change_password():
         db.close()
 
 
+@bp.route('/mypage/select_tenant', methods=['GET'])
+@require_roles('app_manager', 'system_admin')
+def mypage_select_tenant():
+    """マイページ用テナント選択ページ（GET）"""
+    db = SessionLocal()
+    try:
+        from app.models_login import TTenant
+        tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        return render_template('app_manager_mypage_select_tenant.html', tenants=tenants)
+    finally:
+        db.close()
+
+
+@bp.route('/mypage/select_store', methods=['GET'])
+@require_roles('app_manager', 'system_admin')
+def mypage_select_store():
+    """マイページ用店舗選択ページ（GET）"""
+    db = SessionLocal()
+    try:
+        from app.models_login import TTenant, TTenpo
+        tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        stores = []
+        for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
+            tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
+            stores.append({'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id, 'tenant_name': tenant.名称 if tenant else ''})
+        return render_template('app_manager_mypage_select_store.html', tenants=tenants, stores=stores)
+    finally:
+        db.close()
+
+
 @bp.route('/select_tenant_from_mypage', methods=['POST'])
 def select_tenant_from_mypage():
     """マイページからテナント選択してテナント管理者ダッシュボードへ遷移"""

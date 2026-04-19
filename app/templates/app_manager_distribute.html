@@ -3,32 +3,21 @@
 {% block header %}{% endblock %}
 {% block content %}
 <style>
-  .office-header {
+  .page-header {
     background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
-    color: #fff;
-    border-radius: 16px;
-    padding: 2rem 2rem 1.5rem;
-    margin-bottom: 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
+    color: #fff; border-radius: 16px; padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem; display: flex; justify-content: space-between;
+    align-items: flex-end; flex-wrap: wrap; gap: 1rem;
   }
-  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
-  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
-  .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-  .office-header .header-actions a {
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.3);
-    padding: 0.45rem 1rem;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 0.875rem;
-    transition: background 0.15s;
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); padding: 0.45rem 1rem;
+    border-radius: 8px; text-decoration: none; font-size: 0.875rem; transition: background 0.15s;
   }
-  .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
 
   .section-title {
     font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
@@ -37,136 +26,97 @@
   }
 
   .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 1.5rem 1.75rem;
-    margin-bottom: 1.75rem;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+    padding: 1.5rem 1.75rem; margin-bottom: 1.75rem;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
 
   /* テナント選択 */
-  .tenant-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
+  .tenant-select {
+    width: 100%; max-width: 400px; padding: 0.5rem 0.75rem;
+    border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 0.875rem;
+    background: #fff; color: #1a3a5c; cursor: pointer;
+    transition: border-color 0.15s;
   }
-  .tenant-card {
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 0.9rem 1rem;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-  }
-  .tenant-card:hover { border-color: #93c5fd; background: #f0f9ff; }
-  .tenant-card.selected { border-color: #2563a8; background: #eff6ff; }
-  .tenant-card .tenant-name { font-size: 0.9rem; font-weight: 700; color: #1a3a5c; }
-  .tenant-card .tenant-apps {
-    font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;
-  }
-  .tenant-card .tenant-check {
-    position: absolute; top: 0.6rem; right: 0.6rem;
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    border: 2px solid #d1d5db;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.65rem; color: #fff;
-  }
-  .tenant-card.selected .tenant-check { background: #2563a8; border-color: #2563a8; }
+  .tenant-select:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.1); }
 
-  /* アプリ選択 */
+  /* アプリ選択グリッド（sys_app_limit_management.htmlと統一） */
   .app-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.4rem;
+    margin-bottom: 1rem;
   }
   .app-item {
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    cursor: pointer;
-    transition: all 0.15s;
+    border: 1px solid #e5e7eb; border-radius: 7px;
+    padding: 0.4rem 0.6rem; display: flex; align-items: center;
+    gap: 0.4rem; cursor: pointer; transition: all 0.15s;
+    font-size: 0.8rem; line-height: 1.2;
   }
   .app-item:hover { border-color: #93c5fd; background: #f0f9ff; }
   .app-item.app-checked { border-color: #3b82f6; background: #eff6ff; }
-  .app-item input[type=checkbox] { margin-top: 2px; flex-shrink: 0; }
-  .app-item .app-icon { font-size: 1.4rem; flex-shrink: 0; }
-  .app-item .app-label { font-size: 0.875rem; font-weight: 600; color: #1a3a5c; }
-  .app-item .app-desc { font-size: 0.75rem; color: #6b7280; margin-top: 2px; line-height: 1.3; }
+  .app-item input[type=checkbox] { flex-shrink: 0; width: 14px; height: 14px; }
+  .app-item .app-icon { font-size: 1rem; flex-shrink: 0; }
+  .app-item .app-label { font-weight: 600; color: #1a3a5c; font-size: 0.78rem; }
 
-  /* 現在の配布設定テーブル */
-  .dist-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
+  /* 配布設定テーブル */
+  .dist-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
   .dist-table th {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    padding: 0.6rem 0.9rem;
-    text-align: left;
-    font-weight: 700;
-    color: #374151;
+    background: #f9fafb; border: 1px solid #e5e7eb;
+    padding: 0.6rem 0.9rem; text-align: left;
+    font-weight: 700; color: #374151;
   }
-  .dist-table td {
-    border: 1px solid #e5e7eb;
-    padding: 0.6rem 0.9rem;
-    vertical-align: top;
-  }
+  .dist-table td { border: 1px solid #e5e7eb; padding: 0.6rem 0.9rem; vertical-align: top; }
   .dist-table tr:hover td { background: #f9fafb; }
   .app-tag {
-    display: inline-block;
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 0.75rem;
-    margin: 2px;
+    display: inline-block; background: #eff6ff; color: #1d4ed8;
+    border: 1px solid #bfdbfe; border-radius: 12px;
+    padding: 2px 8px; font-size: 0.75rem; margin: 2px;
   }
-  .no-app-tag {
-    color: #9ca3af;
-    font-size: 0.8rem;
-    font-style: italic;
-  }
+  .no-app-tag { color: #9ca3af; font-size: 0.8rem; font-style: italic; }
 
   .btn-primary {
     background: #2563a8; color: #fff; border: none;
-    padding: 0.65rem 1.75rem; border-radius: 8px;
+    padding: 0.55rem 1.5rem; border-radius: 8px;
     font-size: 0.875rem; font-weight: 600; cursor: pointer;
     transition: background 0.15s;
   }
   .btn-primary:hover { background: #1d4ed8; }
   .btn-secondary {
     background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
-    padding: 0.6rem 1.25rem; border-radius: 8px;
+    padding: 0.5rem 1rem; border-radius: 8px;
     font-size: 0.875rem; font-weight: 500; text-decoration: none;
     transition: background 0.15s; display: inline-block;
   }
   .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  @media (max-width: 640px) {
+    .page-header { padding: 1.5rem 1.25rem 1.25rem; }
+    .page-header h1 { font-size: 1.4rem; }
+    .app-grid { grid-template-columns: repeat(2, 1fr); }
+    .dist-table { font-size: 0.8rem; }
+  }
 </style>
 
 <!-- ヘッダー -->
-<div class="office-header">
+<div class="page-header">
   <div>
-    <div class="office-title">{{ group.group_name }}</div>
+    <div class="page-subtitle">{{ group.group_name }}</div>
     <h1>📲 アプリ配布管理</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">&#8592; ダッシュボードへ戻る</a>
+    <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ戻る</a>
   </div>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}{% for category, message in messages %}
-  <div class="alert alert-{{ category }}">{{ message }}</div>
-  {% endfor %}{% endif %}
+  {% if messages %}
+    <div style="margin-bottom:1rem">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
 {% endwith %}
 
 {% if is_system_admin_view %}
@@ -190,8 +140,7 @@
       <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.5rem">
         配布先テナントを選択
       </label>
-      <select name="tenant_id" id="tenantSelect" class="form-control"
-        style="width:100%;max-width:400px;padding:0.5rem 0.75rem;border:1px solid #d1d5db;border-radius:8px;font-size:0.875rem;"
+      <select name="tenant_id" id="tenantSelect" class="tenant-select"
         onchange="loadTenantApps(this.value)">
         <option value="">-- テナントを選択してください --</option>
         {% for tenant in tenants %}
@@ -201,7 +150,7 @@
     </div>
 
     <div id="appSelectSection" style="display:none;">
-      <div style="font-size:0.875rem;font-weight:600;color:#374151;margin-bottom:0.75rem">
+      <div style="font-size:0.875rem;font-weight:600;color:#374151;margin-bottom:0.6rem">
         配布するアプリを選択
       </div>
       {% if enabled_apps %}
@@ -210,10 +159,7 @@
         <label class="app-item" id="appItem_{{ app.name }}">
           <input type="checkbox" name="apps" value="{{ app.name }}" id="appCb_{{ app.name }}">
           <div class="app-icon">{{ app.icon }}</div>
-          <div>
-            <div class="app-label">{{ app.label }}</div>
-            <div class="app-desc">{{ app.description }}</div>
-          </div>
+          <div class="app-label">{{ app.display_name }}</div>
         </label>
         {% endfor %}
       </div>
@@ -253,7 +199,7 @@
             {% for app_id in apps_for_tenant %}
               {% for app in enabled_apps %}
                 {% if app.name == app_id %}
-                  <span class="app-tag">{{ app.icon }} {{ app.label }}</span>
+                  <span class="app-tag">{{ app.icon }} {{ app.display_name }}</span>
                 {% endif %}
               {% endfor %}
             {% endfor %}
@@ -277,57 +223,43 @@
 </div>
 
 <!-- フッター -->
-<div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-  <a class="btn-secondary" href="{{ url_for('app_manager.dashboard') }}">&#8592; ダッシュボードへ戻る</a>
+<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:2rem">
+  <a class="btn-secondary" href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ戻る</a>
   <a class="btn-secondary" href="{{ url_for('app_manager.plan') }}">⚙️ プラン・アプリ設定</a>
 </div>
 
 <script>
-// テナントの現在の配布設定（JSON）
 var tenantAppSettings = {{ tenant_app_settings | tojson }};
 
 function selectTenant(tenantId) {
   var select = document.getElementById('tenantSelect');
   select.value = tenantId;
   loadTenantApps(tenantId);
-  // フォームまでスクロール
   document.getElementById('distributeForm').scrollIntoView({ behavior: 'smooth' });
 }
 
 function loadTenantApps(tenantId) {
   var section = document.getElementById('appSelectSection');
-  if (!tenantId) {
-    section.style.display = 'none';
-    return;
-  }
+  if (!tenantId) { section.style.display = 'none'; return; }
   section.style.display = 'block';
 
-  // チェックボックスをリセット
   document.querySelectorAll('#appGrid input[type=checkbox]').forEach(function(cb) {
     cb.checked = false;
     cb.closest('.app-item').classList.remove('app-checked');
   });
 
-  // テナントの現在の設定を反映
   var currentApps = tenantAppSettings[tenantId] || [];
   currentApps.forEach(function(appId) {
     var cb = document.getElementById('appCb_' + appId);
-    if (cb) {
-      cb.checked = true;
-      cb.closest('.app-item').classList.add('app-checked');
-    }
+    if (cb) { cb.checked = true; cb.closest('.app-item').classList.add('app-checked'); }
   });
 }
 
-// チェックボックスのスタイル切り替え
 document.querySelectorAll('#appGrid input[type=checkbox]').forEach(function(cb) {
   cb.addEventListener('change', function() {
     var item = this.closest('.app-item');
-    if (this.checked) {
-      item.classList.add('app-checked');
-    } else {
-      item.classList.remove('app-checked');
-    }
+    if (this.checked) item.classList.add('app-checked');
+    else item.classList.remove('app-checked');
   });
 });
 </script>

@@ -2263,16 +2263,16 @@ AVAILABLE_APPS = [
     {
         'name': 'homepage-builder',
         'display_name': 'ホームページ制作アプリ',
-        'scope': 'tenant',
-        'description': 'テナント単位でホームページを作成・編集・公開できるアプリ',
+        'scope': 'both',
+        'description': 'ホームページを作成・編集・公開できるアプリ（テナント・店舗両対応）',
         'url': '/homepage',
         'icon': '🌐'
     },
     {
         'name': 'voucher-digitization',
         'display_name': '証憑データ化アプリ',
-        'scope': 'store',
-        'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化する店舗単位アプリ',
+        'scope': 'both',
+        'description': 'レシート・領収書・請求書をアップロードし、OCRで自動データ化するアプリ（テナント・店舗両対応）',
         'url': '/voucher',
         'icon': '🧾'
     },
@@ -2287,8 +2287,8 @@ AVAILABLE_APPS = [
     {
         'name': 'e-contract',
         'display_name': '電子契約アプリ',
-        'scope': 'store',
-        'description': '電子契約の作成、署名、契約確定を行う店舗単位アプリ',
+        'scope': 'both',
+        'description': '電子契約の作成、署名、契約確定を行うアプリ（テナント・店舗両対応）',
         'url': '/e-contract',
         'icon': '✍️'
     },

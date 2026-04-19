@@ -88,7 +88,48 @@
   .mobile-card-label { font-size: 0.78rem; font-weight: 600; color: #9ca3af; min-width: 110px; }
   .mobile-card-value { font-size: 0.875rem; color: #374151; flex: 1; word-break: break-all; }
   .mobile-card-actions { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  @media (max-width: 768px) { .desktop-table { display: none; } .mobile-cards { display: block; } }
+  /* グループ一覧テーブルのモバイル対応 */
+  @media (max-width: 768px) {
+    .desktop-table { display: none; }
+    .mobile-cards { display: block; }
+    .group-table thead { display: none; }
+    .group-table tbody tr {
+      display: block;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      padding: 14px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+    .group-table tbody tr td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border: none;
+      font-size: 0.88em;
+      white-space: normal;
+    }
+    .group-table tbody tr td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: #9ca3af;
+      font-size: 0.8em;
+      margin-right: 8px;
+      flex-shrink: 0;
+      min-width: 80px;
+    }
+    .group-table tbody tr td.no-label::before { display: none; }
+    .group-table tbody tr td.name-cell {
+      border-bottom: 1px solid #f0f0f0;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+      font-size: 1em;
+    }
+    .group-table tbody tr td.name-cell::before { display: none; }
+    .action-btns { justify-content: flex-end; }
+  }
   @media (min-width: 769px) { .desktop-table { display: block; } .mobile-cards { display: none; } }
   @media (max-width: 640px) { .page-header { padding: 1.5rem 1.25rem 1.25rem; } .page-header h1 { font-size: 1.4rem; } }
 </style>
@@ -115,32 +156,32 @@
 {% if groups %}
 <div class="table-card">
   <div style="overflow-x:auto">
-  <table class="data-table">
+  <table class="data-table group-table">
     <thead>
       <tr>
         <th>ID</th><th>グループ名</th><th>連絡先</th>
-        <th>アプリ管理者数</th><th>状態</th><th>作成日時</th><th>操作</th>
+        <th>管理者数</th><th>状態</th><th>作成日時</th><th>操作</th>
       </tr>
     </thead>
     <tbody>
       {% for group in groups %}
       <tr>
-        <td style="color:#9ca3af">{{ group.id }}</td>
-        <td>
+        <td data-label="ID" style="color:#9ca3af">{{ group.id }}</td>
+        <td class="name-cell">
           <strong>{{ group.group_name }}</strong>
           {% if group.description %}
           <br><small style="color:#9ca3af">{{ group.description[:50] }}{% if group.description|length > 50 %}...{% endif %}</small>
           {% endif %}
         </td>
-        <td>
+        <td data-label="連絡先">
           {% if group.contact_email %}<div style="font-size:0.85rem">📧 {{ group.contact_email }}</div>{% endif %}
           {% if group.contact_phone %}<div style="font-size:0.85rem">📞 {{ group.contact_phone }}</div>{% endif %}
           {% if not group.contact_email and not group.contact_phone %}<span style="color:#d1d5db">未設定</span>{% endif %}
         </td>
-        <td><span style="font-size:1.1rem;font-weight:700;color:#2563a8">{{ group.manager_count }}</span> <span style="color:#9ca3af;font-size:0.85rem">人</span></td>
-        <td>{% if group.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</td>
-        <td style="color:#9ca3af;font-size:0.8rem">{{ group.created_at.strftime('%Y-%m-%d %H:%M') if group.created_at else '—' }}</td>
-        <td>
+        <td data-label="管理者数"><span style="font-size:1.1rem;font-weight:700;color:#2563a8">{{ group.manager_count }}</span> <span style="color:#9ca3af;font-size:0.85rem">人</span></td>
+        <td data-label="状態">{% if group.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</td>
+        <td data-label="作成日時" style="color:#9ca3af;font-size:0.8rem">{{ group.created_at.strftime('%Y-%m-%d %H:%M') if group.created_at else '—' }}</td>
+        <td class="no-label">
           <div class="action-btns">
             <a class="btn-sm detail" href="{{ url_for('system_admin.app_manager_group_detail', group_id=group.id) }}">詳細</a>
             <a class="btn-sm edit" href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}">編集</a>

@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block head %}
+{% block title %}店舗別アプリ設定{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
 <style>
   .office-header {
     background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
@@ -13,7 +15,8 @@
     flex-wrap: wrap;
     gap: 1rem;
   }
-  .office-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; color: #fff; }
+  .office-header .office-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .office-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
   .office-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
   .office-header .header-actions a {
     background: rgba(255,255,255,0.15);
@@ -26,6 +29,22 @@
     transition: background 0.15s;
   }
   .office-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
+  }
+  .btn-primary:hover { background: #1a4f8a; }
+  .btn-secondary {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    cursor: pointer; transition: background 0.15s; display: inline-block;
+  }
+  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
   .section-card {
     background: #fff;
     border: 1px solid #e5e7eb;
@@ -42,7 +61,7 @@
     padding-left: 0.75rem;
     margin: 0 0 1rem;
   }
-  .tenant-name {
+  .tenant-name-display {
     font-size: 1.1rem;
     font-weight: 700;
     color: #1a3a5c;
@@ -72,21 +91,7 @@
     box-sizing: border-box;
   }
   .form-group select:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.1); }
-  .btn-primary {
-    background: #2563a8; color: #fff; border: none;
-    padding: 0.6rem 1.5rem; border-radius: 8px;
-    font-size: 0.9rem; font-weight: 600; cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-primary:hover { background: #1a4f8a; }
-  .btn-secondary {
-    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
-    padding: 0.6rem 1.25rem; border-radius: 8px;
-    font-size: 0.875rem; font-weight: 500;
-    text-decoration: none; cursor: pointer; display: inline-block;
-    transition: background 0.15s;
-  }
-  .btn-secondary:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
   .app-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
   .app-table th {
     background: #f1f5f9; padding: 0.6rem 0.75rem;
@@ -105,12 +110,11 @@
     margin-top: 0.5rem;
   }
 </style>
-{% endblock %}
-{% block title %}店舗別アプリ設定{% endblock %}
-{% block content %}
 
+<!-- ヘッダー -->
 <div class="office-header">
   <div>
+    <div class="office-title">テナント管理者ポータル</div>
     <h1>📱 アプリ管理</h1>
   </div>
   <div class="header-actions">
@@ -118,10 +122,18 @@
   </div>
 </div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
+
 {% if session_has_tenant %}
 <div class="section-card">
   <h2>選択中のテナント</h2>
-  <div class="tenant-name">{{ selected_tenant_name }}</div>
+  <div class="tenant-name-display">{{ selected_tenant_name }}</div>
 </div>
 {% else %}
 <div class="section-card">

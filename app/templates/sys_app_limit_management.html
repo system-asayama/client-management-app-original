@@ -243,10 +243,14 @@
 
       <!-- 利用アプリ選択 -->
       <div class="section-title">利用アプリ選択</div>
-      {% if group.plan == 'unlimited' %}
-        <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:0.6rem 1rem;font-size:0.85rem;color:#065f46;margin-bottom:1rem">
-          ♾️ 無制限プランのため、全アプリが自動的に利用可能です。
-        </div>
+
+      <!-- 無制限プラン表示（無制限時は表示、それ以外は非表示） -->
+      <div id="unlimitedInfo_{{ loop.index }}"
+        style="{% if group.plan != 'unlimited' %}display:none;{% endif %}background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:0.6rem 1rem;font-size:0.85rem;color:#065f46;margin-bottom:1rem">
+        ♾️ 無制限プランのため、全アプリが自動的に利用可能です。
+      </div>
+      <div id="unlimitedApps_{{ loop.index }}"
+        style="{% if group.plan != 'unlimited' %}display:none;{% endif %}">
         <div class="app-grid">
           {% for app in available_apps %}
           <div class="app-item app-checked" style="cursor:default;opacity:0.8">
@@ -255,12 +259,15 @@
           </div>
           {% endfor %}
         </div>
-      {% else %}
-        {% if group.plan == '10app_pack' %}
-        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:0.6rem 1rem;font-size:0.8rem;color:#92400e;margin-bottom:0.75rem">
-          ⚠️ 10アプリパックは最大10アプリまで。現在 <strong>{{ group.enabled_app_ids|length }}</strong> / 10 選択中。
+      </div>
+
+      <!-- 個別/10アプリパック用チェックボックスフォーム（無制限以外は表示） -->
+      <div id="appSelectWrap_{{ loop.index }}"
+        style="{% if group.plan == 'unlimited' %}display:none;{% endif %}">
+        <div id="tenappWarning_{{ loop.index }}"
+          style="{% if group.plan != '10app_pack' %}display:none;{% endif %}background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:0.6rem 1rem;font-size:0.8rem;color:#92400e;margin-bottom:0.75rem">
+          ⚠️ 10アプリパックは最大10アプリまで選択できます。
         </div>
-        {% endif %}
         <form method="POST" action="{{ url_for('system_admin.update_app_limit') }}" id="appsForm_{{ loop.index }}">
           <input type="hidden" name="group_id" value="{{ group.group_id }}">
           <input type="hidden" name="action" value="update_apps">
@@ -269,7 +276,7 @@
             <label class="app-item {% if app.name in group.enabled_app_ids %}app-checked{% endif %}">
               <input type="checkbox" name="selected_apps" value="{{ app.name }}"
                 {% if app.name in group.enabled_app_ids %}checked{% endif %}
-                onchange="onAppCheck({{ loop.index }}, '{{ group.plan }}')">
+                onchange="onAppCheck({{ loop.index }}, currentPlan_{{ loop.index }})">
               <div class="app-icon">{{ app.icon }}</div>
               <div class="app-label">{{ app.display_name }}</div>
             </label>
@@ -282,7 +289,9 @@
             </span>
           </div>
         </form>
-      {% endif %}
+      </div>
+      <!-- 現在のプランをJS変数で保持 -->
+      <script>var currentPlan_{{ loop.index }} = '{{ group.plan }}';</script>
 
     </div><!-- /group-card-body -->
   </div><!-- /group-card -->
@@ -315,6 +324,7 @@ function onPlanChange(idx, plan) {
   var bgs = { unlimited: '#f0fdf4', '10app_pack': '#eff6ff', individual: '#f9fafb' };
   var borders = { unlimited: '#10b981', '10app_pack': '#3b82f6', individual: '#6b7280' };
 
+  // プランカードのチェックマークを更新
   plans.forEach(function(p) {
     var safeId = planIdMap[p];
     var opt = document.getElementById('planOpt' + idx + safeId);
@@ -334,9 +344,30 @@ function onPlanChange(idx, plan) {
       chk.textContent = '';
     }
   });
+
+  // 利用アプリ選択セクションをリアルタイム切り替え
+  var unlimitedInfo = document.getElementById('unlimitedInfo_' + idx);
+  var unlimitedApps = document.getElementById('unlimitedApps_' + idx);
+  var appSelectWrap = document.getElementById('appSelectWrap_' + idx);
+  var tenappWarning = document.getElementById('tenappWarning_' + idx);
+
+  if (plan === 'unlimited') {
+    if (unlimitedInfo) unlimitedInfo.style.display = '';
+    if (unlimitedApps) unlimitedApps.style.display = '';
+    if (appSelectWrap) appSelectWrap.style.display = 'none';
+  } else {
+    if (unlimitedInfo) unlimitedInfo.style.display = 'none';
+    if (unlimitedApps) unlimitedApps.style.display = 'none';
+    if (appSelectWrap) appSelectWrap.style.display = '';
+    if (tenappWarning) tenappWarning.style.display = (plan === '10app_pack') ? '' : 'none';
+  }
+
+  // JS変数も更新（onAppCheckのプラン判定用）
+  window['currentPlan_' + idx] = plan;
 }
 
-function onAppCheck(idx, plan) {
+function onAppCheck(idx, planArg) {
+  var plan = window['currentPlan_' + idx] || planArg;
   var grid = document.getElementById('appGrid_' + idx);
   if (!grid) return;
   var checkboxes = grid.querySelectorAll('input[type=checkbox]');

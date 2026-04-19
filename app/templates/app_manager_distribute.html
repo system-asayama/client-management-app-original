@@ -40,10 +40,10 @@
   }
   .tenant-select:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.1); }
 
-  /* アプリ選択グリッド（sys_app_limit_management.htmlと統一） */
+  /* アプリ選択リスト（1列表示） */
   .app-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 0.4rem;
     margin-bottom: 1rem;
   }

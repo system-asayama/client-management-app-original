@@ -1,170 +1,162 @@
 {% extends "base.html" %}
-{% block head %}
+{% block title %}アプリ管理者グループ詳細{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
 <style>
 .page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
 .page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.page-header-title{margin:0;font-size:1.6em;font-weight:700}
-.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
+.page-header-title{margin:0;font-size:1.75em;font-weight:700}
 .page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn:hover{background:#e8f0fe}
 .header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
 .header-btn-outline:hover{background:rgba(255,255,255,0.15)}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
-.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
-.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
+.info-grid{display:grid;grid-template-columns:160px 1fr;gap:0}
+.info-row{display:contents}
+.info-label{font-weight:600;color:#555;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.info-value{padding:10px 0;border-bottom:1px solid #f0f0f0;color:#222}
 .data-table{width:100%;border-collapse:collapse;margin-top:8px}
-.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
-.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
+.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em;white-space:nowrap}
+.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em;vertical-align:middle}
 .data-table tr:hover td{background:#f8fafc}
-.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
-.form-group{margin-bottom:20px}
-.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
-.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
-.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.badge-active{background:#dcfce7;color:#166534;padding:3px 10px;border-radius:12px;font-size:0.82em;font-weight:600;white-space:nowrap}
+.badge-inactive{background:#f1f5f9;color:#64748b;padding:3px 10px;border-radius:12px;font-size:0.82em;font-weight:600;white-space:nowrap}
+.owner-badge{background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:0.78em;font-weight:700;margin-left:4px;white-space:nowrap}
+.action-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.btn-primary{background:#2563a8;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.92em}
 .btn-primary:hover{background:#1a4f8a}
-.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.92em}
 .btn-secondary:hover{background:#e2e8f0}
-.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-danger:hover{background:#dc2626}
-.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
-.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
-.search-bar{margin-bottom:20px}
-.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
-@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
+.btn-success{background:#16a34a;color:#fff;border:none;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.92em}
+.btn-success:hover{background:#15803d}
+.section-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:24px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.section-title{margin:0 0 16px;font-size:1.1em;font-weight:700;color:#1e293b;padding-bottom:12px;border-bottom:2px solid #f0f0f0;display:flex;align-items:center;gap:8px}
+.count-badge{color:#2563a8;font-size:1.1em}
+/* モバイル対応 */
+@media(max-width:768px){
+  .page-header{padding:16px 20px;margin:-16px -16px 20px}
+  .page-header-title{font-size:1.3em}
+  .info-grid{grid-template-columns:1fr}
+  .info-label{padding:8px 0 2px;border-bottom:none;font-size:0.85em;color:#888}
+  .info-value{padding:0 0 10px;border-bottom:1px solid #f0f0f0}
+  /* モバイルではテーブルをカード形式に変換 */
+  .manager-table thead{display:none}
+  .manager-table tbody tr{display:block;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;padding:12px;background:#fff}
+  .manager-table tbody tr td{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border:none;font-size:0.9em}
+  .manager-table tbody tr td::before{content:attr(data-label);font-weight:600;color:#64748b;font-size:0.85em;margin-right:8px;flex-shrink:0}
+}
 </style>
-{% endblock %}
-{% block title %}アプリ管理者グループ詳細{% endblock %}
-{% block content %}
+
 <div class="page-header">
   <div class="page-header-inner">
-    <div><h1 class="page-header-title">グループ詳細</h1></div>
+    <div>
+      <h1 class="page-header-title">グループ詳細</h1>
+    </div>
     <div class="page-header-actions">
-      <a href="{{ url_for('system_admin.app_manager_groups') }}" class="header-btn-outline">グループ一覧に戻る</a>
+      <a href="{{ url_for('system_admin.app_manager_groups') }}" class="header-btn-outline">← グループ一覧</a>
     </div>
   </div>
 </div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:16px">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
 
-<div style="margin-bottom:30px">
-  <a class="btn sub" href="{{ url_for('system_admin.app_manager_groups') }}">一覧に戻る</a>
-  <a class="btn" href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}" style="background:#1976d2">編集</a>
-  <a class="btn" href="{{ url_for('system_admin.app_manager_new', group_id=group.id) }}" style="background:#4caf50">＋ アプリ管理者を追加</a>
+<div class="action-btns">
+  <a class="btn-secondary" href="{{ url_for('system_admin.app_manager_group_edit', group_id=group.id) }}">✏️ 編集</a>
+  <a class="btn-success" href="{{ url_for('system_admin.app_manager_new', group_id=group.id) }}">＋ アプリ管理者を追加</a>
 </div>
 
-<!-- グループ情報カード -->
-<div class="card" style="margin-bottom:30px;padding:30px">
-  <h2 style="margin-top:0;padding-bottom:15px;border-bottom:2px solid #f0f0f0">基本情報</h2>
-  
-  <div style="display:grid;grid-template-columns:200px 1fr;gap:15px;margin-top:20px">
-    <div style="font-weight:bold;color:#666">グループID:</div>
-    <div>{{ group.id }}</div>
-    
-    <div style="font-weight:bold;color:#666">グループ名:</div>
-    <div style="font-size:1.2em;font-weight:bold;color:#333">{{ group.group_name }}</div>
-    
-    <div style="font-weight:bold;color:#666">説明:</div>
-    <div>{{ group.description or '（未設定）' }}</div>
-    
-    <div style="font-weight:bold;color:#666">連絡先メール:</div>
-    <div>
+<!-- グループ基本情報 -->
+<div class="section-card">
+  <h2 class="section-title">📋 基本情報</h2>
+  <div class="info-grid">
+    <div class="info-label">グループID</div>
+    <div class="info-value">{{ group.id }}</div>
+
+    <div class="info-label">グループ名</div>
+    <div class="info-value" style="font-size:1.1em;font-weight:700;color:#1e293b">{{ group.group_name }}</div>
+
+    <div class="info-label">説明</div>
+    <div class="info-value">{{ group.description or '（未設定）' }}</div>
+
+    <div class="info-label">連絡先メール</div>
+    <div class="info-value">
       {% if group.contact_email %}
-        📧 <a href="mailto:{{ group.contact_email }}">{{ group.contact_email }}</a>
+        <a href="mailto:{{ group.contact_email }}" style="color:#2563a8">{{ group.contact_email }}</a>
       {% else %}
         <span style="color:#999">（未設定）</span>
       {% endif %}
     </div>
-    
-    <div style="font-weight:bold;color:#666">連絡先電話:</div>
-    <div>
+
+    <div class="info-label">連絡先電話</div>
+    <div class="info-value">
       {% if group.contact_phone %}
-        📞 {{ group.contact_phone }}
+        {{ group.contact_phone }}
       {% else %}
         <span style="color:#999">（未設定）</span>
       {% endif %}
     </div>
-    
-    <div style="font-weight:bold;color:#666">状態:</div>
-    <div>
+
+    <div class="info-label">状態</div>
+    <div class="info-value">
       {% if group.active == 1 %}
-        <span style="color:#4caf50;font-weight:bold">● 有効</span>
+        <span class="badge-active">● 有効</span>
       {% else %}
-        <span style="color:#999;font-weight:bold">● 無効</span>
+        <span class="badge-inactive">● 無効</span>
       {% endif %}
     </div>
-    
-    <div style="font-weight:bold;color:#666">作成日時:</div>
-    <div>{{ group.created_at.strftime('%Y-%m-%d %H:%M:%S') if group.created_at else '-' }}</div>
-    
-    <div style="font-weight:bold;color:#666">更新日時:</div>
-    <div>{{ group.updated_at.strftime('%Y-%m-%d %H:%M:%S') if group.updated_at else '-' }}</div>
+
+    <div class="info-label">作成日時</div>
+    <div class="info-value">{{ group.created_at.strftime('%Y-%m-%d %H:%M:%S') if group.created_at else '-' }}</div>
+
+    <div class="info-label">更新日時</div>
+    <div class="info-value">{{ group.updated_at.strftime('%Y-%m-%d %H:%M:%S') if group.updated_at else '-' }}</div>
   </div>
 </div>
 
 <!-- 所属アプリ管理者一覧 -->
-<div class="card" style="padding:30px">
-  <h2 style="margin-top:0;padding-bottom:15px;border-bottom:2px solid #f0f0f0">
-    所属アプリ管理者 <span style="color:#2196f3;font-size:1.2em">({{ managers|length }}人)</span>
+<div class="section-card">
+  <h2 class="section-title">
+    👥 所属アプリ管理者
+    <span class="count-badge">({{ managers|length }}人)</span>
   </h2>
-  
+
   {% if managers %}
-  <div style="overflow-x:auto;margin-top:20px">
-    <table style="width:100%;border-collapse:collapse">
+  <div style="overflow-x:auto">
+    <table class="data-table manager-table">
       <thead>
-        <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
-          <th style="padding:12px;text-align:left">ID</th>
-          <th style="padding:12px;text-align:left">ログインID</th>
-          <th style="padding:12px;text-align:left">氏名</th>
-          <th style="padding:12px;text-align:left">メールアドレス</th>
-          <th style="padding:12px;text-align:left">オーナー</th>
-          <!-- <th style="padding:12px;text-align:left">アプリ上限数</th> マイグレーション008実行後に有効化 -->
-          <th style="padding:12px;text-align:left">状態</th>
-          <th style="padding:12px;text-align:left">作成日時</th>
+        <tr>
+          <th>ID</th>
+          <th>氏名</th>
+          <th>ログインID</th>
+          <th>メール</th>
+          <th>状態</th>
+          <th>作成日時</th>
         </tr>
       </thead>
       <tbody>
         {% for manager in managers %}
-        <tr style="border-bottom:1px solid #eee{% if manager.is_owner == 1 %};background:#fffbf0{% endif %}">
-          <td style="padding:12px">{{ manager.id }}</td>
-          <td style="padding:12px"><code>{{ manager.login_id }}</code></td>
-          <td style="padding:12px">
+        <tr style="{% if manager.is_owner == 1 %}background:#fffbf0{% endif %}">
+          <td data-label="ID">{{ manager.id }}</td>
+          <td data-label="氏名">
             <strong>{{ manager.name }}</strong>
             {% if manager.is_owner == 1 %}
-            <span style="color:#ff6f00;font-weight:bold;margin-left:5px">★ オーナー</span>
+              <span class="owner-badge">★ オーナー</span>
             {% endif %}
           </td>
-          <td style="padding:12px">{{ manager.email or '-' }}</td>
-          <td style="padding:12px;text-align:center">
-            {% if manager.is_owner == 1 %}
-              <span style="color:#ff6f00;font-weight:bold">✓</span>
-            {% else %}
-              <span style="color:#999">-</span>
-            {% endif %}
-          </td>
-          <!-- マイグレーション008実行後に有効化
-          <td style="padding:12px;text-align:center">
-            {% if manager.is_owner == 1 %}
-              <span style="color:green;font-weight:bold">無制限</span>
-            {% elif manager.app_limit is not none %}
-              <span style="color:#333">{{ manager.app_limit }}アプリ</span>
-            {% else %}
-              <span style="color:green">無制限</span>
-            {% endif %}
-          </td>
-          -->
-          <td style="padding:12px">
+          <td data-label="ログインID"><code style="font-size:0.85em;word-break:break-all">{{ manager.login_id }}</code></td>
+          <td data-label="メール" style="word-break:break-all">{{ manager.email or '-' }}</td>
+          <td data-label="状態">
             {% if manager.active == 1 %}
-              <span style="color:#4caf50">✓ 有効</span>
+              <span class="badge-active">有効</span>
             {% else %}
-              <span style="color:#999">無効</span>
+              <span class="badge-inactive">無効</span>
             {% endif %}
           </td>
-          <td style="padding:12px;font-size:0.9em;color:#666">
+          <td data-label="作成日時" style="white-space:nowrap;color:#666;font-size:0.85em">
             {{ manager.created_at.strftime('%Y-%m-%d %H:%M') if manager.created_at else '-' }}
           </td>
         </tr>
@@ -173,33 +165,13 @@
     </table>
   </div>
   {% else %}
-  <div style="text-align:center;padding:40px;color:#999;background:#f9f9f9;border-radius:8px;margin-top:20px">
-    <p style="font-size:1.1em">このグループにはまだアプリ管理者が所属していません</p>
-    <p style="font-size:0.9em;margin-top:10px">「アプリ管理者を追加」ボタンから追加できます</p>
+  <div style="text-align:center;padding:40px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db">
+    <p style="font-size:1.05em;margin-bottom:8px">このグループにはまだアプリ管理者が所属していません</p>
+    <p style="font-size:0.9em;color:#b0b7c3">「アプリ管理者を追加」ボタンから追加できます</p>
     <div style="margin-top:20px">
-      <a class="btn" href="{{ url_for('system_admin.app_manager_new', group_id=group.id) }}" style="background:#4caf50">＋ アプリ管理者を追加</a>
+      <a class="btn-success" href="{{ url_for('system_admin.app_manager_new', group_id=group.id) }}">＋ アプリ管理者を追加</a>
     </div>
   </div>
   {% endif %}
 </div>
-
-<style>
-  @media (max-width: 768px) {
-    div[style*="grid-template-columns"] {
-      display: block !important;
-    }
-    div[style*="grid-template-columns"] > div {
-      padding: 8px 0;
-    }
-    div[style*="grid-template-columns"] > div:nth-child(odd) {
-      font-size: 0.9em;
-    }
-    table {
-      font-size: 0.85em;
-    }
-    th, td {
-      padding: 8px !important;
-    }
-  }
-</style>
 {% endblock %}

@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
-from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenpoAppSetting, TTenantAdminTenant
+from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenpoAppSetting, TTenantAppSetting, TTenantAdminTenant
 from sqlalchemy import func, and_, or_
 from ..utils.decorators import ROLES
 from ..utils.decorators import require_roles
@@ -125,6 +125,7 @@ def dashboard():
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def available_apps():
     """利用可能アプリ一覧"""
+    from app.blueprints.tenant_admin import AVAILABLE_APPS as TENANT_AVAILABLE_APPS
     store_id = session.get('store_id')
     tenant_id = session.get('tenant_id')
     enabled_apps = []
@@ -141,35 +142,34 @@ def available_apps():
             
             # 店舗情報を取得
             store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
-            
+
+            # テナントへの配布設定を取得（app_manager/distributeで設定されたもの）
+            tenant_app_settings_rows = db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant_id,
+                TTenantAppSetting.enabled == 1
+            ).all()
+            tenant_distributed_app_ids = {s.app_id for s in tenant_app_settings_rows}
+            # 配布設定が1件もない場合はデフォルト動作（全アプリ表示）を維持
+            has_distribution_settings = len(tenant_distributed_app_ids) > 0
+
             user_role_inner = session.get('role')
-            for app in AVAILABLE_APPS:
-                if app['scope'] == 'store':
-                    app_setting = db.query(TTenpoAppSetting).filter(
-                        and_(
-                            TTenpoAppSetting.store_id == store_id,
-                            TTenpoAppSetting.app_id == app['name']
-                        )
-                    ).first()
-                    enabled = app_setting.enabled if app_setting else 1
-                    
-                    if enabled:
-                        # ロール別にURLを動的に設定
-                        app_copy = dict(app)
-                        if app_copy['name'] == 'client-management':
-                            if user_role_inner in (ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"]):
-                                # テナント管理者・システム管理者は全店舗集計ビューへ
-                                app_copy['url'] = '/tenant_admin/jimusho'
-                            else:
-                                # 店舗管理者は自分の担当店舗ダッシュボードへ
-                                app_copy['url'] = f'/store/{store_id}/dashboard'
-                        elif app_copy['name'] == 'voucher-digitization':
-                            # 証憑データ化アプリは店舗IDを含むURLへ
-                            app_copy['url'] = f'/voucher?store_id={store_id}'
-                        elif app_copy['name'] == 'truck-operation':
-                            # トラック運行管理アプリは外部URLのまま
-                            app_copy['url'] = 'https://truck.samurai-hub.com/login'
-                        enabled_apps.append(app_copy)
+            for app in TENANT_AVAILABLE_APPS:
+                # テナントへの配布設定がある場合は、配布されたアプリのみ表示
+                if has_distribution_settings and app['name'] not in tenant_distributed_app_ids:
+                    continue
+
+                # ロール別にURLを動的に設定
+                app_copy = dict(app)
+                if app_copy['name'] == 'client-management-tenant':
+                    if user_role_inner in (ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"]):
+                        app_copy['url'] = '/tenant_admin/jimusho'
+                    else:
+                        app_copy['url'] = f'/store/{store_id}/dashboard'
+                elif app_copy['name'] == 'voucher-digitization':
+                    app_copy['url'] = f'/voucher?store_id={store_id}'
+                elif app_copy['name'] == 'truck-operation':
+                    app_copy['url'] = 'https://truck.samurai-hub.com/login'
+                enabled_apps.append(app_copy)
         finally:
             db.close()
     

@@ -1282,27 +1282,11 @@ def _run_truck_ocr(file_path, api_key, doc_type, google_vision_key=None):
         return {'error': '画像変換失敗'}
 
     if doc_type == 'contract':
-        json_schema = '{
-  "title": "契約書名・契約の種類",
-  "counterparty": "相手方会社名",
-  "start_date": "YYYY-MM-DD形式",
-  "end_date": "YYYY-MM-DD形式",
-  "amount": "契約金額（数字のみ）",
-  "summary": "契約内容の要約（200字以内）"
-}'
+        json_schema = '{"title": "契約書名・契約の種類", "counterparty": "相手方会社名", "start_date": "YYYY-MM-DD形式", "end_date": "YYYY-MM-DD形式", "amount": "契約金額（数字のみ）", "summary": "契約内容の要約（200字以内）"}'
         image_prompt = f"以下の契約書画像から情報を抽出してJSONで返してください。\n{json_schema}"
         text_prompt_template = f"以下の契約書OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
     else:
-        json_schema = '{
-  "insurer": "保険会社名",
-  "policy_number": "証券番号",
-  "insurance_type": "保険種類（自賠責/任意/貨物/その他）",
-  "start_date": "YYYY-MM-DD形式",
-  "end_date": "YYYY-MM-DD形式",
-  "premium": "保険料（数字のみ）",
-  "coverage_amount": "保険金額（数字のみ）",
-  "summary": "保険内容の要約（200字以内）"
-}'
+        json_schema = '{"insurer": "保険会社名", "policy_number": "証券番号", "insurance_type": "保険種類（自賠責/任意/貨物/その他）", "start_date": "YYYY-MM-DD形式", "end_date": "YYYY-MM-DD形式", "premium": "保険料（数字のみ）", "coverage_amount": "保険金額（数字のみ）", "summary": "保険内容の要約（200字以内）"}'
         image_prompt = f"以下の保険証券画像から情報を抽出してJSONで返してください。\n{json_schema}"
         text_prompt_template = f"以下の保険証券OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
 

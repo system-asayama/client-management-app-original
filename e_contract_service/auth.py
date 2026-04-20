@@ -6,7 +6,7 @@ from functools import wraps
 from flask import g, jsonify, session
 
 
-ALLOWED_ROLES = {"system_admin", "tenant_admin", "admin", "employee"}
+ALLOWED_ROLES = {"system_admin", "tenant_admin", "admin", "employee", "app_manager"}
 
 
 @dataclass
@@ -31,7 +31,7 @@ def get_auth_context() -> AuthContext:
         raise PermissionError("AUTH_REQUIRED")
     if role not in ALLOWED_ROLES:
         raise PermissionError("INSUFFICIENT_ROLE")
-    if role != "system_admin" and not tenant_id:
+    if role not in ("system_admin", "app_manager") and not tenant_id:
         raise LookupError("TENANT_MISMATCH")
 
     return AuthContext(

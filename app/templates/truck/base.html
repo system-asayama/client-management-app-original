@@ -290,6 +290,10 @@
         <span class="arrow">▶</span>
       </div>
       <div class="nav-group-items">
+        <a href="{{ url_for('truck.api_settings') }}"
+           class="nav-item {% if request.endpoint == 'truck.api_settings' %}active{% endif %}">
+          <span class="nav-icon">🔑</span> APIキー設定
+        </a>
         <a href="{{ url_for('truck.apk_settings') }}"
            class="nav-item {% if request.endpoint == 'truck.apk_settings' %}active{% endif %}">
           <span class="nav-icon">📱</span> APK配布設定

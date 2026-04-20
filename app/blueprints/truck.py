@@ -1340,7 +1340,47 @@ def _run_truck_ocr(file_path, api_key, doc_type, google_vision_key=None):
     return json.loads(resp.json()['choices'][0]['message']['content'])
 
 
-# ─── APK設定 ─────────────────────────────────────────────
+# ─── # ─── APIキー設定 ──────────────────────────────────────
+
+@bp.route('/settings/api', methods=['GET', 'POST'])
+@login_required_truck
+def api_settings():
+    """AIサービスAPIキー設定（テナント共通）"""
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
+        if not tenant:
+            flash('テナント情報が見つかりません', 'error')
+            return redirect(url_for('truck.dashboard'))
+        if request.method == 'POST':
+            openai_key = request.form.get('openai_api_key', '').strip()
+            google_vision_key = request.form.get('google_vision_api_key', '').strip()
+            google_key = request.form.get('google_api_key', '').strip()
+            anthropic_key = request.form.get('anthropic_api_key', '').strip()
+            azure_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip()
+            azure_key = request.form.get('azure_document_intelligence_key', '').strip()
+            if openai_key:
+                tenant.openai_api_key = openai_key
+            if google_vision_key:
+                tenant.google_vision_api_key = google_vision_key
+            if google_key:
+                tenant.google_api_key = google_key
+            if anthropic_key:
+                tenant.anthropic_api_key = anthropic_key
+            if azure_endpoint:
+                tenant.azure_document_intelligence_endpoint = azure_endpoint
+            if azure_key:
+                tenant.azure_document_intelligence_key = azure_key
+            db.commit()
+            flash('APIキーを保存しました', 'success')
+            return redirect(url_for('truck.api_settings'))
+        return render_template('truck/api_settings.html', tenant=tenant)
+    finally:
+        db.close()
+
+
+# ─── APK設定 ──────────────────────────────────────
 
 @bp.route('/settings/apk', methods=['GET', 'POST'])
 @login_required_truck

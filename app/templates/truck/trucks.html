@@ -6,50 +6,132 @@
   <a href="{{ url_for('truck.truck_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
 </div>
 <div class="page-subtitle">車両の登録・管理を行います</div>
-<div class="card">
-  {% if error %}
-  <div class="error-box">{{ error }}</div>
-  {% endif %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>車両番号</th>
-          <th>車両名称</th>
-          <th>積載量</th>
-          <th>備考</th>
-          <th>ステータス</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for truck in trucks %}
-        <tr>
-          <td><strong>{{ truck.number }}</strong></td>
-          <td>{{ truck.name }}</td>
-          <td>{{ truck.capacity or '-' }}</td>
-          <td>{{ truck.note or '-' }}</td>
-          <td>
-            {% if truck.active %}
-            <span class="badge" style="background:#16a34a;">有効</span>
-            {% else %}
-            <span class="badge" style="background:#6b7280;">無効</span>
+
+{% if error %}
+<div class="error-box">{{ error }}</div>
+{% endif %}
+
+{% if trucks %}
+<div class="truck-card-grid">
+  {% for truck in trucks %}
+  <div class="truck-card {% if not truck.active %}truck-card--inactive{% endif %}">
+    <div class="truck-card__photo">
+      {% if truck.photo_path %}
+      <img src="{{ url_for('truck.truck_photo', truck_id=truck.id) }}" alt="{{ truck.number }}" class="truck-card__img">
+      {% else %}
+      <div class="truck-card__no-photo">🚛</div>
+      {% endif %}
+    </div>
+    <div class="truck-card__body">
+      <div class="truck-card__header">
+        <div>
+          <div class="truck-card__number">{{ truck.number }}</div>
+          <div class="truck-card__name">{{ truck.name }}</div>
+        </div>
+        <span class="tc-badge {% if truck.active %}tc-badge--green{% else %}tc-badge--gray{% endif %}">
+          {{ '有効' if truck.active else '無効' }}
+        </span>
+      </div>
+      <div class="truck-card__details">
+        {% if truck.vehicle_type %}
+        <div class="truck-card__detail-item">
+          <span class="truck-card__detail-label">車種</span>
+          <span class="truck-card__detail-value">{{ truck.vehicle_type }}</span>
+        </div>
+        {% endif %}
+        {% if truck.capacity %}
+        <div class="truck-card__detail-item">
+          <span class="truck-card__detail-label">積載量</span>
+          <span class="truck-card__detail-value">{{ truck.capacity }}t</span>
+        </div>
+        {% endif %}
+        {% if truck.owner_name %}
+        <div class="truck-card__detail-item">
+          <span class="truck-card__detail-label">所有者</span>
+          <span class="truck-card__detail-value">{{ truck.owner_name }}</span>
+        </div>
+        {% endif %}
+        {% if truck.base_location %}
+        <div class="truck-card__detail-item">
+          <span class="truck-card__detail-label">所属</span>
+          <span class="truck-card__detail-value">{{ truck.base_location }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="truck-card__alerts">
+        {% if truck.shaken_expiry %}
+          {% set days_shaken = (truck.shaken_expiry - today).days %}
+          <div class="tc-alert {% if days_shaken < 0 %}tc-alert--red{% elif days_shaken <= 30 %}tc-alert--orange{% elif days_shaken <= 90 %}tc-alert--yellow{% else %}tc-alert--green{% endif %}">
+            🔍 車検: {{ truck.shaken_expiry.strftime('%Y/%m/%d') }}
+            {% if days_shaken < 0 %}<span class="tc-alert-badge tc-alert-badge--red">期限切れ</span>
+            {% elif days_shaken <= 30 %}<span class="tc-alert-badge tc-alert-badge--orange">残{{ days_shaken }}日</span>
+            {% elif days_shaken <= 90 %}<span class="tc-alert-badge tc-alert-badge--yellow">残{{ days_shaken }}日</span>
             {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('truck.truck_edit', truck_id=truck.id) }}">
-              <button class="btn btn-secondary btn-sm">編集</button>
-            </a>
-            <form method="POST" action="{{ url_for('truck.truck_delete', truck_id=truck.id) }}" style="display:inline;" onsubmit="return confirm('このトラックを無効化しますか？')">
-              <button type="submit" class="btn btn-danger btn-sm">無効化</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" class="empty">トラックが登録されていません。「＋ 新規登録」から追加してください。</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          </div>
+        {% endif %}
+        {% if truck.insurance_expiry %}
+          {% set days_ins = (truck.insurance_expiry - today).days %}
+          <div class="tc-alert {% if days_ins < 0 %}tc-alert--red{% elif days_ins <= 30 %}tc-alert--orange{% elif days_ins <= 90 %}tc-alert--yellow{% else %}tc-alert--green{% endif %}">
+            🛡️ 保険: {{ truck.insurance_expiry.strftime('%Y/%m/%d') }}
+            {% if days_ins < 0 %}<span class="tc-alert-badge tc-alert-badge--red">期限切れ</span>
+            {% elif days_ins <= 30 %}<span class="tc-alert-badge tc-alert-badge--orange">残{{ days_ins }}日</span>
+            {% elif days_ins <= 90 %}<span class="tc-alert-badge tc-alert-badge--yellow">残{{ days_ins }}日</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+      <div class="truck-card__actions">
+        <a href="{{ url_for('truck.truck_detail', truck_id=truck.id) }}" class="btn btn-secondary btn-sm">詳細</a>
+        <a href="{{ url_for('truck.truck_edit', truck_id=truck.id) }}" class="btn btn-secondary btn-sm">編集</a>
+        <form method="POST" action="{{ url_for('truck.truck_delete', truck_id=truck.id) }}" style="display:inline;" onsubmit="return confirm('このトラックを無効化しますか？')">
+          <button type="submit" class="btn btn-danger btn-sm">無効化</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div style="padding:48px 16px;text-align:center;">
+    <div style="font-size:48px;margin-bottom:12px;">🚛</div>
+    <div style="font-size:16px;color:#374151;font-weight:600;margin-bottom:8px;">トラックが登録されていません</div>
+    <div style="color:#6b7280;margin-bottom:20px;">「＋ 新規登録」から車両を追加してください</div>
+    <a href="{{ url_for('truck.truck_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
   </div>
 </div>
+{% endif %}
+
+<style>
+.truck-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+@media(max-width:640px){.truck-card-grid{grid-template-columns:1fr;}}
+.truck-card{background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;border:1px solid #e5e7eb;transition:box-shadow .2s;}
+.truck-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);}
+.truck-card--inactive{opacity:.6;}
+.truck-card__photo{width:100%;height:160px;background:linear-gradient(135deg,#1e3a5f 0%,#2d5a8e 100%);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.truck-card__img{width:100%;height:100%;object-fit:cover;}
+.truck-card__no-photo{font-size:64px;opacity:.6;}
+.truck-card__body{padding:16px;}
+.truck-card__header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+.truck-card__number{font-size:18px;font-weight:700;color:#1e3a5f;line-height:1.2;}
+.truck-card__name{font-size:13px;color:#6b7280;margin-top:2px;}
+.truck-card__details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.truck-card__detail-item{background:#f8fafc;border-radius:8px;padding:8px 10px;}
+.truck-card__detail-label{display:block;font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+.truck-card__detail-value{display:block;font-size:13px;color:#1f2937;font-weight:600;}
+.truck-card__alerts{margin-bottom:12px;display:flex;flex-direction:column;gap:6px;}
+.tc-alert{font-size:12px;padding:6px 10px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;font-weight:500;}
+.tc-alert--green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+.tc-alert--yellow{background:#fefce8;color:#854d0e;border:1px solid #fde68a;}
+.tc-alert--orange{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.tc-alert--red{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;}
+.tc-alert-badge{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:700;}
+.tc-alert-badge--yellow{background:#fde68a;color:#854d0e;}
+.tc-alert-badge--orange{background:#fed7aa;color:#9a3412;}
+.tc-alert-badge--red{background:#fecaca;color:#991b1b;}
+.tc-badge{display:inline-block;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700;}
+.tc-badge--green{background:#dcfce7;color:#166534;}
+.tc-badge--gray{background:#f3f4f6;color:#6b7280;}
+.truck-card__actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid #f3f4f6;}
+</style>
 {% endblock %}

@@ -280,9 +280,9 @@ def trucks():
         if tenant_id:
             q = q.filter(Truck.tenant_id == tenant_id)
         trucks_list = q.order_by(Truck.created_at.desc()).all()
-        return render_template('truck/trucks.html', trucks=trucks_list, error=None)
+        return render_template('truck/trucks.html', trucks=trucks_list, error=None, today=date.today())
     except Exception as e:
-        return render_template('truck/trucks.html', trucks=[], error=str(e))
+        return render_template('truck/trucks.html', trucks=[], error=str(e), today=date.today())
     finally:
         db.close()
 

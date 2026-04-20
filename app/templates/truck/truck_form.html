@@ -27,27 +27,27 @@
       </div>
       <div class="form-field">
         <label>車種・型式</label>
-        <input type="text" name="vehicle_type" value="{{ truck.vehicle_type if truck else '' }}" placeholder="例：いすゞ エルフ">
+        <input type="text" name="vehicle_type" value="{{ truck.vehicle_type if truck and truck.vehicle_type else '' }}" placeholder="例：いすゞ エルフ">
       </div>
     </div>
     <div class="form-row">
       <div class="form-field">
         <label>年式</label>
-        <input type="number" name="year" value="{{ truck.year if truck else '' }}" placeholder="例：2020" min="1990" max="2100">
+        <input type="number" name="year" value="{{ truck.year if truck and truck.year else '' }}" placeholder="例：2020" min="1990" max="2100">
       </div>
       <div class="form-field">
         <label>車体色</label>
-        <input type="text" name="color" value="{{ truck.color if truck else '' }}" placeholder="例：白">
+        <input type="text" name="color" value="{{ truck.color if truck and truck.color else '' }}" placeholder="例：白">
       </div>
     </div>
     <div class="form-row">
       <div class="form-field">
         <label>車台番号（VIN）</label>
-        <input type="text" name="vin" value="{{ truck.vin if truck else '' }}" placeholder="例：NKR85AD-7012345">
+        <input type="text" name="vin" value="{{ truck.vin if truck and truck.vin else '' }}" placeholder="例：NKR85AD-7012345">
       </div>
       <div class="form-field">
         <label>エンジン番号</label>
-        <input type="text" name="engine_number" value="{{ truck.engine_number if truck else '' }}" placeholder="例：4JJ1-123456">
+        <input type="text" name="engine_number" value="{{ truck.engine_number if truck and truck.engine_number else '' }}" placeholder="例：4JJ1-123456">
       </div>
     </div>
 
@@ -56,17 +56,61 @@
     <div class="form-row">
       <div class="form-field">
         <label>所有者</label>
-        <input type="text" name="owner_name" value="{{ truck.owner_name if truck else '' }}" placeholder="例：株式会社〇〇運輸">
+        <input type="text" name="owner_name" value="{{ truck.owner_name if truck and truck.owner_name else '' }}" placeholder="例：株式会社〇〇運輸">
       </div>
       <div class="form-field">
         <label>使用者</label>
-        <input type="text" name="user_name" value="{{ truck.user_name if truck else '' }}" placeholder="例：〇〇支店">
+        <input type="text" name="user_name" value="{{ truck.user_name if truck and truck.user_name else '' }}" placeholder="例：〇〇支店">
       </div>
     </div>
     <div class="form-field">
       <label>所属（営業所・拠点）</label>
-      <input type="text" name="base_location" value="{{ truck.base_location if truck else '' }}" placeholder="例：東京営業所">
+      {% if stores %}
+      <select id="base_location_sel" name="base_location_sel" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;background:#fff;">
+        <option value="">── 選択してください ──</option>
+        {% for store in stores %}
+        <option value="{{ store.名称 }}" {% if truck and truck.base_location == store.名称 %}selected{% endif %}>{{ store.名称 }}</option>
+        {% endfor %}
+        <option value="__other__" {% if truck and truck.base_location and truck.base_location not in (stores|map(attribute='名称')|list) %}selected{% endif %}>その他（直接入力）</option>
+      </select>
+      <input type="text" id="base_location_other_input" name="base_location"
+             value="{{ truck.base_location if truck and truck.base_location else '' }}"
+             placeholder="営業所・拠点名を入力"
+             style="margin-top:8px;width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;box-sizing:border-box;display:none;">
+      {% else %}
+      <input type="text" name="base_location" value="{{ truck.base_location if truck and truck.base_location else '' }}" placeholder="例：東京営業所">
+      {% endif %}
     </div>
+    {% if stores %}
+    <script>
+    (function(){
+      var sel = document.getElementById('base_location_sel');
+      var inp = document.getElementById('base_location_other_input');
+      if(!sel || !inp) return;
+      function sync(){
+        if(sel.value === '__other__'){
+          inp.style.display = 'block';
+        } else {
+          inp.style.display = 'none';
+          inp.value = sel.value;
+        }
+      }
+      // 初期化：既存値がstoreにない場合はその他を選択
+      var storeNames = [{% for s in stores %}"{{ s.名称 }}",{% endfor %}];
+      var curVal = "{{ truck.base_location if truck and truck.base_location else '' }}";
+      if(curVal && storeNames.indexOf(curVal) === -1){
+        sel.value = '__other__';
+        inp.style.display = 'block';
+      } else if(curVal){
+        inp.value = curVal;
+      }
+      sel.addEventListener('change', function(){ sync(); });
+      sel.closest('form').addEventListener('submit', function(){
+        if(sel.value !== '__other__') inp.value = sel.value;
+      });
+    })();
+    </script>
+    {% endif %}
 
     <!-- ── 車検情報 ── -->
     <div class="form-section-title">🔧 車検情報</div>
@@ -77,7 +121,7 @@
       </div>
       <div class="form-field">
         <label>車検証番号</label>
-        <input type="text" name="shaken_number" value="{{ truck.shaken_number if truck else '' }}" placeholder="例：第〇〇〇〇号">
+        <input type="text" name="shaken_number" value="{{ truck.shaken_number if truck and truck.shaken_number else '' }}" placeholder="例：第〇〇〇〇号">
       </div>
     </div>
 
@@ -86,11 +130,11 @@
     <div class="form-row">
       <div class="form-field">
         <label>保険会社名</label>
-        <input type="text" name="insurance_company" value="{{ truck.insurance_company if truck else '' }}" placeholder="例：東京海上日動">
+        <input type="text" name="insurance_company" value="{{ truck.insurance_company if truck and truck.insurance_company else '' }}" placeholder="例：東京海上日動">
       </div>
       <div class="form-field">
         <label>証券番号</label>
-        <input type="text" name="insurance_policy" value="{{ truck.insurance_policy if truck else '' }}" placeholder="例：TK-12345678">
+        <input type="text" name="insurance_policy" value="{{ truck.insurance_policy if truck and truck.insurance_policy else '' }}" placeholder="例：TK-12345678">
       </div>
     </div>
     <div class="form-field" style="max-width:280px">
@@ -116,7 +160,7 @@
     <!-- ── 備考 ── -->
     <div class="form-section-title">📝 備考</div>
     <div class="form-field">
-      <textarea name="note" rows="3" placeholder="その他メモ">{{ truck.note if truck else '' }}</textarea>
+      <textarea name="note" rows="3" placeholder="その他メモ">{{ truck.note if truck and truck.note else '' }}</textarea>
     </div>
 
     {% if action == 'edit' %}

@@ -355,21 +355,22 @@ def truck_new():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        stores = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).order_by(TTenpo.名称).all() if tenant_id else []
         if request.method == 'POST':
             data = _parse_truck_form(request.form, request.files)
             if not data['number'] or not data['name']:
                 flash('車両番号と車両名称は必須です', 'error')
-                return render_template('truck/truck_form.html', truck=None, action='new')
+                return render_template('truck/truck_form.html', truck=None, action='new', stores=stores)
             truck = Truck(tenant_id=tenant_id, **data)
             db.add(truck)
             db.commit()
             flash(f'トラック「{data["name"]}」を登録しました', 'success')
             return redirect(url_for('truck.truck_detail', truck_id=truck.id))
-        return render_template('truck/truck_form.html', truck=None, action='new')
+        return render_template('truck/truck_form.html', truck=None, action='new', stores=stores)
     except Exception as e:
         import traceback
         flash(f'エラー: {str(e)} | {traceback.format_exc()[-300:]}', 'error')
-        return render_template('truck/truck_form.html', truck=None, action='new')
+        return render_template('truck/truck_form.html', truck=None, action='new', stores=[])
     finally:
         db.close()
 
@@ -415,18 +416,20 @@ def truck_edit(truck_id):
         if not truck:
             flash('トラックが見つかりません', 'error')
             return redirect(url_for('truck.trucks'))
+        tenant_id = session.get('tenant_id') or truck.tenant_id
+        stores = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id, TTenpo.有効 == 1).order_by(TTenpo.名称).all() if tenant_id else []
         if request.method == 'POST':
             data = _parse_truck_form(request.form, request.files)
             if not data['number'] or not data['name']:
                 flash('車両番号と車両名称は必須です', 'error')
-                return render_template('truck/truck_form.html', truck=truck, action='edit')
+                return render_template('truck/truck_form.html', truck=truck, action='edit', stores=stores)
             for k, v in data.items():
                 setattr(truck, k, v)
             truck.active = request.form.get('active') == '1'
             db.commit()
             flash(f'トラック「{truck.name}」を更新しました', 'success')
             return redirect(url_for('truck.truck_detail', truck_id=truck.id))
-        return render_template('truck/truck_form.html', truck=truck, action='edit')
+        return render_template('truck/truck_form.html', truck=truck, action='edit', stores=stores)
     finally:
         db.close()
 

@@ -301,10 +301,17 @@ def truck_new():
             if not number or not name:
                 flash('車両番号と車両名称は必須です', 'error')
                 return render_template('truck/truck_form.html', truck=None, action='new')
+            # 積載量：数字と小数点のみ抽出してfloat変換
+            import re as _re
+            capacity_num = _re.sub(r'[^0-9.]', '', capacity)
+            try:
+                capacity_val = float(capacity_num) if capacity_num else None
+            except ValueError:
+                capacity_val = None
             truck = Truck(
                 number=number,
                 name=name,
-                capacity=float(capacity) if capacity else None,
+                capacity=capacity_val,
                 note=note,
                 tenant_id=tenant_id,
             )
@@ -334,7 +341,12 @@ def truck_edit(truck_id):
             truck.number = request.form.get('number', '').strip()
             truck.name = request.form.get('name', '').strip()
             capacity = request.form.get('capacity', '').strip()
-            truck.capacity = float(capacity) if capacity else None
+            import re as _re
+            capacity_num = _re.sub(r'[^0-9.]', '', capacity)
+            try:
+                truck.capacity = float(capacity_num) if capacity_num else None
+            except ValueError:
+                truck.capacity = None
             truck.note = request.form.get('note', '').strip()
             truck.active = request.form.get('active') == '1'
             if not truck.number or not truck.name:

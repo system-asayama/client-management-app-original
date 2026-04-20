@@ -313,6 +313,10 @@ def truck_new():
             flash(f'トラック「{name}」を登録しました', 'success')
             return redirect(url_for('truck.trucks'))
         return render_template('truck/truck_form.html', truck=None, action='new')
+    except Exception as e:
+        import traceback
+        flash(f'エラー: {str(e)} | {traceback.format_exc()[-300:]}', 'error')
+        return render_template('truck/truck_form.html', truck=None, action='new')
     finally:
         db.close()
 

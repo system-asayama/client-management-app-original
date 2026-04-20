@@ -3,49 +3,154 @@
 <head>
   <meta charset="utf-8" />
   <title>{% block title %}トラック運行管理{% endblock %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background: #f0f4f8; color: #1e293b; }
-    /* トップバー */
-    .topbar { position: sticky; top: 0; z-index: 100; background: linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #f3f4f6; color: #374151; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ===== トップバー（モバイル用） ===== */
+    .topbar {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; height: 56px;
+      background: linear-gradient(90deg, #0f2744 0%, #1a3a5c 100%);
+      align-items: center; justify-content: space-between;
+      padding: 0 16px; z-index: 200;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
     .topbar-brand { display: flex; align-items: center; gap: 8px; }
-    .topbar-icon { font-size: 20px; }
-    .topbar-title { font-size: 16px; font-weight: 700; letter-spacing: 0.02em; }
-    .topbar-user { display: flex; align-items: center; gap: 10px; }
-    .topbar-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
-    .topbar-username { font-size: 13px; font-weight: 600; display: none; }
-    .topbar-logout { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; }
-    .topbar-logout:hover { background: rgba(255,255,255,0.25); }
-    /* メインコンテンツ */
-    .main { min-height: calc(100vh - 52px - 60px); }
-    .content { padding: 16px; max-width: 900px; margin: 0 auto; }
-    /* ボトムナビ */
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; align-items: center; height: 60px; z-index: 100; box-shadow: 0 -2px 8px rgba(0,0,0,0.06); }
-    .bottom-nav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; color: #9ca3af; text-decoration: none; flex: 1; padding: 4px 0; transition: color 0.15s; }
-    .bottom-nav a.active { color: #1a3a5c; }
-    .bottom-nav a:hover { color: #1a3a5c; }
-    .nav-icon { font-size: 20px; line-height: 1; }
-    /* カード */
-    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 14px; }
-    .card-title { font-size: 14px; font-weight: 700; color: #0f2744; margin-bottom: 12px; }
-    /* テーブル */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #f8fafc; padding: 10px 12px; font-size: 12px; font-weight: 600; color: #6b7280; text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
-    td { padding: 11px 12px; font-size: 13px; color: #374151; border-bottom: 1px solid #f3f4f6; }
+    .topbar-brand-icon { font-size: 22px; }
+    .topbar-brand-title { font-size: 15px; font-weight: 700; color: #fff; }
+    .hamburger-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 8px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .hamburger-btn span {
+      display: block; width: 24px; height: 2px;
+      background: #fff; border-radius: 2px; transition: all 0.3s;
+    }
+
+    /* ===== オーバーレイ ===== */
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 150;
+    }
+    .sidebar-overlay.active { display: block; }
+
+    /* ===== サイドバー ===== */
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      width: 240px; height: 100vh;
+      background: linear-gradient(180deg, #0f2744 0%, #1a3a5c 100%);
+      display: flex; flex-direction: column; z-index: 160;
+      transition: transform 0.3s ease;
+      overflow-y: auto;
+    }
+    .sidebar-header {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .sidebar-logo-icon { font-size: 28px; }
+    .sidebar-logo-title { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.3; }
+    .sidebar-logo-sub { font-size: 11px; color: rgba(255,255,255,0.55); }
+
+    /* ===== ナビゲーション ===== */
+    .sidebar-nav { flex: 1; padding: 12px 0; }
+
+    /* カテゴリグループ */
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; cursor: pointer;
+      color: rgba(255,255,255,0.55); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      user-select: none; transition: color 0.2s;
+    }
+    .nav-group-header:hover { color: rgba(255,255,255,0.85); }
+    .nav-group-header .group-icon { font-size: 16px; margin-right: 6px; }
+    .nav-group-header .group-label { flex: 1; }
+    .nav-group-header .group-badge {
+      font-size: 10px; background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.7); padding: 2px 7px; border-radius: 10px;
+      margin-right: 6px; letter-spacing: 0;
+    }
+    .nav-group-header .arrow {
+      font-size: 10px; transition: transform 0.25s;
+    }
+    .nav-group.open .arrow { transform: rotate(90deg); }
+
+    .nav-group-items { display: none; }
+    .nav-group.open .nav-group-items { display: block; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px 10px 36px;
+      color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500;
+      transition: all 0.2s; border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-item.active {
+      background: rgba(255,255,255,0.14); color: #fff;
+      border-left-color: #7dd3fc;
+    }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    /* ===== サイドバーフッター ===== */
+    .sidebar-footer {
+      padding: 14px 16px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+    }
+    .user-info { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.2); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .user-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .user-role { font-size: 11px; color: rgba(255,255,255,0.5); }
+    .logout-btn {
+      width: 100%; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+      padding: 8px; font-size: 13px; cursor: pointer; font-family: inherit;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* ===== メインコンテンツ ===== */
+    .main { margin-left: 240px; min-height: 100vh; }
+    .content { padding: 28px; max-width: 1100px; }
+
+    /* ===== カード ===== */
+    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px; }
+    .card-title { font-size: 15px; font-weight: 700; color: #0f2744; margin-bottom: 14px; }
+
+    /* ===== テーブル ===== */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f9fafb; }
+    th { padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+    td { padding: 11px 14px; font-size: 13px; color: #374151; border-bottom: 1px solid #f3f4f6; }
     tr:last-child td { border-bottom: none; }
-    /* バッジ */
+
+    /* ===== バッジ ===== */
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }
-    /* エラー */
+
+    /* ===== エラー ===== */
     .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 14px; color: #dc2626; font-size: 13px; margin-bottom: 14px; }
-    /* 空状態 */
-    .empty { text-align: center; padding: 32px; color: #9ca3af; font-size: 13px; }
-    /* ページタイトル */
-    .page-title { font-size: 20px; font-weight: 700; color: #0f2744; margin-bottom: 4px; }
-    .page-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 18px; }
-    /* ボタン */
-    .btn { padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; display: inline-block; text-decoration: none; }
+
+    /* ===== 空状態 ===== */
+    .empty { text-align: center; padding: 40px; color: #9ca3af; font-size: 13px; }
+
+    /* ===== ページタイトル ===== */
+    .page-title { font-size: 22px; font-weight: 700; color: #0f2744; margin-bottom: 4px; }
+    .page-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+
+    /* ===== ボタン ===== */
+    .btn { padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; display: inline-block; text-decoration: none; }
     .btn-primary { background: #1a3a5c; color: #fff; }
     .btn-primary:hover { background: #0f2744; }
     .btn-secondary { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
@@ -53,10 +158,12 @@
     .btn-danger { background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; }
     .btn-danger:hover { background: #fee2e2; }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
-    /* フラッシュメッセージ */
+
+    /* ===== フラッシュメッセージ ===== */
     .flash-success { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; color: #16a34a; font-size: 13px; margin-bottom: 14px; }
     .flash-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; color: #dc2626; font-size: 13px; margin-bottom: 14px; }
-    /* フォーム */
+
+    /* ===== フォーム ===== */
     .form-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
     .form-field { margin-bottom: 16px; }
     .form-field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
@@ -65,29 +172,135 @@
     .form-field input:focus, .form-field textarea:focus, .form-field select:focus { outline: none; border-color: #1a3a5c; }
     .form-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
     .required { color: #dc2626; }
-    /* 戻るリンク */
     .back-link { display: inline-flex; align-items: center; gap: 6px; color: #6b7280; font-size: 13px; text-decoration: none; margin-bottom: 12px; }
     .back-link:hover { color: #1a3a5c; }
-    @media (min-width: 769px) {
-      .topbar-username { display: block; }
-      .content { padding: 24px 28px; }
+
+    /* ===== レスポンシブ ===== */
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .topbar { display: flex; }
+      .main { margin-left: 0; padding-top: 56px; }
+      .content { padding: 16px; }
     }
   </style>
   {% block extra_style %}{% endblock %}
 </head>
 <body>
-<!-- トップバー -->
+
+<!-- モバイル用トップバー -->
 <header class="topbar">
   <div class="topbar-brand">
-    <span class="topbar-icon">🚛</span>
-    <span class="topbar-title">トラック運行管理</span>
+    <span class="topbar-brand-icon">🚛</span>
+    <span class="topbar-brand-title">トラック運行管理</span>
   </div>
-  <div class="topbar-user">
-    <div class="topbar-avatar">{{ session.get('user_name', '管')[:1] }}</div>
-    <span class="topbar-username">{{ session.get('user_name', '管理者') }}</span>
-    <a href="{{ url_for('auth.logout') }}"><button class="topbar-logout">ログアウト</button></a>
-  </div>
+  <button class="hamburger-btn" id="hamburgerBtn" aria-label="メニューを開く">
+    <span></span><span></span><span></span>
+  </button>
 </header>
+
+<!-- オーバーレイ -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- サイドバー -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-logo-icon">🚛</span>
+    <div>
+      <div class="sidebar-logo-title">トラック運行管理</div>
+      <div class="sidebar-logo-sub">運送会社運営プラットフォーム</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+
+    <!-- 運行管理 -->
+    <div class="nav-group open" id="group-operation">
+      <div class="nav-group-header" onclick="toggleGroup('group-operation')">
+        <span class="group-icon">🗺️</span>
+        <span class="group-label">運行管理</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="nav-group-items">
+        <a href="{{ url_for('truck.dashboard') }}"
+           class="nav-item {% if request.endpoint == 'truck.dashboard' %}active{% endif %}">
+          <span class="nav-icon">📊</span> ダッシュボード
+        </a>
+        <a href="{{ url_for('truck.history') }}"
+           class="nav-item {% if request.endpoint == 'truck.history' %}active{% endif %}">
+          <span class="nav-icon">📋</span> 運行履歴
+        </a>
+        <a href="{{ url_for('truck.gps_map') }}"
+           class="nav-item {% if request.endpoint in ['truck.gps_map','truck.gps_map_realtime_data'] %}active{% endif %}">
+          <span class="nav-icon">📍</span> GPS位置確認
+        </a>
+      </div>
+    </div>
+
+    <!-- マスター登録 -->
+    <div class="nav-group" id="group-master">
+      <div class="nav-group-header" onclick="toggleGroup('group-master')">
+        <span class="group-icon">📋</span>
+        <span class="group-label">マスター登録</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="nav-group-items">
+        <a href="{{ url_for('truck.trucks') }}"
+           class="nav-item {% if request.endpoint in ['truck.trucks','truck.truck_new','truck.truck_edit'] %}active{% endif %}">
+          <span class="nav-icon">🚛</span> トラック管理
+        </a>
+        <a href="{{ url_for('truck.drivers') }}"
+           class="nav-item {% if request.endpoint in ['truck.drivers','truck.driver_new','truck.driver_edit'] %}active{% endif %}">
+          <span class="nav-icon">👤</span> ドライバー管理
+        </a>
+        <a href="{{ url_for('truck.routes') }}"
+           class="nav-item {% if request.endpoint in ['truck.routes','truck.route_new','truck.route_edit'] %}active{% endif %}">
+          <span class="nav-icon">🗺️</span> ルート管理
+        </a>
+      </div>
+    </div>
+
+    <!-- 財務管理 -->
+    <div class="nav-group" id="group-finance">
+      <div class="nav-group-header" onclick="toggleGroup('group-finance')" style="opacity:0.6; cursor:default;">
+        <span class="group-icon">💰</span>
+        <span class="group-label">財務管理</span>
+        <span class="group-badge">準備中</span>
+        <span class="arrow">▶</span>
+      </div>
+    </div>
+
+    <!-- システム設定 -->
+    <div class="nav-group open" id="group-settings">
+      <div class="nav-group-header" onclick="toggleGroup('group-settings')">
+        <span class="group-icon">⚙️</span>
+        <span class="group-label">システム設定</span>
+        <span class="arrow">▶</span>
+      </div>
+      <div class="nav-group-items">
+        <a href="{{ url_for('truck.apk_settings') }}"
+           class="nav-item {% if request.endpoint == 'truck.apk_settings' %}active{% endif %}">
+          <span class="nav-icon">📱</span> APK配布設定
+        </a>
+      </div>
+    </div>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="user-avatar">{{ session.get('user_name', '管')[:1] }}</div>
+      <div>
+        <div class="user-name">{{ session.get('user_name', '管理者') }}</div>
+        <div class="user-role">管理者</div>
+      </div>
+    </div>
+    <a href="{{ url_for('auth.logout') }}">
+      <button class="logout-btn">ログアウト</button>
+    </a>
+  </div>
+</div>
+
 <!-- メインコンテンツ -->
 <div class="main">
   <div class="content">
@@ -99,29 +312,51 @@
     {% block content %}{% endblock %}
   </div>
 </div>
-<!-- ボトムナビゲーション -->
-<nav class="bottom-nav">
-  <a href="{{ url_for('truck.dashboard') }}" class="{% if request.endpoint == 'truck.dashboard' %}active{% endif %}">
-    <span class="nav-icon">📊</span>ダッシュボード
-  </a>
-  <a href="{{ url_for('truck.history') }}" class="{% if request.endpoint == 'truck.history' %}active{% endif %}">
-    <span class="nav-icon">📋</span>運行履歴
-  </a>
-  <a href="{{ url_for('truck.trucks') }}" class="{% if request.endpoint in ['truck.trucks','truck.truck_new','truck.truck_edit'] %}active{% endif %}">
-    <span class="nav-icon">🚛</span>トラック
-  </a>
-  <a href="{{ url_for('truck.routes') }}" class="{% if request.endpoint in ['truck.routes','truck.route_new','truck.route_edit'] %}active{% endif %}">
-    <span class="nav-icon">🗺️</span>ルート
-  </a>
-  <a href="{{ url_for('truck.drivers') }}" class="{% if request.endpoint in ['truck.drivers','truck.driver_new','truck.driver_edit'] %}active{% endif %}">
-    <span class="nav-icon">👤</span>ドライバー
-  </a>
-  <a href="{{ url_for('truck.gps_map') }}" class="{% if request.endpoint in ['truck.gps_map','truck.gps_map_realtime_data'] %}active{% endif %}">
-    <span class="nav-icon">📍</span>GPS
-  </a>
-  <a href="{{ url_for('truck.apk_settings') }}" class="{% if request.endpoint == 'truck.apk_settings' %}active{% endif %}">
-    <span class="nav-icon">📱</span>APK
-  </a>
-</nav>
+
+<script>
+  // アクティブなメニューのグループを自動展開
+  document.addEventListener('DOMContentLoaded', function() {
+    const activeItem = document.querySelector('.nav-item.active');
+    if (activeItem) {
+      const group = activeItem.closest('.nav-group');
+      if (group && !group.classList.contains('open')) {
+        group.classList.add('open');
+      }
+    }
+  });
+
+  function toggleGroup(groupId) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    // 財務管理は準備中なので無効
+    if (groupId === 'group-finance') return;
+    group.classList.toggle('open');
+  }
+
+  // ハンバーガーメニュー（モバイル）
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+
+  if (hamburgerBtn) {
+    hamburgerBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('active');
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+    });
+  }
+  // ナビリンクをクリックしたらサイドバーを閉じる（モバイル）
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('active');
+    });
+  });
+</script>
 </body>
 </html>

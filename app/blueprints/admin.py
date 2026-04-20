@@ -37,7 +37,7 @@ AVAILABLE_APPS = [
         'display_name': 'トラック運行管理アプリ',
         'scope': 'store',
         'description': 'トラックの運行・ドライバー・ルートを管理するシステム',
-        'url': 'https://truck.samurai-hub.com/login',
+        'url': '/truck/',
         'icon': '🚛'
     },
     {
@@ -171,7 +171,7 @@ def available_apps():
                 elif app_copy['name'] == 'voucher-digitization':
                     app_copy['url'] = f'/voucher?store_id={store_id}'
                 elif app_copy['name'] == 'truck-operation':
-                    app_copy['url'] = 'https://truck.samurai-hub.com/login'
+                    app_copy['url'] = '/truck/'
                 enabled_apps.append(app_copy)
         finally:
             db.close()

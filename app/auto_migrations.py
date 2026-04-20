@@ -851,16 +851,10 @@ if __name__ == "__main__":
 
 def run_truck_doc_migrations():
     """車検証・保険証ファイルカラムをtrucksテーブルに追加"""
-    import logging
-    from sqlalchemy import text
-    from app.db import SessionLocal
-    logger = logging.getLogger(__name__)
     session = SessionLocal()
+    db_type = get_db_type()
     try:
-        # DB種別判定
-        db_url = str(session.bind.url) if hasattr(session, 'bind') and session.bind else ""
-        is_pg = "postgresql" in db_url or "postgres" in db_url
-
+        logger.info(f"truck_doc_migrations 開始... (DB: {db_type})")
         new_cols = [
             ("shaken_doc_path",    "VARCHAR(500)"),
             ("shaken_doc_name",    "VARCHAR(200)"),
@@ -869,17 +863,7 @@ def run_truck_doc_migrations():
         ]
         for col_name, col_type in new_cols:
             try:
-                if is_pg:
-                    exists = session.execute(text(
-                        "SELECT 1 FROM information_schema.columns "
-                        "WHERE table_name='trucks' AND column_name=:c"
-                    ), {"c": col_name}).fetchone()
-                else:
-                    exists = session.execute(text(
-                        "SELECT 1 FROM information_schema.columns "
-                        "WHERE table_name='trucks' AND column_name=:c AND table_schema=DATABASE()"
-                    ), {"c": col_name}).fetchone()
-                if not exists:
+                if not column_exists(session, 'trucks', col_name):
                     session.execute(text(f"ALTER TABLE trucks ADD COLUMN {col_name} {col_type}"))
                     session.commit()
                     logger.info(f"✓ trucks.{col_name} カラムを追加しました")

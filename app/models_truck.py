@@ -49,6 +49,12 @@ class Truck(Base):
     # 写真
     photo_path = Column(String(500))          # 車両写真パス
     photo_name = Column(String(200))          # 元ファイル名
+    # 車検証ファイル
+    shaken_doc_path = Column(String(500))     # 車検証ファイルパス
+    shaken_doc_name = Column(String(200))     # 車検証元ファイル名
+    # 保険証ファイル
+    insurance_doc_path = Column(String(500))  # 保険証ファイルパス
+    insurance_doc_name = Column(String(200))  # 保険証元ファイル名
 
     # リレーション
     accident_records = relationship("TruckAccidentRecord", back_populates="truck", cascade="all, delete-orphan")

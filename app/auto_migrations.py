@@ -848,3 +848,48 @@ if __name__ == "__main__":
     # スタンドアロンで実行する場合
     logging.basicConfig(level=logging.INFO)
     run_auto_migrations()
+
+def run_truck_doc_migrations():
+    """車検証・保険証ファイルカラムをtrucksテーブルに追加"""
+    import logging
+    from sqlalchemy import text
+    from app.db import SessionLocal
+    logger = logging.getLogger(__name__)
+    session = SessionLocal()
+    try:
+        # DB種別判定
+        db_url = str(session.bind.url) if hasattr(session, 'bind') and session.bind else ""
+        is_pg = "postgresql" in db_url or "postgres" in db_url
+
+        new_cols = [
+            ("shaken_doc_path",    "VARCHAR(500)"),
+            ("shaken_doc_name",    "VARCHAR(200)"),
+            ("insurance_doc_path", "VARCHAR(500)"),
+            ("insurance_doc_name", "VARCHAR(200)"),
+        ]
+        for col_name, col_type in new_cols:
+            try:
+                if is_pg:
+                    exists = session.execute(text(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_name='trucks' AND column_name=:c"
+                    ), {"c": col_name}).fetchone()
+                else:
+                    exists = session.execute(text(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_name='trucks' AND column_name=:c AND table_schema=DATABASE()"
+                    ), {"c": col_name}).fetchone()
+                if not exists:
+                    session.execute(text(f"ALTER TABLE trucks ADD COLUMN {col_name} {col_type}"))
+                    session.commit()
+                    logger.info(f"✓ trucks.{col_name} カラムを追加しました")
+                else:
+                    logger.info(f"- trucks.{col_name} は既に存在します（スキップ）")
+            except Exception as col_err:
+                session.rollback()
+                logger.error(f"カラム追加エラー: trucks.{col_name} - {col_err}")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"✗ truck_doc_migrations エラー: {e}")
+    finally:
+        session.close()

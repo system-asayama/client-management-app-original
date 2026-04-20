@@ -346,6 +346,20 @@ def _parse_truck_form(form, files=None):
             if result:
                 data['photo_path'] = result[0]
                 data['photo_name'] = result[1]
+        # 車検証アップロード
+        shaken_doc = files.get('shaken_doc')
+        if shaken_doc and shaken_doc.filename:
+            result = _save_truck_file(shaken_doc, 'shaken_docs')
+            if result:
+                data['shaken_doc_path'] = result[0]
+                data['shaken_doc_name'] = result[1]
+        # 保険証アップロード
+        insurance_doc = files.get('insurance_doc')
+        if insurance_doc and insurance_doc.filename:
+            result = _save_truck_file(insurance_doc, 'insurance_docs')
+            if result:
+                data['insurance_doc_path'] = result[0]
+                data['insurance_doc_name'] = result[1]
     return data
 
 
@@ -403,6 +417,38 @@ def truck_photo(truck_id):
             from flask import abort
             abort(404)
         return send_file(truck.photo_path)
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/shaken_doc')
+@login_required_truck
+def truck_shaken_doc(truck_id):
+    """車検証ファイルを返す"""
+    from flask import send_file, abort
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        if not truck or not truck.shaken_doc_path or not os.path.exists(truck.shaken_doc_path):
+            abort(404)
+        return send_file(truck.shaken_doc_path, as_attachment=False,
+                         download_name=truck.shaken_doc_name or 'shaken_doc')
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/insurance_doc')
+@login_required_truck
+def truck_insurance_doc(truck_id):
+    """保険証ファイルを返す"""
+    from flask import send_file, abort
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        if not truck or not truck.insurance_doc_path or not os.path.exists(truck.insurance_doc_path):
+            abort(404)
+        return send_file(truck.insurance_doc_path, as_attachment=False,
+                         download_name=truck.insurance_doc_name or 'insurance_doc')
     finally:
         db.close()
 
@@ -1648,8 +1694,16 @@ def _run_truck_ocr(file_path, api_key, doc_type, google_vision_key=None):
         json_schema = '{"title": "契約書名・契約の種類", "counterparty": "相手方会社名", "start_date": "YYYY-MM-DD形式", "end_date": "YYYY-MM-DD形式", "amount": "契約金額（数字のみ）", "summary": "契約内容の要約（200字以内）"}'
         image_prompt = f"以下の契約書画像から情報を抽出してJSONで返してください。\n{json_schema}"
         text_prompt_template = f"以下の契約書OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
+    elif doc_type == 'shaken':
+        json_schema = '{"shaken_number": "車検証番号・登録番号", "expiry_date": "車検有効期限 YYYY-MM-DD形式", "vehicle_number": "車両番号", "vin": "車台番号", "owner_name": "所有者名", "user_name": "使用者名", "vehicle_type": "車種・型式", "year": "初年度登録年（数字のみ）", "summary": "車検証の要約（100字以内）"}'
+        image_prompt = f"以下の車検証画像から情報を抽出してJSONで返してください。\n{json_schema}"
+        text_prompt_template = f"以下の車検証OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
+    elif doc_type == 'insurance_doc':
+        json_schema = '{"insurer": "保険会社名", "policy_number": "証券番号", "insurance_type": "保険種類（自賞責/任意/貨物/その他）", "start_date": "YYYY-MM-DD形式", "end_date": "YYYY-MM-DD形式", "premium": "保険料（数字のみ）", "vehicle_number": "車両番号", "summary": "保険内容の要約（200字以内）"}'
+        image_prompt = f"以下の保険証画像から情報を抽出してJSONで返してください。\n{json_schema}"
+        text_prompt_template = f"以下の保険証OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
     else:
-        json_schema = '{"insurer": "保険会社名", "policy_number": "証券番号", "insurance_type": "保険種類（自賠責/任意/貨物/その他）", "start_date": "YYYY-MM-DD形式", "end_date": "YYYY-MM-DD形式", "premium": "保険料（数字のみ）", "coverage_amount": "保険金額（数字のみ）", "summary": "保険内容の要約（200字以内）"}'
+        json_schema = '{"insurer": "保険会社名", "policy_number": "証券番号", "insurance_type": "保険種類（自賞責/任意/貨物/その他）", "start_date": "YYYY-MM-DD形式", "end_date": "YYYY-MM-DD形式", "premium": "保険料（数字のみ）", "coverage_amount": "保険金額（数字のみ）", "summary": "保険内容の要約（200字以内）"}'
         image_prompt = f"以下の保険証券画像から情報を抽出してJSONで返してください。\n{json_schema}"
         text_prompt_template = f"以下の保険証券OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
 

@@ -114,32 +114,68 @@
 
     <!-- ── 車検情報 ── -->
     <div class="form-section-title">🔧 車検情報</div>
+
+    <!-- 車検証アップロード・AI読み取り -->
+    <div class="doc-upload-box" id="shaken-upload-box">
+      <div class="doc-upload-label">📄 車検証をアップロード（PDF・JPG・PNG）</div>
+      <input type="file" name="shaken_doc" id="shaken_doc_input" accept=".pdf,.jpg,.jpeg,.png" capture="environment"
+             onchange="onShakenDocSelected(this)">
+      {% if truck and truck.shaken_doc_path %}
+      <div class="doc-current">
+        現在のファイル: <a href="{{ url_for('truck.truck_shaken_doc', truck_id=truck.id) }}" target="_blank">📄 {{ truck.shaken_doc_name or '車検証' }}</a>
+        <small>（新しいファイルを選択すると上書き）</small>
+      </div>
+      {% endif %}
+      <div id="shaken-ocr-btn-area" style="display:none;margin-top:8px;">
+        <button type="button" class="btn-ai-read" onclick="runShakenOcr()">🤖 AI読み取り（車検証内容を自動入力）</button>
+        <span id="shaken-ocr-status" style="margin-left:8px;font-size:13px;color:#6b7280;"></span>
+      </div>
+    </div>
+
     <div class="form-row">
       <div class="form-field">
         <label>車検満了日</label>
-        <input type="date" name="shaken_expiry" value="{{ truck.shaken_expiry.isoformat() if truck and truck.shaken_expiry else '' }}">
+        <input type="date" name="shaken_expiry" id="shaken_expiry" value="{{ truck.shaken_expiry.isoformat() if truck and truck.shaken_expiry else '' }}">
       </div>
       <div class="form-field">
         <label>車検証番号</label>
-        <input type="text" name="shaken_number" value="{{ truck.shaken_number if truck and truck.shaken_number else '' }}" placeholder="例：第〇〇〇〇号">
+        <input type="text" name="shaken_number" id="shaken_number" value="{{ truck.shaken_number if truck and truck.shaken_number else '' }}" placeholder="例：第「「「「号">
       </div>
     </div>
 
     <!-- ── 保険情報 ── -->
-    <div class="form-section-title">🛡️ 保険情報（簡易）</div>
+    <div class="form-section-title">🛡️ 保険情報</div>
+
+    <!-- 保険証アップロード・AI読み取り -->
+    <div class="doc-upload-box" id="insurance-upload-box">
+      <div class="doc-upload-label">📄 保険証をアップロード（PDF・JPG・PNG）</div>
+      <input type="file" name="insurance_doc" id="insurance_doc_input" accept=".pdf,.jpg,.jpeg,.png" capture="environment"
+             onchange="onInsuranceDocSelected(this)">
+      {% if truck and truck.insurance_doc_path %}
+      <div class="doc-current">
+        現在のファイル: <a href="{{ url_for('truck.truck_insurance_doc', truck_id=truck.id) }}" target="_blank">📄 {{ truck.insurance_doc_name or '保険証' }}</a>
+        <small>（新しいファイルを選択すると上書き）</small>
+      </div>
+      {% endif %}
+      <div id="insurance-ocr-btn-area" style="display:none;margin-top:8px;">
+        <button type="button" class="btn-ai-read" onclick="runInsuranceOcr()">🤖 AI読み取り（保険証内容を自動入力）</button>
+        <span id="insurance-ocr-status" style="margin-left:8px;font-size:13px;color:#6b7280;"></span>
+      </div>
+    </div>
+
     <div class="form-row">
       <div class="form-field">
         <label>保険会社名</label>
-        <input type="text" name="insurance_company" value="{{ truck.insurance_company if truck and truck.insurance_company else '' }}" placeholder="例：東京海上日動">
+        <input type="text" name="insurance_company" id="insurance_company" value="{{ truck.insurance_company if truck and truck.insurance_company else '' }}" placeholder="例：東京海上日動">
       </div>
       <div class="form-field">
         <label>証券番号</label>
-        <input type="text" name="insurance_policy" value="{{ truck.insurance_policy if truck and truck.insurance_policy else '' }}" placeholder="例：TK-12345678">
+        <input type="text" name="insurance_policy" id="insurance_policy" value="{{ truck.insurance_policy if truck and truck.insurance_policy else '' }}" placeholder="例：TK-12345678">
       </div>
     </div>
     <div class="form-field" style="max-width:280px">
       <label>保険満了日</label>
-      <input type="date" name="insurance_expiry" value="{{ truck.insurance_expiry.isoformat() if truck and truck.insurance_expiry else '' }}">
+      <input type="date" name="insurance_expiry" id="insurance_expiry" value="{{ truck.insurance_expiry.isoformat() if truck and truck.insurance_expiry else '' }}">
     </div>
 
     <!-- ── 車両写真 ── -->
@@ -197,5 +233,124 @@
 @media (max-width: 600px) {
   .form-row { grid-template-columns: 1fr; }
 }
+.doc-upload-box {
+  background: #f8fafc;
+  border: 1.5px dashed #94a3b8;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.doc-upload-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+.doc-current {
+  font-size: 13px;
+  color: #374151;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #e0f2fe;
+  border-radius: 6px;
+}
+.doc-current a { color: #0369a1; text-decoration: underline; }
+.btn-ai-read {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-ai-read:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
+
+<script>
+// 車検証: ファイル選択時にAI読み取りボタンを表示
+function onShakenDocSelected(input) {
+  var area = document.getElementById('shaken-ocr-btn-area');
+  if (input.files && input.files.length > 0) {
+    area.style.display = 'block';
+  } else {
+    area.style.display = 'none';
+  }
+}
+// 保険証: ファイル選択時にAI読み取りボタンを表示
+function onInsuranceDocSelected(input) {
+  var area = document.getElementById('insurance-ocr-btn-area');
+  if (input.files && input.files.length > 0) {
+    area.style.display = 'block';
+  } else {
+    area.style.display = 'none';
+  }
+}
+
+// 車検証AI読み取り
+function runShakenOcr() {
+  var input = document.getElementById('shaken_doc_input');
+  if (!input.files || !input.files[0]) return;
+  var status = document.getElementById('shaken-ocr-status');
+  var btn = document.querySelector('#shaken-ocr-btn-area .btn-ai-read');
+  status.textContent = '読み取り中…';
+  btn.disabled = true;
+  var fd = new FormData();
+  fd.append('file', input.files[0]);
+  fd.append('doc_type', 'shaken');
+  fetch('/truck/ocr/preview', { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      btn.disabled = false;
+      if (data.error) { status.textContent = '❌ ' + data.error; return; }
+      var d = data.data || data;
+      if (d.expiry_date) document.getElementById('shaken_expiry').value = d.expiry_date;
+      if (d.shaken_number) document.getElementById('shaken_number').value = d.shaken_number;
+      if (d.vin) document.querySelector('[name=vin]').value = d.vin;
+      if (d.owner_name) document.querySelector('[name=owner_name]').value = d.owner_name;
+      if (d.user_name) document.querySelector('[name=user_name]').value = d.user_name;
+      if (d.vehicle_type) document.querySelector('[name=vehicle_type]').value = d.vehicle_type;
+      if (d.year) document.querySelector('[name=year]').value = d.year;
+      status.textContent = '✅ 読み取り完了！内容を確認して登録してください';
+      status.style.color = '#16a34a';
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      status.textContent = '❌ 通信エラー';
+    });
+}
+
+// 保険証AI読み取り
+function runInsuranceOcr() {
+  var input = document.getElementById('insurance_doc_input');
+  if (!input.files || !input.files[0]) return;
+  var status = document.getElementById('insurance-ocr-status');
+  var btn = document.querySelector('#insurance-ocr-btn-area .btn-ai-read');
+  status.textContent = '読み取り中…';
+  btn.disabled = true;
+  var fd = new FormData();
+  fd.append('file', input.files[0]);
+  fd.append('doc_type', 'insurance_doc');
+  fetch('/truck/ocr/preview', { method: 'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      btn.disabled = false;
+      if (data.error) { status.textContent = '❌ ' + data.error; return; }
+      var d = data.data || data;
+      if (d.insurer) document.getElementById('insurance_company').value = d.insurer;
+      if (d.policy_number) document.getElementById('insurance_policy').value = d.policy_number;
+      if (d.end_date) document.getElementById('insurance_expiry').value = d.end_date;
+      status.textContent = '✅ 読み取り完了！内容を確認して登録してください';
+      status.style.color = '#16a34a';
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      status.textContent = '❌ 通信エラー';
+    });
+}
+</script>
 {% endblock %}

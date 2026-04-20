@@ -372,6 +372,66 @@ def change_password():
         db.close()
 
 
+@bp.route('/api-keys', methods=['GET', 'POST'])
+@require_roles('app_manager', 'system_admin')
+def api_keys():
+    """APIキー設定ページ"""
+    role = session.get('role')
+    group_id = session.get('app_manager_group_id')
+
+    if not group_id:
+        flash('アプリ管理者グループが選択されていません', 'error')
+        return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.dashboard'))
+
+    db = SessionLocal()
+    try:
+        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+        if not group:
+            flash('グループが見つかりません', 'error')
+            return redirect(url_for('app_manager.dashboard'))
+
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
+
+                try:
+                    group.openai_api_key = openai_api_key
+                    if hasattr(group, 'google_vision_api_key'):
+                        group.google_vision_api_key = google_vision_api_key
+                    if hasattr(group, 'google_api_key'):
+                        group.google_api_key = google_api_key
+                    if hasattr(group, 'anthropic_api_key'):
+                        group.anthropic_api_key = anthropic_api_key
+                    if hasattr(group, 'azure_document_intelligence_endpoint'):
+                        group.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                    if hasattr(group, 'azure_document_intelligence_key'):
+                        group.azure_document_intelligence_key = azure_document_intelligence_key
+                    db.commit()
+                    flash('APIキー設定を更新しました', 'success')
+                except Exception as e:
+                    db.rollback()
+                    flash(f'APIキーの保存に失敗しました: {str(e)}', 'error')
+                return redirect(url_for('app_manager.api_keys'))
+
+        group_api = {
+            'openai_api_key': getattr(group, 'openai_api_key', None) or '',
+            'google_vision_api_key': getattr(group, 'google_vision_api_key', None) or '',
+            'google_api_key': getattr(group, 'google_api_key', None) or '',
+            'anthropic_api_key': getattr(group, 'anthropic_api_key', None) or '',
+            'azure_document_intelligence_endpoint': getattr(group, 'azure_document_intelligence_endpoint', None) or '',
+            'azure_document_intelligence_key': getattr(group, 'azure_document_intelligence_key', None) or '',
+        }
+        return render_template('app_manager_api_keys.html', group=group, group_api=group_api)
+    finally:
+        db.close()
+
+
 @bp.route('/mypage/select_tenant', methods=['GET'])
 @require_roles('app_manager', 'system_admin')
 def mypage_select_tenant():

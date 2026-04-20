@@ -262,7 +262,7 @@
 <div class="section-title">テナント管理</div>
 <div class="mgmt-grid">
   <a class="mgmt-card" href="{{ url_for('app_manager.tenants') }}">
-    <div class="card-icon">🏬</div>
+    <div class="card-icon">🏦</div>
     <h4>テナント一覧</h4>
     <p>担当テナントの一覧・管理・新規作成</p>
   </a>
@@ -270,6 +270,16 @@
     <div class="card-icon">📲</div>
     <h4>アプリ配布管理</h4>
     <p>テナントへのアプリ配布設定</p>
+  </a>
+</div>
+
+<!-- 設定 -->
+<div class="section-title">設定</div>
+<div class="mgmt-grid">
+  <a class="mgmt-card" href="{{ url_for('app_manager.api_keys') }}">
+    <div class="card-icon">🔑</div>
+    <h4>APIキー設定</h4>
+    <p>OpenAI・Google・Anthropic・AzureのAPIキーを管理</p>
   </a>
 </div>
 

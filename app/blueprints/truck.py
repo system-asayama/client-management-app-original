@@ -906,12 +906,10 @@ def contract_new():
                 note=request.form.get('note', '').strip(),
                 tenant_id=session.get('tenant_id'),
             )
-            # ファイルアップロード
-            f = request.files.get('file')
-            if f and f.filename:
-                saved = _save_truck_file(f, 'contracts')
-                if saved:
-                    c.file_path, c.file_name = saved
+            # ファイルアップロード（複数ファイル + 撮影写真）
+            saved = _save_truck_files_multi(request, 'contracts')
+            if saved:
+                c.file_path, c.file_name = saved
             db.add(c)
             db.commit()
             flash(f'契約書「{title}」を登録しました', 'success')
@@ -946,11 +944,9 @@ def contract_edit(contract_id):
             c.end_date = _parse_date(request.form.get('end_date', ''))
             c.amount = _parse_float(request.form.get('amount', ''))
             c.note = request.form.get('note', '').strip()
-            f = request.files.get('file')
-            if f and f.filename:
-                saved = _save_truck_file(f, 'contracts')
-                if saved:
-                    c.file_path, c.file_name = saved
+            saved = _save_truck_files_multi(request, 'contracts')
+            if saved:
+                c.file_path, c.file_name = saved
             db.commit()
             flash(f'契約書「{c.title}」を更新しました', 'success')
             return redirect(url_for('truck.contracts'))
@@ -1053,11 +1049,9 @@ def insurance_new():
                 note=request.form.get('note', '').strip(),
                 tenant_id=tenant_id,
             )
-            f = request.files.get('file')
-            if f and f.filename:
-                saved = _save_truck_file(f, 'insurances')
-                if saved:
-                    ins.file_path, ins.file_name = saved
+            saved = _save_truck_files_multi(request, 'insurances')
+            if saved:
+                ins.file_path, ins.file_name = saved
             db.add(ins)
             db.commit()
             flash('保険情報を登録しました', 'success')
@@ -1093,11 +1087,9 @@ def insurance_edit(ins_id):
             ins.premium = _parse_float(request.form.get('premium', ''))
             ins.coverage_amount = _parse_float(request.form.get('coverage_amount', ''))
             ins.note = request.form.get('note', '').strip()
-            f = request.files.get('file')
-            if f and f.filename:
-                saved = _save_truck_file(f, 'insurances')
-                if saved:
-                    ins.file_path, ins.file_name = saved
+            saved = _save_truck_files_multi(request, 'insurances')
+            if saved:
+                ins.file_path, ins.file_name = saved
             db.commit()
             flash('保険情報を更新しました', 'success')
             return redirect(url_for('truck.insurances'))
@@ -1236,6 +1228,44 @@ def _parse_int(s):
         return int(s)
     except Exception:
         return None
+
+
+def _save_truck_files_multi(req, subdir):
+    """複数ファイル選択 + カメラ撮影写真（Base64）をまとめて保存し、最初のファイルのパスを返す"""
+    import uuid, base64 as _b64
+    from urllib.parse import unquote as _unquote
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads', 'truck', subdir)
+    os.makedirs(upload_dir, exist_ok=True)
+    saved_first = None
+    # 通常ファイル（複数）
+    files = req.files.getlist('files')
+    for f in files:
+        if f and f.filename:
+            ext = os.path.splitext(f.filename)[1].lower()
+            if ext not in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                continue
+            fname = f"{uuid.uuid4().hex}{ext}"
+            fpath = os.path.join(upload_dir, fname)
+            f.save(fpath)
+            if saved_first is None:
+                saved_first = (fpath, f.filename)
+    # 撮影写真（Base64）
+    captured = req.form.getlist('captured_photos')
+    for i, data_url in enumerate(captured):
+        try:
+            data_url = _unquote(data_url)
+            header, b64data = data_url.split(',', 1)
+            img_bytes = _b64.b64decode(b64data)
+            fname = f"{uuid.uuid4().hex}.jpg"
+            fpath = os.path.join(upload_dir, fname)
+            with open(fpath, 'wb') as fp:
+                fp.write(img_bytes)
+            display_name = f'撮影写真{i+1}.jpg'
+            if saved_first is None:
+                saved_first = (fpath, display_name)
+        except Exception:
+            continue
+    return saved_first
 
 
 def _save_truck_file(file_obj, subdir):

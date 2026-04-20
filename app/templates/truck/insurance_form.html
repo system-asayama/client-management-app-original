@@ -8,7 +8,7 @@
 <div class="page-subtitle" style="margin-bottom:20px;">保険証券のPDF・画像をアップロードするとAI-OCRで内容を自動読み取りできます</div>
 
 <div class="form-card" style="max-width:640px;">
-  <form method="post" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data" id="insuranceForm">
     <div class="form-field">
       <label>保険種別</label>
       <select name="insurance_type">
@@ -64,14 +64,60 @@
         <input type="number" name="coverage_amount" value="{{ insurance.coverage_amount|int if insurance and insurance.coverage_amount else '' }}" placeholder="例：100000000">
       </div>
     </div>
+
+    <!-- ファイル添付エリア -->
     <div class="form-field">
       <label>保険証券PDF・画像</label>
       {% if insurance and insurance.file_name %}
-        <div style="font-size:12px; color:#059669; margin-bottom:6px;">📎 現在: {{ insurance.file_name }}</div>
+        <div style="font-size:12px; color:#059669; margin-bottom:8px;">📎 現在: {{ insurance.file_name }}</div>
       {% endif %}
-      <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp">
-      <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。アップロード後にAI-OCRで内容を読み取れます。</div>
+
+      <!-- 選択ボタン2つ -->
+      <div style="display:flex; gap:10px; margin-bottom:12px;">
+        <button type="button" onclick="document.getElementById('fileInput').click()"
+          style="flex:1; padding:12px; background:#f8fafc; border:2px dashed #cbd5e1; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#374151; text-align:center;">
+          📁 ファイルを選択<br><span style="font-size:0.75rem; color:#6b7280;">PDF・JPG・PNG</span>
+        </button>
+        <button type="button" onclick="startCamera()"
+          style="flex:1; padding:12px; background:#f0fdf4; border:2px dashed #86efac; border-radius:8px; cursor:pointer; font-size:0.9rem; color:#374151; text-align:center;">
+          📷 写真を撮影<br><span style="font-size:0.75rem; color:#6b7280;">複数枚対応</span>
+        </button>
+      </div>
+
+      <!-- 隠しファイル入力 -->
+      <input type="file" id="fileInput" name="files" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" multiple style="display:none" onchange="handleFileSelect(this)">
+
+      <!-- カメラUI -->
+      <div id="cameraArea" style="display:none; margin-bottom:12px;">
+        <div style="position:relative; background:#000; border-radius:8px; overflow:hidden; margin-bottom:8px;">
+          <video id="cameraVideo" autoplay playsinline style="width:100%; max-height:300px; display:block;"></video>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" onclick="capturePhoto()"
+            style="flex:1; padding:12px; background:#1e3a5f; color:#fff; border:none; border-radius:8px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+            📸 撮影する
+          </button>
+          <button type="button" onclick="stopCamera()"
+            style="padding:12px 16px; background:#e5e7eb; color:#374151; border:none; border-radius:8px; cursor:pointer;">
+            ✕ 閉じる
+          </button>
+        </div>
+      </div>
+
+      <!-- プレビューエリア -->
+      <div id="previewArea" style="display:none; margin-bottom:8px;">
+        <div style="font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:8px;">添付ファイル</div>
+        <div id="previewList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      </div>
+
+      <!-- 隠しキャンバス（撮影用） -->
+      <canvas id="captureCanvas" style="display:none;"></canvas>
+      <!-- 撮影画像を送信するための隠し入力（Base64） -->
+      <div id="capturedInputs"></div>
+
+      <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。複数ファイル選択可。アップロード後にAI-OCRで内容を読み取れます。</div>
     </div>
+
     <div class="form-field">
       <label>備考</label>
       <textarea name="note" placeholder="備考・メモ">{{ insurance.note if insurance else '' }}</textarea>
@@ -82,4 +128,89 @@
     </div>
   </form>
 </div>
+
+<script>
+let stream = null;
+let capturedPhotos = [];
+let selectedFiles = [];
+
+function handleFileSelect(input) {
+  const files = Array.from(input.files);
+  files.forEach(f => selectedFiles.push(f));
+  renderPreviews();
+}
+
+function startCamera() {
+  const cameraArea = document.getElementById('cameraArea');
+  cameraArea.style.display = 'block';
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    .then(s => {
+      stream = s;
+      document.getElementById('cameraVideo').srcObject = s;
+    })
+    .catch(err => {
+      alert('カメラにアクセスできません: ' + err.message);
+      cameraArea.style.display = 'none';
+    });
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('cameraArea').style.display = 'none';
+}
+
+function capturePhoto() {
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('captureCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  const filename = 'photo_' + (capturedPhotos.length + 1) + '_' + Date.now() + '.jpg';
+  capturedPhotos.push({ dataUrl, filename });
+  renderPreviews();
+}
+
+function renderPreviews() {
+  const area = document.getElementById('previewArea');
+  const list = document.getElementById('previewList');
+  const allItems = [
+    ...selectedFiles.map((f, i) => ({ type: 'file', name: f.name, idx: i, isImage: f.type.startsWith('image/'), src: URL.createObjectURL(f) })),
+    ...capturedPhotos.map((p, i) => ({ type: 'photo', name: p.filename, idx: i, isImage: true, src: p.dataUrl }))
+  ];
+  if (allItems.length === 0) { area.style.display = 'none'; return; }
+  area.style.display = 'block';
+  list.innerHTML = allItems.map(item => `
+    <div style="position:relative; width:90px; text-align:center;">
+      ${item.isImage
+        ? `<img src="${item.src}" style="width:80px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0;">`
+        : `<div style="width:80px; height:80px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; font-size:2rem;">📄</div>`}
+      <div style="font-size:10px; color:#6b7280; margin-top:3px; word-break:break-all;">${item.name.length > 14 ? item.name.slice(0,12)+'...' : item.name}</div>
+      <button type="button" onclick="removeItem('${item.type}',${item.idx})"
+        style="position:absolute; top:-4px; right:4px; background:#ef4444; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; cursor:pointer; line-height:18px; padding:0;">✕</button>
+    </div>
+  `).join('');
+  syncCapturedInputs();
+}
+
+function removeItem(type, idx) {
+  if (type === 'file') selectedFiles.splice(idx, 1);
+  else capturedPhotos.splice(idx, 1);
+  renderPreviews();
+  rebuildFileInput();
+}
+
+function rebuildFileInput() {
+  const dt = new DataTransfer();
+  selectedFiles.forEach(f => dt.items.add(f));
+  document.getElementById('fileInput').files = dt.files;
+}
+
+function syncCapturedInputs() {
+  const container = document.getElementById('capturedInputs');
+  container.innerHTML = capturedPhotos.map((p, i) =>
+    `<input type="hidden" name="captured_photos" value="${encodeURIComponent(p.dataUrl)}">`
+  ).join('');
+}
+</script>
 {% endblock %}

@@ -156,7 +156,7 @@ def _run_ocr_background(stmt_id, filepath, api_key, tenant_id, google_vision_api
 # クレジット明細一覧
 # ============================================================
 @bp.route('/')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def index():
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -183,7 +183,7 @@ def index():
 # クレジット明細アップロード（即時リダイレクト、OCRはバックグラウンド）
 # ============================================================
 @bp.route('/upload', methods=['GET', 'POST'])
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def upload():
     if request.method == 'GET':
         return render_template('voucher_credit_upload.html')
@@ -256,7 +256,7 @@ def upload():
 # OCRステータス確認API（詳細画面の自動リロード用）
 # ============================================================
 @bp.route('/<int:stmt_id>/status')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def status(stmt_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -277,7 +277,7 @@ def status(stmt_id):
 # クレジット明細詳細
 # ============================================================
 @bp.route('/<int:stmt_id>')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def detail(stmt_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -304,7 +304,7 @@ def detail(stmt_id):
 # CSV出力
 # ============================================================
 @bp.route('/<int:stmt_id>/csv')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def export_csv(stmt_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -358,7 +358,7 @@ def export_csv(stmt_id):
 # Excel出力
 # ============================================================
 @bp.route('/<int:stmt_id>/excel')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def export_excel(stmt_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -454,7 +454,7 @@ def export_excel(stmt_id):
 # クレジット明細削除
 # ============================================================
 @bp.route('/<int:stmt_id>/delete', methods=['POST'])
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def delete(stmt_id):
     info = get_session_info()
     tenant_id = info['tenant_id']

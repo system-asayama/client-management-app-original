@@ -43,7 +43,7 @@ def get_session_info():
 # ============================================================
 @bp.route('/')
 @bp.route('/top')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def top():
     return render_template('voucher_top.html')
 
@@ -52,7 +52,7 @@ def top():
 # 証憑一覧（レシート・領収書モード）
 # ============================================================
 @bp.route('/list/')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def index():
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -80,7 +80,7 @@ def index():
 # 証憑アップロード
 # ============================================================
 @bp.route('/upload', methods=['GET', 'POST'])
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def upload():
     if request.method == 'GET':
         return render_template('voucher_store_upload.html')
@@ -249,7 +249,7 @@ def upload():
 # 証憑詳細
 # ============================================================
 @bp.route('/<int:voucher_id>')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'], ROLES['APP_MANAGER'])
 def detail(voucher_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -274,7 +274,7 @@ def detail(voucher_id):
 # 証憑編集
 # ============================================================
 @bp.route('/<int:voucher_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['APP_MANAGER'])
 def edit(voucher_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -319,7 +319,7 @@ def edit(voucher_id):
 # 証憑削除
 # ============================================================
 @bp.route('/<int:voucher_id>/delete', methods=['POST'])
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['APP_MANAGER'])
 def delete(voucher_id):
     info = get_session_info()
     tenant_id = info['tenant_id']
@@ -357,7 +357,7 @@ def delete(voucher_id):
 # CSVエクスポート
 # ============================================================
 @bp.route('/export/csv')
-@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'])
+@require_roles(ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['ADMIN'], ROLES['APP_MANAGER'])
 def export_csv():
     info = get_session_info()
     tenant_id = info['tenant_id']

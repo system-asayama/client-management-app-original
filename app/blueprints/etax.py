@@ -24,7 +24,7 @@ bp = Blueprint('etax', __name__, url_prefix='/etax')
 
 
 @bp.route('/request/<int:client_id>', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def create_request(client_id):
     """
     手動送信リクエストを作成してバックグラウンドでRPAを実行する。
@@ -110,7 +110,7 @@ def create_request(client_id):
 
 
 @bp.route('/status/<int:request_id>', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def get_status(request_id):
     """
     送信ステータスをJSONで返す（Ajax ポーリング用）。
@@ -137,7 +137,7 @@ def get_status(request_id):
 
 
 @bp.route('/history/<int:client_id>', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def history(client_id):
     """
     顧問先のe-Tax送信履歴一覧を返す（JSON）。
@@ -179,7 +179,7 @@ def history(client_id):
 
 
 @bp.route('/pdf/<int:request_id>', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def download_pdf(request_id):
     """
     納付区分番号通知PDFのURLにリダイレクトする。

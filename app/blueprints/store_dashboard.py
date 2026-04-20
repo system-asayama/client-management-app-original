@@ -33,7 +33,7 @@ def _get_store_or_404(db, store_id, tenant_id):
 
 
 @bp.route('/<int:store_id>/dashboard')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def dashboard(store_id):
     """店舗ダッシュボード"""
     tenant_id = session.get('tenant_id')
@@ -142,7 +142,7 @@ def dashboard(store_id):
 
 
 @bp.route('/<int:store_id>/clients')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def clients(store_id):
     """店舗別顧問先一覧"""
     tenant_id = session.get('tenant_id')
@@ -174,7 +174,7 @@ def clients(store_id):
 
 
 @bp.route('/<int:store_id>/employees')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def employees(store_id):
     """店舗別従業員一覧"""
     tenant_id = session.get('tenant_id')
@@ -222,7 +222,7 @@ def employees(store_id):
 
 
 @bp.route('/<int:store_id>/attendance')
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def attendance(store_id):
     """店舗別勤怠一覧"""
     tenant_id = session.get('tenant_id')

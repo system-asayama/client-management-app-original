@@ -79,21 +79,21 @@ def autosave_draft(data):
 
 
 @bp.route('/')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def index():
     """定款アプリトップページ"""
     return render_template('teikan/index.html')
 
 
 @bp.route('/select_type')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def select_type():
     """法人形態選択画面"""
     return render_template('teikan/select_type.html')
 
 
 @bp.route('/new')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def new_document():
     """新規定款作成：セッションをクリアして法人形態選択画面へ"""
     session.pop('teikan_data', None)
@@ -103,7 +103,7 @@ def new_document():
 
 
 @bp.route('/start/<company_type>')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def start_with_type(company_type):
     """法人形態を選択して定款作成を開始する"""
     session.pop('teikan_data', None)
@@ -114,7 +114,7 @@ def start_with_type(company_type):
 
 
 @bp.route('/step1', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def step1():
     """ステップ1: 基本情報入力（法人形態・商号・住所・登記方法）"""
     data = get_session_data()
@@ -140,7 +140,7 @@ def step1():
 
 
 @bp.route('/step2', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def step2():
     """ステップ2: 社員情報入力（代表社員・出資金・資本金）"""
     data = get_session_data()
@@ -174,7 +174,7 @@ def step2():
 
 
 @bp.route('/step3', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def step3():
     """ステップ3: 事業目的入力"""
     data = get_session_data()
@@ -199,7 +199,7 @@ def step3():
 
 
 @bp.route('/step4', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def step4():
     """ステップ4: 決算期・その他設定"""
     data = get_session_data()
@@ -218,7 +218,7 @@ def step4():
 
 
 @bp.route('/confirm')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def confirm():
     """確認画面：入力内容の確認（未入力でも表示、各項目から編集）"""
     data = get_session_data()
@@ -226,7 +226,7 @@ def confirm():
 
 
 @bp.route('/preview')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def preview():
     """定款プレビュー（HTML表示）"""
     data = get_session_data()
@@ -237,7 +237,7 @@ def preview():
 
 
 @bp.route('/download_pdf')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_pdf():
     """定款PDFをダウンロードする"""
     data = get_session_data()
@@ -262,7 +262,7 @@ def download_pdf():
 
 
 @bp.route('/reset')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def reset():
     """セッションデータをリセットして最初から"""
     session.pop('teikan_data', None)
@@ -270,7 +270,7 @@ def reset():
 
 
 @bp.route('/save', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def save():
     """定款データをDBに完成保存する（下書きがあれば更新、なければ新規作成）"""
     data = get_session_data()
@@ -334,7 +334,7 @@ def save():
 
 
 @bp.route('/new_corporation')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def new_corporation():
     """新規法人設立：セッションをクリアして中間ページへ"""
     session.pop('teikan_data', None)
@@ -344,7 +344,7 @@ def new_corporation():
 
 
 @bp.route('/new_setup')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def new_setup():
     """新しい法人を設立する中間ページ"""
     data = get_session_data()
@@ -353,7 +353,7 @@ def new_setup():
 
 
 @bp.route('/history')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def history():
     """作成済み定款一覧"""
     tenant_id = session.get('tenant_id')
@@ -374,7 +374,7 @@ def history():
 
 
 @bp.route('/history/<int:doc_id>')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def history_detail(doc_id):
     """保存済み定款の詳細プレビュー"""
     tenant_id = session.get('tenant_id')
@@ -394,7 +394,7 @@ def history_detail(doc_id):
 
 
 @bp.route('/history/<int:doc_id>/download')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def history_download(doc_id):
     """保存済み定款のPDFダウンロード"""
     tenant_id = session.get('tenant_id')
@@ -424,7 +424,7 @@ def history_download(doc_id):
 
 
 @bp.route('/history/<int:doc_id>/delete', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def history_delete(doc_id):
     """保存済み定款の削除"""
     tenant_id = session.get('tenant_id')
@@ -451,7 +451,7 @@ def history_delete(doc_id):
 
 
 @bp.route('/history/<int:doc_id>/edit')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def history_edit(doc_id):
     """保存済み定款をセッションに読み込んで編集再開"""
     tenant_id = session.get('tenant_id')
@@ -779,7 +779,7 @@ def generate_teikan_pdf(data):
 # ============================================================
 
 @bp.route('/registration_docs')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def registration_docs():
     """登記書類作成画面"""
     data = get_session_data()
@@ -790,7 +790,7 @@ def registration_docs():
 
 
 @bp.route('/registration_docs/preview/application')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def preview_registration_application():
     """設立登記申請書プレビュー"""
     data = get_session_data()
@@ -801,7 +801,7 @@ def preview_registration_application():
 
 
 @bp.route('/registration_docs/download/application')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_registration_application():
     """設立登記申請書PDFダウンロード"""
     data = get_session_data()
@@ -821,7 +821,7 @@ def download_registration_application():
 
 
 @bp.route('/registration_docs/download/payment_certificate')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_payment_certificate():
     """払込証明書PDFダウンロード"""
     data = get_session_data()
@@ -841,7 +841,7 @@ def download_payment_certificate():
 
 
 @bp.route('/registration_docs/preview/payment_certificate')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def preview_payment_certificate():
     """払込証明書プレビュー"""
     data = get_session_data()
@@ -852,7 +852,7 @@ def preview_payment_certificate():
 
 
 @bp.route('/registration_docs/download/capital_certificate')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_capital_certificate():
     """資本金の額の決定を証する書面PDFダウンロード"""
     data = get_session_data()
@@ -872,7 +872,7 @@ def download_capital_certificate():
 
 
 @bp.route('/registration_docs/download/office_location')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_office_location():
     """本店所在場所の決定を証する書面PDFダウンロード"""
     data = get_session_data()
@@ -892,7 +892,7 @@ def download_office_location():
 
 
 @bp.route('/registration_docs/download/acceptance_letter')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_acceptance_letter():
     """就任承諾書PDFダウンロード"""
     data = get_session_data()
@@ -912,7 +912,7 @@ def download_acceptance_letter():
 
 
 @bp.route('/registration_docs/download/founder_resolution')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_founder_resolution():
     """発起人の決定書 / 設立時社員の決議書PDFダウンロード"""
     data = get_session_data()
@@ -936,7 +936,7 @@ def download_founder_resolution():
 
 
 @bp.route('/registration_docs/download/seal_registration')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_seal_registration():
     """印鑑届出書PDFダウンロード"""
     data = get_session_data()
@@ -957,7 +957,7 @@ def download_seal_registration():
 
 
 @bp.route('/registration_docs/download/inkan_card')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_inkan_card():
     """印鑑カード交付申請書PDFダウンロード"""
     data = get_session_data()
@@ -977,7 +977,7 @@ def download_inkan_card():
 
 
 @bp.route('/registration_docs/download/stamp_duty_sheet')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_stamp_duty_sheet():
     """登録免許税納付用台紙をダウンロード"""
     data = get_session_data()
@@ -997,7 +997,7 @@ def download_stamp_duty_sheet():
 
 
 @bp.route('/registration_docs/download/registration_items')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_registration_items():
     """別紙（登記すべき事項）をダウンロード"""
     data = get_session_data()
@@ -1017,7 +1017,7 @@ def download_registration_items():
 
 
 @bp.route('/registration_docs/download/all')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def download_all_docs():
     """全登記書類をZIPでダウンロード"""
     import zipfile
@@ -1130,7 +1130,7 @@ def _pdf_to_preview_images(pdf_bytes, dpi=120):
 
 
 @bp.route('/registration_docs/preview_pdf/<doc_type>')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def preview_pdf(doc_type):
     """書類のPDFを生成して画像プレビューをJSONで返す"""
     from flask import jsonify

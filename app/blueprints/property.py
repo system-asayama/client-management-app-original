@@ -15,7 +15,7 @@ property_bp = Blueprint('property', __name__, url_prefix='/apps/property')
 
 
 @property_bp.route('/')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def index():
     """不動産管理トップページ（ダッシュボード）"""
     db = SessionLocal()
@@ -71,7 +71,7 @@ def index():
 # ==================== 物件管理 ====================
 
 @property_bp.route('/properties')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def properties():
     """物件一覧"""
     db = SessionLocal()
@@ -86,7 +86,7 @@ def properties():
 
 
 @property_bp.route('/properties/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def property_new():
     """物件登録"""
     if request.method == 'POST':
@@ -123,7 +123,7 @@ def property_new():
 
 
 @property_bp.route('/properties/<int:id>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def property_detail(id):
     """物件詳細"""
     db = SessionLocal()
@@ -147,7 +147,7 @@ def property_detail(id):
 
 
 @property_bp.route('/properties/<int:id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def property_edit(id):
     """物件編集"""
     try:
@@ -207,7 +207,7 @@ def property_edit(id):
         flash(f'エラーが発生しました: {str(e)}', 'danger')
         return redirect(url_for('property.properties'))
 @property_bp.route('/properties/<int:id>/delete', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def property_delete(id):
     """物件削除（論理削除）"""
     db = SessionLocal()
@@ -232,7 +232,7 @@ def property_delete(id):
 # ==================== 部屋管理 ====================
 
 @property_bp.route('/properties/<int:property_id>/rooms/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def room_new(property_id):
     """部屋登録"""
     db = SessionLocal()
@@ -271,7 +271,7 @@ def room_new(property_id):
 
 
 @property_bp.route('/rooms/<int:id>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def room_detail(id):
     """部屋詳細"""
     db = SessionLocal()
@@ -304,7 +304,7 @@ def room_detail(id):
 
 
 @property_bp.route('/rooms/<int:id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def room_edit(id):
     """部屋編集"""
     db = SessionLocal()
@@ -348,7 +348,7 @@ def room_edit(id):
 
 
 @property_bp.route('/rooms/<int:id>/delete', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def room_delete(id):
     """部屋削除（論理削除）"""
     db = SessionLocal()
@@ -382,7 +382,7 @@ def room_delete(id):
 # ==================== 入居者管理 ====================
 
 @property_bp.route('/tenants')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def tenants():
     """入居者一覧"""
     db = SessionLocal()
@@ -397,7 +397,7 @@ def tenants():
 
 
 @property_bp.route('/tenants/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def tenant_new():
     """入居者登録"""
     if request.method == 'POST':
@@ -426,7 +426,7 @@ def tenant_new():
 
 
 @property_bp.route('/tenants/<int:id>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def tenant_detail(id):
     """入居者詳細"""
     db = SessionLocal()
@@ -450,7 +450,7 @@ def tenant_detail(id):
 
 
 @property_bp.route('/tenants/<int:id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def tenant_edit(id):
     """入居者編集"""
     db = SessionLocal()
@@ -484,7 +484,7 @@ def tenant_edit(id):
 
 
 @property_bp.route('/tenants/<int:id>/delete', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def tenant_delete(id):
     """入居者削除（論理削除）"""
     db = SessionLocal()
@@ -509,7 +509,7 @@ def tenant_delete(id):
 # ==================== 契約管理 ====================
 
 @property_bp.route('/contracts')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def contracts():
     """契約一覧"""
     db = SessionLocal()
@@ -545,7 +545,7 @@ def contracts():
 
 
 @property_bp.route('/contracts/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def contract_new():
     """契約登録"""
     db = SessionLocal()
@@ -605,7 +605,7 @@ def contract_new():
 
 
 @property_bp.route('/contracts/<int:id>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def contract_detail(id):
     """契約詳細"""
     db = SessionLocal()
@@ -653,7 +653,7 @@ def contract_detail(id):
 
 
 @property_bp.route('/contracts/<int:id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def contract_edit(id):
     """契約編集"""
     db = SessionLocal()
@@ -709,7 +709,7 @@ def contract_edit(id):
 
 
 @property_bp.route('/contracts/<int:id>/terminate', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def contract_terminate(id):
     """契約終了"""
     db = SessionLocal()
@@ -754,7 +754,7 @@ def contract_terminate(id):
 # ==================== 減価償却管理 ====================
 
 @property_bp.route('/depreciation')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def depreciation():
     """減価償却一覧"""
     db = SessionLocal()
@@ -783,7 +783,7 @@ def depreciation():
 
 
 @property_bp.route('/depreciation/<int:property_id>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def depreciation_detail(property_id):
     """物件別減価償却詳細"""
     db = SessionLocal()
@@ -811,7 +811,7 @@ def depreciation_detail(property_id):
 
 
 @property_bp.route('/depreciation/<int:property_id>/calculate', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def depreciation_calculate(property_id):
     """減価償却計算"""
     db = SessionLocal()
@@ -1260,7 +1260,7 @@ def calculate_simulation(simulation, db):
 
 
 @property_bp.route('/simulations')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulations():
     """シミュレーション一覧"""
     db = SessionLocal()
@@ -1292,7 +1292,7 @@ def simulations():
 
 
 @property_bp.route('/simulations/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_new():
     """シミュレーション新規作成"""
     db = SessionLocal()
@@ -1522,7 +1522,7 @@ def simulation_new():
 
 
 @property_bp.route('/simulations/<int:simulation_id>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_detail(simulation_id):
     """シミュレーション詳細"""
     db = SessionLocal()
@@ -1569,7 +1569,7 @@ def simulation_detail(simulation_id):
 
 
 @property_bp.route('/simulations/<int:simulation_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_edit(simulation_id):
     """シミュレーション編集"""
     db = SessionLocal()
@@ -1801,7 +1801,7 @@ def simulation_edit(simulation_id):
                          current_year=date.today().year)
 
 @property_bp.route('/simulations/<int:simulation_id>/delete', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_delete(simulation_id):
     """シミュレーション削除"""
     db = SessionLocal()
@@ -1833,7 +1833,7 @@ def simulation_delete(simulation_id):
 
 
 @property_bp.route('/simulations/<int:simulation_id>/recalculate', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_recalculate(simulation_id):
     """シミュレーション再計算"""
     db = SessionLocal()
@@ -1866,7 +1866,7 @@ PAYMENT_METHODS = ['現金', '銀行振込', 'クレジットカード', '口座
 
 
 @property_bp.route('/properties/<int:property_id>/expenses')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_list_property(property_id):
     """物件経費一覧"""
     db = SessionLocal()
@@ -1898,7 +1898,7 @@ def expense_list_property(property_id):
 
 
 @property_bp.route('/properties/<int:property_id>/expenses/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_new_property(property_id):
     """物件経費登録"""
     db = SessionLocal()
@@ -1941,7 +1941,7 @@ def expense_new_property(property_id):
 
 
 @property_bp.route('/properties/<int:property_id>/expenses/<int:expense_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_edit_property(property_id, expense_id):
     """物件経費編集"""
     db = SessionLocal()
@@ -1990,7 +1990,7 @@ def expense_edit_property(property_id, expense_id):
 
 
 @property_bp.route('/properties/<int:property_id>/expenses/<int:expense_id>/delete', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_delete_property(property_id, expense_id):
     """物件経費削除"""
     db = SessionLocal()
@@ -2025,7 +2025,7 @@ def expense_delete_property(property_id, expense_id):
 # ==================== 部屋経費管理 ====================
 
 @property_bp.route('/rooms/<int:room_id>/expenses')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_list_room(room_id):
     """部屋経費一覧"""
     db = SessionLocal()
@@ -2067,7 +2067,7 @@ def expense_list_room(room_id):
 
 
 @property_bp.route('/rooms/<int:room_id>/expenses/new', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_new_room(room_id):
     """部屋経費登録"""
     db = SessionLocal()
@@ -2120,7 +2120,7 @@ def expense_new_room(room_id):
 
 
 @property_bp.route('/rooms/<int:room_id>/expenses/<int:expense_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_edit_room(room_id, expense_id):
     """部屋経費編集"""
     db = SessionLocal()
@@ -2179,7 +2179,7 @@ def expense_edit_room(room_id, expense_id):
 
 
 @property_bp.route('/rooms/<int:room_id>/expenses/<int:expense_id>/delete', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def expense_delete_room(room_id, expense_id):
     """部屋経費削除"""
     db = SessionLocal()
@@ -2221,7 +2221,7 @@ def expense_delete_room(room_id, expense_id):
 
 
 @property_bp.route('/simulations/<int:simulation_id>/year/<int:year>')
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_year_detail(simulation_id, year):
     """シミュレーションの特定年度の詳細を表示（損益計算書）"""
     db = SessionLocal()
@@ -2301,7 +2301,7 @@ def simulation_year_detail(simulation_id, year):
 
 
 @property_bp.route('/simulations/<int:simulation_id>/loan-detail', methods=['GET'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_loan_detail(simulation_id):
     """ローン詳細設定ページ（詳細モード用）"""
     db = SessionLocal()
@@ -2349,7 +2349,7 @@ def simulation_loan_detail(simulation_id):
 
 
 @property_bp.route('/simulations/<int:simulation_id>/loan-detail', methods=['POST'])
-@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'])
+@require_roles(ROLES['ADMIN'], ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['APP_MANAGER'])
 def simulation_loan_detail_save(simulation_id):
     """ローン詳細設定の保存"""
     db = SessionLocal()

@@ -100,7 +100,7 @@ def _get_or_create_site(db, tenant_id):
 # ─────────────────────────────────────────────
 @bp.route('/')
 @bp.route('')
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def index():
     """ホームページ制作アプリ トップ"""
     tenant_id = session.get('tenant_id')
@@ -125,7 +125,7 @@ def index():
 # サイト設定編集
 # ─────────────────────────────────────────────
 @bp.route('/settings', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def settings():
     """サイト全体設定の編集"""
     tenant_id = session.get('tenant_id')
@@ -152,7 +152,7 @@ def settings():
 # セクション追加
 # ─────────────────────────────────────────────
 @bp.route('/section/add', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def section_add():
     """新しいセクションを追加する"""
     tenant_id = session.get('tenant_id')
@@ -202,7 +202,7 @@ def section_add():
 # セクション編集
 # ─────────────────────────────────────────────
 @bp.route('/section/<int:section_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def section_edit(section_id):
     """セクションを編集する"""
     tenant_id = session.get('tenant_id')
@@ -243,7 +243,7 @@ def section_edit(section_id):
 # セクション削除
 # ─────────────────────────────────────────────
 @bp.route('/section/<int:section_id>/delete', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def section_delete(section_id):
     """セクションを削除する"""
     tenant_id = session.get('tenant_id')
@@ -267,7 +267,7 @@ def section_delete(section_id):
 # セクション表示/非表示切り替え（Ajax）
 # ─────────────────────────────────────────────
 @bp.route('/section/<int:section_id>/toggle', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def section_toggle(section_id):
     """セクションの表示/非表示を切り替える"""
     tenant_id = session.get('tenant_id')
@@ -289,7 +289,7 @@ def section_toggle(section_id):
 # セクション並び順更新（Ajax）
 # ─────────────────────────────────────────────
 @bp.route('/section/reorder', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def section_reorder():
     """セクションの並び順を更新する"""
     tenant_id = session.get('tenant_id')
@@ -313,7 +313,7 @@ def section_reorder():
 # プレビュー
 # ─────────────────────────────────────────────
 @bp.route('/preview')
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def preview():
     """ホームページのプレビューを表示する"""
     tenant_id = session.get('tenant_id')
@@ -337,7 +337,7 @@ def preview():
 # HTMLエクスポート
 # ─────────────────────────────────────────────
 @bp.route('/export')
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
 def export_html():
     """ホームページのHTMLをエクスポートする"""
     tenant_id = session.get('tenant_id')

@@ -69,7 +69,7 @@ def index():
 # 勤怠管理
 # ─────────────────────────────────────────────
 @bp.route('/attendance', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def attendance():
     """管理者向け：全スタッフの勤怠一覧を表示する"""
     tenant_id = session.get('tenant_id')
@@ -254,7 +254,7 @@ def attendance():
 # GPS位置記録 API（勤怠画面からのAjaxリクエスト用）
 # ─────────────────────────────────────────────
 @bp.route('/attendance/location', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def record_location():
     """勤怠中のGPS位置を記録するAPIエンドポイント
 
@@ -307,7 +307,7 @@ def record_location():
 
 
 @bp.route('/attendance/location/today')
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def today_locations():
     """今日のGPS位置履歴を返すAPIエンドポイント"""
     tenant_id = session.get('tenant_id')
@@ -351,7 +351,7 @@ def today_locations():
 # 管理者向け：スタッフ位置確認画面
 # ─────────────────────────────────────────────
 @bp.route('/attendance/map')
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def attendance_map():
     """管理者向け：スタッフの当日移動ルートを地図で確認する画面"""
     tenant_id = session.get('tenant_id')
@@ -529,7 +529,7 @@ def attendance_map():
 
 # リアルタイム追跡モード ON/OFF API
 @bp.route('/attendance/realtime_mode', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def toggle_realtime_mode():
     """管理者が地図画面からリアルタイム追跡モードをON/OFFするAPI"""
     tenant_id = session.get('tenant_id')
@@ -552,7 +552,7 @@ def toggle_realtime_mode():
 
 # リアルタイムモード状態確認API（Expoアプリからポーリング用）
 @bp.route('/attendance/realtime_mode', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def get_realtime_mode():
     """現在のリアルタイムモードの状態を返すAPI（Expoアプリがポーリングする）"""
     tenant_id = session.get('tenant_id')
@@ -572,7 +572,7 @@ def get_realtime_mode():
 
 # リアルタイム地図データAPI（地図画面がポーリングする）
 @bp.route('/attendance/map/realtime_data')
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def attendance_map_realtime_data():
     """リアルタイム追跡時に地図画面がポーリングする位置データAPI"""
     tenant_id = session.get('tenant_id')

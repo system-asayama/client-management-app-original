@@ -9,7 +9,7 @@ bp = Blueprint("e_contract_bridge", __name__, url_prefix="/e-contract")
 
 @bp.get("")
 @bp.get("/")
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["APP_MANAGER"])
 def index():
     # Redirect to the integrated e-contract UI (same process, no separate service needed).
     return redirect("/e-contract/ui/contracts")

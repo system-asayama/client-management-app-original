@@ -5,40 +5,10 @@
 <a href="{{ url_for('truck.contracts') }}" class="back-link">← 契約書一覧に戻る</a>
 
 <div class="page-title">{% if contract %}✏️ 契約書編集{% else %}📄 契約書新規登録{% endif %}</div>
-<div class="page-subtitle" style="margin-bottom:20px;">PDF・画像をアップロードすると登録後にAI-OCRで内容を自動読み取りできます</div>
+<div class="page-subtitle" style="margin-bottom:20px;">PDF・画像をアップロードして「🤖 AI読み取り」ボタンを押すと各項目が自動入力されます</div>
 
 <div class="form-card" style="max-width:640px;">
   <form method="post" enctype="multipart/form-data" id="contractForm">
-    <div class="form-field">
-      <label>契約書名 <span class="required">*</span></label>
-      <input type="text" name="title" value="{{ contract.title if contract else '' }}" required placeholder="例：車両リース契約書">
-    </div>
-    <div class="form-field">
-      <label>種別</label>
-      <select name="contract_type">
-        <option value="lease" {% if contract and contract.contract_type == 'lease' %}selected{% endif %}>リース契約</option>
-        <option value="maintenance" {% if contract and contract.contract_type == 'maintenance' %}selected{% endif %}>メンテナンス契約</option>
-        <option value="other" {% if not contract or contract.contract_type == 'other' %}selected{% endif %}>その他</option>
-      </select>
-    </div>
-    <div class="form-field">
-      <label>相手方（会社名）</label>
-      <input type="text" name="counterparty" value="{{ contract.counterparty if contract else '' }}" placeholder="例：○○リース株式会社">
-    </div>
-    <div style="display:flex; gap:12px;">
-      <div class="form-field" style="flex:1;">
-        <label>契約開始日</label>
-        <input type="date" name="start_date" value="{{ contract.start_date.isoformat() if contract and contract.start_date else '' }}">
-      </div>
-      <div class="form-field" style="flex:1;">
-        <label>契約終了日</label>
-        <input type="date" name="end_date" value="{{ contract.end_date.isoformat() if contract and contract.end_date else '' }}">
-      </div>
-    </div>
-    <div class="form-field">
-      <label>契約金額（円）</label>
-      <input type="number" name="amount" value="{{ contract.amount|int if contract and contract.amount else '' }}" placeholder="例：1200000">
-    </div>
 
     <!-- ファイル添付エリア -->
     <div class="form-field">
@@ -60,7 +30,7 @@
       </div>
 
       <!-- 隠しファイル入力 -->
-      <input type="file" id="fileInput" name="files" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" multiple style="display:none" onchange="handleFileSelect(this)">
+      <input type="file" id="fileInput" name="files" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="handleFileSelect(this)">
 
       <!-- カメラUI -->
       <div id="cameraArea" style="display:none; margin-bottom:12px;">
@@ -93,30 +63,53 @@
       <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。複数ファイル選択可。</div>
     </div>
 
-    <!-- AI読み取りオプション -->
-    <div class="form-field" id="ocrOptionArea" style="display:none;">
-      <label>AI読み取り</label>
-      <div style="display:flex; gap:10px; margin-top:4px;">
-        <label style="flex:1; display:flex; align-items:center; gap:8px; padding:12px; border:2px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#fff;" id="ocrOff">
-          <input type="radio" name="ocr_mode" value="none" checked onchange="updateOcrOption()">
-          <span>
-            <span style="font-weight:600; font-size:0.9rem;">&#128190; アップロードのみ</span><br>
-            <span style="font-size:0.78rem; color:#6b7280;">ファイルを保存するだけ</span>
-          </span>
-        </label>
-        <label style="flex:1; display:flex; align-items:center; gap:8px; padding:12px; border:2px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#fff;" id="ocrOn">
-          <input type="radio" name="ocr_mode" value="auto" onchange="updateOcrOption()">
-          <span>
-            <span style="font-weight:600; font-size:0.9rem;">&#129302; AI自動読み取り</span><br>
-            <span style="font-size:0.78rem; color:#6b7280;">登録後にGPT-4oで内容を解析</span>
-          </span>
-        </label>
-      </div>
+    <!-- AI読み取りボタン -->
+    <div id="ocrBtnArea" style="display:none; margin-bottom:20px;">
+      <button type="button" id="ocrBtn" onclick="runOcr()"
+        style="width:100%; padding:14px; background:linear-gradient(135deg,#1e3a5f,#2563eb); color:#fff; border:none; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+        🤖 AI読み取り（各項目を自動入力）
+      </button>
+      <div id="ocrStatus" style="margin-top:8px; font-size:0.85rem; color:#6b7280; text-align:center; display:none;"></div>
+    </div>
+
+    <!-- 読み取り結果バナー -->
+    <div id="ocrResultBanner" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; margin-bottom:16px; font-size:0.85rem; color:#166534;">
+      ✅ AI読み取り完了。内容を確認して「登録する」を押してください。
     </div>
 
     <div class="form-field">
+      <label>契約書名 <span class="required">*</span></label>
+      <input type="text" name="title" id="f_title" value="{{ contract.title if contract else '' }}" required placeholder="例：車両リース契約書">
+    </div>
+    <div class="form-field">
+      <label>種別</label>
+      <select name="contract_type" id="f_contract_type">
+        <option value="lease" {% if contract and contract.contract_type == 'lease' %}selected{% endif %}>リース契約</option>
+        <option value="maintenance" {% if contract and contract.contract_type == 'maintenance' %}selected{% endif %}>メンテナンス契約</option>
+        <option value="other" {% if not contract or contract.contract_type == 'other' %}selected{% endif %}>その他</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>相手方（会社名）</label>
+      <input type="text" name="counterparty" id="f_counterparty" value="{{ contract.counterparty if contract else '' }}" placeholder="例：○○リース株式会社">
+    </div>
+    <div style="display:flex; gap:12px;">
+      <div class="form-field" style="flex:1;">
+        <label>契約開始日</label>
+        <input type="date" name="start_date" id="f_start_date" value="{{ contract.start_date.isoformat() if contract and contract.start_date else '' }}">
+      </div>
+      <div class="form-field" style="flex:1;">
+        <label>契約終了日</label>
+        <input type="date" name="end_date" id="f_end_date" value="{{ contract.end_date.isoformat() if contract and contract.end_date else '' }}">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>契約金額（円）</label>
+      <input type="number" name="amount" id="f_amount" value="{{ contract.amount|int if contract and contract.amount else '' }}" placeholder="例：1200000">
+    </div>
+    <div class="form-field">
       <label>備考</label>
-      <textarea name="note" placeholder="備考・メモ">{{ contract.note if contract else '' }}</textarea>
+      <textarea name="note" id="f_note" placeholder="備考・メモ">{{ contract.note if contract else '' }}</textarea>
     </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{% if contract %}更新する{% else %}登録する{% endif %}</button>
@@ -127,12 +120,11 @@
 
 <script>
 let stream = null;
-let capturedPhotos = []; // {dataUrl, filename}
-let selectedFiles = []; // File objects
+let capturedPhotos = [];
+let selectedFiles = [];
 
 function handleFileSelect(input) {
-  const files = Array.from(input.files);
-  files.forEach(f => selectedFiles.push(f));
+  Array.from(input.files).forEach(f => selectedFiles.push(f));
   renderPreviews();
 }
 
@@ -140,14 +132,8 @@ function startCamera() {
   const cameraArea = document.getElementById('cameraArea');
   cameraArea.style.display = 'block';
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-    .then(s => {
-      stream = s;
-      document.getElementById('cameraVideo').srcObject = s;
-    })
-    .catch(err => {
-      alert('カメラにアクセスできません: ' + err.message);
-      cameraArea.style.display = 'none';
-    });
+    .then(s => { stream = s; document.getElementById('cameraVideo').srcObject = s; })
+    .catch(err => { alert('カメラにアクセスできません: ' + err.message); cameraArea.style.display = 'none'; });
 }
 
 function stopCamera() {
@@ -167,27 +153,16 @@ function capturePhoto() {
   renderPreviews();
 }
 
-function showOcrOption() {
-  const total = selectedFiles.length + capturedPhotos.length;
-  const ocrArea = document.getElementById('ocrOptionArea');
-  ocrArea.style.display = total > 0 ? 'block' : 'none';
-}
-
-function updateOcrOption() {
-  const val = document.querySelector('input[name="ocr_mode"]:checked').value;
-  document.getElementById('ocrOff').style.border = val === 'none' ? '2px solid #1e3a5f' : '2px solid #e2e8f0';
-  document.getElementById('ocrOn').style.border = val === 'auto' ? '2px solid #1e3a5f' : '2px solid #e2e8f0';
-}
-
 function renderPreviews() {
   const area = document.getElementById('previewArea');
   const list = document.getElementById('previewList');
-  showOcrOption();
   const allItems = [
     ...selectedFiles.map((f, i) => ({ type: 'file', name: f.name, idx: i, isImage: f.type.startsWith('image/'), src: URL.createObjectURL(f) })),
     ...capturedPhotos.map((p, i) => ({ type: 'photo', name: p.filename, idx: i, isImage: true, src: p.dataUrl }))
   ];
-  if (allItems.length === 0) { area.style.display = 'none'; return; }
+  const total = allItems.length;
+  document.getElementById('ocrBtnArea').style.display = total > 0 ? 'block' : 'none';
+  if (total === 0) { area.style.display = 'none'; return; }
   area.style.display = 'block';
   list.innerHTML = allItems.map(item => `
     <div style="position:relative; width:90px; text-align:center;">
@@ -206,7 +181,6 @@ function removeItem(type, idx) {
   if (type === 'file') selectedFiles.splice(idx, 1);
   else capturedPhotos.splice(idx, 1);
   renderPreviews();
-  // ファイル入力を再構築
   rebuildFileInput();
 }
 
@@ -221,6 +195,78 @@ function syncCapturedInputs() {
   container.innerHTML = capturedPhotos.map((p, i) =>
     `<input type="hidden" name="captured_photos" value="${encodeURIComponent(p.dataUrl)}">`
   ).join('');
+}
+
+async function runOcr() {
+  const btn = document.getElementById('ocrBtn');
+  const status = document.getElementById('ocrStatus');
+  const banner = document.getElementById('ocrResultBanner');
+
+  // 送信するファイルを決定（選択ファイル優先、なければ撮影写真の1枚目）
+  let fileToSend = null;
+  let filename = '';
+  if (selectedFiles.length > 0) {
+    fileToSend = selectedFiles[0];
+    filename = fileToSend.name;
+  } else if (capturedPhotos.length > 0) {
+    // Base64 → Blob
+    const dataUrl = capturedPhotos[0].dataUrl;
+    const res = await fetch(dataUrl);
+    fileToSend = await res.blob();
+    filename = capturedPhotos[0].filename;
+  } else {
+    alert('ファイルを選択または撮影してください');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 読み取り中...';
+  status.style.display = 'block';
+  status.textContent = 'AIが内容を解析しています。しばらくお待ちください...';
+  banner.style.display = 'none';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', fileToSend, filename);
+    fd.append('doc_type', 'contract');
+
+    const resp = await fetch('{{ url_for("truck.ocr_preview") }}', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+    const json = await resp.json();
+
+    if (!resp.ok || json.error) {
+      status.style.color = '#dc2626';
+      status.textContent = '❌ ' + (json.error || '読み取りに失敗しました');
+      return;
+    }
+
+    const d = json.data;
+    // フィールドに自動入力
+    if (d.title) document.getElementById('f_title').value = d.title;
+    if (d.counterparty) document.getElementById('f_counterparty').value = d.counterparty;
+    if (d.start_date) document.getElementById('f_start_date').value = d.start_date;
+    if (d.end_date) document.getElementById('f_end_date').value = d.end_date;
+    if (d.amount) document.getElementById('f_amount').value = String(d.amount).replace(/[^0-9]/g, '');
+    if (d.summary) document.getElementById('f_note').value = d.summary;
+    // 種別の推定
+    if (d.title) {
+      const t = d.title;
+      if (t.includes('リース')) document.getElementById('f_contract_type').value = 'lease';
+      else if (t.includes('メンテ') || t.includes('整備')) document.getElementById('f_contract_type').value = 'maintenance';
+    }
+
+    status.style.display = 'none';
+    banner.style.display = 'block';
+  } catch (e) {
+    status.style.color = '#dc2626';
+    status.textContent = '❌ 通信エラー: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🤖 AI読み取り（各項目を自動入力）';
+  }
 }
 </script>
 {% endblock %}

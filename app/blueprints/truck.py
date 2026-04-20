@@ -914,7 +914,9 @@ def contract_new():
             db.commit()
             # AI自動読み取り
             if request.form.get('ocr_mode') == 'auto' and c.file_path:
-                api_key, google_vision_key = _get_truck_api_keys(session.get('tenant_id'), db)
+                _api_keys = _get_truck_api_keys(db, session.get('tenant_id'))
+                api_key = _api_keys.get('openai_api_key')
+                google_vision_key = _api_keys.get('google_vision_api_key')
                 if api_key:
                     try:
                         result = _run_truck_ocr(c.file_path, api_key, 'contract', google_vision_key=google_vision_key)
@@ -1077,7 +1079,9 @@ def insurance_new():
             db.commit()
             # AI自動読み取り
             if request.form.get('ocr_mode') == 'auto' and ins.file_path:
-                api_key, google_vision_key = _get_truck_api_keys(tenant_id, db)
+                _api_keys2 = _get_truck_api_keys(db, tenant_id)
+                api_key = _api_keys2.get('openai_api_key')
+                google_vision_key = _api_keys2.get('google_vision_api_key')
                 if api_key:
                     try:
                         result = _run_truck_ocr(ins.file_path, api_key, 'insurance', google_vision_key=google_vision_key)
@@ -1417,8 +1421,45 @@ def _run_truck_ocr(file_path, api_key, doc_type, google_vision_key=None):
     return json.loads(resp.json()['choices'][0]['message']['content'])
 
 
-# ─── # ─── APIキー設定 ──────────────────────────────────────
+## ─── OCRプレビュー（AJAX: フォーム上でファイルをアップロードしてOCR結果を返す）──────
+@bp.route('/ocr/preview', methods=['POST'])
+@login_required_truck
+def ocr_preview():
+    """フォーム上でAI読み取りボタンを押したときにOCR結果をJSONで返すAJAXエンドポイント"""
+    import tempfile
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        doc_type = request.form.get('doc_type', 'contract')  # 'contract' or 'insurance'
+        file = request.files.get('file')
+        if not file or file.filename == '':
+            return jsonify({'error': 'ファイルが選択されていません'}), 400
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
+            return jsonify({'error': 'PDF・JPG・PNGのみ対応しています'}), 400
+        # 一時ファイルに保存
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+        try:
+            _ocr_keys = _get_truck_api_keys(db, tenant_id)
+            api_key = _ocr_keys.get('openai_api_key')
+            google_vision_key = _ocr_keys.get('google_vision_api_key')
+            if not api_key:
+                return jsonify({'error': 'APIキーが設定されていません。システム設定 > APIキー設定 で登録してください。'}), 400
+            result = _run_truck_ocr(tmp_path, api_key, doc_type, google_vision_key=google_vision_key)
+            return jsonify({'success': True, 'data': result})
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+    except Exception as e:
+        return jsonify({'error': f'読み取りエラー: {str(e)[:100]}'}), 500
+    finally:
+        db.close()
 
+# ─── # ─── APIキー設定 ──────────────────────────────────────
 @bp.route('/settings/api', methods=['GET', 'POST'])
 @login_required_truck
 def api_settings():

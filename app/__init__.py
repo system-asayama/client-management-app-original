@@ -20,9 +20,11 @@ try:
     
     # ログインシステムの自動マイグレーション実行
     try:
-        from .auto_migrations import run_auto_migrations
+        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations
         run_auto_migrations()
         print("✅ ログインシステム自動マイグレーション完了")
+        run_truck_doc_migrations()
+        print("✅ トラック書類カラムマイグレーション完了")
     except Exception as e:
         print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
 except Exception as e:

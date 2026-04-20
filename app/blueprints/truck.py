@@ -16,7 +16,7 @@ from sqlalchemy import text
 
 from app.db import SessionLocal
 from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance
-from app.models_login import TTenant
+from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -990,11 +990,12 @@ def contract_ocr(contract_id):
         c = q.first()
         if not c or not c.file_path:
             return jsonify({'error': 'ファイルがありません'}), 400
-        tenant = db.query(TTenant).filter_by(id=tenant_id).first() if tenant_id else None
-        api_key = getattr(tenant, 'openai_api_key', None) if tenant else None
-        if not api_key:
-            return jsonify({'error': 'テナント管理者のAPIキー設定でOpenAI APIキーを登録してください'}), 400
-        result = _run_truck_ocr(c.file_path, api_key, 'contract')
+        api_keys = _get_truck_api_keys(db, tenant_id)
+        api_key = api_keys.get('openai_api_key')
+        google_vision_key = api_keys.get('google_vision_api_key')
+        if not api_key and not google_vision_key:
+            return jsonify({'error': 'APIキーが設定されていません。テナント管理者のAPIキー設定でOpenAI APIキーまたはGoogle Vision APIキーを登録してください'}), 400
+        result = _run_truck_ocr(c.file_path, api_key, 'contract', google_vision_key=google_vision_key)
         c.ocr_status = 'done'
         c.ocr_title = result.get('title', '')
         c.ocr_counterparty = result.get('counterparty', '')
@@ -1136,11 +1137,12 @@ def insurance_ocr(ins_id):
         ins = q.first()
         if not ins or not ins.file_path:
             return jsonify({'error': 'ファイルがありません'}), 400
-        tenant = db.query(TTenant).filter_by(id=tenant_id).first() if tenant_id else None
-        api_key = getattr(tenant, 'openai_api_key', None) if tenant else None
-        if not api_key:
-            return jsonify({'error': 'テナント管理者のAPIキー設定でOpenAI APIキーを登録してください'}), 400
-        result = _run_truck_ocr(ins.file_path, api_key, 'insurance')
+        api_keys = _get_truck_api_keys(db, tenant_id)
+        api_key = api_keys.get('openai_api_key')
+        google_vision_key = api_keys.get('google_vision_api_key')
+        if not api_key and not google_vision_key:
+            return jsonify({'error': 'APIキーが設定されていません。テナント管理者のAPIキー設定でOpenAI APIキーまたはGoogle Vision APIキーを登録してください'}), 400
+        result = _run_truck_ocr(ins.file_path, api_key, 'insurance', google_vision_key=google_vision_key)
         ins.ocr_status = 'done'
         ins.ocr_insurer = result.get('insurer', '')
         ins.ocr_policy_number = result.get('policy_number', '')
@@ -1158,6 +1160,50 @@ def insurance_ocr(ins_id):
 
 
 # ─── AI-OCRヘルパー関数 ────────────────────────────────────
+
+def _get_truck_api_keys(db, tenant_id):
+    """店舗 → テナント → アプリ管理グループ → システム管理者の順でAPIキーを取得（証桯データ化アプリと同じロジック）"""
+    result = {'openai_api_key': None, 'google_vision_api_key': None, 'google_api_key': None, 'anthropic_api_key': None}
+    if tenant_id:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if tenant:
+            if getattr(tenant, 'openai_api_key', None):
+                result['openai_api_key'] = tenant.openai_api_key
+            if getattr(tenant, 'google_vision_api_key', None):
+                result['google_vision_api_key'] = tenant.google_vision_api_key
+            if getattr(tenant, 'google_api_key', None):
+                result['google_api_key'] = tenant.google_api_key
+            if getattr(tenant, 'anthropic_api_key', None):
+                result['anthropic_api_key'] = tenant.anthropic_api_key
+    # アプリ管理グループからフォールバック
+    if not result['openai_api_key'] or not result['google_vision_api_key']:
+        try:
+            app_managers = db.query(TKanrisha).filter(
+                TKanrisha.role == 'app_manager',
+                TKanrisha.app_manager_group_id.isnot(None)
+            ).all()
+            for am in app_managers:
+                grp = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == am.app_manager_group_id).first()
+                if grp:
+                    if not result['openai_api_key'] and getattr(grp, 'openai_api_key', None):
+                        result['openai_api_key'] = grp.openai_api_key
+                    if not result['google_vision_api_key'] and getattr(grp, 'google_vision_api_key', None):
+                        result['google_vision_api_key'] = grp.google_vision_api_key
+                    break
+        except Exception:
+            pass
+    # システム管理者からフォールバック
+    if not result['openai_api_key'] or not result['google_vision_api_key']:
+        sys_admins = db.query(TKanrisha).filter(TKanrisha.role == 'system_admin').all()
+        for sa in sys_admins:
+            if not result['openai_api_key'] and getattr(sa, 'openai_api_key', None):
+                result['openai_api_key'] = sa.openai_api_key
+            if not result['google_vision_api_key'] and getattr(sa, 'google_vision_api_key', None):
+                result['google_vision_api_key'] = sa.google_vision_api_key
+            if result['openai_api_key'] and result['google_vision_api_key']:
+                break
+    return result
+
 
 def _parse_date(s):
     if not s:
@@ -1201,8 +1247,11 @@ def _save_truck_file(file_obj, subdir):
     return fpath, file_obj.filename
 
 
-def _run_truck_ocr(file_path, api_key, doc_type):
-    """GPT-4o Visionで契約書・保険証券を読み取る"""
+def _run_truck_ocr(file_path, api_key, doc_type, google_vision_key=None):
+    """契約書・保険証券を読み取る。証桯データ化アプリと同じロジック：
+    1. Google Vision API（OCR）+ GPT-4o（構造化）: 最高精度
+    2. GPT-4o Vision単体: 標準精度
+    """
     import base64
     import requests as _req
     import fitz  # PyMuPDF
@@ -1233,19 +1282,18 @@ def _run_truck_ocr(file_path, api_key, doc_type):
         return {'error': '画像変換失敗'}
 
     if doc_type == 'contract':
-        prompt = ("""以下の契約書画像から情報を抽出してJSONで返してください。
-{
+        json_schema = '{
   "title": "契約書名・契約の種類",
   "counterparty": "相手方会社名",
   "start_date": "YYYY-MM-DD形式",
   "end_date": "YYYY-MM-DD形式",
   "amount": "契約金額（数字のみ）",
   "summary": "契約内容の要約（200字以内）"
-}"""
-        )
+}'
+        image_prompt = f"以下の契約書画像から情報を抽出してJSONで返してください。\n{json_schema}"
+        text_prompt_template = f"以下の契約書OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
     else:
-        prompt = ("""以下の保険証券画像から情報を抽出してJSONで返してください。
-{
+        json_schema = '{
   "insurer": "保険会社名",
   "policy_number": "証券番号",
   "insurance_type": "保険種類（自賠責/任意/貨物/その他）",
@@ -1254,17 +1302,45 @@ def _run_truck_ocr(file_path, api_key, doc_type):
   "premium": "保険料（数字のみ）",
   "coverage_amount": "保険金額（数字のみ）",
   "summary": "保険内容の要約（200字以内）"
-}"""
-        )
+}'
+        image_prompt = f"以下の保険証券画像から情報を抽出してJSONで返してください。\n{json_schema}"
+        text_prompt_template = f"以下の保険証券OCRテキストから情報を抽出してJSONで返してください。\n{json_schema}\nOCRテキスト:\n{{OCR_TEXT}}"
 
-    content = [{'type': 'text', 'text': prompt}]
+    # 方式1: Google Vision API（OCR）+ GPT-4o（構造化）: 最高精度
+    if google_vision_key and api_key:
+        try:
+            from app.utils.voucher.ocr import extract_text_with_google_vision_api_key
+            ocr_text = ''
+            for p in image_paths:
+                ocr_text += extract_text_with_google_vision_api_key(p, google_vision_key) + '\n'
+            if ocr_text.strip():
+                prompt_text = text_prompt_template.replace('{OCR_TEXT}', ocr_text)
+                headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
+                payload = {
+                    'model': 'gpt-4o',
+                    'messages': [
+                        {'role': 'system', 'content': 'あなたは日本語文書のOCR専門家です。必ずJSON形式のみで返してください。'},
+                        {'role': 'user', 'content': prompt_text}
+                    ],
+                    'max_tokens': 2000,
+                    'response_format': {'type': 'json_object'}
+                }
+                resp = _req.post('https://api.openai.com/v1/chat/completions', headers=headers, json=payload, timeout=120)
+                resp.raise_for_status()
+                return json.loads(resp.json()['choices'][0]['message']['content'])
+        except Exception as e:
+            print(f'[TruckOCR] Google Vision + GPT-4oエラー: {e}、GPT-4o Visionにフォールバック')
+
+    # 方式2: GPT-4o Vision単体
+    if not api_key:
+        return {'error': 'APIキーが設定されていません'}
+    content = [{'type': 'text', 'text': image_prompt}]
     for p in image_paths:
         img_data = encode_image(p)
         content.append({'type': 'image_url', 'image_url': {
             'url': f'data:image/jpeg;base64,{img_data}',
             'detail': 'high'
         }})
-
     headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
     payload = {
         'model': 'gpt-4o',
@@ -1277,9 +1353,7 @@ def _run_truck_ocr(file_path, api_key, doc_type):
     }
     resp = _req.post('https://api.openai.com/v1/chat/completions', headers=headers, json=payload, timeout=120)
     resp.raise_for_status()
-    data = resp.json()
-    text = data['choices'][0]['message']['content']
-    return json.loads(text)
+    return json.loads(resp.json()['choices'][0]['message']['content'])
 
 
 # ─── APK設定 ─────────────────────────────────────────────

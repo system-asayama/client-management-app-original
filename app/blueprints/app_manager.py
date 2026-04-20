@@ -188,6 +188,12 @@ def dashboard():
 @require_roles('app_manager', 'system_admin')
 def mypage():
     """アプリ管理者マイページ"""
+    # 一時ロール変更から戻った場合は元のロールを復元
+    original_role = session.get('original_role')
+    if original_role == 'app_manager':
+        session['role'] = 'app_manager'
+        session.pop('original_role', None)
+        session.modified = True
     user_id = session.get('user_id')
     
     db = SessionLocal()
@@ -425,16 +431,15 @@ def select_tenant_from_mypage():
             flash('テナントが見つかりません', 'error')
             return redirect(url_for('app_manager.mypage'))
         
-        # セッションにテナント情報を設定（app_manager権限のまま）
+        # セッションにテナント情報を設定（ロールをtenant_adminに一時変更）
+        session['original_role'] = session.get('role')  # 元のロールを保存
+        session['role'] = 'tenant_admin'  # tenant_adminダッシュボードに入るために一時変更
         session['tenant_id'] = tenant.id
-        session.modified = True  # セッションの変更を明示的にマーク
+        session['store_id'] = None
+        session.modified = True
         
-        from flask import current_app
-        current_app.logger.info(f"DEBUG: セッション設定完了 - role={session.get('role')}, tenant_id={session.get('tenant_id')}")
-        redirect_url = url_for('tenant_admin.dashboard')
-        current_app.logger.info(f"DEBUG: リダイレクト先={redirect_url}")
-        
-        return redirect(redirect_url)
+        flash(f'テナント「{tenant.名称}」を選択しました', 'success')
+        return redirect(url_for('tenant_admin.dashboard'))
         
     finally:
         db.close()
@@ -463,11 +468,14 @@ def select_store_from_mypage():
             flash('店舗が見つかりません', 'error')
             return redirect(url_for('app_manager.mypage'))
         
-        # セッションに店舗情報を設定（app_manager権限のまま）
+        # セッションに店舗情報を設定（ロールをadminに一時変更）
+        session['original_role'] = session.get('role')  # 元のロールを保存
+        session['role'] = 'admin'  # adminダッシュボードに入るために一時変更
         session['tenant_id'] = store.tenant_id
         session['store_id'] = store.id
         session.modified = True
         
+        flash(f'店舗「{store.名称}」を選択しました', 'success')
         return redirect(url_for('admin.dashboard'))
         
     finally:

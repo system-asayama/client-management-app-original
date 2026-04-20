@@ -106,7 +106,11 @@ def dashboard():
     
     # ロール別マイページURL・ラベル
     role = session.get('role', '')
-    if role == 'system_admin':
+    original_role = session.get('original_role', '')
+    if original_role == 'app_manager':
+        mypage_url = url_for('app_manager.mypage')
+        mypage_label = 'アプリ管理者マイページ'
+    elif role == 'system_admin':
         mypage_url = url_for('system_admin.mypage')
         mypage_label = 'システム管理者マイページ'
     elif role == 'owner':

@@ -188,12 +188,6 @@ def dashboard():
 @require_roles('app_manager', 'system_admin')
 def mypage():
     """アプリ管理者マイページ"""
-    # 一時ロール変更から戻った場合は元のロールを復元
-    original_role = session.get('original_role')
-    if original_role == 'app_manager':
-        session['role'] = 'app_manager'
-        session.pop('original_role', None)
-        session.modified = True
     user_id = session.get('user_id')
     
     db = SessionLocal()
@@ -431,9 +425,7 @@ def select_tenant_from_mypage():
             flash('テナントが見つかりません', 'error')
             return redirect(url_for('app_manager.mypage'))
         
-        # セッションにテナント情報を設定（ロールをtenant_adminに一時変更）
-        session['original_role'] = session.get('role')  # 元のロールを保存
-        session['role'] = 'tenant_admin'  # tenant_adminダッシュボードに入るために一時変更
+        # セッションにテナント情報を保存
         session['tenant_id'] = tenant.id
         session['store_id'] = None
         session.modified = True
@@ -468,9 +460,7 @@ def select_store_from_mypage():
             flash('店舗が見つかりません', 'error')
             return redirect(url_for('app_manager.mypage'))
         
-        # セッションに店舗情報を設定（ロールをadminに一時変更）
-        session['original_role'] = session.get('role')  # 元のロールを保存
-        session['role'] = 'admin'  # adminダッシュボードに入るために一時変更
+        # セッションに店舗情報を保存
         session['tenant_id'] = store.tenant_id
         session['store_id'] = store.id
         session.modified = True

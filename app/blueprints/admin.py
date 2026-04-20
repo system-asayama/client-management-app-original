@@ -68,7 +68,7 @@ AVAILABLE_APPS = [
 
 
 @bp.route('/')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def dashboard():
     """管理者ダッシュボード"""
     # 店舗で有効なアプリを取得
@@ -106,13 +106,12 @@ def dashboard():
     
     # ロール別マイページURL・ラベル
     role = session.get('role', '')
-    original_role = session.get('original_role', '')
-    if original_role == 'app_manager':
-        mypage_url = url_for('app_manager.mypage')
-        mypage_label = 'アプリ管理者マイページ'
-    elif role == 'system_admin':
+    if role == 'system_admin':
         mypage_url = url_for('system_admin.mypage')
         mypage_label = 'システム管理者マイページ'
+    elif role == 'app_manager':
+        mypage_url = url_for('app_manager.mypage')
+        mypage_label = 'アプリ管理者マイページ'
     elif role == 'owner':
         mypage_url = url_for('tenant_admin.mypage')
         mypage_label = 'オーナーマイページ'
@@ -126,7 +125,7 @@ def dashboard():
 
 
 @bp.route('/available_apps')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def available_apps():
     """利用可能アプリ一覧"""
     from app.blueprints.tenant_admin import AVAILABLE_APPS as TENANT_AVAILABLE_APPS
@@ -190,7 +189,7 @@ def available_apps():
 
 
 @bp.route('/mypage', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def mypage():
     """管理者マイページ"""
     user_id = session.get('user_id')
@@ -357,7 +356,7 @@ def mypage():
 
 
 @bp.route('/store_info')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def store_info():
     """店舗情報表示"""
     tenant_id = session.get('tenant_id')
@@ -404,7 +403,7 @@ def store_info():
 
 
 @bp.route('/store/<int:store_id>')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def store_detail(store_id):
     """店舗詳細"""
     tenant_id = session.get('tenant_id')
@@ -445,7 +444,7 @@ def store_detail(store_id):
 
 
 @bp.route('/admins')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admins():
     """店舗管理者一覧"""
     store_id = session.get('store_id')
@@ -530,7 +529,7 @@ def admins():
 
 
 @bp.route('/employees')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employees():
     """従業員一覧"""
     store_id = session.get('store_id')
@@ -584,7 +583,7 @@ def employees():
 
 
 @bp.route('/employees/new', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employee_new():
     """従業員新規作成"""
     store_id = session.get('store_id')
@@ -692,7 +691,7 @@ def employee_new():
 
 
 @bp.route('/employees/<int:employee_id>/toggle', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employee_toggle(employee_id):
     """従業員の有効/無効切り替え"""
     db = SessionLocal()
@@ -711,7 +710,7 @@ def employee_toggle(employee_id):
 
 
 @bp.route('/employees/<int:employee_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employee_edit(employee_id):
     """従業員編集"""
     db = SessionLocal()
@@ -883,7 +882,7 @@ def employee_edit(employee_id):
 
 
 @bp.route('/employees/<int:employee_id>/delete', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employee_delete(employee_id):
     """従業員削除"""
     db = SessionLocal()
@@ -903,7 +902,7 @@ def employee_delete(employee_id):
         db.close()
 
 @bp.route('/employees/invite', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employee_invite():
     """既存の従業員を招待"""
     tenant_id = session.get('tenant_id')
@@ -955,7 +954,7 @@ def employee_invite():
 
 
 @bp.route('/store/<int:store_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def store_edit(store_id):
     """店舗編集"""
     tenant_id = session.get('tenant_id')
@@ -1032,7 +1031,7 @@ def store_edit(store_id):
 
 
 @bp.route('/store/<int:store_id>/delete', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def store_delete(store_id):
     """店舗削除"""
     tenant_id = session.get('tenant_id')
@@ -1098,7 +1097,7 @@ def store_delete(store_id):
 
 
 @bp.route('/mypage/select_store', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def select_store_from_mypage():
     """マイページから店舗を選択してダッシュボードへ進む"""
     store_id = request.form.get('store_id')
@@ -1113,7 +1112,7 @@ def select_store_from_mypage():
 
 
 @bp.route('/admins/<int:admin_id>/edit', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_edit(admin_id):
     """店舗管理者編集"""
     user_id = session.get('user_id')
@@ -1269,7 +1268,7 @@ def admin_edit(admin_id):
 
 
 @bp.route('/admins/<int:admin_id>/delete', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_delete(admin_id):
     """店舗管理者削除"""
     user_id = session.get('user_id')
@@ -1321,7 +1320,7 @@ def admin_delete(admin_id):
 
 
 @bp.route('/admins/<int:admin_id>/transfer_owner', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_transfer_owner(admin_id):
     """オーナー権限移譲"""
     user_id = session.get('user_id')
@@ -1391,7 +1390,7 @@ def admin_transfer_owner(admin_id):
 
 
 @bp.route('/admins/<int:admin_id>/toggle_active', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_toggle_active(admin_id):
     """店舗管理者の有効/無効を切り替え"""
     user_id = session.get('user_id')
@@ -1431,7 +1430,7 @@ def admin_toggle_active(admin_id):
 
 
 @bp.route('/admins/<int:admin_id>/toggle_permission', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_toggle_permission(admin_id):
     """店舗管理者の管理権限を切り替え"""
     user_id = session.get('user_id')
@@ -1475,7 +1474,7 @@ def admin_toggle_permission(admin_id):
 
 
 @bp.route('/admins/new', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_new():
     """店舗管理者新規作成（選択された店舗に追加）"""
     tenant_id = session.get('tenant_id')
@@ -1654,7 +1653,7 @@ def admin_new():
 
 
 @bp.route('/admins/invite', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_invite():
     """店舗管理者を追加（同一テナント内の既存管理者を招待）"""
     tenant_id = session.get('tenant_id')
@@ -1753,7 +1752,7 @@ def admin_invite():
 
 
 @bp.route('/employees/<int:employee_id>/toggle_active', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def employee_toggle_active(employee_id):
     """従業員の有効/無効を切り替え"""
     db = SessionLocal()
@@ -1782,7 +1781,7 @@ def employee_toggle_active(employee_id):
 # ========================================
 
 @bp.route('/smtp_guides/<service>')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def smtp_guide_download(service):
     """SMTP設定手順書PDFのダウンロード"""
     allowed = {'gmail', 'outlook', 'yahoo', 'sendgrid', 'custom'}
@@ -1797,7 +1796,7 @@ def smtp_guide_download(service):
 
 
 @bp.route('/smtp_settings', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def smtp_settings():
     """店舗のSMTPメール設定"""
     store_id = session.get('store_id')

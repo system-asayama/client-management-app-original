@@ -12,6 +12,7 @@ from flask import session, redirect, url_for, flash
 # ===========================
 ROLES = {
     "SYSTEM_ADMIN": "system_admin",     # 全テナント横断の最高権限
+    "APP_MANAGER":  "app_manager",      # アプリ配布管理者
     "TENANT_ADMIN": "tenant_admin",     # テナント単位の管理者
     "ADMIN":        "admin",            # 店舗/拠点などの管理者
     "EMPLOYEE":     "employee",         # 従業員
@@ -19,18 +20,15 @@ ROLES = {
 
 
 def require_roles(*allowed_roles):
-    """指定されたロールのみアクセス可能にするデコレータ
-    original_role（一時ロール変更前の元ロール）も許可ロールに含まれる場合は通過させる。"""
+    """指定されたロールのみアクセス可能にするデコレータ"""
     def _decorator(view):
         @wraps(view)
         def _wrapped(*args, **kwargs):
             role = session.get("role")
-            original_role = session.get("original_role")
-            # 現在のロールまたは元のロールが許可リストに含まれる場合は通過
-            if role in allowed_roles or (original_role and original_role in allowed_roles):
-                return view(*args, **kwargs)
-            flash("権限がありません。", "warning")
-            return redirect(url_for("auth.select_login"))
+            if not role or role not in allowed_roles:
+                flash("権限がありません。", "warning")
+                return redirect(url_for("auth.select_login"))
+            return view(*args, **kwargs)
         return _wrapped
     return _decorator
 

@@ -10,7 +10,7 @@ bp = Blueprint("e_contract_ui", __name__, url_prefix="/ui", template_folder="../
 
 
 @bp.get("/contracts")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def contracts_list_page():
     db = SessionLocal()
     try:
@@ -21,13 +21,13 @@ def contracts_list_page():
 
 
 @bp.get("/contracts/create")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def contracts_create_page():
     return render_template("e_contract_create.html")
 
 
 @bp.get("/contracts/<contract_id>")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def contracts_detail_page(contract_id: str):
     db = SessionLocal()
     try:
@@ -44,12 +44,12 @@ def signer_page(token: str):
 
 
 @bp.get("/contracts/<contract_id>/sign-fields")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def sign_fields_page(contract_id: str):
     return render_template("e_contract_sign_fields.html", contract_id=contract_id)
 
 
 @bp.get("/contracts/<contract_id>/done")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def completed_page(contract_id: str):
     return render_template("e_contract_done.html", contract_id=contract_id)

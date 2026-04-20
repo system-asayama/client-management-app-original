@@ -34,7 +34,7 @@ def _utcnow() -> datetime:
 
 
 @bp.post("/upload")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def upload_document():
     """
     契約書PDFをアップロードしてURLを返す。

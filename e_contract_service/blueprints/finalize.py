@@ -14,7 +14,7 @@ bp = Blueprint("e_contract_finalize", __name__, url_prefix="/api/contracts")
 
 
 @bp.post("/<contract_id>/finalize")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def finalize_contract(contract_id: str):
     """
     全署名者の署名完了後、事業者署名とRFC3161タイムスタンプを付与して契約を完了状態に遷移する。
@@ -99,7 +99,7 @@ def finalize_contract(contract_id: str):
 
 
 @bp.get("/<contract_id>/certificate")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def get_certificate(contract_id: str):
     """
     完了済み契約の証明書情報（hashチェーン全体 + 最終タイムスタンプ）を返す。

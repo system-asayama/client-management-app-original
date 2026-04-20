@@ -128,7 +128,7 @@ def _hash_token(token: str) -> str:
 
 
 @bp.post("")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def create_contract():
     payload = request.get_json(silent=True) or {}
     title = (payload.get("title") or "").strip()
@@ -198,7 +198,7 @@ def create_contract():
 
 
 @bp.get("")
-@require_roles("system_admin", "tenant_admin", "admin", "employee")
+@require_roles("system_admin", "tenant_admin", "admin", "employee", "app_manager")
 def list_contracts():
     status = request.args.get("status")
     page = max(int(request.args.get("page", 1)), 1)
@@ -249,7 +249,7 @@ def list_contracts():
 
 
 @bp.get("/<contract_id>")
-@require_roles("system_admin", "tenant_admin", "admin", "employee")
+@require_roles("system_admin", "tenant_admin", "admin", "employee", "app_manager")
 def get_contract(contract_id: str):
     db = SessionLocal()
     try:
@@ -287,7 +287,7 @@ def get_contract(contract_id: str):
 
 
 @bp.put("/<contract_id>/sign-fields")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def update_sign_fields(contract_id: str):
     """署名欄位置情報を保存する。
     Request: { "sign_fields": [{"page":0,"x":0.1,"y":0.8,"w":0.3,"h":0.08,"signer_index":1}, ...] }
@@ -325,7 +325,7 @@ def update_sign_fields(contract_id: str):
 
 
 @bp.post("/<contract_id>/dispatch")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def dispatch_contract(contract_id: str):
     db = SessionLocal()
     try:
@@ -414,7 +414,7 @@ def dispatch_contract(contract_id: str):
 
 
 @bp.get("/<contract_id>/audit")
-@require_roles("system_admin", "tenant_admin")
+@require_roles("system_admin", "tenant_admin", "app_manager")
 def get_audit_logs(contract_id: str):
     page = max(int(request.args.get("page", 1)), 1)
     per_page = min(max(int(request.args.get("per_page", 50)), 1), 100)
@@ -433,7 +433,7 @@ def get_audit_logs(contract_id: str):
 
 
 @bp.post("/<contract_id>/verify")
-@require_roles("system_admin", "tenant_admin")
+@require_roles("system_admin", "tenant_admin", "app_manager")
 def verify_audit_logs(contract_id: str):
     db = SessionLocal()
     try:
@@ -455,7 +455,7 @@ def verify_audit_logs(contract_id: str):
         db.close()
 
 @bp.get("/<contract_id>/certificate")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def get_certificate(contract_id: str):
     """署名完了証明書情報を返す"""
     db = SessionLocal()
@@ -514,7 +514,7 @@ def get_certificate(contract_id: str):
 
 
 @bp.delete("/<contract_id>")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def delete_contract(contract_id: str):
     db = SessionLocal()
     try:
@@ -534,7 +534,7 @@ def delete_contract(contract_id: str):
 
 
 @bp.post("/<contract_id>/finalize")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def finalize_contract(contract_id: str):
     """全署名者が署名済みの場合に契約を完了状態にする"""
     db = SessionLocal()
@@ -576,7 +576,7 @@ def finalize_contract(contract_id: str):
 
 
 @bp.get("/<contract_id>/download")
-@require_roles("system_admin", "tenant_admin", "admin")
+@require_roles("system_admin", "tenant_admin", "admin", "app_manager")
 def download_signed_pdf(contract_id: str):
     """署名済みPDFを生成してダウンロードする。
     - sign_fieldsが設定されている場合: PDF内の指定位置に手書きサインを直接埋め込む

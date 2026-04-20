@@ -1,0 +1,111 @@
+{% extends 'truck/base.html' %}
+{% block title %}契約書管理 - トラック運行管理{% endblock %}
+
+{% block content %}
+<div class="page-title">📄 契約書管理</div>
+<div class="page-subtitle">契約書のPDF・画像をアップロードし、AI-OCRで内容を自動読み取りします</div>
+
+<div style="margin-bottom:16px;">
+  <a href="{{ url_for('truck.contract_new') }}" class="btn btn-primary">＋ 新規登録</a>
+</div>
+
+<div class="card">
+  {% if contracts %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>契約書名</th>
+          <th>種別</th>
+          <th>相手方</th>
+          <th>契約期間</th>
+          <th>金額</th>
+          <th>OCR</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contracts %}
+        <tr>
+          <td>
+            <strong>{{ c.title }}</strong>
+            {% if c.file_name %}<div style="font-size:11px; color:#6b7280;">📎 {{ c.file_name }}</div>{% endif %}
+          </td>
+          <td>
+            {% if c.contract_type == 'lease' %}<span class="badge" style="background:#2563eb;">リース</span>
+            {% elif c.contract_type == 'maintenance' %}<span class="badge" style="background:#059669;">メンテナンス</span>
+            {% else %}<span class="badge" style="background:#6b7280;">その他</span>{% endif %}
+          </td>
+          <td>{{ c.counterparty or '-' }}</td>
+          <td style="font-size:12px;">
+            {{ c.start_date.strftime('%Y/%m/%d') if c.start_date else '-' }}
+            {% if c.end_date %} 〜 {{ c.end_date.strftime('%Y/%m/%d') }}{% endif %}
+          </td>
+          <td>{{ '{:,.0f}'.format(c.amount) + '円' if c.amount else '-' }}</td>
+          <td>
+            {% if c.ocr_status == 'done' %}
+              <span style="color:#059669; font-size:12px;">✅ 完了</span>
+            {% elif c.file_path %}
+              <button class="btn btn-secondary btn-sm" onclick="runOcr('contract', {{ c.id }}, this)">🤖 読み取り</button>
+            {% else %}
+              <span style="color:#9ca3af; font-size:12px;">-</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('truck.contract_edit', contract_id=c.id) }}" class="btn btn-secondary btn-sm">編集</a>
+            <form method="post" action="{{ url_for('truck.contract_delete', contract_id=c.id) }}"
+                  style="display:inline;" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% if c.ocr_status == 'done' and c.ocr_summary %}
+        <tr style="background:#f0fdf4;">
+          <td colspan="7" style="font-size:12px; color:#374151; padding:8px 16px;">
+            <strong>🤖 AI読み取り結果：</strong>
+            {% if c.ocr_title %}<span style="margin-right:12px;">📄 {{ c.ocr_title }}</span>{% endif %}
+            {% if c.ocr_counterparty %}<span style="margin-right:12px;">🏢 {{ c.ocr_counterparty }}</span>{% endif %}
+            {% if c.ocr_start_date %}<span style="margin-right:12px;">📅 {{ c.ocr_start_date }}〜{{ c.ocr_end_date }}</span>{% endif %}
+            {% if c.ocr_amount %}<span style="margin-right:12px;">💴 {{ c.ocr_amount }}円</span>{% endif %}
+            <div style="margin-top:4px; color:#6b7280;">{{ c.ocr_summary }}</div>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div style="font-size:40px; margin-bottom:12px;">📄</div>
+    <div>契約書が登録されていません</div>
+    <div style="margin-top:12px;">
+      <a href="{{ url_for('truck.contract_new') }}" class="btn btn-primary">＋ 最初の契約書を登録</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function runOcr(type, id, btn) {
+  btn.disabled = true;
+  btn.textContent = '読み取り中...';
+  fetch(`/truck/${type}s/${id}/ocr`, {method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('エラー: ' + (data.error || '読み取り失敗'));
+        btn.disabled = false;
+        btn.textContent = '🤖 読み取り';
+      }
+    })
+    .catch(() => {
+      alert('通信エラーが発生しました');
+      btn.disabled = false;
+      btn.textContent = '🤖 読み取り';
+    });
+}
+</script>
+{% endblock %}

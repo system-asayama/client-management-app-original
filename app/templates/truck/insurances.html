@@ -1,0 +1,115 @@
+{% extends 'truck/base.html' %}
+{% block title %}保険情報管理 - トラック運行管理{% endblock %}
+
+{% block content %}
+<div class="page-title">🛡️ 保険情報管理</div>
+<div class="page-subtitle">保険証券のPDF・画像をアップロードし、AI-OCRで内容を自動読み取りします</div>
+
+<div style="margin-bottom:16px;">
+  <a href="{{ url_for('truck.insurance_new') }}" class="btn btn-primary">＋ 新規登録</a>
+</div>
+
+<div class="card">
+  {% if insurances %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>保険種別</th>
+          <th>保険会社</th>
+          <th>証券番号</th>
+          <th>対象</th>
+          <th>有効期間</th>
+          <th>保険料</th>
+          <th>OCR</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ins in insurances %}
+        <tr {% if ins.end_date and ins.end_date.isoformat() < today_iso %}style="background:#fff7f7;"{% endif %}>
+          <td>
+            {% if ins.insurance_type == '自賠責' %}<span class="badge" style="background:#dc2626;">自賠責</span>
+            {% elif ins.insurance_type == '任意' %}<span class="badge" style="background:#2563eb;">任意</span>
+            {% elif ins.insurance_type == '貨物' %}<span class="badge" style="background:#7c3aed;">貨物</span>
+            {% else %}<span class="badge" style="background:#6b7280;">その他</span>{% endif %}
+          </td>
+          <td>{{ ins.insurer or '-' }}</td>
+          <td style="font-size:12px;">{{ ins.policy_number or '-' }}</td>
+          <td style="font-size:12px;">
+            {% if ins.truck %}🚛 {{ ins.truck.name }}{% endif %}
+            {% if ins.driver %}👤 {{ ins.driver.name }}{% endif %}
+            {% if not ins.truck and not ins.driver %}-{% endif %}
+          </td>
+          <td style="font-size:12px;">
+            {{ ins.start_date.strftime('%Y/%m/%d') if ins.start_date else '-' }}
+            {% if ins.end_date %} 〜 {{ ins.end_date.strftime('%Y/%m/%d') }}{% endif %}
+          </td>
+          <td>{{ '{:,.0f}'.format(ins.premium) + '円' if ins.premium else '-' }}</td>
+          <td>
+            {% if ins.ocr_status == 'done' %}
+              <span style="color:#059669; font-size:12px;">✅ 完了</span>
+            {% elif ins.file_path %}
+              <button class="btn btn-secondary btn-sm" onclick="runOcr('insurance', {{ ins.id }}, this)">🤖 読み取り</button>
+            {% else %}
+              <span style="color:#9ca3af; font-size:12px;">-</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('truck.insurance_edit', ins_id=ins.id) }}" class="btn btn-secondary btn-sm">編集</a>
+            <form method="post" action="{{ url_for('truck.insurance_delete', ins_id=ins.id) }}"
+                  style="display:inline;" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% if ins.ocr_status == 'done' and ins.ocr_summary %}
+        <tr style="background:#f0fdf4;">
+          <td colspan="8" style="font-size:12px; color:#374151; padding:8px 16px;">
+            <strong>🤖 AI読み取り結果：</strong>
+            {% if ins.ocr_insurer %}<span style="margin-right:12px;">🏢 {{ ins.ocr_insurer }}</span>{% endif %}
+            {% if ins.ocr_policy_number %}<span style="margin-right:12px;">📋 {{ ins.ocr_policy_number }}</span>{% endif %}
+            {% if ins.ocr_start_date %}<span style="margin-right:12px;">📅 {{ ins.ocr_start_date }}〜{{ ins.ocr_end_date }}</span>{% endif %}
+            {% if ins.ocr_premium %}<span style="margin-right:12px;">💴 {{ ins.ocr_premium }}円</span>{% endif %}
+            <div style="margin-top:4px; color:#6b7280;">{{ ins.ocr_summary }}</div>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <div style="font-size:40px; margin-bottom:12px;">🛡️</div>
+    <div>保険情報が登録されていません</div>
+    <div style="margin-top:12px;">
+      <a href="{{ url_for('truck.insurance_new') }}" class="btn btn-primary">＋ 最初の保険情報を登録</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function runOcr(type, id, btn) {
+  btn.disabled = true;
+  btn.textContent = '読み取り中...';
+  fetch(`/truck/${type}s/${id}/ocr`, {method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('エラー: ' + (data.error || '読み取り失敗'));
+        btn.disabled = false;
+        btn.textContent = '🤖 読み取り';
+      }
+    })
+    .catch(() => {
+      alert('通信エラーが発生しました');
+      btn.disabled = false;
+      btn.textContent = '🤖 読み取り';
+    });
+}
+</script>
+{% endblock %}

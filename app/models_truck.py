@@ -156,6 +156,66 @@ class TruckClient(Base):
         }
 
 
+class TruckContract(Base):
+    """契約書管理"""
+    __tablename__ = "truck_contracts"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(200), nullable=False)          # 契約書タイトル
+    contract_type = Column(String(50))                   # lease/maintenance/other
+    counterparty = Column(String(200))                   # 相手方
+    start_date = Column(Date)
+    end_date = Column(Date)
+    amount = Column(Float)                               # 契約金額
+    file_path = Column(String(500))                      # アップロードファイルパス
+    file_name = Column(String(200))                      # 元のファイル名
+    # OCR読み取り結果
+    ocr_title = Column(String(200))
+    ocr_counterparty = Column(String(200))
+    ocr_start_date = Column(String(50))
+    ocr_end_date = Column(String(50))
+    ocr_amount = Column(String(100))
+    ocr_summary = Column(Text)
+    ocr_raw = Column(Text)                               # OCR生JSON
+    ocr_status = Column(String(20), default='none')      # none/processing/done/error
+    note = Column(Text)
+    tenant_id = Column(Integer, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TruckInsurance(Base):
+    """保険情報管理"""
+    __tablename__ = "truck_insurances"
+    id = Column(Integer, primary_key=True)
+    insurance_type = Column(String(50))                  # 自賠責/任意/貨物/その他
+    insurer = Column(String(200))                        # 保険会社名
+    policy_number = Column(String(100))                  # 証券番号
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)  # 対象車両
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)  # 対象ドライバー
+    start_date = Column(Date)
+    end_date = Column(Date)
+    premium = Column(Float)                              # 保険料
+    coverage_amount = Column(Float)                      # 保険金額
+    file_path = Column(String(500))
+    file_name = Column(String(200))
+    # OCR読み取り結果
+    ocr_insurer = Column(String(200))
+    ocr_policy_number = Column(String(100))
+    ocr_start_date = Column(String(50))
+    ocr_end_date = Column(String(50))
+    ocr_premium = Column(String(100))
+    ocr_summary = Column(Text)
+    ocr_raw = Column(Text)
+    ocr_status = Column(String(20), default='none')
+    note = Column(Text)
+    tenant_id = Column(Integer, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    truck = relationship("Truck", backref="insurances", foreign_keys=[truck_id])
+    driver = relationship("TruckDriver", backref="insurances", foreign_keys=[driver_id])
+
+
 class TruckAppSettings(Base):
     __tablename__ = "truck_app_settings"
     id = Column(Integer, primary_key=True)

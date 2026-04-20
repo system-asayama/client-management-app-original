@@ -1,0 +1,85 @@
+{% extends 'truck/base.html' %}
+{% block title %}{% if insurance %}保険情報編集{% else %}保険情報新規登録{% endif %} - トラック運行管理{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('truck.insurances') }}" class="back-link">← 保険情報一覧に戻る</a>
+
+<div class="page-title">{% if insurance %}✏️ 保険情報編集{% else %}🛡️ 保険情報新規登録{% endif %}</div>
+<div class="page-subtitle" style="margin-bottom:20px;">保険証券のPDF・画像をアップロードするとAI-OCRで内容を自動読み取りできます</div>
+
+<div class="form-card" style="max-width:640px;">
+  <form method="post" enctype="multipart/form-data">
+    <div class="form-field">
+      <label>保険種別</label>
+      <select name="insurance_type">
+        <option value="自賠責" {% if insurance and insurance.insurance_type == '自賠責' %}selected{% endif %}>自賠責保険</option>
+        <option value="任意" {% if insurance and insurance.insurance_type == '任意' %}selected{% endif %}>任意保険</option>
+        <option value="貨物" {% if insurance and insurance.insurance_type == '貨物' %}selected{% endif %}>貨物保険</option>
+        <option value="その他" {% if not insurance or insurance.insurance_type == 'その他' %}selected{% endif %}>その他</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>保険会社名</label>
+      <input type="text" name="insurer" value="{{ insurance.insurer if insurance else '' }}" placeholder="例：東京海上日動火災保険">
+    </div>
+    <div class="form-field">
+      <label>証券番号</label>
+      <input type="text" name="policy_number" value="{{ insurance.policy_number if insurance else '' }}" placeholder="例：AB-1234567">
+    </div>
+    <div class="form-field">
+      <label>対象車両</label>
+      <select name="truck_id">
+        <option value="">-- 選択なし --</option>
+        {% for t in trucks %}
+        <option value="{{ t.id }}" {% if insurance and insurance.truck_id == t.id %}selected{% endif %}>{{ t.number }} {{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-field">
+      <label>対象ドライバー</label>
+      <select name="driver_id">
+        <option value="">-- 選択なし --</option>
+        {% for d in drivers %}
+        <option value="{{ d.id }}" {% if insurance and insurance.driver_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex; gap:12px;">
+      <div class="form-field" style="flex:1;">
+        <label>保険開始日</label>
+        <input type="date" name="start_date" value="{{ insurance.start_date.isoformat() if insurance and insurance.start_date else '' }}">
+      </div>
+      <div class="form-field" style="flex:1;">
+        <label>保険終了日</label>
+        <input type="date" name="end_date" value="{{ insurance.end_date.isoformat() if insurance and insurance.end_date else '' }}">
+      </div>
+    </div>
+    <div style="display:flex; gap:12px;">
+      <div class="form-field" style="flex:1;">
+        <label>保険料（円）</label>
+        <input type="number" name="premium" value="{{ insurance.premium|int if insurance and insurance.premium else '' }}" placeholder="例：80000">
+      </div>
+      <div class="form-field" style="flex:1;">
+        <label>保険金額（円）</label>
+        <input type="number" name="coverage_amount" value="{{ insurance.coverage_amount|int if insurance and insurance.coverage_amount else '' }}" placeholder="例：100000000">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>保険証券PDF・画像</label>
+      {% if insurance and insurance.file_name %}
+        <div style="font-size:12px; color:#059669; margin-bottom:6px;">📎 現在: {{ insurance.file_name }}</div>
+      {% endif %}
+      <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp">
+      <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。アップロード後にAI-OCRで内容を読み取れます。</div>
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note" placeholder="備考・メモ">{{ insurance.note if insurance else '' }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if insurance %}更新する{% else %}登録する{% endif %}</button>
+      <a href="{{ url_for('truck.insurances') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

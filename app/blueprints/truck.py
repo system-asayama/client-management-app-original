@@ -5,6 +5,7 @@
 """
 import hmac
 import hashlib
+import json
 import os
 import requests as http_requests
 from datetime import datetime, date, timedelta
@@ -14,7 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -863,6 +864,437 @@ def client_delete(client_id):
             db.commit()
             flash(f'取引先「{c.name}」を削除しました', 'success')
         return redirect(url_for('truck.clients'))
+    finally:
+        db.close()
+
+
+## ─── 契約書管理 ──────────────────────────────────────────
+
+@bp.route('/contracts')
+@login_required_truck
+def contracts():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckContract).filter_by(active=True)
+        if tenant_id:
+            q = q.filter(TruckContract.tenant_id == tenant_id)
+        rows = q.order_by(TruckContract.created_at.desc()).all()
+        return render_template('truck/contracts.html', contracts=rows)
+    finally:
+        db.close()
+
+
+@bp.route('/contracts/new', methods=['GET', 'POST'])
+@login_required_truck
+def contract_new():
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            title = request.form.get('title', '').strip()
+            if not title:
+                flash('契約書名は必須です', 'error')
+                return render_template('truck/contract_form.html', contract=None)
+            c = TruckContract(
+                title=title,
+                contract_type=request.form.get('contract_type', 'other'),
+                counterparty=request.form.get('counterparty', '').strip(),
+                start_date=_parse_date(request.form.get('start_date', '')),
+                end_date=_parse_date(request.form.get('end_date', '')),
+                amount=_parse_float(request.form.get('amount', '')),
+                note=request.form.get('note', '').strip(),
+                tenant_id=session.get('tenant_id'),
+            )
+            # ファイルアップロード
+            f = request.files.get('file')
+            if f and f.filename:
+                saved = _save_truck_file(f, 'contracts')
+                if saved:
+                    c.file_path, c.file_name = saved
+            db.add(c)
+            db.commit()
+            flash(f'契約書「{title}」を登録しました', 'success')
+            return redirect(url_for('truck.contracts'))
+        return render_template('truck/contract_form.html', contract=None)
+    finally:
+        db.close()
+
+
+@bp.route('/contracts/<int:contract_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def contract_edit(contract_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckContract).filter_by(id=contract_id, active=True)
+        if tenant_id:
+            q = q.filter(TruckContract.tenant_id == tenant_id)
+        c = q.first()
+        if not c:
+            flash('契約書が見つかりません', 'error')
+            return redirect(url_for('truck.contracts'))
+        if request.method == 'POST':
+            title = request.form.get('title', '').strip()
+            if not title:
+                flash('契約書名は必須です', 'error')
+                return render_template('truck/contract_form.html', contract=c)
+            c.title = title
+            c.contract_type = request.form.get('contract_type', 'other')
+            c.counterparty = request.form.get('counterparty', '').strip()
+            c.start_date = _parse_date(request.form.get('start_date', ''))
+            c.end_date = _parse_date(request.form.get('end_date', ''))
+            c.amount = _parse_float(request.form.get('amount', ''))
+            c.note = request.form.get('note', '').strip()
+            f = request.files.get('file')
+            if f and f.filename:
+                saved = _save_truck_file(f, 'contracts')
+                if saved:
+                    c.file_path, c.file_name = saved
+            db.commit()
+            flash(f'契約書「{c.title}」を更新しました', 'success')
+            return redirect(url_for('truck.contracts'))
+        return render_template('truck/contract_form.html', contract=c)
+    finally:
+        db.close()
+
+
+@bp.route('/contracts/<int:contract_id>/delete', methods=['POST'])
+@login_required_truck
+def contract_delete(contract_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckContract).filter_by(id=contract_id)
+        if tenant_id:
+            q = q.filter(TruckContract.tenant_id == tenant_id)
+        c = q.first()
+        if c:
+            c.active = False
+            db.commit()
+            flash(f'契約書「{c.title}」を削除しました', 'success')
+        return redirect(url_for('truck.contracts'))
+    finally:
+        db.close()
+
+
+@bp.route('/contracts/<int:contract_id>/ocr', methods=['POST'])
+@login_required_truck
+def contract_ocr(contract_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckContract).filter_by(id=contract_id, active=True)
+        if tenant_id:
+            q = q.filter(TruckContract.tenant_id == tenant_id)
+        c = q.first()
+        if not c or not c.file_path:
+            return jsonify({'error': 'ファイルがありません'}), 400
+        api_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id, '')
+        if not api_key:
+            return jsonify({'error': 'システム設定でOpenAI APIキーを登録してください'}), 400
+        result = _run_truck_ocr(c.file_path, api_key, 'contract')
+        c.ocr_status = 'done'
+        c.ocr_title = result.get('title', '')
+        c.ocr_counterparty = result.get('counterparty', '')
+        c.ocr_start_date = result.get('start_date', '')
+        c.ocr_end_date = result.get('end_date', '')
+        c.ocr_amount = result.get('amount', '')
+        c.ocr_summary = result.get('summary', '')
+        c.ocr_raw = json.dumps(result, ensure_ascii=False)
+        db.commit()
+        return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+# ─── 保険情報管理 ──────────────────────────────────────────
+
+@bp.route('/insurances')
+@login_required_truck
+def insurances():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckInsurance).filter_by(active=True)
+        if tenant_id:
+            q = q.filter(TruckInsurance.tenant_id == tenant_id)
+        rows = q.order_by(TruckInsurance.end_date).all()
+        trucks_list = db.query(Truck).filter_by(active=True).filter(Truck.tenant_id == tenant_id).all() if tenant_id else []
+        drivers_list = db.query(TruckDriver).filter_by(active=True).filter(TruckDriver.tenant_id == tenant_id).all() if tenant_id else []
+        return render_template('truck/insurances.html', insurances=rows, trucks=trucks_list, drivers=drivers_list, today_iso=date.today().isoformat())
+    finally:
+        db.close()
+
+
+@bp.route('/insurances/new', methods=['GET', 'POST'])
+@login_required_truck
+def insurance_new():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        trucks_list = db.query(Truck).filter_by(active=True).filter(Truck.tenant_id == tenant_id).all() if tenant_id else []
+        drivers_list = db.query(TruckDriver).filter_by(active=True).filter(TruckDriver.tenant_id == tenant_id).all() if tenant_id else []
+        if request.method == 'POST':
+            ins = TruckInsurance(
+                insurance_type=request.form.get('insurance_type', 'other'),
+                insurer=request.form.get('insurer', '').strip(),
+                policy_number=request.form.get('policy_number', '').strip(),
+                truck_id=_parse_int(request.form.get('truck_id', '')),
+                driver_id=_parse_int(request.form.get('driver_id', '')),
+                start_date=_parse_date(request.form.get('start_date', '')),
+                end_date=_parse_date(request.form.get('end_date', '')),
+                premium=_parse_float(request.form.get('premium', '')),
+                coverage_amount=_parse_float(request.form.get('coverage_amount', '')),
+                note=request.form.get('note', '').strip(),
+                tenant_id=tenant_id,
+            )
+            f = request.files.get('file')
+            if f and f.filename:
+                saved = _save_truck_file(f, 'insurances')
+                if saved:
+                    ins.file_path, ins.file_name = saved
+            db.add(ins)
+            db.commit()
+            flash('保険情報を登録しました', 'success')
+            return redirect(url_for('truck.insurances'))
+        return render_template('truck/insurance_form.html', insurance=None, trucks=trucks_list, drivers=drivers_list)
+    finally:
+        db.close()
+
+
+@bp.route('/insurances/<int:ins_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def insurance_edit(ins_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckInsurance).filter_by(id=ins_id, active=True)
+        if tenant_id:
+            q = q.filter(TruckInsurance.tenant_id == tenant_id)
+        ins = q.first()
+        if not ins:
+            flash('保険情報が見つかりません', 'error')
+            return redirect(url_for('truck.insurances'))
+        trucks_list = db.query(Truck).filter_by(active=True).filter(Truck.tenant_id == tenant_id).all() if tenant_id else []
+        drivers_list = db.query(TruckDriver).filter_by(active=True).filter(TruckDriver.tenant_id == tenant_id).all() if tenant_id else []
+        if request.method == 'POST':
+            ins.insurance_type = request.form.get('insurance_type', 'other')
+            ins.insurer = request.form.get('insurer', '').strip()
+            ins.policy_number = request.form.get('policy_number', '').strip()
+            ins.truck_id = _parse_int(request.form.get('truck_id', ''))
+            ins.driver_id = _parse_int(request.form.get('driver_id', ''))
+            ins.start_date = _parse_date(request.form.get('start_date', ''))
+            ins.end_date = _parse_date(request.form.get('end_date', ''))
+            ins.premium = _parse_float(request.form.get('premium', ''))
+            ins.coverage_amount = _parse_float(request.form.get('coverage_amount', ''))
+            ins.note = request.form.get('note', '').strip()
+            f = request.files.get('file')
+            if f and f.filename:
+                saved = _save_truck_file(f, 'insurances')
+                if saved:
+                    ins.file_path, ins.file_name = saved
+            db.commit()
+            flash('保険情報を更新しました', 'success')
+            return redirect(url_for('truck.insurances'))
+        return render_template('truck/insurance_form.html', insurance=ins, trucks=trucks_list, drivers=drivers_list)
+    finally:
+        db.close()
+
+
+@bp.route('/insurances/<int:ins_id>/delete', methods=['POST'])
+@login_required_truck
+def insurance_delete(ins_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckInsurance).filter_by(id=ins_id)
+        if tenant_id:
+            q = q.filter(TruckInsurance.tenant_id == tenant_id)
+        ins = q.first()
+        if ins:
+            ins.active = False
+            db.commit()
+            flash('保険情報を削除しました', 'success')
+        return redirect(url_for('truck.insurances'))
+    finally:
+        db.close()
+
+
+@bp.route('/insurances/<int:ins_id>/ocr', methods=['POST'])
+@login_required_truck
+def insurance_ocr(ins_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckInsurance).filter_by(id=ins_id, active=True)
+        if tenant_id:
+            q = q.filter(TruckInsurance.tenant_id == tenant_id)
+        ins = q.first()
+        if not ins or not ins.file_path:
+            return jsonify({'error': 'ファイルがありません'}), 400
+        api_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id, '')
+        if not api_key:
+            return jsonify({'error': 'システム設定でOpenAI APIキーを登録してください'}), 400
+        result = _run_truck_ocr(ins.file_path, api_key, 'insurance')
+        ins.ocr_status = 'done'
+        ins.ocr_insurer = result.get('insurer', '')
+        ins.ocr_policy_number = result.get('policy_number', '')
+        ins.ocr_start_date = result.get('start_date', '')
+        ins.ocr_end_date = result.get('end_date', '')
+        ins.ocr_premium = result.get('premium', '')
+        ins.ocr_summary = result.get('summary', '')
+        ins.ocr_raw = json.dumps(result, ensure_ascii=False)
+        db.commit()
+        return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+# ─── AI-OCRヘルパー関数 ────────────────────────────────────
+
+def _parse_date(s):
+    if not s:
+        return None
+    try:
+        from datetime import date as _date
+        return _date.fromisoformat(s)
+    except Exception:
+        return None
+
+
+def _parse_float(s):
+    if not s:
+        return None
+    try:
+        return float(str(s).replace(',', ''))
+    except Exception:
+        return None
+
+
+def _parse_int(s):
+    if not s:
+        return None
+    try:
+        return int(s)
+    except Exception:
+        return None
+
+
+def _save_truck_file(file_obj, subdir):
+    """PDF/画像をアップロードしてパスを返す"""
+    import uuid
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads', 'truck', subdir)
+    os.makedirs(upload_dir, exist_ok=True)
+    ext = os.path.splitext(file_obj.filename)[1].lower()
+    if ext not in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp']:
+        return None
+    fname = f"{uuid.uuid4().hex}{ext}"
+    fpath = os.path.join(upload_dir, fname)
+    file_obj.save(fpath)
+    return fpath, file_obj.filename
+
+
+def _run_truck_ocr(file_path, api_key, doc_type):
+    """GPT-4o Visionで契約書・保険証券を読み取る"""
+    import base64
+    import requests as _req
+    import fitz  # PyMuPDF
+
+    def encode_image(path):
+        with open(path, 'rb') as f:
+            return base64.b64encode(f.read()).decode('utf-8')
+
+    # PDFは先頭2ページまで画像化
+    ext = os.path.splitext(file_path)[1].lower()
+    image_paths = []
+    if ext == '.pdf':
+        try:
+            doc = fitz.open(file_path)
+            for i in range(min(2, len(doc))):
+                page = doc[i]
+                pix = page.get_pixmap(matrix=fitz.Matrix(200/72, 200/72))
+                tmp = file_path + f'_p{i}.jpg'
+                pix.save(tmp)
+                image_paths.append(tmp)
+            doc.close()
+        except Exception:
+            image_paths = []
+    else:
+        image_paths = [file_path]
+
+    if not image_paths:
+        return {'error': '画像変換失敗'}
+
+    if doc_type == 'contract':
+        prompt = ("""以下の契約書画像から情報を抽出してJSONで返してください。
+{
+  "title": "契約書名・契約の種類",
+  "counterparty": "相手方会社名",
+  "start_date": "YYYY-MM-DD形式",
+  "end_date": "YYYY-MM-DD形式",
+  "amount": "契約金額（数字のみ）",
+  "summary": "契約内容の要約（200字以内）"
+}"""
+        )
+    else:
+        prompt = ("""以下の保険証券画像から情報を抽出してJSONで返してください。
+{
+  "insurer": "保険会社名",
+  "policy_number": "証券番号",
+  "insurance_type": "保険種類（自賠責/任意/貨物/その他）",
+  "start_date": "YYYY-MM-DD形式",
+  "end_date": "YYYY-MM-DD形式",
+  "premium": "保険料（数字のみ）",
+  "coverage_amount": "保険金額（数字のみ）",
+  "summary": "保険内容の要約（200字以内）"
+}"""
+        )
+
+    content = [{'type': 'text', 'text': prompt}]
+    for p in image_paths:
+        img_data = encode_image(p)
+        content.append({'type': 'image_url', 'image_url': {
+            'url': f'data:image/jpeg;base64,{img_data}',
+            'detail': 'high'
+        }})
+
+    headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
+    payload = {
+        'model': 'gpt-4o',
+        'messages': [
+            {'role': 'system', 'content': 'あなたは日本語文書のOCR専門家です。必ずJSON形式のみで返してください。'},
+            {'role': 'user', 'content': content}
+        ],
+        'max_tokens': 2000,
+        'response_format': {'type': 'json_object'}
+    }
+    resp = _req.post('https://api.openai.com/v1/chat/completions', headers=headers, json=payload, timeout=120)
+    resp.raise_for_status()
+    data = resp.json()
+    text = data['choices'][0]['message']['content']
+    return json.loads(text)
+
+
+# ─── OpenAI APIキー設定 ──────────────────────────────────────
+
+@bp.route('/settings/ai', methods=['GET', 'POST'])
+@login_required_truck
+def ai_settings():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        if request.method == 'POST':
+            api_key = request.form.get('openai_api_key', '').strip()
+            TruckAppSettings.set(db, 'openai_api_key', api_key, tenant_id)
+            flash('AI-OCR APIキーを保存しました', 'success')
+            return redirect(url_for('truck.ai_settings'))
+        current_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id, '')
+        masked = ('sk-...' + current_key[-4:]) if len(current_key) > 8 else (current_key if current_key else '')
+        return render_template('truck/ai_settings.html', masked_key=masked, has_key=bool(current_key))
     finally:
         db.close()
 

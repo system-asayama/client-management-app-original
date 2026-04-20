@@ -1,0 +1,60 @@
+{% extends 'truck/base.html' %}
+{% block title %}{% if contract %}契約書編集{% else %}契約書新規登録{% endif %} - トラック運行管理{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('truck.contracts') }}" class="back-link">← 契約書一覧に戻る</a>
+
+<div class="page-title">{% if contract %}✏️ 契約書編集{% else %}📄 契約書新規登録{% endif %}</div>
+<div class="page-subtitle" style="margin-bottom:20px;">PDF・画像をアップロードすると登録後にAI-OCRで内容を自動読み取りできます</div>
+
+<div class="form-card" style="max-width:640px;">
+  <form method="post" enctype="multipart/form-data">
+    <div class="form-field">
+      <label>契約書名 <span class="required">*</span></label>
+      <input type="text" name="title" value="{{ contract.title if contract else '' }}" required placeholder="例：車両リース契約書">
+    </div>
+    <div class="form-field">
+      <label>種別</label>
+      <select name="contract_type">
+        <option value="lease" {% if contract and contract.contract_type == 'lease' %}selected{% endif %}>リース契約</option>
+        <option value="maintenance" {% if contract and contract.contract_type == 'maintenance' %}selected{% endif %}>メンテナンス契約</option>
+        <option value="other" {% if not contract or contract.contract_type == 'other' %}selected{% endif %}>その他</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>相手方（会社名）</label>
+      <input type="text" name="counterparty" value="{{ contract.counterparty if contract else '' }}" placeholder="例：○○リース株式会社">
+    </div>
+    <div style="display:flex; gap:12px;">
+      <div class="form-field" style="flex:1;">
+        <label>契約開始日</label>
+        <input type="date" name="start_date" value="{{ contract.start_date.isoformat() if contract and contract.start_date else '' }}">
+      </div>
+      <div class="form-field" style="flex:1;">
+        <label>契約終了日</label>
+        <input type="date" name="end_date" value="{{ contract.end_date.isoformat() if contract and contract.end_date else '' }}">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>契約金額（円）</label>
+      <input type="number" name="amount" value="{{ contract.amount|int if contract and contract.amount else '' }}" placeholder="例：1200000">
+    </div>
+    <div class="form-field">
+      <label>PDF・画像ファイル</label>
+      {% if contract and contract.file_name %}
+        <div style="font-size:12px; color:#059669; margin-bottom:6px;">📎 現在: {{ contract.file_name }}</div>
+      {% endif %}
+      <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp">
+      <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。アップロード後にAI-OCRで内容を読み取れます。</div>
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note" placeholder="備考・メモ">{{ contract.note if contract else '' }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if contract %}更新する{% else %}登録する{% endif %}</button>
+      <a href="{{ url_for('truck.contracts') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

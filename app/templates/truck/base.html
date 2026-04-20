@@ -261,6 +261,14 @@
            class="nav-item {% if request.endpoint in ['truck.clients','truck.client_new','truck.client_edit'] %}active{% endif %}">
           <span class="nav-icon">🏢</span> 取引先・荷主
         </a>
+        <a href="{{ url_for('truck.contracts') }}"
+           class="nav-item {% if request.endpoint in ['truck.contracts','truck.contract_new','truck.contract_edit'] %}active{% endif %}">
+          <span class="nav-icon">📄</span> 契約書管理
+        </a>
+        <a href="{{ url_for('truck.insurances') }}"
+           class="nav-item {% if request.endpoint in ['truck.insurances','truck.insurance_new','truck.insurance_edit'] %}active{% endif %}">
+          <span class="nav-icon">🛡️</span> 保険情報
+        </a>
       </div>
     </div>
 
@@ -282,6 +290,10 @@
         <span class="arrow">▶</span>
       </div>
       <div class="nav-group-items">
+        <a href="{{ url_for('truck.ai_settings') }}"
+           class="nav-item {% if request.endpoint == 'truck.ai_settings' %}active{% endif %}">
+          <span class="nav-icon">🤖</span> AI-OCR設定
+        </a>
         <a href="{{ url_for('truck.apk_settings') }}"
            class="nav-item {% if request.endpoint == 'truck.apk_settings' %}active{% endif %}">
           <span class="nav-icon">📱</span> APK配布設定

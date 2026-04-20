@@ -126,6 +126,36 @@ class TruckOperation(Base):
         }
 
 
+class TruckClient(Base):
+    __tablename__ = "truck_clients"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)          # 会社名
+    kana = Column(String(100))                           # フリガナ
+    contact_name = Column(String(100))                   # 担当者名
+    phone = Column(String(20))
+    email = Column(String(200))
+    address = Column(String(300))
+    client_type = Column(String(20), default='both')     # shipper/consignee/both
+    note = Column(Text)
+    tenant_id = Column(Integer, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "kana": self.kana,
+            "contact_name": self.contact_name,
+            "phone": self.phone,
+            "email": self.email,
+            "address": self.address,
+            "client_type": self.client_type,
+            "note": self.note,
+            "active": self.active,
+        }
+
+
 class TruckAppSettings(Base):
     __tablename__ = "truck_app_settings"
     id = Column(Integer, primary_key=True)

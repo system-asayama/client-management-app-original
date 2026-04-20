@@ -1,0 +1,54 @@
+{% extends 'truck/base.html' %}
+{% block title %}{% if client %}取引先編集{% else %}取引先新規登録{% endif %} - トラック運行管理{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('truck.clients') }}" class="back-link">← 取引先・荷主一覧に戻る</a>
+
+<div class="page-title">{% if client %}✏️ 取引先編集{% else %}🏢 取引先新規登録{% endif %}</div>
+<div class="page-subtitle" style="margin-bottom:20px;"></div>
+
+<div class="form-card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-field">
+      <label>会社名 <span class="required">*</span></label>
+      <input type="text" name="name" value="{{ client.name if client else '' }}" required placeholder="例：山田運送株式会社">
+    </div>
+    <div class="form-field">
+      <label>フリガナ</label>
+      <input type="text" name="kana" value="{{ client.kana if client else '' }}" placeholder="例：ヤマダウンソウカブシキガイシャ">
+    </div>
+    <div class="form-field">
+      <label>担当者名</label>
+      <input type="text" name="contact_name" value="{{ client.contact_name if client else '' }}" placeholder="例：山田 太郎">
+    </div>
+    <div class="form-field">
+      <label>電話番号</label>
+      <input type="text" name="phone" value="{{ client.phone if client else '' }}" placeholder="例：03-1234-5678">
+    </div>
+    <div class="form-field">
+      <label>メールアドレス</label>
+      <input type="text" name="email" value="{{ client.email if client else '' }}" placeholder="例：info@example.com">
+    </div>
+    <div class="form-field">
+      <label>住所</label>
+      <input type="text" name="address" value="{{ client.address if client else '' }}" placeholder="例：東京都千代田区...">
+    </div>
+    <div class="form-field">
+      <label>区分</label>
+      <select name="client_type">
+        <option value="both" {% if not client or client.client_type == 'both' %}selected{% endif %}>荷主・届け先（両方）</option>
+        <option value="shipper" {% if client and client.client_type == 'shipper' %}selected{% endif %}>荷主のみ</option>
+        <option value="consignee" {% if client and client.client_type == 'consignee' %}selected{% endif %}>届け先のみ</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note" placeholder="備考・メモ">{{ client.note if client else '' }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if client %}更新する{% else %}登録する{% endif %}</button>
+      <a href="{{ url_for('truck.clients') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

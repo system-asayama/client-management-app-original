@@ -14,7 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -763,6 +763,106 @@ def gps_map_realtime_data():
         return jsonify({'ok': True, 'tracks': tracks})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+# ─── 取引先・荷主管理 ──────────────────────────────────────
+
+@bp.route('/clients')
+@login_required_truck
+def clients():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckClient).filter_by(active=True)
+        if tenant_id:
+            q = q.filter(TruckClient.tenant_id == tenant_id)
+        rows = q.order_by(TruckClient.kana, TruckClient.name).all()
+        return render_template('truck/clients.html', clients=rows)
+    finally:
+        db.close()
+
+
+@bp.route('/clients/new', methods=['GET', 'POST'])
+@login_required_truck
+def client_new():
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            if not name:
+                flash('会社名は必須です', 'error')
+                return render_template('truck/client_form.html', client=None)
+            c = TruckClient(
+                name=name,
+                kana=request.form.get('kana', '').strip(),
+                contact_name=request.form.get('contact_name', '').strip(),
+                phone=request.form.get('phone', '').strip(),
+                email=request.form.get('email', '').strip(),
+                address=request.form.get('address', '').strip(),
+                client_type=request.form.get('client_type', 'both'),
+                note=request.form.get('note', '').strip(),
+                tenant_id=session.get('tenant_id'),
+            )
+            db.add(c)
+            db.commit()
+            flash(f'取引先「{name}」を登録しました', 'success')
+            return redirect(url_for('truck.clients'))
+        return render_template('truck/client_form.html', client=None)
+    finally:
+        db.close()
+
+
+@bp.route('/clients/<int:client_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def client_edit(client_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckClient).filter_by(id=client_id, active=True)
+        if tenant_id:
+            q = q.filter(TruckClient.tenant_id == tenant_id)
+        c = q.first()
+        if not c:
+            flash('取引先が見つかりません', 'error')
+            return redirect(url_for('truck.clients'))
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            if not name:
+                flash('会社名は必須です', 'error')
+                return render_template('truck/client_form.html', client=c)
+            c.name = name
+            c.kana = request.form.get('kana', '').strip()
+            c.contact_name = request.form.get('contact_name', '').strip()
+            c.phone = request.form.get('phone', '').strip()
+            c.email = request.form.get('email', '').strip()
+            c.address = request.form.get('address', '').strip()
+            c.client_type = request.form.get('client_type', 'both')
+            c.note = request.form.get('note', '').strip()
+            db.commit()
+            flash(f'取引先「{c.name}」を更新しました', 'success')
+            return redirect(url_for('truck.clients'))
+        return render_template('truck/client_form.html', client=c)
+    finally:
+        db.close()
+
+
+@bp.route('/clients/<int:client_id>/delete', methods=['POST'])
+@login_required_truck
+def client_delete(client_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        q = db.query(TruckClient).filter_by(id=client_id)
+        if tenant_id:
+            q = q.filter(TruckClient.tenant_id == tenant_id)
+        c = q.first()
+        if c:
+            c.active = False
+            db.commit()
+            flash(f'取引先「{c.name}」を削除しました', 'success')
+        return redirect(url_for('truck.clients'))
     finally:
         db.close()
 

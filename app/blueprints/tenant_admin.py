@@ -2300,7 +2300,7 @@ AVAILABLE_APPS = [
         'name': 'real-estate',
         'display_name': '不動産管理アプリ',
         'description': '不動産物件の管理・購買・購買支援を行うアプリ',
-        'url': '/real-estate',
+        'url': '/apps/property',
         'icon': '🏠',
         'scope': 'store'
     },
@@ -2308,7 +2308,7 @@ AVAILABLE_APPS = [
         'name': 'company-incorporation',
         'display_name': '法人設立アプリ',
         'description': '法人設立の手続き・書類作成・進捗管理をサポートするアプリ',
-        'url': '/company-incorporation',
+        'url': '/apps/teikan',
         'icon': '🏢',
         'scope': 'store'
     }

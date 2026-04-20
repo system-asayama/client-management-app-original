@@ -1162,20 +1162,25 @@ def insurance_ocr(ins_id):
 # ─── AI-OCRヘルパー関数 ────────────────────────────────────
 
 def _get_truck_api_keys(db, tenant_id):
-    """店舗 → テナント → アプリ管理グループ → システム管理者の順でAPIキーを取得（証桯データ化アプリと同じロジック）"""
-    result = {'openai_api_key': None, 'google_vision_api_key': None, 'google_api_key': None, 'anthropic_api_key': None}
+    """アプリ固有(TruckAppSettings) → テナント(TTenant) → アプリ管理者(TAppManagerGroup) → システム管理者の順でAPIキーを取得"""
+    result = {'openai_api_key': None, 'google_vision_api_key': None}
+    # 1. アプリ固有設定（最優先）
     if tenant_id:
+        app_openai = TruckAppSettings.get(db, 'openai_api_key', tenant_id=tenant_id)
+        app_vision = TruckAppSettings.get(db, 'google_vision_api_key', tenant_id=tenant_id)
+        if app_openai:
+            result['openai_api_key'] = app_openai
+        if app_vision:
+            result['google_vision_api_key'] = app_vision
+    # 2. テナント共通設定
+    if (not result['openai_api_key'] or not result['google_vision_api_key']) and tenant_id:
         tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
         if tenant:
-            if getattr(tenant, 'openai_api_key', None):
+            if not result['openai_api_key'] and getattr(tenant, 'openai_api_key', None):
                 result['openai_api_key'] = tenant.openai_api_key
-            if getattr(tenant, 'google_vision_api_key', None):
+            if not result['google_vision_api_key'] and getattr(tenant, 'google_vision_api_key', None):
                 result['google_vision_api_key'] = tenant.google_vision_api_key
-            if getattr(tenant, 'google_api_key', None):
-                result['google_api_key'] = tenant.google_api_key
-            if getattr(tenant, 'anthropic_api_key', None):
-                result['anthropic_api_key'] = tenant.anthropic_api_key
-    # アプリ管理グループからフォールバック
+    # 3. アプリ管理グループ
     if not result['openai_api_key'] or not result['google_vision_api_key']:
         try:
             app_managers = db.query(TKanrisha).filter(
@@ -1192,7 +1197,7 @@ def _get_truck_api_keys(db, tenant_id):
                     break
         except Exception:
             pass
-    # システム管理者からフォールバック
+    # 4. システム管理者
     if not result['openai_api_key'] or not result['google_vision_api_key']:
         sys_admins = db.query(TKanrisha).filter(TKanrisha.role == 'system_admin').all()
         for sa in sys_admins:
@@ -1345,37 +1350,24 @@ def _run_truck_ocr(file_path, api_key, doc_type, google_vision_key=None):
 @bp.route('/settings/api', methods=['GET', 'POST'])
 @login_required_truck
 def api_settings():
-    """AIサービスAPIキー設定（テナント共通）"""
+    """AIサービスAPIキー設定（アプリ固有・最優先）"""
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
-        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
-        if not tenant:
-            flash('テナント情報が見つかりません', 'error')
-            return redirect(url_for('truck.dashboard'))
         if request.method == 'POST':
             openai_key = request.form.get('openai_api_key', '').strip()
             google_vision_key = request.form.get('google_vision_api_key', '').strip()
-            google_key = request.form.get('google_api_key', '').strip()
-            anthropic_key = request.form.get('anthropic_api_key', '').strip()
-            azure_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip()
-            azure_key = request.form.get('azure_document_intelligence_key', '').strip()
             if openai_key:
-                tenant.openai_api_key = openai_key
+                TruckAppSettings.set(db, 'openai_api_key', openai_key, tenant_id=tenant_id)
             if google_vision_key:
-                tenant.google_vision_api_key = google_vision_key
-            if google_key:
-                tenant.google_api_key = google_key
-            if anthropic_key:
-                tenant.anthropic_api_key = anthropic_key
-            if azure_endpoint:
-                tenant.azure_document_intelligence_endpoint = azure_endpoint
-            if azure_key:
-                tenant.azure_document_intelligence_key = azure_key
-            db.commit()
+                TruckAppSettings.set(db, 'google_vision_api_key', google_vision_key, tenant_id=tenant_id)
             flash('APIキーを保存しました', 'success')
             return redirect(url_for('truck.api_settings'))
-        return render_template('truck/api_settings.html', tenant=tenant)
+        app_openai_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id=tenant_id)
+        app_google_vision_key = TruckAppSettings.get(db, 'google_vision_api_key', tenant_id=tenant_id)
+        return render_template('truck/api_settings.html',
+                               app_openai_key=app_openai_key,
+                               app_google_vision_key=app_google_vision_key)
     finally:
         db.close()
 

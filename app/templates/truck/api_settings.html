@@ -8,9 +8,12 @@
   <h1 style="font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:6px">
     🔑 AIサービス APIキー設定
   </h1>
-  <p style="color:#64748b; font-size:0.9rem; margin-bottom:24px">
-    契約書・保険証券のPDF/画像から内容を自動読み取りするためのAPIキーを設定します。<br>
-    設定はテナント共通設定として保存されます。
+  <p style="color:#64748b; font-size:0.9rem; margin-bottom:4px">
+    契約書・保険証券のPDF/画像から内容を自動読み取りするためのAPIキーを設定します。
+  </p>
+  <p style="color:#64748b; font-size:0.85rem; margin-bottom:24px">
+    ここで設定したAPIキーはこのアプリ専用として最優先で使用されます。<br>
+    未設定の場合はテナント共通設定 → アプリ管理者 → システム管理者の順でフォールバックします。
   </p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -29,13 +32,13 @@
       <h2 style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9">
         🤖 OpenAI
       </h2>
-      <div style="margin-bottom:12px">
+      <div>
         <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
-          OpenAI API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">GPT・文書解析</span>
+          OpenAI API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">GPT-4o・文書解析</span>
         </label>
         <div style="position:relative">
           <input type="password" name="openai_api_key" id="openai_api_key"
-            value="{{ tenant.openai_api_key or '' }}"
+            value="{{ app_openai_key or '' }}"
             placeholder="sk-..."
             style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
           <button type="button" onclick="togglePassword('openai_api_key')"
@@ -47,97 +50,25 @@
       </div>
     </div>
 
-    <!-- Google -->
-    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:16px">
+    <!-- Google Cloud Vision -->
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:24px">
       <h2 style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9">
-        🔵 Google
+        🔵 Google Cloud Vision
       </h2>
-      <div style="margin-bottom:16px">
+      <div>
         <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
-          Google Cloud Vision API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">画像OCR</span>
+          Google Cloud Vision API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">画像OCR（推奨）</span>
         </label>
         <div style="position:relative">
           <input type="password" name="google_vision_api_key" id="google_vision_api_key"
-            value="{{ tenant.google_vision_api_key or '' }}"
+            value="{{ app_google_vision_key or '' }}"
             placeholder="AIza..."
             style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
           <button type="button" onclick="togglePassword('google_vision_api_key')"
             style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem">👁</button>
         </div>
         <small style="color:#6b7280; font-size:0.78rem">
-          <a href="https://console.cloud.google.com/" target="_blank" style="color:#2563eb">Google Cloud Console</a> で取得（推奨：OCR精度向上）
-        </small>
-      </div>
-      <div>
-        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
-          Google API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">Maps・その他</span>
-        </label>
-        <div style="position:relative">
-          <input type="password" name="google_api_key" id="google_api_key"
-            value="{{ tenant.google_api_key or '' }}"
-            placeholder="AIza..."
-            style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
-          <button type="button" onclick="togglePassword('google_api_key')"
-            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem">👁</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Anthropic -->
-    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:16px">
-      <h2 style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9">
-        🟠 Anthropic
-      </h2>
-      <div>
-        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
-          Anthropic API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">Claude AI</span>
-        </label>
-        <div style="position:relative">
-          <input type="password" name="anthropic_api_key" id="anthropic_api_key"
-            value="{{ tenant.anthropic_api_key or '' }}"
-            placeholder="sk-ant-..."
-            style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
-          <button type="button" onclick="togglePassword('anthropic_api_key')"
-            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem">👁</button>
-        </div>
-        <small style="color:#6b7280; font-size:0.78rem">
-          <a href="https://console.anthropic.com/" target="_blank" style="color:#2563eb">Anthropic Console</a> で取得
-        </small>
-      </div>
-    </div>
-
-    <!-- Microsoft Azure -->
-    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:24px">
-      <h2 style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9">
-        ☁️ Microsoft Azure
-      </h2>
-      <div style="margin-bottom:16px">
-        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
-          Azure Document Intelligence Endpoint
-        </label>
-        <div style="position:relative">
-          <input type="password" name="azure_document_intelligence_endpoint" id="azure_endpoint"
-            value="{{ tenant.azure_document_intelligence_endpoint or '' }}"
-            placeholder="https://xxx.cognitiveservices.azure.com/"
-            style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
-          <button type="button" onclick="togglePassword('azure_endpoint')"
-            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem">👁</button>
-        </div>
-      </div>
-      <div>
-        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
-          Azure Document Intelligence Key
-        </label>
-        <div style="position:relative">
-          <input type="password" name="azure_document_intelligence_key" id="azure_key"
-            value="{{ tenant.azure_document_intelligence_key or '' }}"
-            placeholder="Azureポータルの「キーとエンドポイント」からコピー"
-            style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
-          <button type="button" onclick="togglePassword('azure_key')"
-            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem">👁</button>
-        </div>
-        <small style="color:#6b7280; font-size:0.78rem">
-          <a href="https://portal.azure.com" target="_blank" style="color:#2563eb">Azureポータル</a> の「Document Intelligence」リソースから取得
+          <a href="https://console.cloud.google.com/" target="_blank" style="color:#2563eb">Google Cloud Console</a> で取得。設定するとOCR精度が向上します。
         </small>
       </div>
     </div>

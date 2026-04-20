@@ -912,7 +912,28 @@ def contract_new():
                 c.file_path, c.file_name = saved
             db.add(c)
             db.commit()
-            flash(f'契約書「{title}」を登録しました', 'success')
+            # AI自動読み取り
+            if request.form.get('ocr_mode') == 'auto' and c.file_path:
+                api_key, google_vision_key = _get_truck_api_keys(session.get('tenant_id'), db)
+                if api_key:
+                    try:
+                        result = _run_truck_ocr(c.file_path, api_key, 'contract', google_vision_key=google_vision_key)
+                        c.ocr_status = 'done'
+                        c.ocr_title = result.get('title', '')
+                        c.ocr_counterparty = result.get('counterparty', '')
+                        c.ocr_start_date = result.get('start_date', '')
+                        c.ocr_end_date = result.get('end_date', '')
+                        c.ocr_amount = result.get('amount', '')
+                        c.ocr_summary = result.get('summary', '')
+                        c.ocr_raw = json.dumps(result, ensure_ascii=False)
+                        db.commit()
+                        flash(f'契約書「{title}」を登録し、AI読み取りを完了しました', 'success')
+                    except Exception as e:
+                        flash(f'契約書「{title}」を登録しました（AI読み取り失敗: {str(e)[:50]}）', 'warning')
+                else:
+                    flash(f'契約書「{title}」を登録しました（APIキー未設定のためAI読み取りをスキップ）', 'warning')
+            else:
+                flash(f'契約書「{title}」を登録しました', 'success')
             return redirect(url_for('truck.contracts'))
         return render_template('truck/contract_form.html', contract=None)
     finally:
@@ -1054,7 +1075,28 @@ def insurance_new():
                 ins.file_path, ins.file_name = saved
             db.add(ins)
             db.commit()
-            flash('保険情報を登録しました', 'success')
+            # AI自動読み取り
+            if request.form.get('ocr_mode') == 'auto' and ins.file_path:
+                api_key, google_vision_key = _get_truck_api_keys(tenant_id, db)
+                if api_key:
+                    try:
+                        result = _run_truck_ocr(ins.file_path, api_key, 'insurance', google_vision_key=google_vision_key)
+                        ins.ocr_status = 'done'
+                        ins.ocr_insurer = result.get('insurer', '')
+                        ins.ocr_policy_number = result.get('policy_number', '')
+                        ins.ocr_start_date = result.get('start_date', '')
+                        ins.ocr_end_date = result.get('end_date', '')
+                        ins.ocr_premium = result.get('premium', '')
+                        ins.ocr_summary = result.get('summary', '')
+                        ins.ocr_raw = json.dumps(result, ensure_ascii=False)
+                        db.commit()
+                        flash('保険情報を登録し、AI読み取りを完了しました', 'success')
+                    except Exception as e:
+                        flash(f'保険情報を登録しました（AI読み取り失敗: {str(e)[:50]}）', 'warning')
+                else:
+                    flash('保険情報を登録しました（APIキー未設定のためAI読み取りをスキップ）', 'warning')
+            else:
+                flash('保険情報を登録しました', 'success')
             return redirect(url_for('truck.insurances'))
         return render_template('truck/insurance_form.html', insurance=None, trucks=trucks_list, drivers=drivers_list)
     finally:

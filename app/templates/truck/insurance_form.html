@@ -115,7 +115,28 @@
       <!-- 撮影画像を送信するための隠し入力（Base64） -->
       <div id="capturedInputs"></div>
 
-      <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。複数ファイル選択可。アップロード後にAI-OCRで内容を読み取れます。</div>
+      <div style="font-size:11px; color:#6b7280; margin-top:4px;">PDF・JPG・PNG対応。複数ファイル選択可。</div>
+    </div>
+
+    <!-- AI読み取りオプション -->
+    <div class="form-field" id="ocrOptionArea" style="display:none;">
+      <label>AI読み取り</label>
+      <div style="display:flex; gap:10px; margin-top:4px;">
+        <label style="flex:1; display:flex; align-items:center; gap:8px; padding:12px; border:2px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#fff;" id="ocrOff">
+          <input type="radio" name="ocr_mode" value="none" checked onchange="updateOcrOption()">
+          <span>
+            <span style="font-weight:600; font-size:0.9rem;">&#128190; アップロードのみ</span><br>
+            <span style="font-size:0.78rem; color:#6b7280;">ファイルを保存するだけ</span>
+          </span>
+        </label>
+        <label style="flex:1; display:flex; align-items:center; gap:8px; padding:12px; border:2px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#fff;" id="ocrOn">
+          <input type="radio" name="ocr_mode" value="auto" onchange="updateOcrOption()">
+          <span>
+            <span style="font-weight:600; font-size:0.9rem;">&#129302; AI自動読み取り</span><br>
+            <span style="font-size:0.78rem; color:#6b7280;">登録後にGPT-4oで内容を解析</span>
+          </span>
+        </label>
+      </div>
     </div>
 
     <div class="form-field">
@@ -171,9 +192,21 @@ function capturePhoto() {
   renderPreviews();
 }
 
+function showOcrOption() {
+  const total = selectedFiles.length + capturedPhotos.length;
+  document.getElementById('ocrOptionArea').style.display = total > 0 ? 'block' : 'none';
+}
+
+function updateOcrOption() {
+  const val = document.querySelector('input[name="ocr_mode"]:checked').value;
+  document.getElementById('ocrOff').style.border = val === 'none' ? '2px solid #1e3a5f' : '2px solid #e2e8f0';
+  document.getElementById('ocrOn').style.border = val === 'auto' ? '2px solid #1e3a5f' : '2px solid #e2e8f0';
+}
+
 function renderPreviews() {
   const area = document.getElementById('previewArea');
   const list = document.getElementById('previewList');
+  showOcrOption();
   const allItems = [
     ...selectedFiles.map((f, i) => ({ type: 'file', name: f.name, idx: i, isImage: f.type.startsWith('image/'), src: URL.createObjectURL(f) })),
     ...capturedPhotos.map((p, i) => ({ type: 'photo', name: p.filename, idx: i, isImage: true, src: p.dataUrl }))

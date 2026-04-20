@@ -702,6 +702,135 @@ def run_auto_migrations():
         else:
             logger.info("- T_アプリ管理者グループ.enabled_apps カラムは既に存在します（スキップ）")
 
+        # ─── trucks テーブル詳細カラム追加 ───────────────────────────
+        trucks_new_columns = [
+            ('owner_name',        'VARCHAR(100) NULL',  '所有者'),
+            ('user_name',         'VARCHAR(100) NULL',  '使用者'),
+            ('base_location',     'VARCHAR(200) NULL',  '所属（営業所・拠点）'),
+            ('vehicle_type',      'VARCHAR(100) NULL',  '車種・型式'),
+            ('year',              'INT NULL',           '年式'),
+            ('color',             'VARCHAR(50) NULL',   '車体色'),
+            ('vin',               'VARCHAR(100) NULL',  '車台番号'),
+            ('engine_number',     'VARCHAR(100) NULL',  'エンジン番号'),
+            ('shaken_expiry',     'DATE NULL',          '車検満了日'),
+            ('shaken_number',     'VARCHAR(100) NULL',  '車検証番号'),
+            ('insurance_company', 'VARCHAR(200) NULL',  '保険会社名'),
+            ('insurance_policy',  'VARCHAR(100) NULL',  '証券番号'),
+            ('insurance_expiry',  'DATE NULL',          '保険満了日'),
+            ('photo_path',        'VARCHAR(500) NULL',  '車両写真パス'),
+            ('photo_name',        'VARCHAR(200) NULL',  '車両写真元ファイル名'),
+        ]
+        if table_exists(session, 'trucks'):
+            for col_name, col_def, col_comment in trucks_new_columns:
+                if not column_exists(session, 'trucks', col_name):
+                    logger.info(f"trucksテーブルに {col_name} カラムを追加中...")
+                    try:
+                        if db_type == 'postgresql':
+                            session.execute(text(f'ALTER TABLE trucks ADD COLUMN "{col_name}" {col_def}'))
+                        else:
+                            session.execute(text(f"ALTER TABLE `trucks` ADD COLUMN `{col_name}` {col_def} COMMENT '{col_comment}'"))
+                        session.commit()
+                        logger.info(f"✓ trucks.{col_name} カラムを追加しました")
+                    except Exception as col_err:
+                        session.rollback()
+                        logger.error(f"カラム追加エラー: trucks.{col_name} - {col_err}")
+                else:
+                    logger.info(f"- trucks.{col_name} カラムは既に存在します（スキップ）")
+
+        # ─── truck_accident_records テーブル作成 ──────────────────────
+        if not table_exists(session, 'truck_accident_records'):
+            logger.info("truck_accident_records テーブルを作成中...")
+            try:
+                if db_type == 'postgresql':
+                    session.execute(text("""
+                        CREATE TABLE truck_accident_records (
+                            id SERIAL PRIMARY KEY,
+                            truck_id INTEGER NOT NULL REFERENCES trucks(id) ON DELETE CASCADE,
+                            accident_date DATE NOT NULL,
+                            location VARCHAR(300),
+                            description TEXT,
+                            damage_level VARCHAR(20),
+                            repair_cost FLOAT,
+                            repair_completed BOOLEAN DEFAULT FALSE,
+                            note TEXT,
+                            tenant_id INTEGER,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """))
+                else:
+                    session.execute(text("""
+                        CREATE TABLE `truck_accident_records` (
+                            `id` INT AUTO_INCREMENT PRIMARY KEY,
+                            `truck_id` INT NOT NULL,
+                            `accident_date` DATE NOT NULL,
+                            `location` VARCHAR(300),
+                            `description` TEXT,
+                            `damage_level` VARCHAR(20),
+                            `repair_cost` FLOAT,
+                            `repair_completed` TINYINT(1) DEFAULT 0,
+                            `note` TEXT,
+                            `tenant_id` INT,
+                            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (`truck_id`) REFERENCES `trucks`(`id`) ON DELETE CASCADE
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    """))
+                session.commit()
+                logger.info("✓ truck_accident_records テーブルを作成しました")
+            except Exception as tbl_err:
+                session.rollback()
+                logger.error(f"テーブル作成エラー: truck_accident_records - {tbl_err}")
+        else:
+            logger.info("- truck_accident_records テーブルは既に存在します（スキップ）")
+
+        # ─── truck_inspection_records テーブル作成 ────────────────────
+        if not table_exists(session, 'truck_inspection_records'):
+            logger.info("truck_inspection_records テーブルを作成中...")
+            try:
+                if db_type == 'postgresql':
+                    session.execute(text("""
+                        CREATE TABLE truck_inspection_records (
+                            id SERIAL PRIMARY KEY,
+                            truck_id INTEGER NOT NULL REFERENCES trucks(id) ON DELETE CASCADE,
+                            inspection_date DATE NOT NULL,
+                            inspection_type VARCHAR(50),
+                            inspector VARCHAR(100),
+                            result VARCHAR(20),
+                            next_inspection_date DATE,
+                            mileage INTEGER,
+                            description TEXT,
+                            cost FLOAT,
+                            note TEXT,
+                            tenant_id INTEGER,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """))
+                else:
+                    session.execute(text("""
+                        CREATE TABLE `truck_inspection_records` (
+                            `id` INT AUTO_INCREMENT PRIMARY KEY,
+                            `truck_id` INT NOT NULL,
+                            `inspection_date` DATE NOT NULL,
+                            `inspection_type` VARCHAR(50),
+                            `inspector` VARCHAR(100),
+                            `result` VARCHAR(20),
+                            `next_inspection_date` DATE,
+                            `mileage` INT,
+                            `description` TEXT,
+                            `cost` FLOAT,
+                            `note` TEXT,
+                            `tenant_id` INT,
+                            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (`truck_id`) REFERENCES `trucks`(`id`) ON DELETE CASCADE
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    """))
+                session.commit()
+                logger.info("✓ truck_inspection_records テーブルを作成しました")
+            except Exception as tbl_err:
+                session.rollback()
+                logger.error(f"テーブル作成エラー: truck_inspection_records - {tbl_err}")
+        else:
+            logger.info("- truck_inspection_records テーブルは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

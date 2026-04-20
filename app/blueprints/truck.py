@@ -91,7 +91,7 @@ def login_required_truck(f):
     def decorated(*args, **kwargs):
         # client-management-appのセッションでログイン済みかチェック
         if not session.get('user_id'):
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.select_login'))
         return f(*args, **kwargs)
     return decorated
 

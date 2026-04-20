@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from app.db import SessionLocal
 from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance
+from app.models_login import TTenant
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -989,9 +990,10 @@ def contract_ocr(contract_id):
         c = q.first()
         if not c or not c.file_path:
             return jsonify({'error': 'ファイルがありません'}), 400
-        api_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id, '')
+        tenant = db.query(TTenant).filter_by(id=tenant_id).first() if tenant_id else None
+        api_key = getattr(tenant, 'openai_api_key', None) if tenant else None
         if not api_key:
-            return jsonify({'error': 'システム設定でOpenAI APIキーを登録してください'}), 400
+            return jsonify({'error': 'テナント管理者のAPIキー設定でOpenAI APIキーを登録してください'}), 400
         result = _run_truck_ocr(c.file_path, api_key, 'contract')
         c.ocr_status = 'done'
         c.ocr_title = result.get('title', '')
@@ -1134,9 +1136,10 @@ def insurance_ocr(ins_id):
         ins = q.first()
         if not ins or not ins.file_path:
             return jsonify({'error': 'ファイルがありません'}), 400
-        api_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id, '')
+        tenant = db.query(TTenant).filter_by(id=tenant_id).first() if tenant_id else None
+        api_key = getattr(tenant, 'openai_api_key', None) if tenant else None
         if not api_key:
-            return jsonify({'error': 'システム設定でOpenAI APIキーを登録してください'}), 400
+            return jsonify({'error': 'テナント管理者のAPIキー設定でOpenAI APIキーを登録してください'}), 400
         result = _run_truck_ocr(ins.file_path, api_key, 'insurance')
         ins.ocr_status = 'done'
         ins.ocr_insurer = result.get('insurer', '')
@@ -1277,26 +1280,6 @@ def _run_truck_ocr(file_path, api_key, doc_type):
     data = resp.json()
     text = data['choices'][0]['message']['content']
     return json.loads(text)
-
-
-# ─── OpenAI APIキー設定 ──────────────────────────────────────
-
-@bp.route('/settings/ai', methods=['GET', 'POST'])
-@login_required_truck
-def ai_settings():
-    db = SessionLocal()
-    try:
-        tenant_id = session.get('tenant_id')
-        if request.method == 'POST':
-            api_key = request.form.get('openai_api_key', '').strip()
-            TruckAppSettings.set(db, 'openai_api_key', api_key, tenant_id)
-            flash('AI-OCR APIキーを保存しました', 'success')
-            return redirect(url_for('truck.ai_settings'))
-        current_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id, '')
-        masked = ('sk-...' + current_key[-4:]) if len(current_key) > 8 else (current_key if current_key else '')
-        return render_template('truck/ai_settings.html', masked_key=masked, has_key=bool(current_key))
-    finally:
-        db.close()
 
 
 # ─── APK設定 ─────────────────────────────────────────────

@@ -246,7 +246,7 @@
       </div>
       <div class="nav-group-items">
         <a href="{{ url_for('truck.trucks') }}"
-           class="nav-item {% if request.endpoint in ['truck.trucks','truck.truck_new','truck.truck_edit'] %}active{% endif %}">
+           class="nav-item {% if request.endpoint in ['truck.trucks','truck.truck_new','truck.truck_edit','truck.truck_detail','truck.accident_new','truck.accident_edit','truck.inspection_new','truck.inspection_edit'] %}active{% endif %}">
           <span class="nav-icon">🚛</span> トラック管理
         </a>
         <a href="{{ url_for('truck.drivers') }}"

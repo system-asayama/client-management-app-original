@@ -1,0 +1,212 @@
+{% extends "truck/base.html" %}
+{% block title %}{{ truck.number }} - トラック詳細 - トラック運行管理{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.trucks') }}" class="back-link">← トラック一覧へ戻る</a>
+
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">
+  <div>
+    <div class="page-title">🚛 {{ truck.number }}</div>
+    <div class="page-subtitle">{{ truck.name }}{% if truck.capacity %} / {{ truck.capacity }}t{% endif %}{% if truck.base_location %} ／ {{ truck.base_location }}{% endif %}</div>
+  </div>
+  <a href="{{ url_for('truck.truck_edit', truck_id=truck.id) }}" class="btn btn-primary">✏️ 編集</a>
+</div>
+
+<!-- 車両写真 -->
+{% if truck.photo_path %}
+<div class="card" style="margin-bottom:20px;">
+  <img src="{{ url_for('truck.truck_photo', truck_id=truck.id) }}" alt="車両写真"
+       style="max-width:400px;width:100%;border-radius:8px;display:block;">
+</div>
+{% endif %}
+
+<!-- タブ -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('basic')">📋 基本情報</button>
+  <button class="tab-btn" onclick="showTab('shaken')">🔧 車検・保険</button>
+  <button class="tab-btn" onclick="showTab('accidents')">⚠️ 事故履歴 <span class="tab-count">{{ accidents|length }}</span></button>
+  <button class="tab-btn" onclick="showTab('inspections')">🔩 点検履歴 <span class="tab-count">{{ inspections|length }}</span></button>
+</div>
+
+<!-- 基本情報タブ -->
+<div id="tab-basic" class="tab-pane active">
+  <div class="card">
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">車両番号</span><span class="detail-value">{{ truck.number }}</span></div>
+      <div class="detail-item"><span class="detail-label">車両名称</span><span class="detail-value">{{ truck.name }}</span></div>
+      <div class="detail-item"><span class="detail-label">積載量</span><span class="detail-value">{{ (truck.capacity|string + 't') if truck.capacity else '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">車種・型式</span><span class="detail-value">{{ truck.vehicle_type or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">年式</span><span class="detail-value">{{ (truck.year|string + '年') if truck.year else '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">車体色</span><span class="detail-value">{{ truck.color or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">車台番号（VIN）</span><span class="detail-value">{{ truck.vin or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">エンジン番号</span><span class="detail-value">{{ truck.engine_number or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">所有者</span><span class="detail-value">{{ truck.owner_name or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">使用者</span><span class="detail-value">{{ truck.user_name or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">所属</span><span class="detail-value">{{ truck.base_location or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">ステータス</span><span class="detail-value">
+        {% if truck.active %}<span class="badge" style="background:#16a34a">有効</span>{% else %}<span class="badge" style="background:#6b7280">無効</span>{% endif %}
+      </span></div>
+    </div>
+    {% if truck.note %}
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f3f4f6;">
+      <div class="detail-label" style="margin-bottom:6px;">備考</div>
+      <div style="font-size:13px;color:#374151;white-space:pre-wrap;">{{ truck.note }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 車検・保険タブ -->
+<div id="tab-shaken" class="tab-pane" style="display:none;">
+  <div class="card">
+    <div class="card-title">🔧 車検情報</div>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <span class="detail-label">車検満了日</span>
+        <span class="detail-value">
+          {% if truck.shaken_expiry %}
+            {% set today = now.date() if now else none %}
+            {% set diff = (truck.shaken_expiry - today).days if today else none %}
+            {{ truck.shaken_expiry.strftime('%Y年%m月%d日') }}
+            {% if diff is not none %}
+              {% if diff < 0 %}<span class="badge" style="background:#dc2626;margin-left:6px">期限切れ</span>
+              {% elif diff <= 30 %}<span class="badge" style="background:#f59e0b;margin-left:6px">残{{ diff }}日</span>
+              {% else %}<span class="badge" style="background:#16a34a;margin-left:6px">残{{ diff }}日</span>{% endif %}
+            {% endif %}
+          {% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="detail-item"><span class="detail-label">車検証番号</span><span class="detail-value">{{ truck.shaken_number or '—' }}</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">🛡️ 保険情報（簡易）</div>
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-label">保険会社名</span><span class="detail-value">{{ truck.insurance_company or '—' }}</span></div>
+      <div class="detail-item"><span class="detail-label">証券番号</span><span class="detail-value">{{ truck.insurance_policy or '—' }}</span></div>
+      <div class="detail-item">
+        <span class="detail-label">保険満了日</span>
+        <span class="detail-value">
+          {% if truck.insurance_expiry %}
+            {% set today = now.date() if now else none %}
+            {% set diff = (truck.insurance_expiry - today).days if today else none %}
+            {{ truck.insurance_expiry.strftime('%Y年%m月%d日') }}
+            {% if diff is not none %}
+              {% if diff < 0 %}<span class="badge" style="background:#dc2626;margin-left:6px">期限切れ</span>
+              {% elif diff <= 30 %}<span class="badge" style="background:#f59e0b;margin-left:6px">残{{ diff }}日</span>
+              {% else %}<span class="badge" style="background:#16a34a;margin-left:6px">残{{ diff }}日</span>{% endif %}
+            {% endif %}
+          {% else %}—{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 事故履歴タブ -->
+<div id="tab-accidents" class="tab-pane" style="display:none;">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <a href="{{ url_for('truck.accident_new', truck_id=truck.id) }}" class="btn btn-primary">＋ 事故を記録</a>
+  </div>
+  {% if accidents %}
+  {% for a in accidents %}
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#dc2626;margin-bottom:4px;">
+          {{ a.accident_date.strftime('%Y年%m月%d日') }}
+          {% if a.damage_level %}
+            {% if a.damage_level == '重大' %}<span class="badge" style="background:#dc2626;margin-left:6px">{{ a.damage_level }}</span>
+            {% elif a.damage_level == '中程度' %}<span class="badge" style="background:#f59e0b;margin-left:6px">{{ a.damage_level }}</span>
+            {% else %}<span class="badge" style="background:#6b7280;margin-left:6px">{{ a.damage_level }}</span>{% endif %}
+          {% endif %}
+          {% if a.repair_completed %}<span class="badge" style="background:#16a34a;margin-left:6px">修理完了</span>{% endif %}
+        </div>
+        {% if a.location %}<div style="font-size:12px;color:#6b7280;">📍 {{ a.location }}</div>{% endif %}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <a href="{{ url_for('truck.accident_edit', truck_id=truck.id, record_id=a.id) }}" class="btn btn-sm btn-secondary">編集</a>
+        <form method="POST" action="{{ url_for('truck.accident_delete', truck_id=truck.id, record_id=a.id) }}" onsubmit="return confirm('削除しますか？');" style="display:inline;">
+          <button type="submit" class="btn btn-sm btn-danger">削除</button>
+        </form>
+      </div>
+    </div>
+    {% if a.description %}<div style="margin-top:10px;font-size:13px;color:#374151;white-space:pre-wrap;">{{ a.description }}</div>{% endif %}
+    <div style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;">
+      {% if a.repair_cost %}<span style="font-size:12px;color:#6b7280;">修理費用：{{ '{:,.0f}'.format(a.repair_cost) }}円</span>{% endif %}
+      {% if a.note %}<span style="font-size:12px;color:#6b7280;">備考：{{ a.note }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty">事故履歴はありません</div>
+  {% endif %}
+</div>
+
+<!-- 点検履歴タブ -->
+<div id="tab-inspections" class="tab-pane" style="display:none;">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <a href="{{ url_for('truck.inspection_new', truck_id=truck.id) }}" class="btn btn-primary">＋ 点検を記録</a>
+  </div>
+  {% if inspections %}
+  {% for ins in inspections %}
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#0f2744;margin-bottom:4px;">
+          {{ ins.inspection_date.strftime('%Y年%m月%d日') }}
+          {% if ins.inspection_type %}<span style="font-size:12px;color:#6b7280;margin-left:8px;">{{ ins.inspection_type }}</span>{% endif %}
+          {% if ins.result %}
+            {% if ins.result == '合格' %}<span class="badge" style="background:#16a34a;margin-left:6px">{{ ins.result }}</span>
+            {% elif ins.result == '要注意' %}<span class="badge" style="background:#f59e0b;margin-left:6px">{{ ins.result }}</span>
+            {% else %}<span class="badge" style="background:#dc2626;margin-left:6px">{{ ins.result }}</span>{% endif %}
+          {% endif %}
+        </div>
+        {% if ins.inspector %}<div style="font-size:12px;color:#6b7280;">点検者：{{ ins.inspector }}</div>{% endif %}
+        {% if ins.next_inspection_date %}<div style="font-size:12px;color:#6b7280;">次回点検：{{ ins.next_inspection_date.strftime('%Y年%m月%d日') }}</div>{% endif %}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <a href="{{ url_for('truck.inspection_edit', truck_id=truck.id, record_id=ins.id) }}" class="btn btn-sm btn-secondary">編集</a>
+        <form method="POST" action="{{ url_for('truck.inspection_delete', truck_id=truck.id, record_id=ins.id) }}" onsubmit="return confirm('削除しますか？');" style="display:inline;">
+          <button type="submit" class="btn btn-sm btn-danger">削除</button>
+        </form>
+      </div>
+    </div>
+    {% if ins.description %}<div style="margin-top:10px;font-size:13px;color:#374151;white-space:pre-wrap;">{{ ins.description }}</div>{% endif %}
+    <div style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;">
+      {% if ins.mileage %}<span style="font-size:12px;color:#6b7280;">走行距離：{{ '{:,}'.format(ins.mileage) }}km</span>{% endif %}
+      {% if ins.cost %}<span style="font-size:12px;color:#6b7280;">費用：{{ '{:,.0f}'.format(ins.cost) }}円</span>{% endif %}
+      {% if ins.note %}<span style="font-size:12px;color:#6b7280;">備考：{{ ins.note }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty">点検履歴はありません</div>
+  {% endif %}
+</div>
+
+<style>
+.tab-nav { display:flex; gap:4px; margin-bottom:16px; flex-wrap:wrap; }
+.tab-btn {
+  padding:8px 16px; border-radius:8px; border:1.5px solid #d1d5db;
+  background:#fff; font-size:13px; font-weight:600; cursor:pointer;
+  color:#6b7280; font-family:inherit; transition:all 0.15s;
+}
+.tab-btn.active { background:#1a3a5c; color:#fff; border-color:#1a3a5c; }
+.tab-btn:hover:not(.active) { background:#f3f4f6; }
+.tab-count { background:#e5e7eb; color:#374151; border-radius:10px; padding:1px 7px; font-size:11px; margin-left:4px; }
+.tab-btn.active .tab-count { background:rgba(255,255,255,0.2); color:#fff; }
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.detail-item { display:flex; flex-direction:column; gap:3px; }
+.detail-label { font-size:11px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; }
+.detail-value { font-size:14px; color:#111827; font-weight:500; }
+@media (max-width:600px) { .detail-grid { grid-template-columns:1fr; } }
+</style>
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display='none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).style.display='block';
+  event.target.classList.add('active');
+}
+</script>
+{% endblock %}

@@ -4,24 +4,121 @@
 <a href="{{ url_for('truck.trucks') }}" class="back-link">← トラック一覧へ戻る</a>
 <div class="page-title">{% if action == 'new' %}🚛 トラック登録{% else %}🚛 トラック編集{% endif %}</div>
 <div class="page-subtitle">{% if action == 'new' %}新しいトラックを登録します{% else %}トラック情報を編集します{% endif %}</div>
+
 <div class="form-card">
-  <form method="POST">
-    <div class="form-field">
-      <label>車両番号 <span class="required">*</span></label>
-      <input type="text" name="number" value="{{ truck.number if truck else '' }}" placeholder="例：品川 100 あ 1234" required>
+  <form method="POST" enctype="multipart/form-data">
+
+    <!-- ── 基本情報 ── -->
+    <div class="form-section-title">📋 基本情報</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>車両番号 <span class="required">*</span></label>
+        <input type="text" name="number" value="{{ truck.number if truck else '' }}" placeholder="例：品川 100 あ 1234" required>
+      </div>
+      <div class="form-field">
+        <label>車両名称 <span class="required">*</span></label>
+        <input type="text" name="name" value="{{ truck.name if truck else '' }}" placeholder="例：2トン平ボディ" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>積載量</label>
+        <input type="text" name="capacity" value="{{ truck.capacity if truck else '' }}" placeholder="例：4トン、4t">
+      </div>
+      <div class="form-field">
+        <label>車種・型式</label>
+        <input type="text" name="vehicle_type" value="{{ truck.vehicle_type if truck else '' }}" placeholder="例：いすゞ エルフ">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>年式</label>
+        <input type="number" name="year" value="{{ truck.year if truck else '' }}" placeholder="例：2020" min="1990" max="2100">
+      </div>
+      <div class="form-field">
+        <label>車体色</label>
+        <input type="text" name="color" value="{{ truck.color if truck else '' }}" placeholder="例：白">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>車台番号（VIN）</label>
+        <input type="text" name="vin" value="{{ truck.vin if truck else '' }}" placeholder="例：NKR85AD-7012345">
+      </div>
+      <div class="form-field">
+        <label>エンジン番号</label>
+        <input type="text" name="engine_number" value="{{ truck.engine_number if truck else '' }}" placeholder="例：4JJ1-123456">
+      </div>
+    </div>
+
+    <!-- ── 所有・使用・所属 ── -->
+    <div class="form-section-title">🏢 所有・使用・所属</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>所有者</label>
+        <input type="text" name="owner_name" value="{{ truck.owner_name if truck else '' }}" placeholder="例：株式会社〇〇運輸">
+      </div>
+      <div class="form-field">
+        <label>使用者</label>
+        <input type="text" name="user_name" value="{{ truck.user_name if truck else '' }}" placeholder="例：〇〇支店">
+      </div>
     </div>
     <div class="form-field">
-      <label>車両名称 <span class="required">*</span></label>
-      <input type="text" name="name" value="{{ truck.name if truck else '' }}" placeholder="例：2トン平ボディ" required>
+      <label>所属（営業所・拠点）</label>
+      <input type="text" name="base_location" value="{{ truck.base_location if truck else '' }}" placeholder="例：東京営業所">
     </div>
+
+    <!-- ── 車検情報 ── -->
+    <div class="form-section-title">🔧 車検情報</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>車検満了日</label>
+        <input type="date" name="shaken_expiry" value="{{ truck.shaken_expiry.isoformat() if truck and truck.shaken_expiry else '' }}">
+      </div>
+      <div class="form-field">
+        <label>車検証番号</label>
+        <input type="text" name="shaken_number" value="{{ truck.shaken_number if truck else '' }}" placeholder="例：第〇〇〇〇号">
+      </div>
+    </div>
+
+    <!-- ── 保険情報 ── -->
+    <div class="form-section-title">🛡️ 保険情報（簡易）</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>保険会社名</label>
+        <input type="text" name="insurance_company" value="{{ truck.insurance_company if truck else '' }}" placeholder="例：東京海上日動">
+      </div>
+      <div class="form-field">
+        <label>証券番号</label>
+        <input type="text" name="insurance_policy" value="{{ truck.insurance_policy if truck else '' }}" placeholder="例：TK-12345678">
+      </div>
+    </div>
+    <div class="form-field" style="max-width:280px">
+      <label>保険満了日</label>
+      <input type="date" name="insurance_expiry" value="{{ truck.insurance_expiry.isoformat() if truck and truck.insurance_expiry else '' }}">
+    </div>
+
+    <!-- ── 車両写真 ── -->
+    <div class="form-section-title">📷 車両写真</div>
+    {% if truck and truck.photo_path %}
     <div class="form-field">
-      <label>積載量</label>
-      <input type="text" name="capacity" value="{{ truck.capacity if truck else '' }}" placeholder="例：2t">
+      <label>現在の写真</label>
+      <img src="{{ url_for('truck.truck_photo', truck_id=truck.id) }}" alt="車両写真" style="max-width:300px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px;display:block;">
+      <small class="text-muted">新しい写真をアップロードすると上書きされます</small>
     </div>
+    {% endif %}
     <div class="form-field">
-      <label>備考</label>
-      <textarea name="note">{{ truck.note if truck else '' }}</textarea>
+      <label>写真をアップロード</label>
+      <input type="file" name="photo" accept="image/*" capture="environment">
+      <small class="text-muted">JPG・PNG・WEBP対応。スマートフォンからカメラ撮影も可能です。</small>
     </div>
+
+    <!-- ── 備考 ── -->
+    <div class="form-section-title">📝 備考</div>
+    <div class="form-field">
+      <textarea name="note" rows="3" placeholder="その他メモ">{{ truck.note if truck else '' }}</textarea>
+    </div>
+
     {% if action == 'edit' %}
     <div class="form-field">
       <label>ステータス</label>
@@ -31,10 +128,30 @@
       </select>
     </div>
     {% endif %}
+
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{% if action == 'new' %}登録する{% else %}更新する{% endif %}</button>
       <a href="{{ url_for('truck.trucks') }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
     </div>
   </form>
 </div>
+
+<style>
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e5e7eb;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+</style>
 {% endblock %}

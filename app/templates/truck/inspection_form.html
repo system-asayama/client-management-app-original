@@ -1,0 +1,78 @@
+{% extends "truck/base.html" %}
+{% block title %}{% if action == 'new' %}点検記録{% else %}点検記録編集{% endif %} - {{ truck.number }}{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.truck_detail', truck_id=truck.id) }}" class="back-link">← {{ truck.number }} 詳細へ戻る</a>
+<div class="page-title">🔩 {% if action == 'new' %}点検を記録{% else %}点検記録を編集{% endif %}</div>
+<div class="page-subtitle">{{ truck.number }} / {{ truck.name }}</div>
+
+<div class="form-card">
+  <form method="POST">
+    <div class="form-row">
+      <div class="form-field">
+        <label>点検日 <span class="required">*</span></label>
+        <input type="date" name="inspection_date" value="{{ record.inspection_date.isoformat() if record and record.inspection_date else '' }}" required>
+      </div>
+      <div class="form-field">
+        <label>点検種別</label>
+        <select name="inspection_type">
+          <option value="">選択してください</option>
+          <option value="日常点検" {% if record and record.inspection_type == '日常点検' %}selected{% endif %}>日常点検</option>
+          <option value="定期点検（3ヶ月）" {% if record and record.inspection_type == '定期点検（3ヶ月）' %}selected{% endif %}>定期点検（3ヶ月）</option>
+          <option value="定期点検（6ヶ月）" {% if record and record.inspection_type == '定期点検（6ヶ月）' %}selected{% endif %}>定期点検（6ヶ月）</option>
+          <option value="定期点検（1年）" {% if record and record.inspection_type == '定期点検（1年）' %}selected{% endif %}>定期点検（1年）</option>
+          <option value="車検" {% if record and record.inspection_type == '車検' %}selected{% endif %}>車検</option>
+          <option value="その他" {% if record and record.inspection_type == 'その他' %}selected{% endif %}>その他</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>点検者・業者名</label>
+        <input type="text" name="inspector" value="{{ record.inspector if record else '' }}" placeholder="例：〇〇自動車整備">
+      </div>
+      <div class="form-field">
+        <label>結果</label>
+        <select name="result">
+          <option value="">選択してください</option>
+          <option value="合格" {% if record and record.result == '合格' %}selected{% endif %}>合格</option>
+          <option value="要注意" {% if record and record.result == '要注意' %}selected{% endif %}>要注意</option>
+          <option value="不合格" {% if record and record.result == '不合格' %}selected{% endif %}>不合格</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>走行距離（km）</label>
+        <input type="number" name="mileage" value="{{ record.mileage if record and record.mileage else '' }}" placeholder="例：125000" min="0">
+      </div>
+      <div class="form-field">
+        <label>次回点検予定日</label>
+        <input type="date" name="next_inspection_date" value="{{ record.next_inspection_date.isoformat() if record and record.next_inspection_date else '' }}">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>点検内容・所見</label>
+      <textarea name="description" rows="4" placeholder="点検した項目・発見した不具合・対処内容など">{{ record.description if record else '' }}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>費用（円）</label>
+        <input type="text" name="cost" value="{{ record.cost if record and record.cost else '' }}" placeholder="例：35000">
+      </div>
+      <div class="form-field">
+        <label>備考</label>
+        <input type="text" name="note" value="{{ record.note if record else '' }}" placeholder="その他メモ">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if action == 'new' %}登録する{% else %}更新する{% endif %}</button>
+      <a href="{{ url_for('truck.truck_detail', truck_id=truck.id) }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
+    </div>
+  </form>
+</div>
+
+<style>
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:600px) { .form-row { grid-template-columns:1fr; } }
+</style>
+{% endblock %}

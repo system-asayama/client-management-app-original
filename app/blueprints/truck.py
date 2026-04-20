@@ -15,7 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord
 from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup
 from app.utils.decorators import require_roles, ROLES
 
@@ -287,6 +287,68 @@ def trucks():
         db.close()
 
 
+def _parse_truck_form(form, files=None):
+    """フォームから詳細フィールドを取得するヘルパー"""
+    import re as _re
+    capacity_raw = form.get('capacity', '').strip()
+    capacity_num = _re.sub(r'[^0-9.]', '', capacity_raw)
+    try:
+        capacity_val = float(capacity_num) if capacity_num else None
+    except ValueError:
+        capacity_val = None
+
+    def parse_date(val):
+        if not val:
+            return None
+        try:
+            from datetime import date as _date
+            return _date.fromisoformat(val)
+        except Exception:
+            return None
+
+    def parse_int(val):
+        try:
+            return int(val) if val else None
+        except Exception:
+            return None
+
+    def parse_float(val):
+        v = _re.sub(r'[^0-9.]', '', val or '')
+        try:
+            return float(v) if v else None
+        except Exception:
+            return None
+
+    data = dict(
+        number=form.get('number', '').strip(),
+        name=form.get('name', '').strip(),
+        capacity=capacity_val,
+        note=form.get('note', '').strip(),
+        owner_name=form.get('owner_name', '').strip() or None,
+        user_name=form.get('user_name', '').strip() or None,
+        base_location=form.get('base_location', '').strip() or None,
+        vehicle_type=form.get('vehicle_type', '').strip() or None,
+        year=parse_int(form.get('year', '').strip()),
+        color=form.get('color', '').strip() or None,
+        vin=form.get('vin', '').strip() or None,
+        engine_number=form.get('engine_number', '').strip() or None,
+        shaken_expiry=parse_date(form.get('shaken_expiry', '').strip()),
+        shaken_number=form.get('shaken_number', '').strip() or None,
+        insurance_company=form.get('insurance_company', '').strip() or None,
+        insurance_policy=form.get('insurance_policy', '').strip() or None,
+        insurance_expiry=parse_date(form.get('insurance_expiry', '').strip()),
+    )
+    # 写真アップロード
+    if files:
+        photo = files.get('photo')
+        if photo and photo.filename:
+            result = _save_truck_file(photo, 'photos')
+            if result:
+                data['photo_path'] = result[0]
+                data['photo_name'] = result[1]
+    return data
+
+
 @bp.route('/trucks/new', methods=['GET', 'POST'])
 @login_required_truck
 def truck_new():
@@ -294,36 +356,52 @@ def truck_new():
     try:
         tenant_id = session.get('tenant_id')
         if request.method == 'POST':
-            number = request.form.get('number', '').strip()
-            name = request.form.get('name', '').strip()
-            capacity = request.form.get('capacity', '').strip()
-            note = request.form.get('note', '').strip()
-            if not number or not name:
+            data = _parse_truck_form(request.form, request.files)
+            if not data['number'] or not data['name']:
                 flash('車両番号と車両名称は必須です', 'error')
                 return render_template('truck/truck_form.html', truck=None, action='new')
-            # 積載量：数字と小数点のみ抽出してfloat変換
-            import re as _re
-            capacity_num = _re.sub(r'[^0-9.]', '', capacity)
-            try:
-                capacity_val = float(capacity_num) if capacity_num else None
-            except ValueError:
-                capacity_val = None
-            truck = Truck(
-                number=number,
-                name=name,
-                capacity=capacity_val,
-                note=note,
-                tenant_id=tenant_id,
-            )
+            truck = Truck(tenant_id=tenant_id, **data)
             db.add(truck)
             db.commit()
-            flash(f'トラック「{name}」を登録しました', 'success')
-            return redirect(url_for('truck.trucks'))
+            flash(f'トラック「{data["name"]}」を登録しました', 'success')
+            return redirect(url_for('truck.truck_detail', truck_id=truck.id))
         return render_template('truck/truck_form.html', truck=None, action='new')
     except Exception as e:
         import traceback
         flash(f'エラー: {str(e)} | {traceback.format_exc()[-300:]}', 'error')
         return render_template('truck/truck_form.html', truck=None, action='new')
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>', methods=['GET'])
+@login_required_truck
+def truck_detail(truck_id):
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        if not truck:
+            flash('トラックが見つかりません', 'error')
+            return redirect(url_for('truck.trucks'))
+        accidents = db.query(TruckAccidentRecord).filter_by(truck_id=truck_id).order_by(TruckAccidentRecord.accident_date.desc()).all()
+        inspections = db.query(TruckInspectionRecord).filter_by(truck_id=truck_id).order_by(TruckInspectionRecord.inspection_date.desc()).all()
+        return render_template('truck/truck_detail.html', truck=truck, accidents=accidents, inspections=inspections, now=datetime.utcnow())
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/photo')
+@login_required_truck
+def truck_photo(truck_id):
+    """車両写真を返す"""
+    from flask import send_file
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        if not truck or not truck.photo_path or not os.path.exists(truck.photo_path):
+            from flask import abort
+            abort(404)
+        return send_file(truck.photo_path)
     finally:
         db.close()
 
@@ -338,24 +416,209 @@ def truck_edit(truck_id):
             flash('トラックが見つかりません', 'error')
             return redirect(url_for('truck.trucks'))
         if request.method == 'POST':
-            truck.number = request.form.get('number', '').strip()
-            truck.name = request.form.get('name', '').strip()
-            capacity = request.form.get('capacity', '').strip()
-            import re as _re
-            capacity_num = _re.sub(r'[^0-9.]', '', capacity)
-            try:
-                truck.capacity = float(capacity_num) if capacity_num else None
-            except ValueError:
-                truck.capacity = None
-            truck.note = request.form.get('note', '').strip()
-            truck.active = request.form.get('active') == '1'
-            if not truck.number or not truck.name:
+            data = _parse_truck_form(request.form, request.files)
+            if not data['number'] or not data['name']:
                 flash('車両番号と車両名称は必須です', 'error')
                 return render_template('truck/truck_form.html', truck=truck, action='edit')
+            for k, v in data.items():
+                setattr(truck, k, v)
+            truck.active = request.form.get('active') == '1'
             db.commit()
             flash(f'トラック「{truck.name}」を更新しました', 'success')
-            return redirect(url_for('truck.trucks'))
+            return redirect(url_for('truck.truck_detail', truck_id=truck.id))
         return render_template('truck/truck_form.html', truck=truck, action='edit')
+    finally:
+        db.close()
+
+
+# ─── 事故履歴 CRUD ────────────────────────────────────────
+
+@bp.route('/trucks/<int:truck_id>/accidents/new', methods=['GET', 'POST'])
+@login_required_truck
+def accident_new(truck_id):
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        if not truck:
+            flash('トラックが見つかりません', 'error')
+            return redirect(url_for('truck.trucks'))
+        if request.method == 'POST':
+            import re as _re
+            from datetime import date as _date
+            def pd(v):
+                try: return _date.fromisoformat(v) if v else None
+                except: return None
+            def pf(v):
+                n = _re.sub(r'[^0-9.]', '', v or '')
+                try: return float(n) if n else None
+                except: return None
+            rec = TruckAccidentRecord(
+                truck_id=truck_id,
+                accident_date=pd(request.form.get('accident_date', '').strip()),
+                location=request.form.get('location', '').strip() or None,
+                description=request.form.get('description', '').strip() or None,
+                damage_level=request.form.get('damage_level', '').strip() or None,
+                repair_cost=pf(request.form.get('repair_cost', '').strip()),
+                repair_completed=request.form.get('repair_completed') == '1',
+                note=request.form.get('note', '').strip() or None,
+                tenant_id=session.get('tenant_id'),
+            )
+            db.add(rec)
+            db.commit()
+            flash('事故履歴を登録しました', 'success')
+            return redirect(url_for('truck.truck_detail', truck_id=truck_id))
+        return render_template('truck/accident_form.html', truck=truck, record=None, action='new')
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/accidents/<int:record_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def accident_edit(truck_id, record_id):
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        rec = db.query(TruckAccidentRecord).get(record_id)
+        if not truck or not rec:
+            flash('データが見つかりません', 'error')
+            return redirect(url_for('truck.trucks'))
+        if request.method == 'POST':
+            import re as _re
+            from datetime import date as _date
+            def pd(v):
+                try: return _date.fromisoformat(v) if v else None
+                except: return None
+            def pf(v):
+                n = _re.sub(r'[^0-9.]', '', v or '')
+                try: return float(n) if n else None
+                except: return None
+            rec.accident_date = pd(request.form.get('accident_date', '').strip())
+            rec.location = request.form.get('location', '').strip() or None
+            rec.description = request.form.get('description', '').strip() or None
+            rec.damage_level = request.form.get('damage_level', '').strip() or None
+            rec.repair_cost = pf(request.form.get('repair_cost', '').strip())
+            rec.repair_completed = request.form.get('repair_completed') == '1'
+            rec.note = request.form.get('note', '').strip() or None
+            db.commit()
+            flash('事故履歴を更新しました', 'success')
+            return redirect(url_for('truck.truck_detail', truck_id=truck_id))
+        return render_template('truck/accident_form.html', truck=truck, record=rec, action='edit')
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/accidents/<int:record_id>/delete', methods=['POST'])
+@login_required_truck
+def accident_delete(truck_id, record_id):
+    db = SessionLocal()
+    try:
+        rec = db.query(TruckAccidentRecord).get(record_id)
+        if rec:
+            db.delete(rec)
+            db.commit()
+            flash('事故履歴を削除しました', 'success')
+        return redirect(url_for('truck.truck_detail', truck_id=truck_id))
+    finally:
+        db.close()
+
+
+# ─── 点検履歴 CRUD ────────────────────────────────────────
+
+@bp.route('/trucks/<int:truck_id>/inspections/new', methods=['GET', 'POST'])
+@login_required_truck
+def inspection_new(truck_id):
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        if not truck:
+            flash('トラックが見つかりません', 'error')
+            return redirect(url_for('truck.trucks'))
+        if request.method == 'POST':
+            import re as _re
+            from datetime import date as _date
+            def pd(v):
+                try: return _date.fromisoformat(v) if v else None
+                except: return None
+            def pf(v):
+                n = _re.sub(r'[^0-9.]', '', v or '')
+                try: return float(n) if n else None
+                except: return None
+            def pi(v):
+                try: return int(v) if v else None
+                except: return None
+            rec = TruckInspectionRecord(
+                truck_id=truck_id,
+                inspection_date=pd(request.form.get('inspection_date', '').strip()),
+                inspection_type=request.form.get('inspection_type', '').strip() or None,
+                inspector=request.form.get('inspector', '').strip() or None,
+                result=request.form.get('result', '').strip() or None,
+                next_inspection_date=pd(request.form.get('next_inspection_date', '').strip()),
+                mileage=pi(request.form.get('mileage', '').strip()),
+                description=request.form.get('description', '').strip() or None,
+                cost=pf(request.form.get('cost', '').strip()),
+                note=request.form.get('note', '').strip() or None,
+                tenant_id=session.get('tenant_id'),
+            )
+            db.add(rec)
+            db.commit()
+            flash('点検履歴を登録しました', 'success')
+            return redirect(url_for('truck.truck_detail', truck_id=truck_id))
+        return render_template('truck/inspection_form.html', truck=truck, record=None, action='new')
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/inspections/<int:record_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def inspection_edit(truck_id, record_id):
+    db = SessionLocal()
+    try:
+        truck = db.query(Truck).get(truck_id)
+        rec = db.query(TruckInspectionRecord).get(record_id)
+        if not truck or not rec:
+            flash('データが見つかりません', 'error')
+            return redirect(url_for('truck.trucks'))
+        if request.method == 'POST':
+            import re as _re
+            from datetime import date as _date
+            def pd(v):
+                try: return _date.fromisoformat(v) if v else None
+                except: return None
+            def pf(v):
+                n = _re.sub(r'[^0-9.]', '', v or '')
+                try: return float(n) if n else None
+                except: return None
+            def pi(v):
+                try: return int(v) if v else None
+                except: return None
+            rec.inspection_date = pd(request.form.get('inspection_date', '').strip())
+            rec.inspection_type = request.form.get('inspection_type', '').strip() or None
+            rec.inspector = request.form.get('inspector', '').strip() or None
+            rec.result = request.form.get('result', '').strip() or None
+            rec.next_inspection_date = pd(request.form.get('next_inspection_date', '').strip())
+            rec.mileage = pi(request.form.get('mileage', '').strip())
+            rec.description = request.form.get('description', '').strip() or None
+            rec.cost = pf(request.form.get('cost', '').strip())
+            rec.note = request.form.get('note', '').strip() or None
+            db.commit()
+            flash('点検履歴を更新しました', 'success')
+            return redirect(url_for('truck.truck_detail', truck_id=truck_id))
+        return render_template('truck/inspection_form.html', truck=truck, record=rec, action='edit')
+    finally:
+        db.close()
+
+
+@bp.route('/trucks/<int:truck_id>/inspections/<int:record_id>/delete', methods=['POST'])
+@login_required_truck
+def inspection_delete(truck_id, record_id):
+    db = SessionLocal()
+    try:
+        rec = db.query(TruckInspectionRecord).get(record_id)
+        if rec:
+            db.delete(rec)
+            db.commit()
+            flash('点検履歴を削除しました', 'success')
+        return redirect(url_for('truck.truck_detail', truck_id=truck_id))
     finally:
         db.close()
 

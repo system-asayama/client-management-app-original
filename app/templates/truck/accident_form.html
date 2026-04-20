@@ -1,0 +1,61 @@
+{% extends "truck/base.html" %}
+{% block title %}{% if action == 'new' %}事故記録{% else %}事故記録編集{% endif %} - {{ truck.number }}{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.truck_detail', truck_id=truck.id) }}" class="back-link">← {{ truck.number }} 詳細へ戻る</a>
+<div class="page-title">⚠️ {% if action == 'new' %}事故を記録{% else %}事故記録を編集{% endif %}</div>
+<div class="page-subtitle">{{ truck.number }} / {{ truck.name }}</div>
+
+<div class="form-card">
+  <form method="POST">
+    <div class="form-row">
+      <div class="form-field">
+        <label>事故日 <span class="required">*</span></label>
+        <input type="date" name="accident_date" value="{{ record.accident_date.isoformat() if record and record.accident_date else '' }}" required>
+      </div>
+      <div class="form-field">
+        <label>損傷レベル</label>
+        <select name="damage_level">
+          <option value="">選択してください</option>
+          <option value="軽微" {% if record and record.damage_level == '軽微' %}selected{% endif %}>軽微</option>
+          <option value="中程度" {% if record and record.damage_level == '中程度' %}selected{% endif %}>中程度</option>
+          <option value="重大" {% if record and record.damage_level == '重大' %}selected{% endif %}>重大</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>発生場所</label>
+      <input type="text" name="location" value="{{ record.location if record else '' }}" placeholder="例：東京都〇〇区〇〇交差点">
+    </div>
+    <div class="form-field">
+      <label>事故内容</label>
+      <textarea name="description" rows="4" placeholder="事故の状況・経緯を記入してください">{{ record.description if record else '' }}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>修理費用（円）</label>
+        <input type="text" name="repair_cost" value="{{ record.repair_cost if record and record.repair_cost else '' }}" placeholder="例：150000">
+      </div>
+      <div class="form-field">
+        <label>修理完了</label>
+        <select name="repair_completed">
+          <option value="0" {% if not record or not record.repair_completed %}selected{% endif %}>未完了</option>
+          <option value="1" {% if record and record.repair_completed %}selected{% endif %}>完了</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note" rows="2" placeholder="保険対応状況など">{{ record.note if record else '' }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if action == 'new' %}登録する{% else %}更新する{% endif %}</button>
+      <a href="{{ url_for('truck.truck_detail', truck_id=truck.id) }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
+    </div>
+  </form>
+</div>
+
+<style>
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:600px) { .form-row { grid-template-columns:1fr; } }
+</style>
+{% endblock %}

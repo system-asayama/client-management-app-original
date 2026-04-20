@@ -30,6 +30,30 @@ class Truck(Base):
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # ── 詳細情報 ──
+    owner_name = Column(String(100))          # 所有者
+    user_name = Column(String(100))           # 使用者
+    base_location = Column(String(200))       # 所属（営業所・拠点）
+    vehicle_type = Column(String(100))        # 車種・型式
+    year = Column(Integer)                    # 年式
+    color = Column(String(50))                # 車体色
+    vin = Column(String(100))                 # 車台番号
+    engine_number = Column(String(100))       # エンジン番号
+    # 車検情報
+    shaken_expiry = Column(Date)              # 車検満了日
+    shaken_number = Column(String(100))       # 車検証番号
+    # 保険情報（簡易）
+    insurance_company = Column(String(200))   # 保険会社名
+    insurance_policy = Column(String(100))    # 証券番号
+    insurance_expiry = Column(Date)           # 保険満了日
+    # 写真
+    photo_path = Column(String(500))          # 車両写真パス
+    photo_name = Column(String(200))          # 元ファイル名
+
+    # リレーション
+    accident_records = relationship("TruckAccidentRecord", back_populates="truck", cascade="all, delete-orphan")
+    inspection_records = relationship("TruckInspectionRecord", back_populates="truck", cascade="all, delete-orphan")
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -38,6 +62,18 @@ class Truck(Base):
             "capacity": self.capacity,
             "note": self.note,
             "active": self.active,
+            "owner_name": self.owner_name,
+            "user_name": self.user_name,
+            "base_location": self.base_location,
+            "vehicle_type": self.vehicle_type,
+            "year": self.year,
+            "color": self.color,
+            "vin": self.vin,
+            "shaken_expiry": self.shaken_expiry.isoformat() if self.shaken_expiry else None,
+            "shaken_number": self.shaken_number,
+            "insurance_company": self.insurance_company,
+            "insurance_policy": self.insurance_policy,
+            "insurance_expiry": self.insurance_expiry.isoformat() if self.insurance_expiry else None,
         }
 
 
@@ -214,6 +250,44 @@ class TruckInsurance(Base):
 
     truck = relationship("Truck", backref="insurances", foreign_keys=[truck_id])
     driver = relationship("TruckDriver", backref="insurances", foreign_keys=[driver_id])
+
+
+class TruckAccidentRecord(Base):
+    """事故履歴"""
+    __tablename__ = "truck_accident_records"
+    id = Column(Integer, primary_key=True)
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=False)
+    accident_date = Column(Date, nullable=False)   # 事故日
+    location = Column(String(300))                 # 発生場所
+    description = Column(Text)                     # 事故内容
+    damage_level = Column(String(20))              # 軽微/中程度/重大
+    repair_cost = Column(Float)                    # 修理費用
+    repair_completed = Column(Boolean, default=False)  # 修理完了
+    note = Column(Text)
+    tenant_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    truck = relationship("Truck", back_populates="accident_records")
+
+
+class TruckInspectionRecord(Base):
+    """点検履歴"""
+    __tablename__ = "truck_inspection_records"
+    id = Column(Integer, primary_key=True)
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=False)
+    inspection_date = Column(Date, nullable=False)  # 点検日
+    inspection_type = Column(String(50))            # 定期点検/車検/日常点検/その他
+    inspector = Column(String(100))                 # 点検者・業者名
+    result = Column(String(20))                     # 合格/要注意/不合格
+    next_inspection_date = Column(Date)             # 次回点検予定日
+    mileage = Column(Integer)                       # 走行距離（km）
+    description = Column(Text)                      # 点検内容・所見
+    cost = Column(Float)                            # 費用
+    note = Column(Text)
+    tenant_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    truck = relationship("Truck", back_populates="inspection_records")
 
 
 class TruckAppSettings(Base):

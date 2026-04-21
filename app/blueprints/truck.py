@@ -1989,7 +1989,15 @@ def mobile_operation_start():
     if not hmac.compare_digest(api_key, MOBILE_API_KEY):
         return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
     data = request.get_json(silent=True) or {}
+    # driver_idはX-Staff-Tokenから自動取得（アプリ側が送らない場合のフォールバック）
     driver_id = data.get('driver_id')
+    if not driver_id:
+        staff_token = request.headers.get('X-Staff-Token', '')
+        if staff_token and ':' in staff_token:
+            try:
+                driver_id = int(staff_token.split(':')[0])
+            except (ValueError, IndexError):
+                pass
     truck_id = data.get('truck_id')
     route_id = data.get('route_id')
     if not driver_id or not truck_id:

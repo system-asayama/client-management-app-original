@@ -6,50 +6,75 @@
   <a href="{{ url_for('truck.route_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
 </div>
 <div class="page-subtitle">配送ルートの登録・管理を行います</div>
-<div class="card">
-  {% if error %}
-  <div class="error-box">{{ error }}</div>
-  {% endif %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>ルート名</th>
-          <th>出発地</th>
-          <th>目的地</th>
-          <th>距離</th>
-          <th>ステータス</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for route in routes %}
-        <tr>
-          <td><strong>{{ route.name }}</strong></td>
-          <td>{{ route.origin or '-' }}</td>
-          <td>{{ route.destination or '-' }}</td>
-          <td>{{ ('%.1f km' % route.distance_km) if route.distance_km else '-' }}</td>
-          <td>
-            {% if route.active %}
-            <span class="badge" style="background:#16a34a;">有効</span>
-            {% else %}
-            <span class="badge" style="background:#6b7280;">無効</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('truck.route_edit', route_id=route.id) }}">
-              <button class="btn btn-secondary btn-sm">編集</button>
-            </a>
-            <form method="POST" action="{{ url_for('truck.route_delete', route_id=route.id) }}" style="display:inline;" onsubmit="return confirm('このルートを無効化しますか？')">
-              <button type="submit" class="btn btn-danger btn-sm">無効化</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" class="empty">ルートが登録されていません。「＋ 新規登録」から追加してください。</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+{% if error %}
+<div class="error-box">{{ error }}</div>
+{% endif %}
+
+{% if routes %}
+<div class="route-card-list">
+  {% for route in routes %}
+  <div class="route-card">
+    <div class="route-card-header">
+      <div class="route-card-name">{{ route.name }}</div>
+      {% if route.active %}
+      <span class="badge" style="background:#16a34a;">有効</span>
+      {% else %}
+      <span class="badge" style="background:#6b7280;">無効</span>
+      {% endif %}
+    </div>
+    <div class="route-card-body">
+      <div class="route-card-row">
+        <span class="route-card-label">出発地</span>
+        <span class="route-card-value">{{ route.origin or '―' }}</span>
+      </div>
+      <div class="route-card-row">
+        <span class="route-card-label">目的地</span>
+        <span class="route-card-value">{{ route.destination or '―' }}</span>
+      </div>
+      <div class="route-card-row">
+        <span class="route-card-label">距離</span>
+        <span class="route-card-value">{{ ('%.1f km' % route.distance_km) if route.distance_km else '―' }}</span>
+      </div>
+      {% if route.client %}
+      <div class="route-card-row">
+        <span class="route-card-label">取引先</span>
+        <span class="route-card-value">{{ route.client.name }}</span>
+      </div>
+      {% endif %}
+      {% if route.contract_amount %}
+      <div class="route-card-row">
+        <span class="route-card-label">請負金額</span>
+        <span class="route-card-value">{{ '{:,}'.format(route.contract_amount) }} 円</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="route-card-actions">
+      <a href="{{ url_for('truck.route_edit', route_id=route.id) }}">
+        <button class="btn btn-secondary btn-sm">編集</button>
+      </a>
+      <form method="POST" action="{{ url_for('truck.route_delete', route_id=route.id) }}" style="display:inline;" onsubmit="return confirm('このルートを無効化しますか？')">
+        <button type="submit" class="btn btn-danger btn-sm">無効化</button>
+      </form>
+    </div>
   </div>
+  {% endfor %}
 </div>
+{% else %}
+<div class="card">
+  <div class="empty" style="padding:32px;text-align:center;">ルートが登録されていません。「＋ 新規登録」から追加してください。</div>
+</div>
+{% endif %}
+
+<style>
+.route-card-list { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
+.route-card { background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.1); padding:16px; }
+.route-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.route-card-name { font-size:1.05rem; font-weight:700; color:#1e293b; }
+.route-card-body { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.route-card-row { display:flex; gap:8px; font-size:.9rem; }
+.route-card-label { color:#64748b; min-width:64px; flex-shrink:0; }
+.route-card-value { color:#1e293b; font-weight:500; }
+.route-card-actions { display:flex; gap:8px; border-top:1px solid #f1f5f9; padding-top:12px; }
+</style>
 {% endblock %}

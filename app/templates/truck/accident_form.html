@@ -22,6 +22,21 @@
         </select>
       </div>
     </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>ドライバー</label>
+        <select name="driver_id">
+          <option value="">― 未選択 ―</option>
+          {% for d in drivers %}
+          <option value="{{ d.id }}" {% if record and record.driver_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>過失割合（%）</label>
+        <input type="number" name="fault_ratio" value="{{ record.fault_ratio if record and record.fault_ratio is not none else '' }}" placeholder="例：70" min="0" max="100">
+      </div>
+    </div>
     <div class="form-field">
       <label>発生場所</label>
       <input type="text" name="location" value="{{ record.location if record else '' }}" placeholder="例：東京都〇〇区〇〇交差点">

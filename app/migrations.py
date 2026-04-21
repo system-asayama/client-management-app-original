@@ -123,6 +123,8 @@ def run_migrations():
             ("T_管理者", "anthropic_api_key", "TEXT NULL"),
             ("truck_routes", "client_id", "INTEGER NULL"),
             ("truck_routes", "contract_amount", "NUMERIC(12,2) NULL"),
+            ("truck_accident_records", "driver_id", "INTEGER NULL"),
+            ("truck_accident_records", "fault_ratio", "INTEGER NULL"),
         ]
         
         added_count = 0

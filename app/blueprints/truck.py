@@ -717,6 +717,8 @@ def route_new():
             origin = request.form.get('origin', '').strip()
             destination = request.form.get('destination', '').strip()
             distance_km = request.form.get('distance_km', '').strip()
+            client_name = request.form.get('client_name', '').strip()
+            contract_amount = request.form.get('contract_amount', '').strip()
             note = request.form.get('note', '').strip()
             if not name:
                 flash('ルート名は必須です', 'error')
@@ -726,6 +728,8 @@ def route_new():
                 origin=origin,
                 destination=destination,
                 distance_km=float(distance_km) if distance_km else None,
+                client_name=client_name if client_name else None,
+                contract_amount=int(contract_amount) if contract_amount else None,
                 note=note,
                 tenant_id=tenant_id,
             )
@@ -753,6 +757,9 @@ def route_edit(route_id):
             route.destination = request.form.get('destination', '').strip()
             distance_km = request.form.get('distance_km', '').strip()
             route.distance_km = float(distance_km) if distance_km else None
+            route.client_name = request.form.get('client_name', '').strip() or None
+            contract_amount_edit = request.form.get('contract_amount', '').strip()
+            route.contract_amount = int(contract_amount_edit) if contract_amount_edit else None
             route.note = request.form.get('note', '').strip()
             route.active = request.form.get('active') == '1'
             if not route.name:

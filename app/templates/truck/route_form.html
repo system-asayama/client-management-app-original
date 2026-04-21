@@ -23,6 +23,14 @@
       <input type="number" name="distance_km" value="{{ route.distance_km if route and route.distance_km else '' }}" placeholder="例：35.5" step="0.1" min="0">
     </div>
     <div class="form-field">
+      <label>取引先・荷主</label>
+      <input type="text" name="client_name" value="{{ route.client_name if route and route.client_name else '' }}" placeholder="例：株式会社サンプル">
+    </div>
+    <div class="form-field">
+      <label>請負金額（円）</label>
+      <input type="number" name="contract_amount" value="{{ route.contract_amount if route and route.contract_amount else '' }}" placeholder="例：50000" step="1" min="0">
+    </div>
+    <div class="form-field">
       <label>備考</label>
       <textarea name="note">{{ route.note if route else '' }}</textarea>
     </div>

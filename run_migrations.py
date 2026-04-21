@@ -1838,6 +1838,37 @@ def run_migrations():
         except Exception as e:
             print(f"  ⚠️  T_eTax送信要求テーブル作成エラー: {e}")
 
+        # truck_routesテーブルに取引先・荷主・請負金額カラムを追加
+        print("\n[マイグレーション] truck_routesテーブルに取引先・荷主・請負金額カラムを追加...")
+        try:
+            from sqlalchemy import text as sa_text
+            from app.db import engine as sa_engine2
+            with sa_engine2.connect() as sa_conn2:
+                truck_route_cols = [
+                    ('truck_routes', 'client_name', 'VARCHAR(200)'),
+                    ('truck_routes', 'contract_amount', 'INTEGER'),
+                ]
+                for table_name, col_name, col_type in truck_route_cols:
+                    try:
+                        result = sa_conn2.execute(sa_text(
+                            f"SELECT column_name FROM information_schema.columns "
+                            f"WHERE table_name='{table_name}' AND column_name='{col_name}'"
+                        ))
+                        if not result.fetchone():
+                            sa_conn2.execute(sa_text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type}'))
+                            sa_conn2.commit()
+                            print(f'  ✅ {table_name}.{col_name}カラムを追加しました')
+                        else:
+                            print(f'  ℹ️  {table_name}.{col_name}カラムは既に存在します（スキップ）')
+                    except Exception as col_e:
+                        print(f'  ⚠️  {table_name}.{col_name}マイグレーションエラー: {col_e}')
+                        try:
+                            sa_conn2.rollback()
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f'  ⚠️  truck_routesマイグレーションエラー: {e}')
+
         print("\n" + "=" * 60)
         print("マイグレーション完了")
         print("=" * 60)

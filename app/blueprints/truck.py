@@ -491,6 +491,7 @@ def accident_new(truck_id):
         if not truck:
             flash('トラックが見つかりません', 'error')
             return redirect(url_for('truck.trucks'))
+        drivers = db.query(TruckDriver).filter_by(tenant_id=session.get('tenant_id'), active=True).all()
         if request.method == 'POST':
             import re as _re
             from datetime import date as _date
@@ -501,12 +502,17 @@ def accident_new(truck_id):
                 n = _re.sub(r'[^0-9.]', '', v or '')
                 try: return float(n) if n else None
                 except: return None
+            def pi(v):
+                try: return int(v) if v and str(v).strip() else None
+                except: return None
             rec = TruckAccidentRecord(
                 truck_id=truck_id,
+                driver_id=pi(request.form.get('driver_id')),
                 accident_date=pd(request.form.get('accident_date', '').strip()),
                 location=request.form.get('location', '').strip() or None,
                 description=request.form.get('description', '').strip() or None,
                 damage_level=request.form.get('damage_level', '').strip() or None,
+                fault_ratio=pi(request.form.get('fault_ratio')),
                 repair_cost=pf(request.form.get('repair_cost', '').strip()),
                 repair_completed=request.form.get('repair_completed') == '1',
                 note=request.form.get('note', '').strip() or None,
@@ -516,7 +522,7 @@ def accident_new(truck_id):
             db.commit()
             flash('事故履歴を登録しました', 'success')
             return redirect(url_for('truck.truck_detail', truck_id=truck_id))
-        return render_template('truck/accident_form.html', truck=truck, record=None, action='new')
+        return render_template('truck/accident_form.html', truck=truck, record=None, action='new', drivers=drivers)
     finally:
         db.close()
 
@@ -531,6 +537,7 @@ def accident_edit(truck_id, record_id):
         if not truck or not rec:
             flash('データが見つかりません', 'error')
             return redirect(url_for('truck.trucks'))
+        drivers = db.query(TruckDriver).filter_by(tenant_id=session.get('tenant_id'), active=True).all()
         if request.method == 'POST':
             import re as _re
             from datetime import date as _date
@@ -541,17 +548,22 @@ def accident_edit(truck_id, record_id):
                 n = _re.sub(r'[^0-9.]', '', v or '')
                 try: return float(n) if n else None
                 except: return None
+            def pi(v):
+                try: return int(v) if v and str(v).strip() else None
+                except: return None
+            rec.driver_id = pi(request.form.get('driver_id'))
             rec.accident_date = pd(request.form.get('accident_date', '').strip())
             rec.location = request.form.get('location', '').strip() or None
             rec.description = request.form.get('description', '').strip() or None
             rec.damage_level = request.form.get('damage_level', '').strip() or None
+            rec.fault_ratio = pi(request.form.get('fault_ratio'))
             rec.repair_cost = pf(request.form.get('repair_cost', '').strip())
             rec.repair_completed = request.form.get('repair_completed') == '1'
             rec.note = request.form.get('note', '').strip() or None
             db.commit()
             flash('事故履歴を更新しました', 'success')
             return redirect(url_for('truck.truck_detail', truck_id=truck_id))
-        return render_template('truck/accident_form.html', truck=truck, record=rec, action='edit')
+        return render_template('truck/accident_form.html', truck=truck, record=rec, action='edit', drivers=drivers)
     finally:
         db.close()
 

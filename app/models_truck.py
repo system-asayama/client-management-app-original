@@ -270,10 +270,12 @@ class TruckAccidentRecord(Base):
     __tablename__ = "truck_accident_records"
     id = Column(Integer, primary_key=True)
     truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=False)
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)  # 担当ドライバー
     accident_date = Column(Date, nullable=False)   # 事故日
     location = Column(String(300))                 # 発生場所
     description = Column(Text)                     # 事故内容
     damage_level = Column(String(20))              # 軽微/中程度/重大
+    fault_ratio = Column(Integer, nullable=True)   # 過失割合（0-100）
     repair_cost = Column(Float)                    # 修理費用
     repair_completed = Column(Boolean, default=False)  # 修理完了
     note = Column(Text)
@@ -281,6 +283,7 @@ class TruckAccidentRecord(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     truck = relationship("Truck", back_populates="accident_records")
+    driver = relationship("TruckDriver", foreign_keys=[driver_id])
 
 
 class TruckInspectionRecord(Base):

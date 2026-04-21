@@ -2115,3 +2115,26 @@ def driver_apk_download():
         return f'ダウンロードエラー: {e}', 500
     finally:
         db.close()
+
+
+@bp.route('/api/mobile/debug/driver', methods=['GET'])
+def mobile_debug_driver():
+    login_id = request.args.get('login_id', '')
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).filter_by(login_id=login_id).first()
+        if not driver:
+            return jsonify({'found': False})
+        from werkzeug.security import check_password_hash
+        test_pw = request.args.get('pw', '')
+        return jsonify({
+            'found': True,
+            'id': driver.id,
+            'login_id': driver.login_id,
+            'active': driver.active,
+            'tenant_id': driver.tenant_id,
+            'hash_prefix': driver.password_hash[:20] if driver.password_hash else None,
+            'pw_check': check_password_hash(driver.password_hash, test_pw) if test_pw else None,
+        })
+    finally:
+        db.close()

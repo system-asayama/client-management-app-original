@@ -2055,9 +2055,9 @@ def mobile_operation_today():
             'start_time': op.start_time.isoformat() if op.start_time else None,
             'end_time': op.end_time.isoformat() if op.end_time else None,
             'operation_date': op.operation_date.isoformat() if op.operation_date else None,
-            'truck_number': truck.truck_number if truck else None,
-            'truck_name': truck.truck_name if truck else None,
-            'route_name': route.route_name if route else None,
+            'truck_number': truck.number if truck else None,
+            'truck_name': truck.name if truck else None,
+            'route_name': route.name if route else None,
         }})
     finally:
         db.close()

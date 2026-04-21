@@ -2,63 +2,87 @@
 {% block title %}取引先・荷主管理 - トラック運行管理{% endblock %}
 
 {% block content %}
-<div class="page-title">🏢 取引先・荷主管理</div>
-<div class="page-subtitle">取引先・荷主の登録・管理を行います</div>
-
-<div style="margin-bottom:16px;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+  <div class="page-title">🏢 取引先・荷主管理</div>
   <a href="{{ url_for('truck.client_new') }}" class="btn btn-primary">＋ 新規登録</a>
 </div>
+<div class="page-subtitle">取引先・荷主の登録・管理を行います</div>
 
-<div class="card">
-  {% if clients %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>会社名</th>
-          <th>フリガナ</th>
-          <th>担当者</th>
-          <th>電話番号</th>
-          <th>区分</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in clients %}
-        <tr>
-          <td><strong>{{ c.name }}</strong></td>
-          <td style="color:#6b7280; font-size:12px;">{{ c.kana or '-' }}</td>
-          <td>{{ c.contact_name or '-' }}</td>
-          <td>{{ c.phone or '-' }}</td>
-          <td>
-            {% if c.client_type == 'shipper' %}
-              <span class="badge" style="background:#2563eb;">荷主</span>
-            {% elif c.client_type == 'consignee' %}
-              <span class="badge" style="background:#7c3aed;">届け先</span>
-            {% else %}
-              <span class="badge" style="background:#0f2744;">荷主・届け先</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('truck.client_edit', client_id=c.id) }}" class="btn btn-secondary btn-sm">編集</a>
-            <form method="post" action="{{ url_for('truck.client_delete', client_id=c.id) }}"
-                  style="display:inline;" onsubmit="return confirm('「{{ c.name }}」を削除しますか？')">
-              <button type="submit" class="btn btn-danger btn-sm">削除</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{% if clients %}
+<div class="item-card-list">
+  {% for c in clients %}
+  <div class="item-card">
+    <div class="item-card-header">
+      <div class="item-card-name">{{ c.name }}</div>
+      {% if c.client_type == 'shipper' %}
+        <span class="badge" style="background:#2563eb;">荷主</span>
+      {% elif c.client_type == 'consignee' %}
+        <span class="badge" style="background:#7c3aed;">届け先</span>
+      {% else %}
+        <span class="badge" style="background:#0f2744;">荷主・届け先</span>
+      {% endif %}
+    </div>
+    {% if c.kana %}
+    <div class="item-card-sub">{{ c.kana }}</div>
+    {% endif %}
+    <div class="item-card-body">
+      {% if c.contact_name %}
+      <div class="item-card-row">
+        <span class="item-card-label">担当者</span>
+        <span class="item-card-value">{{ c.contact_name }}</span>
+      </div>
+      {% endif %}
+      {% if c.phone %}
+      <div class="item-card-row">
+        <span class="item-card-label">電話番号</span>
+        <span class="item-card-value">{{ c.phone }}</span>
+      </div>
+      {% endif %}
+      {% if c.email %}
+      <div class="item-card-row">
+        <span class="item-card-label">メール</span>
+        <span class="item-card-value">{{ c.email }}</span>
+      </div>
+      {% endif %}
+      {% if c.address %}
+      <div class="item-card-row">
+        <span class="item-card-label">住所</span>
+        <span class="item-card-value">{{ c.address }}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="item-card-actions">
+      <a href="{{ url_for('truck.client_edit', client_id=c.id) }}" class="btn btn-secondary btn-sm">編集</a>
+      <form method="post" action="{{ url_for('truck.client_delete', client_id=c.id) }}"
+            style="display:inline;" onsubmit="return confirm('「{{ c.name }}」を削除しますか？')">
+        <button type="submit" class="btn btn-danger btn-sm">削除</button>
+      </form>
+    </div>
   </div>
-  {% else %}
-  <div class="empty">
-    <div style="font-size:40px; margin-bottom:12px;">🏢</div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty" style="padding:32px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;">🏢</div>
     <div>取引先・荷主が登録されていません</div>
     <div style="margin-top:12px;">
       <a href="{{ url_for('truck.client_new') }}" class="btn btn-primary">＋ 最初の取引先を登録</a>
     </div>
   </div>
-  {% endif %}
 </div>
+{% endif %}
+
+<style>
+.item-card-list { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
+.item-card { background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.1); padding:16px; }
+.item-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.item-card-name { font-size:1.05rem; font-weight:700; color:#1e293b; }
+.item-card-sub { font-size:.8rem; color:#94a3b8; margin-bottom:8px; }
+.item-card-body { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+.item-card-row { display:flex; gap:8px; font-size:.88rem; }
+.item-card-label { color:#64748b; min-width:60px; flex-shrink:0; }
+.item-card-value { color:#1e293b; font-weight:500; word-break:break-all; }
+.item-card-actions { display:flex; gap:8px; border-top:1px solid #f1f5f9; padding-top:12px; }
+</style>
 {% endblock %}

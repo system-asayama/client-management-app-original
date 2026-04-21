@@ -234,6 +234,10 @@
            class="nav-item {% if request.endpoint in ['truck.gps_map','truck.gps_map_realtime_data'] %}active{% endif %}">
           <span class="nav-icon">📍</span> GPS位置確認
         </a>
+        <a href="{{ url_for('truck.driver_login') }}"
+           class="nav-item {% if request.endpoint in ['truck.driver_login','truck.driver_logout','truck.driver_dashboard','truck.driver_mypage'] %}active{% endif %}">
+          <span class="nav-icon">🚗</span> ドライバーログイン
+        </a>
       </div>
     </div>
 

@@ -30,7 +30,6 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             venv/bin/pip install -r requirements.txt -q
-            venv/bin/python run_migrations.py || true
             supervisorctl restart samurai-hub
             sleep 3
             supervisorctl status samurai-hub
@@ -53,7 +52,6 @@ jobs:
             git fetch origin develop
             git reset --hard origin/develop
             venv/bin/pip install -r requirements.txt -q
-            venv/bin/python run_migrations.py || true
             supervisorctl restart samurai-hub
             sleep 3
             supervisorctl status samurai-hub

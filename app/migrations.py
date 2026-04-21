@@ -121,6 +121,8 @@ def run_migrations():
             ("T_管理者", "google_vision_api_key", "TEXT NULL"),
             ("T_管理者", "google_api_key", "TEXT NULL"),
             ("T_管理者", "anthropic_api_key", "TEXT NULL"),
+            ("truck_routes", "client_id", "INTEGER NULL"),
+            ("truck_routes", "contract_amount", "NUMERIC(12,2) NULL"),
         ]
         
         added_count = 0

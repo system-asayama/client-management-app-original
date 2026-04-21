@@ -712,23 +712,24 @@ def route_new():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        clients = db.query(TruckClient).filter_by(active=True, tenant_id=tenant_id).order_by(TruckClient.name).all()
         if request.method == 'POST':
             name = request.form.get('name', '').strip()
             origin = request.form.get('origin', '').strip()
             destination = request.form.get('destination', '').strip()
             distance_km = request.form.get('distance_km', '').strip()
-            client_name = request.form.get('client_name', '').strip()
+            client_id_str = request.form.get('client_id', '').strip()
             contract_amount = request.form.get('contract_amount', '').strip()
             note = request.form.get('note', '').strip()
             if not name:
                 flash('ルート名は必須です', 'error')
-                return render_template('truck/route_form.html', route=None, action='new')
+                return render_template('truck/route_form.html', route=None, action='new', clients=clients)
             route = TruckRoute(
                 name=name,
                 origin=origin,
                 destination=destination,
                 distance_km=float(distance_km) if distance_km else None,
-                client_name=client_name if client_name else None,
+                client_id=int(client_id_str) if client_id_str else None,
                 contract_amount=int(contract_amount) if contract_amount else None,
                 note=note,
                 tenant_id=tenant_id,
@@ -737,7 +738,7 @@ def route_new():
             db.commit()
             flash(f'ルート「{name}」を登録しました', 'success')
             return redirect(url_for('truck.routes'))
-        return render_template('truck/route_form.html', route=None, action='new')
+        return render_template('truck/route_form.html', route=None, action='new', clients=clients)
     finally:
         db.close()
 
@@ -751,24 +752,27 @@ def route_edit(route_id):
         if not route:
             flash('ルートが見つかりません', 'error')
             return redirect(url_for('truck.routes'))
+        tenant_id = session.get('tenant_id')
+        clients = db.query(TruckClient).filter_by(active=True, tenant_id=tenant_id).order_by(TruckClient.name).all()
         if request.method == 'POST':
             route.name = request.form.get('name', '').strip()
             route.origin = request.form.get('origin', '').strip()
             route.destination = request.form.get('destination', '').strip()
             distance_km = request.form.get('distance_km', '').strip()
             route.distance_km = float(distance_km) if distance_km else None
-            route.client_name = request.form.get('client_name', '').strip() or None
+            client_id_str = request.form.get('client_id', '').strip()
+            route.client_id = int(client_id_str) if client_id_str else None
             contract_amount_edit = request.form.get('contract_amount', '').strip()
             route.contract_amount = int(contract_amount_edit) if contract_amount_edit else None
             route.note = request.form.get('note', '').strip()
             route.active = request.form.get('active') == '1'
             if not route.name:
                 flash('ルート名は必須です', 'error')
-                return render_template('truck/route_form.html', route=route, action='edit')
+                return render_template('truck/route_form.html', route=route, action='edit', clients=clients)
             db.commit()
             flash(f'ルート「{route.name}」を更新しました', 'success')
             return redirect(url_for('truck.routes'))
-        return render_template('truck/route_form.html', route=route, action='edit')
+        return render_template('truck/route_form.html', route=route, action='edit', clients=clients)
     finally:
         db.close()
 

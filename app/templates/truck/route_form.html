@@ -24,7 +24,12 @@
     </div>
     <div class="form-field">
       <label>取引先・荷主</label>
-      <input type="text" name="client_name" value="{{ route.client_name if route and route.client_name else '' }}" placeholder="例：株式会社サンプル">
+      <select name="client_id">
+        <option value="">― 未選択 ―</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}" {% if route and route.client_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div class="form-field">
       <label>請負金額（円）</label>

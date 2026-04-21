@@ -90,12 +90,14 @@ class TruckRoute(Base):
     origin = Column(String(200))
     destination = Column(String(200))
     distance_km = Column(Float)
-    client_name = Column(String(200))  # 取引先・荷主
+    client_id = Column(Integer, ForeignKey("truck_clients.id"), nullable=True)  # 取引先・荷主
     contract_amount = Column(Integer)  # 請負金額（円）
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    client = relationship("TruckClient", backref="routes")
 
     def to_dict(self):
         return {
@@ -104,7 +106,8 @@ class TruckRoute(Base):
             "origin": self.origin,
             "destination": self.destination,
             "distance_km": self.distance_km,
-            "client_name": self.client_name,
+            "client_id": self.client_id,
+            "client_name": self.client.name if self.client else None,
             "contract_amount": self.contract_amount,
             "note": self.note,
             "active": self.active,

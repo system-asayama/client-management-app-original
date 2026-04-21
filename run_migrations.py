@@ -1845,9 +1845,28 @@ def run_migrations():
             from app.db import engine as sa_engine2
             with sa_engine2.connect() as sa_conn2:
                 truck_route_cols = [
-                    ('truck_routes', 'client_name', 'VARCHAR(200)'),
                     ('truck_routes', 'contract_amount', 'INTEGER'),
                 ]
+                # client_id カラム（外部キー）を追加
+                try:
+                    result = sa_conn2.execute(sa_text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name='truck_routes' AND column_name='client_id'"
+                    ))
+                    if not result.fetchone():
+                        sa_conn2.execute(sa_text(
+                            'ALTER TABLE "truck_routes" ADD COLUMN "client_id" INTEGER REFERENCES "truck_clients"(id) ON DELETE SET NULL'
+                        ))
+                        sa_conn2.commit()
+                        print('  ✅ truck_routes.client_idカラムを追加しました')
+                    else:
+                        print('  ℹ️  truck_routes.client_idカラムは既に存在します（スキップ）')
+                except Exception as col_e:
+                    print(f'  ⚠️  truck_routes.client_idマイグレーションエラー: {col_e}')
+                    try:
+                        sa_conn2.rollback()
+                    except Exception:
+                        pass
                 for table_name, col_name, col_type in truck_route_cols:
                     try:
                         result = sa_conn2.execute(sa_text(

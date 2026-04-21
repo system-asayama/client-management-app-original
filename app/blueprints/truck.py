@@ -1873,18 +1873,34 @@ def mobile_login():
     data = request.get_json(silent=True) or {}
     login_id = data.get('login_id', '').strip()
     password = data.get('password', '')
+    tenant_slug = data.get('tenant_slug', '').strip()
     db = SessionLocal()
     try:
-        driver = db.query(TruckDriver).filter_by(login_id=login_id, active=True).first()
+        # tenant_slugからtenant_idを解決
+        tenant_id = None
+        if tenant_slug:
+            from app.models_login import TTenant
+            tenant = db.query(TTenant).filter_by(slug=tenant_slug).first()
+            if tenant:
+                tenant_id = tenant.id
+        q = db.query(TruckDriver).filter_by(login_id=login_id, active=True)
+        if tenant_id:
+            q = q.filter_by(tenant_id=tenant_id)
+        driver = q.first()
         if driver and check_password_hash(driver.password_hash, password):
             secret = MOBILE_API_KEY
-            payload = f"{driver.id}:driver:local"
+            payload = f"{driver.id}:driver:{tenant_id or 'local'}"
             sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
             token = f"{driver.id}:{sig}"
             return jsonify({
                 'ok': True,
-                'driver_id': driver.id,
+                'staff_id': driver.id,
+                'staff_type': 'driver',
+                'tenant_id': driver.tenant_id,
                 'name': driver.name,
+                'staff_token': token,
+                # 後方互換
+                'driver_id': driver.id,
                 'token': token,
             })
         return jsonify({'ok': False, 'error': 'ログインIDまたはパスワードが正しくありません'}), 401
@@ -1897,10 +1913,35 @@ def mobile_trucks():
     api_key = request.headers.get('X-Mobile-API-Key', '')
     if not hmac.compare_digest(api_key, MOBILE_API_KEY):
         return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    # X-Staff-Tokenからdriver_idとtenant_idを取得
+    staff_token = request.headers.get('X-Staff-Token', '')
+    tenant_id = None
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id_str = staff_token.split(':')[0]
+            db_tmp = SessionLocal()
+            try:
+                d = db_tmp.query(TruckDriver).filter_by(id=int(driver_id_str), active=True).first()
+                if d:
+                    tenant_id = d.tenant_id
+            finally:
+                db_tmp.close()
+        except Exception:
+            pass
     db = SessionLocal()
     try:
-        trucks_list = db.query(Truck).filter_by(active=True).all()
-        return jsonify({'ok': True, 'trucks': [t.to_dict() for t in trucks_list]})
+        q = db.query(Truck).filter_by(active=True)
+        if tenant_id:
+            q = q.filter_by(tenant_id=tenant_id)
+        trucks_list = q.all()
+        trucks_data = [{
+            'id': t.id,
+            'truck_number': t.number,
+            'truck_name': t.name,
+            'capacity': str(t.capacity) if t.capacity else None,
+            'status': 'available',
+        } for t in trucks_list]
+        return jsonify({'ok': True, 'trucks': trucks_data})
     finally:
         db.close()
 
@@ -1910,10 +1951,34 @@ def mobile_routes():
     api_key = request.headers.get('X-Mobile-API-Key', '')
     if not hmac.compare_digest(api_key, MOBILE_API_KEY):
         return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    # X-Staff-Tokenからtenant_idを取得
+    staff_token = request.headers.get('X-Staff-Token', '')
+    tenant_id = None
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id_str = staff_token.split(':')[0]
+            db_tmp = SessionLocal()
+            try:
+                d = db_tmp.query(TruckDriver).filter_by(id=int(driver_id_str), active=True).first()
+                if d:
+                    tenant_id = d.tenant_id
+            finally:
+                db_tmp.close()
+        except Exception:
+            pass
     db = SessionLocal()
     try:
-        routes_list = db.query(TruckRoute).filter_by(active=True).all()
-        return jsonify({'ok': True, 'routes': [r.to_dict() for r in routes_list]})
+        q = db.query(TruckRoute).filter_by(active=True)
+        if tenant_id:
+            q = q.filter_by(tenant_id=tenant_id)
+        routes_list = q.all()
+        routes_data = [{
+            'id': r.id,
+            'route_name': r.name,
+            'description': r.note,
+            'estimated_minutes': None,
+        } for r in routes_list]
+        return jsonify({'ok': True, 'routes': routes_data})
     finally:
         db.close()
 

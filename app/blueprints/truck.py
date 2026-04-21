@@ -2019,6 +2019,50 @@ def mobile_operation_start():
         db.close()
 
 
+@bp.route('/api/mobile/operation/today', methods=['GET'])
+def mobile_operation_today():
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    # X-Staff-Tokenからdriver_idを取得
+    driver_id = None
+    staff_token = request.headers.get('X-Staff-Token', '')
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id = int(staff_token.split(':')[0])
+        except (ValueError, IndexError):
+            pass
+    if not driver_id:
+        return jsonify({'ok': False, 'error': '認証情報がありません'}), 401
+    db = SessionLocal()
+    try:
+        today = date.today()
+        op = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date == today,
+            TruckOperation.status != 'finished'
+        ).order_by(TruckOperation.id.desc()).first()
+        if not op:
+            return jsonify({'ok': True, 'operation': None})
+        truck = db.query(Truck).get(op.truck_id) if op.truck_id else None
+        route = db.query(TruckRoute).get(op.route_id) if op.route_id else None
+        return jsonify({'ok': True, 'operation': {
+            'id': op.id,
+            'driver_id': op.driver_id,
+            'truck_id': op.truck_id,
+            'route_id': op.route_id,
+            'status': op.status,
+            'start_time': op.start_time.isoformat() if op.start_time else None,
+            'end_time': op.end_time.isoformat() if op.end_time else None,
+            'operation_date': op.operation_date.isoformat() if op.operation_date else None,
+            'truck_number': truck.truck_number if truck else None,
+            'truck_name': truck.truck_name if truck else None,
+            'route_name': route.route_name if route else None,
+        }})
+    finally:
+        db.close()
+
+
 @bp.route('/api/mobile/operation/status', methods=['POST'])
 def mobile_operation_status():
     api_key = request.headers.get('X-Mobile-API-Key', '')

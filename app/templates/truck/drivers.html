@@ -6,50 +6,67 @@
   <a href="{{ url_for('truck.driver_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
 </div>
 <div class="page-subtitle">ドライバーの登録・管理を行います</div>
-<div class="card">
-  {% if error %}
-  <div class="error-box">{{ error }}</div>
-  {% endif %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>ログインID</th>
-          <th>氏名</th>
-          <th>電話番号</th>
-          <th>免許番号</th>
-          <th>ステータス</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for driver in drivers %}
-        <tr>
-          <td><code style="font-size:13px;background:#f3f4f6;padding:2px 6px;border-radius:4px;">{{ driver.login_id }}</code></td>
-          <td><strong>{{ driver.name }}</strong></td>
-          <td>{{ driver.phone or '-' }}</td>
-          <td>{{ driver.license_number or '-' }}</td>
-          <td>
-            {% if driver.active %}
-            <span class="badge" style="background:#16a34a;">有効</span>
-            {% else %}
-            <span class="badge" style="background:#6b7280;">無効</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('truck.driver_edit', driver_id=driver.id) }}">
-              <button class="btn btn-secondary btn-sm">編集</button>
-            </a>
-            <form method="POST" action="{{ url_for('truck.driver_delete', driver_id=driver.id) }}" style="display:inline;" onsubmit="return confirm('このドライバーを無効化しますか？')">
-              <button type="submit" class="btn btn-danger btn-sm">無効化</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" class="empty">ドライバーが登録されていません。「＋ 新規登録」から追加してください。</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+{% if error %}
+<div class="error-box">{{ error }}</div>
+{% endif %}
+
+{% if drivers %}
+<div class="item-card-list">
+  {% for driver in drivers %}
+  <div class="item-card">
+    <div class="item-card-header">
+      <div class="item-card-name">{{ driver.name }}</div>
+      {% if driver.active %}
+      <span class="badge" style="background:#16a34a;">有効</span>
+      {% else %}
+      <span class="badge" style="background:#6b7280;">無効</span>
+      {% endif %}
+    </div>
+    <div class="item-card-body">
+      <div class="item-card-row">
+        <span class="item-card-label">ログインID</span>
+        <span class="item-card-value"><code style="font-size:12px;background:#f3f4f6;padding:2px 6px;border-radius:4px;">{{ driver.login_id }}</code></span>
+      </div>
+      {% if driver.phone %}
+      <div class="item-card-row">
+        <span class="item-card-label">電話番号</span>
+        <span class="item-card-value">{{ driver.phone }}</span>
+      </div>
+      {% endif %}
+      {% if driver.license_number %}
+      <div class="item-card-row">
+        <span class="item-card-label">免許番号</span>
+        <span class="item-card-value">{{ driver.license_number }}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="item-card-actions">
+      <a href="{{ url_for('truck.driver_edit', driver_id=driver.id) }}">
+        <button class="btn btn-secondary btn-sm">編集</button>
+      </a>
+      <form method="POST" action="{{ url_for('truck.driver_delete', driver_id=driver.id) }}" style="display:inline;" onsubmit="return confirm('このドライバーを無効化しますか？')">
+        <button type="submit" class="btn btn-danger btn-sm">無効化</button>
+      </form>
+    </div>
   </div>
+  {% endfor %}
 </div>
+{% else %}
+<div class="card">
+  <div class="empty" style="padding:32px;text-align:center;">ドライバーが登録されていません。「＋ 新規登録」から追加してください。</div>
+</div>
+{% endif %}
+
+<style>
+.item-card-list { display:flex; flex-direction:column; gap:12px; margin-top:12px; }
+.item-card { background:#fff; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.1); padding:16px; }
+.item-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.item-card-name { font-size:1.05rem; font-weight:700; color:#1e293b; }
+.item-card-body { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+.item-card-row { display:flex; gap:8px; font-size:.88rem; }
+.item-card-label { color:#64748b; min-width:72px; flex-shrink:0; }
+.item-card-value { color:#1e293b; font-weight:500; }
+.item-card-actions { display:flex; gap:8px; border-top:1px solid #f1f5f9; padding-top:12px; }
+</style>
 {% endblock %}

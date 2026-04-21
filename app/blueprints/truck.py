@@ -2004,6 +2004,9 @@ def mobile_operation_start():
         return jsonify({'ok': False, 'error': 'driver_idとtruck_idは必須です'}), 400
     db = SessionLocal()
     try:
+        # driver_idからtenant_idを取得
+        driver = db.query(TruckDriver).get(driver_id)
+        tenant_id = driver.tenant_id if driver else None
         op = TruckOperation(
             driver_id=driver_id,
             truck_id=truck_id,
@@ -2011,6 +2014,7 @@ def mobile_operation_start():
             status='driving',
             start_time=datetime.now(),
             operation_date=date.today(),
+            tenant_id=tenant_id,
         )
         db.add(op)
         db.commit()

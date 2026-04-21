@@ -1876,7 +1876,7 @@ def mobile_login():
     tenant_slug = data.get('tenant_slug', '').strip()
     db = SessionLocal()
     try:
-        # tenant_slugからtenant_idを解決
+        # tenant_slugからtenant_idを解決（見つからなければ全テナントから検索）
         tenant_id = None
         if tenant_slug:
             from app.models_login import TTenant
@@ -1884,7 +1884,7 @@ def mobile_login():
             if tenant:
                 tenant_id = tenant.id
         q = db.query(TruckDriver).filter_by(login_id=login_id, active=True)
-        if tenant_id:
+        if tenant_id is not None:
             q = q.filter_by(tenant_id=tenant_id)
         driver = q.first()
         if driver and check_password_hash(driver.password_hash, password):

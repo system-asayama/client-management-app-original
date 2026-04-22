@@ -2004,6 +2004,9 @@ def mobile_operation_start():
         return jsonify({'ok': False, 'error': 'driver_idとtruck_idは必須です'}), 400
     db = SessionLocal()
     try:
+        # ドライバーのtenant_idを自動取得
+        driver = db.query(TruckDriver).get(driver_id)
+        tenant_id = driver.tenant_id if driver else None
         op = TruckOperation(
             driver_id=driver_id,
             truck_id=truck_id,
@@ -2011,14 +2014,13 @@ def mobile_operation_start():
             status='driving',
             start_time=datetime.now(),
             operation_date=date.today(),
+            tenant_id=tenant_id,
         )
         db.add(op)
         db.commit()
         return jsonify({'ok': True, 'operation_id': op.id})
     finally:
         db.close()
-
-
 @bp.route('/api/mobile/operation/today', methods=['GET'])
 def mobile_operation_today():
     api_key = request.headers.get('X-Mobile-API-Key', '')
@@ -2055,9 +2057,9 @@ def mobile_operation_today():
             'start_time': op.start_time.isoformat() if op.start_time else None,
             'end_time': op.end_time.isoformat() if op.end_time else None,
             'operation_date': op.operation_date.isoformat() if op.operation_date else None,
-            'truck_number': truck.truck_number if truck else None,
-            'truck_name': truck.truck_name if truck else None,
-            'route_name': route.route_name if route else None,
+            'truck_number': truck.number if truck else None,
+            'truck_name': truck.name if truck else None,
+            'route_name': route.name if route else None,
         }})
     finally:
         db.close()

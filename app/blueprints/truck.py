@@ -1829,13 +1829,20 @@ def apk_settings():
         if request.method == 'POST':
             apk_url = request.form.get('apk_url', '').strip()
             apk_version = request.form.get('apk_version', '').strip()
+            gps_interval_raw = request.form.get('gps_interval_seconds', '30').strip()
+            try:
+                gps_interval_sec = max(5, int(gps_interval_raw))
+            except (ValueError, TypeError):
+                gps_interval_sec = 30
             TruckAppSettings.set(db, 'android_apk_url', apk_url, tenant_id)
             TruckAppSettings.set(db, 'android_apk_version', apk_version, tenant_id)
+            TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_interval_sec), tenant_id)
             flash('APK設定を保存しました', 'success')
             return redirect(url_for('truck.apk_settings'))
         apk_url = TruckAppSettings.get(db, 'android_apk_url', tenant_id, '')
         apk_version = TruckAppSettings.get(db, 'android_apk_version', tenant_id, '')
-        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version)
+        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', tenant_id, '30') or '30')
+        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version, gps_interval_seconds=gps_interval_seconds)
     finally:
         db.close()
 

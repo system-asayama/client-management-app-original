@@ -2056,6 +2056,63 @@ def mobile_operation_status():
         db.close()
 
 
+@bp.route('/api/mobile/location/record', methods=['POST'])
+def mobile_location_record():
+    """GPS位置情報をT_トラック運行位置履歴に記録
+    JSONボディ: { latitude, longitude, accuracy, operation_id, is_background, recorded_at }
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    data = request.get_json(silent=True) or {}
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    if latitude is None or longitude is None:
+        return jsonify({'ok': False, 'error': 'latitude と longitude は必須です'}), 400
+    operation_id = data.get('operation_id')
+    accuracy = data.get('accuracy')
+    recorded_at_str = data.get('recorded_at')
+    if recorded_at_str:
+        try:
+            recorded_at = datetime.strptime(recorded_at_str[:19], '%Y-%m-%dT%H:%M:%S')
+        except Exception:
+            recorded_at = datetime.now()
+    else:
+        recorded_at = datetime.now()
+    # ドライバー情報をX-Staff-Tokenから取得、またはoperation_idから取得
+    staff_token = request.headers.get('X-Staff-Token', '')
+    db = SessionLocal()
+    try:
+        driver_id = None
+        tenant_id = None
+        if operation_id:
+            op = db.query(TruckOperation).get(int(operation_id))
+            if op:
+                driver_id = op.driver_id
+                tenant_id = op.tenant_id
+        db.execute(text("""
+            INSERT INTO "T_トラック運行位置履歴"
+                (operation_id, driver_id, tenant_id, latitude, longitude, accuracy, recorded_at)
+            VALUES
+                (:operation_id, :driver_id, :tenant_id, :latitude, :longitude, :accuracy, :recorded_at)
+        """), {
+            'operation_id': int(operation_id) if operation_id else None,
+            'driver_id': driver_id,
+            'tenant_id': tenant_id,
+            'latitude': float(latitude),
+            'longitude': float(longitude),
+            'accuracy': float(accuracy) if accuracy is not None else None,
+            'recorded_at': recorded_at,
+        })
+        db.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
 # ─── ドライバーマイページ ──────────────────────────────────
 
 @bp.route('/driver/login', methods=['GET', 'POST'])

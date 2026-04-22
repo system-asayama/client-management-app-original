@@ -315,10 +315,15 @@ class TruckAppSettings(Base):
 
     @classmethod
     def get(cls, db_session, key, tenant_id=None, default=None):
-        q = db_session.query(cls).filter_by(key=key)
         if tenant_id is not None:
-            q = q.filter_by(tenant_id=tenant_id)
-        row = q.first()
+            # まずtenant_id指定で検索
+            row = db_session.query(cls).filter_by(key=key, tenant_id=tenant_id).first()
+            if row:
+                return row.value
+            # 見つからない場合はtenant_id=Noneのグローバル設定にフォールバック
+            row = db_session.query(cls).filter_by(key=key, tenant_id=None).first()
+            return row.value if row else default
+        row = db_session.query(cls).filter_by(key=key).first()
         return row.value if row else default
 
     @classmethod

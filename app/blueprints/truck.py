@@ -1068,19 +1068,26 @@ def gps_map_realtime_data():
             except Exception:
                 pass
 
-        tracks = []
+        drivers_out = []
         for dl in target_drivers:
             pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
-            tracks.append({
+            # locationsにtypeフィールドを追加（通常の位置情報は'location'）
+            locations = [{
+                'lat': p['lat'],
+                'lng': p['lng'],
+                'time': p['time'],
+                'type': 'location',
+            } for p in pts]
+            drivers_out.append({
                 'driver_id': dl['id'],
                 'staff_id': dl['id'],
                 'staff_name': dl['name'],
-                'points': pts,
+                'locations': locations,
             })
 
-        return jsonify({'ok': True, 'tracks': tracks})
+        return jsonify({'ok': True, 'drivers': drivers_out})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:

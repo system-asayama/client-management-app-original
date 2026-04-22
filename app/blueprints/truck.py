@@ -126,7 +126,13 @@ def dashboard():
 
         q = db.query(TruckOperation).filter(TruckOperation.operation_date == today)
         if tenant_id:
-            q = q.filter(TruckOperation.tenant_id == tenant_id)
+            from sqlalchemy import or_
+            q = q.filter(
+                or_(
+                    TruckOperation.tenant_id == tenant_id,
+                    TruckOperation.tenant_id == None,
+                )
+            )
         operations = q.order_by(TruckOperation.start_time).all()
 
         status_counts = {}

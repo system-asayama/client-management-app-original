@@ -932,30 +932,12 @@ def gps_map():
             dq = dq.filter(TruckDriver.tenant_id == tenant_id)
         drivers = dq.all()
 
-        # ドライバーのlogin_idからsamurai-hub DBのstaff_idを取得
-        driver_login_ids = [d.login_id for d in drivers]
-        driver_staff_map = {}
-        if driver_login_ids:
-            placeholders = ','.join([f"'{lid}'" for lid in driver_login_ids])
-            try:
-                rows = db.execute(text(f"""
-                    SELECT id, login_id, name, tenant_id
-                    FROM "T_従業員"
-                    WHERE login_id IN ({placeholders}) AND active = 1
-                """)).fetchall()
-                for row in rows:
-                    driver_staff_map[row[1]] = {'staff_id': row[0], 'name': row[2], 'tenant_id': row[3]}
-            except Exception:
-                pass
-
         driver_list = []
         for d in drivers:
-            info = driver_staff_map.get(d.login_id)
             driver_list.append({
                 'id': d.id,
                 'name': d.name,
                 'login_id': d.login_id,
-                'staff_id': info['staff_id'] if info else None,
             })
 
         if driver_id_param:
@@ -967,26 +949,26 @@ def gps_map():
         else:
             target_drivers = driver_list
 
-        staff_ids = [dl['staff_id'] for dl in target_drivers if dl['staff_id'] is not None]
-        staff_tracks = {}
-        if staff_ids:
-            ids_str = ','.join(str(sid) for sid in staff_ids)
+        driver_ids = [dl['id'] for dl in target_drivers]
+        driver_tracks = {}
+        if driver_ids:
+            ids_str = ','.join(str(did) for did in driver_ids)
             dt_start = datetime.combine(target_date, datetime.min.time())
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
             try:
                 locs = db.execute(text(f"""
-                    SELECT staff_id, latitude, longitude, recorded_at
-                    FROM "T_勤怠位置履歴"
-                    WHERE staff_id IN ({ids_str})
+                    SELECT driver_id, latitude, longitude, recorded_at
+                    FROM "T_トラック運行位置履歴"
+                    WHERE driver_id IN ({ids_str})
                       AND recorded_at >= :dt_start
                       AND recorded_at < :dt_end
-                    ORDER BY staff_id ASC, recorded_at ASC
+                    ORDER BY driver_id ASC, recorded_at ASC
                 """), {'dt_start': dt_start, 'dt_end': dt_end}).fetchall()
                 for loc in locs:
                     key = loc[0]
-                    if key not in staff_tracks:
-                        staff_tracks[key] = []
-                    staff_tracks[key].append({
+                    if key not in driver_tracks:
+                        driver_tracks[key] = []
+                    driver_tracks[key].append({
                         'lat': float(loc[1]),
                         'lng': float(loc[2]),
                         'time': loc[3].strftime('%H:%M:%S') if loc[3] else ''
@@ -996,14 +978,12 @@ def gps_map():
 
         tracks = []
         for dl in target_drivers:
-            if dl['staff_id'] is None:
-                continue
-            pts = staff_tracks.get(dl['staff_id'], [])
+            pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
             tracks.append({
                 'driver_id': dl['id'],
-                'staff_id': dl['staff_id'],
+                'staff_id': dl['id'],
                 'staff_name': dl['name'],
                 'points': pts,
             })
@@ -1044,29 +1024,12 @@ def gps_map_realtime_data():
             dq = dq.filter(TruckDriver.tenant_id == tenant_id)
         drivers = dq.all()
 
-        driver_login_ids = [d.login_id for d in drivers]
-        driver_staff_map = {}
-        if driver_login_ids:
-            placeholders = ','.join([f"'{lid}'" for lid in driver_login_ids])
-            try:
-                rows = db.execute(text(f"""
-                    SELECT id, login_id, name, tenant_id
-                    FROM "T_従業員"
-                    WHERE login_id IN ({placeholders}) AND active = 1
-                """)).fetchall()
-                for row in rows:
-                    driver_staff_map[row[1]] = {'staff_id': row[0], 'name': row[2], 'tenant_id': row[3]}
-            except Exception:
-                pass
-
         driver_list = []
         for d in drivers:
-            info = driver_staff_map.get(d.login_id)
             driver_list.append({
                 'id': d.id,
                 'name': d.name,
                 'login_id': d.login_id,
-                'staff_id': info['staff_id'] if info else None,
             })
 
         if driver_id_param:
@@ -1078,26 +1041,26 @@ def gps_map_realtime_data():
         else:
             target_drivers = driver_list
 
-        staff_ids = [dl['staff_id'] for dl in target_drivers if dl['staff_id'] is not None]
-        staff_tracks = {}
-        if staff_ids:
-            ids_str = ','.join(str(sid) for sid in staff_ids)
+        driver_ids = [dl['id'] for dl in target_drivers]
+        driver_tracks = {}
+        if driver_ids:
+            ids_str = ','.join(str(did) for did in driver_ids)
             dt_start = datetime.combine(target_date, datetime.min.time())
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
             try:
                 locs = db.execute(text(f"""
-                    SELECT staff_id, latitude, longitude, recorded_at
-                    FROM "T_勤怠位置履歴"
-                    WHERE staff_id IN ({ids_str})
+                    SELECT driver_id, latitude, longitude, recorded_at
+                    FROM "T_トラック運行位置履歴"
+                    WHERE driver_id IN ({ids_str})
                       AND recorded_at >= :dt_start
                       AND recorded_at < :dt_end
-                    ORDER BY staff_id ASC, recorded_at ASC
+                    ORDER BY driver_id ASC, recorded_at ASC
                 """), {'dt_start': dt_start, 'dt_end': dt_end}).fetchall()
                 for loc in locs:
                     key = loc[0]
-                    if key not in staff_tracks:
-                        staff_tracks[key] = []
-                    staff_tracks[key].append({
+                    if key not in driver_tracks:
+                        driver_tracks[key] = []
+                    driver_tracks[key].append({
                         'lat': float(loc[1]),
                         'lng': float(loc[2]),
                         'time': loc[3].strftime('%H:%M:%S') if loc[3] else ''
@@ -1107,14 +1070,12 @@ def gps_map_realtime_data():
 
         tracks = []
         for dl in target_drivers:
-            if dl['staff_id'] is None:
-                continue
-            pts = staff_tracks.get(dl['staff_id'], [])
+            pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
             tracks.append({
                 'driver_id': dl['id'],
-                'staff_id': dl['staff_id'],
+                'staff_id': dl['id'],
                 'staff_name': dl['name'],
                 'points': pts,
             })

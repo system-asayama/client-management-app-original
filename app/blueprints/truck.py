@@ -2131,6 +2131,38 @@ def mobile_location_record():
 
 # ─── ドライバーマイページ ──────────────────────────────────
 
+@bp.route('/api/mobile/location/count', methods=['GET'])
+def mobile_location_count():
+    """運行開始時間以降のGPS送信件数を返す
+    クエリパラメータ: operation_id (必須)
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    operation_id = request.args.get('operation_id')
+    if not operation_id:
+        return jsonify({'ok': False, 'error': 'operation_id は必須です'}), 400
+    db = SessionLocal()
+    try:
+        op = db.query(TruckOperation).get(int(operation_id))
+        if not op:
+            return jsonify({'ok': False, 'error': '運行が見つかりません'}), 404
+        # 運行開始時間以降の送信件数をカウント
+        start_time = op.start_time
+        result = db.execute(text("""
+            SELECT COUNT(*) as cnt
+            FROM "T_トラック運行位置履歴"
+            WHERE operation_id = :operation_id
+              AND recorded_at >= :start_time
+        """), {'operation_id': int(operation_id), 'start_time': start_time})
+        row = result.fetchone()
+        count = row[0] if row else 0
+        return jsonify({'ok': True, 'count': count, 'operation_id': int(operation_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
 @bp.route('/driver/login', methods=['GET', 'POST'])
 def driver_login():
     error = None

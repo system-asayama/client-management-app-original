@@ -219,8 +219,12 @@ def mypage():
             'updated_at': app_manager.updated_at
         }
         
-        # テナント・店舗リストを取得（アプリ管理者は全テナント・店舗にアクセス可能）
-        tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        # テナント・店舗リストを取得（自分のグループが作成したテナントのみ）
+        _group_id = app_manager.app_manager_group_id
+        if _group_id:
+            tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1, TTenant.app_manager_group_id == _group_id).order_by(TTenant.id).all()]
+        else:
+            tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         store_list = []
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
@@ -436,10 +440,14 @@ def api_keys():
 @require_roles('app_manager', 'system_admin')
 def mypage_select_tenant():
     """マイページ用テナント選択ページ（GET）"""
+    group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
         from app.models_login import TTenant
-        tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        if group_id:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1, TTenant.app_manager_group_id == group_id).order_by(TTenant.id).all()]
+        else:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         return render_template('app_manager_mypage_select_tenant.html', tenants=tenants)
     finally:
         db.close()
@@ -449,10 +457,14 @@ def mypage_select_tenant():
 @require_roles('app_manager', 'system_admin')
 def mypage_select_store():
     """マイページ用店舗選択ページ（GET）"""
+    group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
         from app.models_login import TTenant, TTenpo
-        tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        if group_id:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1, TTenant.app_manager_group_id == group_id).order_by(TTenant.id).all()]
+        else:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         stores = []
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
@@ -988,14 +1000,22 @@ def transfer_ownership(admin_id):
 @require_roles('app_manager', 'system_admin')
 def tenants():
     """テナント管理（担当テナントの一覧）"""
+    role = session.get('role')
+    group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
         from app.models_login import TTenant
         
-        # アプリ管理者は全テナントにアクセス可能
-        tenants_list = db.query(TTenant).filter(
-            TTenant.有効 == 1
-        ).order_by(TTenant.id).all()
+        # アプリ管理者は自分のグループが作成したテナントのみ表示（system_adminは全件）
+        if role == 'system_admin' or not group_id:
+            tenants_list = db.query(TTenant).filter(
+                TTenant.有効 == 1
+            ).order_by(TTenant.id).all()
+        else:
+            tenants_list = db.query(TTenant).filter(
+                TTenant.有効 == 1,
+                TTenant.app_manager_group_id == group_id
+            ).order_by(TTenant.id).all()
         
         return render_template(
             'app_manager_tenants.html',
@@ -1044,6 +1064,7 @@ def tenant_new():
                 return render_template('app_manager_tenant_new.html', name=name, slug=slug)
             
             # テナント作成
+            group_id = session.get('app_manager_group_id')
             new_tenant = TTenant(
                 名称=name,
                 slug=slug,
@@ -1057,7 +1078,8 @@ def tenant_new():
                 google_vision_api_key=google_vision_api_key or None,
                 azure_document_intelligence_endpoint=azure_endpoint or None,
                 azure_document_intelligence_key=azure_key or None,
-                有効=1
+                有効=1,
+                app_manager_group_id=group_id or None
             )
             db.add(new_tenant)
             db.commit()
@@ -1275,9 +1297,10 @@ def distribute():
             # 利用可能アプリの詳細情報
             enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
 
-        # テナント一覧（全テナント）
+        # テナント一覧（自分のグループが作成したテナントのみ）
         tenants = db.query(TTenant).filter(
-            TTenant.有効 == 1
+            TTenant.有効 == 1,
+            TTenant.app_manager_group_id == group_id
         ).order_by(TTenant.id).all()
 
         if request.method == 'POST':

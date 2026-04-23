@@ -9,7 +9,16 @@
   {% if apps %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th>申請日</th><th>対象</th><th>チップ番号</th><th>ステータス</th><th>メモ</th></tr></thead>
+      <thead>
+        <tr>
+          <th>申請日</th>
+          <th>対象</th>
+          <th>チップ番号</th>
+          <th>ステータス</th>
+          <th>メモ</th>
+          <th>操作</th>
+        </tr>
+      </thead>
       <tbody>
         {% for a in apps %}
         <tr>
@@ -23,11 +32,18 @@
           <td>
             {% if a.status == 'pending' %}<span class="badge badge-orange">申請中</span>
             {% elif a.status == 'approved' %}<span class="badge badge-green">承認済</span>
+            {% elif a.status == 'registered' %}<span class="badge badge-green">登録完了</span>
             {% elif a.status == 'rejected' %}<span class="badge badge-red">却下</span>
             {% else %}<span class="badge badge-gray">{{ a.status }}</span>
             {% endif %}
           </td>
           <td class="text-sm text-muted">{{ a.notes or '—' }}</td>
+          <td style="white-space: nowrap;">
+            <a href="{{ url_for('breeder.chip_application_edit', app_id=a.id) }}" class="btn btn-secondary btn-xs">編集</a>
+            <form method="post" action="{{ url_for('breeder.chip_application_delete', app_id=a.id) }}" style="display:inline;" onsubmit="return confirm('削除しますか？');">
+              <button type="submit" class="btn btn-danger btn-xs">削除</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

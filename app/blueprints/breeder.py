@@ -31,7 +31,7 @@ def _require_login():
 @bp.route('/dashboard')
 @require_roles(*BREEDER_ROLES)
 def dashboard():
-    from app.models_breeder import Dog, Puppy, Heat, Mating, Birth, Todo, Negotiation
+    from app.models_breeder import Dog, Puppy, Heat, Mating, Birth, Todo, Negotiation, PedigreeApplication
     db = _get_db()
     try:
         today = date.today()
@@ -72,6 +72,29 @@ def dashboard():
             Heat.next_predicted_date >= today,
             Heat.next_predicted_date <= today + timedelta(days=30)
         ).order_by(asc(Heat.next_predicted_date)).limit(5).all()
+        # 血統書申請未提出アラート（70日以内の出産で未申請の子犬）
+        cutoff_70 = today - timedelta(days=70)
+        unregistered_alert_count = 0
+        unregistered_alert_puppies = []
+        try:
+            recent_births = db.query(Birth).filter(Birth.birth_date >= cutoff_70).all()
+            for birth in recent_births:
+                puppies_in_birth = db.query(Puppy).filter(Puppy.birth_id == birth.id).all()
+                for puppy in puppies_in_birth:
+                    has_app = db.query(PedigreeApplication).filter(
+                        PedigreeApplication.puppy_id == puppy.id
+                    ).first()
+                    if not has_app:
+                        unregistered_alert_count += 1
+                        if len(unregistered_alert_puppies) < 5:
+                            days_old = (today - birth.birth_date).days
+                            unregistered_alert_puppies.append({
+                                'puppy': puppy,
+                                'birth_date': birth.birth_date,
+                                'days_old': days_old,
+                            })
+        except Exception:
+            pass
         return render_template('breeder/dashboard.html',
             parent_count=parent_count,
             puppy_count=puppy_count,
@@ -84,6 +107,8 @@ def dashboard():
             recent_todos=recent_todos,
             birth_stats=birth_stats,
             upcoming_heats=upcoming_heats,
+            unregistered_alert_count=unregistered_alert_count,
+            unregistered_alert_puppies=unregistered_alert_puppies,
         )
     finally:
         db.close()
@@ -596,6 +621,260 @@ def chip_application_new():
         db.rollback()
         flash(f'登録エラー: {e}', 'error')
         return redirect(url_for('breeder.chip_applications'))
+    finally:
+        db.close()
+
+@bp.route('/applications/pedigree/<int:app_id>/edit', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def pedigree_application_edit(app_id):
+    from app.models_breeder import PedigreeApplication, Puppy, Dog
+    db = _get_db()
+    try:
+        app_obj = db.query(PedigreeApplication).get(app_id)
+        if not app_obj:
+            flash('血統書申請が見つかりません', 'error')
+            return redirect(url_for('breeder.pedigree_applications'))
+        if request.method == 'POST':
+            app_obj.puppy_id = _int_or_none(request.form.get('puppy_id'))
+            app_obj.dog_id = _int_or_none(request.form.get('dog_id'))
+            app_obj.application_date = _parse_date(request.form.get('application_date'))
+            app_obj.status = request.form.get('status', app_obj.status)
+            app_obj.pedigree_number = request.form.get('pedigree_number')
+            app_obj.notes = request.form.get('notes')
+            db.commit()
+            flash('血統書申請を更新しました', 'success')
+            return redirect(url_for('breeder.pedigree_applications'))
+        puppies = db.query(Puppy).all()
+        dogs = db.query(Dog).all()
+        return render_template('breeder/pedigree_application_form.html', app=app_obj, puppies=puppies, dogs=dogs)
+    except Exception as e:
+        db.rollback()
+        flash(f'更新エラー: {e}', 'error')
+        return redirect(url_for('breeder.pedigree_applications'))
+    finally:
+        db.close()
+
+@bp.route('/applications/pedigree/<int:app_id>/delete', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def pedigree_application_delete(app_id):
+    from app.models_breeder import PedigreeApplication
+    db = _get_db()
+    try:
+        app_obj = db.query(PedigreeApplication).get(app_id)
+        if app_obj:
+            db.delete(app_obj)
+            db.commit()
+            flash('血統書申請を削除しました', 'success')
+        return redirect(url_for('breeder.pedigree_applications'))
+    except Exception as e:
+        db.rollback()
+        flash(f'削除エラー: {e}', 'error')
+        return redirect(url_for('breeder.pedigree_applications'))
+    finally:
+        db.close()
+
+@bp.route('/applications/chip/<int:app_id>/edit', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def chip_application_edit(app_id):
+    from app.models_breeder import ChipApplication, Puppy, Dog
+    db = _get_db()
+    try:
+        app_obj = db.query(ChipApplication).get(app_id)
+        if not app_obj:
+            flash('チップ申請が見つかりません', 'error')
+            return redirect(url_for('breeder.chip_applications'))
+        if request.method == 'POST':
+            app_obj.puppy_id = _int_or_none(request.form.get('puppy_id'))
+            app_obj.dog_id = _int_or_none(request.form.get('dog_id'))
+            app_obj.application_date = _parse_date(request.form.get('application_date'))
+            app_obj.status = request.form.get('status', app_obj.status)
+            app_obj.chip_number = request.form.get('chip_number')
+            app_obj.notes = request.form.get('notes')
+            db.commit()
+            flash('チップ申請を更新しました', 'success')
+            return redirect(url_for('breeder.chip_applications'))
+        puppies = db.query(Puppy).all()
+        dogs = db.query(Dog).all()
+        return render_template('breeder/chip_application_form.html', app=app_obj, puppies=puppies, dogs=dogs)
+    except Exception as e:
+        db.rollback()
+        flash(f'更新エラー: {e}', 'error')
+        return redirect(url_for('breeder.chip_applications'))
+    finally:
+        db.close()
+
+@bp.route('/applications/chip/<int:app_id>/delete', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def chip_application_delete(app_id):
+    from app.models_breeder import ChipApplication
+    db = _get_db()
+    try:
+        app_obj = db.query(ChipApplication).get(app_id)
+        if app_obj:
+            db.delete(app_obj)
+            db.commit()
+            flash('チップ申請を削除しました', 'success')
+        return redirect(url_for('breeder.chip_applications'))
+    except Exception as e:
+        db.rollback()
+        flash(f'削除エラー: {e}', 'error')
+        return redirect(url_for('breeder.chip_applications'))
+    finally:
+        db.close()
+
+@bp.route('/applications/auto-generate', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def auto_generate_applications():
+    """出産データから血統書申請・チップ申請を自動生成する"""
+    from app.models_breeder import Birth, Puppy, PedigreeApplication, ChipApplication
+    db = _get_db()
+    try:
+        today = date.today()
+        cutoff = today - timedelta(days=70)
+        births = db.query(Birth).filter(Birth.birth_date >= cutoff).all()
+        pedigree_created = 0
+        chip_created = 0
+        for birth in births:
+            puppies = db.query(Puppy).filter(Puppy.birth_id == birth.id).all()
+            for puppy in puppies:
+                existing_p = db.query(PedigreeApplication).filter(
+                    PedigreeApplication.puppy_id == puppy.id
+                ).first()
+                if not existing_p:
+                    db.add(PedigreeApplication(
+                        puppy_id=puppy.id,
+                        application_date=today,
+                        status='pending',
+                        notes=f'出産日{birth.birth_date}から自動生成',
+                    ))
+                    pedigree_created += 1
+                if puppy.microchip_number:
+                    existing_c = db.query(ChipApplication).filter(
+                        ChipApplication.puppy_id == puppy.id
+                    ).first()
+                    if not existing_c:
+                        db.add(ChipApplication(
+                            puppy_id=puppy.id,
+                            application_date=today,
+                            status='pending',
+                            chip_number=puppy.microchip_number,
+                            notes=f'出産日{birth.birth_date}から自動生成',
+                        ))
+                        chip_created += 1
+        db.commit()
+        flash(f'自動生成完了：血統書申請 {pedigree_created}件、チップ申請 {chip_created}件を生成しました', 'success')
+        return redirect(url_for('breeder.pedigree_applications'))
+    except Exception as e:
+        db.rollback()
+        flash(f'自動生成エラー: {e}', 'error')
+        return redirect(url_for('breeder.pedigree_applications'))
+    finally:
+        db.close()
+
+@bp.route('/applications/scans')
+@require_roles(*BREEDER_ROLES)
+def document_scans():
+    from app.models_breeder import DocumentScan, Dog, Puppy
+    db = _get_db()
+    try:
+        scans = db.query(DocumentScan).order_by(desc(DocumentScan.created_at)).limit(50).all()
+        dogs = {d.id: d for d in db.query(Dog).all()}
+        puppies = {p.id: p for p in db.query(Puppy).all()}
+        return render_template('breeder/document_scans.html', scans=scans, dogs=dogs, puppies=puppies)
+    finally:
+        db.close()
+
+@bp.route('/applications/scans/upload', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def document_scan_upload():
+    """血統書PDF/画像をアップロードしてOCRで情報を抽出する"""
+    import os
+    from app.models_breeder import DocumentScan
+    db = _get_db()
+    try:
+        f = request.files.get('file')
+        if not f or not f.filename:
+            flash('ファイルを選択してください', 'error')
+            return redirect(url_for('breeder.document_scans'))
+        scan_type = request.form.get('scan_type', 'pedigree')
+        upload_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'scans')
+        os.makedirs(upload_dir, exist_ok=True)
+        filename = f'{date.today().strftime("%Y%m%d")}_{f.filename}'
+        filepath = os.path.join(upload_dir, filename)
+        f.save(filepath)
+        result_json = None
+        error_msg = None
+        status_val = 'success'
+        try:
+            from app.utils.ocr import extract_pedigree_info
+            result = extract_pedigree_info(filepath, scan_type)
+            result_json = json.dumps(result, ensure_ascii=False)
+        except Exception as ocr_err:
+            error_msg = str(ocr_err)
+            status_val = 'failed'
+        scan = DocumentScan(
+            filename=f.filename,
+            scan_type=scan_type,
+            status=status_val,
+            result_json=result_json,
+            error_message=error_msg,
+            file_path=filepath,
+        )
+        db.add(scan)
+        db.commit()
+        if status_val == 'success' and result_json:
+            flash('OCR取り込み完了！データを確認してください', 'success')
+        else:
+            flash(f'OCR処理中にエラーが発生しました: {error_msg}', 'warning')
+        return redirect(url_for('breeder.document_scans'))
+    except Exception as e:
+        db.rollback()
+        flash(f'アップロードエラー: {e}', 'error')
+        return redirect(url_for('breeder.document_scans'))
+    finally:
+        db.close()
+
+@bp.route('/applications/scans/<int:scan_id>/apply', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def document_scan_apply(scan_id):
+    """OCR結果を元に犬の情報を更新する"""
+    from app.models_breeder import DocumentScan, Dog, Puppy
+    db = _get_db()
+    try:
+        scan = db.query(DocumentScan).get(scan_id)
+        if not scan or not scan.result_json:
+            flash('スキャンデータが見つかりません', 'error')
+            return redirect(url_for('breeder.document_scans'))
+        result = json.loads(scan.result_json)
+        target_id = _int_or_none(request.form.get('target_id'))
+        target_type = request.form.get('target_type', 'dog')
+        if target_type == 'dog' and target_id:
+            dog = db.query(Dog).get(target_id)
+            if dog:
+                if result.get('pedigree_number'):
+                    dog.pedigree_number = result['pedigree_number']
+                if result.get('microchip_number'):
+                    dog.microchip_number = result['microchip_number']
+                if result.get('registration_name'):
+                    dog.registration_name = result['registration_name']
+                scan.dog_id = dog.id
+                db.commit()
+                flash(f'「{dog.name}」にデータを適用しました', 'success')
+        elif target_type == 'puppy' and target_id:
+            puppy = db.query(Puppy).get(target_id)
+            if puppy:
+                if result.get('pedigree_number'):
+                    puppy.pedigree_number = result['pedigree_number']
+                if result.get('microchip_number'):
+                    puppy.microchip_number = result['microchip_number']
+                scan.puppy_id = puppy.id
+                db.commit()
+                flash(f'子犬「{puppy.name or puppy.id}」にデータを適用しました', 'success')
+        return redirect(url_for('breeder.document_scans'))
+    except Exception as e:
+        db.rollback()
+        flash(f'適用エラー: {e}', 'error')
+        return redirect(url_for('breeder.document_scans'))
     finally:
         db.close()
 

@@ -458,6 +458,16 @@ def create_app() -> Flask:
         print("✅ reservation_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ reservation_app blueprint 登録エラー: {e}")
+    # カスタムJinja2フィルター
+    import json as _json
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        if not value:
+            return {}
+        try:
+            return _json.loads(value)
+        except Exception:
+            return {}
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

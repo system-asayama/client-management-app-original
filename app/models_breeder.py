@@ -356,3 +356,23 @@ class EventPreset(Base):
     category = Column(String(50), nullable=True)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+# ─────────────────────────────────────────────
+# ドキュメントスキャン（OCR取り込み）
+# ─────────────────────────────────────────────
+class DocumentScan(Base):
+    """ドキュメントスキャンテーブル（血統書PDF等のOCR取り込み）"""
+    __tablename__ = 'document_scans'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    filename = Column(String(255), nullable=False)
+    scan_type = Column(String(50), nullable=False, default='pedigree')  # pedigree / chip
+    dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
+    puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
+    status = Column(String(20), nullable=False, default='pending')  # pending / success / failed
+    result_json = Column(Text, nullable=True)   # OCR結果JSON
+    error_message = Column(Text, nullable=True)
+    file_path = Column(String(500), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

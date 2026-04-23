@@ -42,6 +42,40 @@
   </div>
 </div>
 
+<!-- 血統書申請未提出アラート -->
+{% if unregistered_alert_count > 0 %}
+<div class="card mt-3" style="border-left: 4px solid var(--red, #e53e3e); background: #fff8f8;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      <span style="font-size: 1.3rem;">&#9888;</span>
+      <div>
+        <div style="font-weight: 600; color: var(--red, #e53e3e);">&#8203;血統書申請未提出の子犬が {{ unregistered_alert_count }} 頭います</div>
+        <div class="text-xs text-dim">出産から時間がたっています。早めにJKCへ血統書申請を行ってください。</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <form method="post" action="{{ url_for('breeder.auto_generate_applications') }}" style="margin:0;">
+        <button type="submit" class="btn btn-primary btn-sm">⚡ 申請を自動生成</button>
+      </form>
+      <a href="{{ url_for('breeder.pedigree_applications') }}" class="btn btn-secondary btn-sm">一覧を見る</a>
+    </div>
+  </div>
+  {% if unregistered_alert_puppies %}
+  <ul style="list-style: none; margin-top: 0.8rem; border-top: 1px solid var(--border); padding-top: 0.6rem;">
+    {% for item in unregistered_alert_puppies %}
+    <li style="display: flex; align-items: center; justify-content: space-between; padding: 0.3rem 0; font-size: 0.83rem;">
+      <span>{{ item.puppy.name or '名前未登録' }}{% if item.puppy.breed %} <span class="text-dim">({{ item.puppy.breed }})</span>{% endif %}</span>
+      <span style="color: var(--red, #e53e3e); font-size: 0.75rem;">{{ item.birth_date.strftime('%Y/%m/%d') }}出産·{{ item.days_old }}日経過</span>
+    </li>
+    {% endfor %}
+    {% if unregistered_alert_count > 5 %}
+    <li style="font-size: 0.75rem; color: var(--text-dim); padding-top: 0.3rem;">他 {{ unregistered_alert_count - 5 }} 頭...</li>
+    {% endif %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- 2カラムレイアウト -->
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
   <!-- 直近Todo -->

@@ -682,9 +682,10 @@ def app_manager_new():
 @bp.route('/app_managers/<int:admin_id>/edit', methods=['GET', 'POST'])
 @require_roles('app_manager', 'system_admin')
 def app_manager_edit(admin_id):
-    """アプリ管理者編集（アプリ管理者管理権限が必要）"""
-    # アプリ管理者管理権限チェック
-    if not can_manage_app_managers():
+    """アプリ管理者編集（自分自身または管理権限が必要）"""
+    # 自分自身の編集は常に許可、それ以外は管理権限が必要
+    current_user_id = session.get('user_id')
+    if admin_id != current_user_id and not can_manage_app_managers():
         flash('アプリ管理者を編集する権限がありません', 'error')
         return redirect(url_for('app_manager.app_managers'))
     
@@ -994,6 +995,64 @@ def transfer_ownership(admin_id):
         return redirect(url_for('app_manager.app_managers'))
     finally:
         db.close()
+
+
+@bp.route('/app_managers/<int:admin_id>/grant_owner', methods=['POST'])
+@require_roles('app_manager', 'system_admin')
+def grant_owner(admin_id):
+    """オーナー権限を付与（オーナーまたはシステム管理者のみ）"""
+    if not is_owner():
+        flash('オーナーまたはシステム管理者のみがオーナー権限を付与できます', 'error')
+        return redirect(url_for('app_manager.app_managers'))
+    group_id = session.get('app_manager_group_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            TKanrisha.id == admin_id,
+            TKanrisha.role == 'app_manager',
+            TKanrisha.app_manager_group_id == group_id
+        ).first()
+        if not admin:
+            flash('管理者が見つかりません', 'error')
+        else:
+            admin.is_owner = 1
+            admin.can_manage_admins = 1
+            admin.can_distribute_apps = 1
+            db.commit()
+            flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('app_manager.app_managers'))
+
+
+@bp.route('/app_managers/<int:admin_id>/revoke_owner', methods=['POST'])
+@require_roles('app_manager', 'system_admin')
+def revoke_owner(admin_id):
+    """オーナー権限を解除（オーナーまたはシステム管理者のみ）"""
+    if not is_owner():
+        flash('オーナーまたはシステム管理者のみがオーナー権限を解除できます', 'error')
+        return redirect(url_for('app_manager.app_managers'))
+    user_id = session.get('user_id')
+    if admin_id == user_id:
+        flash('自分自身のオーナー権限は解除できません', 'error')
+        return redirect(url_for('app_manager.app_managers'))
+    group_id = session.get('app_manager_group_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            TKanrisha.id == admin_id,
+            TKanrisha.role == 'app_manager',
+            TKanrisha.app_manager_group_id == group_id
+        ).first()
+        if not admin:
+            flash('管理者が見つかりません', 'error')
+        else:
+            admin.is_owner = 0
+            db.commit()
+            flash(f'「{admin.name}」のオーナー権限を解除しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('app_manager.app_managers'))
 
 
 @bp.route('/tenants')

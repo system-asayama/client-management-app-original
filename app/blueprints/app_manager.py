@@ -1259,15 +1259,21 @@ def distribute():
             flash('グループが見つかりません', 'error')
             return redirect(url_for('app_manager.dashboard'))
 
-        # グループが選択した利用可能アプリを取得
-        enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
-        try:
-            enabled_app_ids = json.loads(enabled_apps_raw)
-        except Exception:
-            enabled_app_ids = []
+        # グループのプランを取得
+        group_plan = getattr(group, 'plan', 'individual') or 'individual'
 
-        # 利用可能アプリの詳細情報
-        enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
+        # 無制限プランはAVAILABLE_APPS全件を配布可能、それ以外はDBのenabled_appsでフィルタ
+        if group_plan == 'unlimited':
+            enabled_app_ids = [app['name'] for app in AVAILABLE_APPS]
+            enabled_apps = list(AVAILABLE_APPS)
+        else:
+            enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+            try:
+                enabled_app_ids = json.loads(enabled_apps_raw)
+            except Exception:
+                enabled_app_ids = []
+            # 利用可能アプリの詳細情報
+            enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
 
         # テナント一覧（全テナント）
         tenants = db.query(TTenant).filter(

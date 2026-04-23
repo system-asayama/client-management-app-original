@@ -1072,12 +1072,12 @@ def gps_map_realtime_data():
         op_times = {}
         if driver_ids:
             ops = db.execute(text(f"""
-                SELECT driver_id, loading_start_time, unloading_start_time, start_time, status
+                SELECT driver_id, loading_start_time, unloading_start_time, start_time, status, break_start_time, break_end_time
                 FROM truck_operations
                 WHERE driver_id IN ({ids_str})
                   AND operation_date = :op_date
                 ORDER BY driver_id ASC, start_time ASC
-            """), {'op_date': target_date}).fetchall()
+            """}, {'op_date': target_date}).fetchall()
             for op in ops:
                 did = op[0]
                 if did not in op_times:
@@ -1086,6 +1086,8 @@ def gps_map_realtime_data():
                         'unloading': op[2],
                         'start_times': [],
                         'is_finished': False,
+                        'break_start': op[5],
+                        'break_end': op[6],
                     }
                 # 複数運行の開始時刻をすべて記録
                 if op[3]:
@@ -1095,6 +1097,11 @@ def gps_map_realtime_data():
                     op_times[did]['loading'] = op[1]
                 if op[2]:
                     op_times[did]['unloading'] = op[2]
+                # 休憩開始・終了は最新の値で上書き
+                if op[5]:
+                    op_times[did]['break_start'] = op[5]
+                if op[6]:
+                    op_times[did]['break_end'] = op[6]
                 # 退勤済みかどうか（最後の運行のstatusで判定）
                 if op[4] == 'finished':
                     op_times[did]['is_finished'] = True
@@ -1127,6 +1134,10 @@ def gps_map_realtime_data():
                 return best_idx
             loading_idx = find_nearest_idx(loading_time, pts)
             unloading_idx = find_nearest_idx(unloading_time, pts)
+            break_start_time = op_info.get('break_start')
+            break_end_time = op_info.get('break_end')
+            break_start_idx = find_nearest_idx(break_start_time, pts)
+            break_end_idx = find_nearest_idx(break_end_time, pts)
             # 各運行のstart_timeに最も近いGPS点を出発地点(clock_in)として特定
             start_times = op_info.get('start_times', [])
             clock_in_indices = set()
@@ -1146,6 +1157,10 @@ def gps_map_realtime_data():
                     loc_type = 'loading'
                 elif i == unloading_idx:
                     loc_type = 'unloading'
+                elif i == break_start_idx:
+                    loc_type = 'break_start'
+                elif i == break_end_idx:
+                    loc_type = 'break_end'
                 else:
                     loc_type = 'location'
                 locations.append({
@@ -2146,6 +2161,11 @@ def mobile_operation_status():
             op.loading_start_time = now
         elif status == 'unloading':
             op.unloading_start_time = now
+        elif status == 'break':
+            op.break_start_time = now
+        elif status == 'driving' and op.status == 'break':
+            # 休憩終了（breakからdrivingに戻る時）
+            op.break_end_time = now
         db.commit()
         return jsonify({'ok': True})
     finally:

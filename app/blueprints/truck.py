@@ -1077,7 +1077,7 @@ def gps_map_realtime_data():
                 WHERE driver_id IN ({ids_str})
                   AND operation_date = :op_date
                 ORDER BY driver_id ASC, start_time ASC
-            """}, {'op_date': target_date}).fetchall()
+            """), {'op_date': target_date}).fetchall()
             for op in ops:
                 did = op[0]
                 if did not in op_times:

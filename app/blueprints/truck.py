@@ -1873,6 +1873,7 @@ def mobile_login():
             payload = f"{driver.id}:driver:{tenant_id or 'local'}"
             sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
             token = f"{driver.id}:{sig}"
+            gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', driver.tenant_id, '30') or '30')
             return jsonify({
                 'ok': True,
                 'staff_id': driver.id,
@@ -1880,6 +1881,7 @@ def mobile_login():
                 'tenant_id': driver.tenant_id,
                 'name': driver.name,
                 'staff_token': token,
+                'gps_interval_seconds': gps_interval_seconds,
                 # 後方互換
                 'driver_id': driver.id,
                 'token': token,

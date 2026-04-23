@@ -94,6 +94,7 @@ function colorForType(type) {
   if (type === 'break_start') return '#f59e0b';
   if (type === 'break_end') return '#f59e0b';
   if (type === 'clock_out') return '#dc2626';
+  if (type === 'speeding') return '#dc2626';
   return '#2563eb';
 }
 
@@ -104,6 +105,7 @@ function labelForType(type) {
   if (type === 'break_start') return '休憩地点';
   if (type === 'break_end') return '休憩地点';
   if (type === 'clock_out') return '退勤';
+  if (type === 'speeding') return '速度超過';
   return '';
 }
 
@@ -130,11 +132,27 @@ function loadMap() {
           if (loc.type && loc.type !== 'location') {
             var color = colorForType(loc.type);
             var label = labelForType(loc.type);
-            var circle = L.circleMarker([loc.lat, loc.lng], {
-              radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
-            }).addTo(map);
-            circle.bindPopup('<strong>' + driver.name + '</strong><br>' + label + '<br>' + loc.time);
-            layers.push(circle);
+            if (loc.type === 'speeding') {
+              // 速度超過: 赤い三角マーカー
+              var speedText = loc.speed ? loc.speed.toFixed(1) + 'km/h' : '';
+              var triIcon = L.divIcon({
+                className: '',
+                html: '<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:16px solid #dc2626;position:relative;"><span style="position:absolute;top:16px;left:50%;transform:translateX(-50%);font-size:9px;color:#dc2626;font-weight:700;white-space:nowrap;">' + speedText + '</span></div>',
+                iconSize: [18, 28],
+                iconAnchor: [9, 0],
+                popupAnchor: [0, 4]
+              });
+              var marker = L.marker([loc.lat, loc.lng], {icon: triIcon}).addTo(map);
+              marker.bindPopup('<strong>' + (driver.staff_name || driver.name || '') + '</strong><br>⚠️ 速度超過: ' + speedText + '<br>' + loc.time);
+              layers.push(marker);
+            } else {
+              var circle = L.circleMarker([loc.lat, loc.lng], {
+                radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
+              }).addTo(map);
+              var popupSpeed = loc.speed ? '<br>速度: ' + loc.speed.toFixed(1) + 'km/h' : '';
+              circle.bindPopup('<strong>' + (driver.staff_name || driver.name || '') + '</strong><br>' + label + '<br>' + loc.time + popupSpeed);
+              layers.push(circle);
+            }
           }
         });
         // 最新位置マーカー（移動中は水色丸印、退勤後はトラックアイコン）

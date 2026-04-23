@@ -957,7 +957,7 @@ def gps_map():
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
             try:
                 locs = db.execute(text(f"""
-                    SELECT driver_id, latitude, longitude, recorded_at
+                    SELECT driver_id, latitude, longitude, recorded_at, speed
                     FROM "T_トラック運行位置履歴"
                     WHERE driver_id IN ({ids_str})
                       AND recorded_at >= :dt_start
@@ -971,7 +971,8 @@ def gps_map():
                     driver_tracks[key].append({
                         'lat': float(loc[1]),
                         'lng': float(loc[2]),
-                        'time': loc[3].strftime('%H:%M:%S') if loc[3] else ''
+                        'time': loc[3].strftime('%H:%M:%S') if loc[3] else '',
+                        'speed': float(loc[4]) if loc[4] is not None else None,
                     })
             except Exception:
                 pass
@@ -1149,6 +1150,7 @@ def gps_map_realtime_data():
             if not clock_in_indices:
                 clock_in_indices.add(0)
             # locationsにtypeフィールドを追加
+            SPEED_LIMIT_KMH = 80  # 速度超過の閾値
             locations = []
             for i, p in enumerate(pts):
                 if i in clock_in_indices:
@@ -1161,6 +1163,8 @@ def gps_map_realtime_data():
                     loc_type = 'break_start'
                 elif i == break_end_idx:
                     loc_type = 'break_end'
+                elif p.get('speed') is not None and p['speed'] > SPEED_LIMIT_KMH:
+                    loc_type = 'speeding'
                 else:
                     loc_type = 'location'
                 locations.append({
@@ -1168,6 +1172,7 @@ def gps_map_realtime_data():
                     'lng': p['lng'],
                     'time': p['time'],
                     'type': loc_type,
+                    'speed': p.get('speed'),
                 })
             drivers_out.append({
                 'driver_id': dl['id'],
@@ -2187,6 +2192,7 @@ def mobile_location_record():
         return jsonify({'ok': False, 'error': 'latitude と longitude は必須です'}), 400
     operation_id = data.get('operation_id')
     accuracy = data.get('accuracy')
+    speed = data.get('speed')  # km/h
     recorded_at_str = data.get('recorded_at')
     if recorded_at_str:
         try:
@@ -2208,9 +2214,9 @@ def mobile_location_record():
                 tenant_id = op.tenant_id
         db.execute(text("""
             INSERT INTO "T_トラック運行位置履歴"
-                (operation_id, driver_id, tenant_id, latitude, longitude, accuracy, recorded_at)
+                (operation_id, driver_id, tenant_id, latitude, longitude, accuracy, speed, recorded_at)
             VALUES
-                (:operation_id, :driver_id, :tenant_id, :latitude, :longitude, :accuracy, :recorded_at)
+                (:operation_id, :driver_id, :tenant_id, :latitude, :longitude, :accuracy, :speed, :recorded_at)
         """), {
             'operation_id': int(operation_id) if operation_id else None,
             'driver_id': driver_id,
@@ -2218,6 +2224,7 @@ def mobile_location_record():
             'latitude': float(latitude),
             'longitude': float(longitude),
             'accuracy': float(accuracy) if accuracy is not None else None,
+            'speed': float(speed) if speed is not None else None,
             'recorded_at': recorded_at,
         })
         db.commit()

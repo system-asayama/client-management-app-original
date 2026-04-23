@@ -1068,20 +1068,32 @@ def gps_map_realtime_data():
             except Exception:
                 pass
 
-        # 各ドライバーの運行情報（荷積み・荷下ろし時刻）を取得
+        # 各ドライバーの運行情報（運行開始・荷積み・荷下ろし時刻）を取得
         op_times = {}
         if driver_ids:
             ops = db.execute(text(f"""
-                SELECT driver_id, loading_start_time, unloading_start_time
+                SELECT driver_id, loading_start_time, unloading_start_time, start_time
                 FROM truck_operations
                 WHERE driver_id IN ({ids_str})
                   AND operation_date = :op_date
+                ORDER BY driver_id ASC, start_time ASC
             """), {'op_date': target_date}).fetchall()
             for op in ops:
-                op_times[op[0]] = {
-                    'loading': op[1],
-                    'unloading': op[2],
-                }
+                did = op[0]
+                if did not in op_times:
+                    op_times[did] = {
+                        'loading': op[1],
+                        'unloading': op[2],
+                        'start_times': [],
+                    }
+                # 複数運行の開始時刻をすべて記録
+                if op[3]:
+                    op_times[did]['start_times'].append(op[3])
+                # 荷積み・荷下ろしは最新の値で上書き（最後の運行を優先）
+                if op[1]:
+                    op_times[did]['loading'] = op[1]
+                if op[2]:
+                    op_times[did]['unloading'] = op[2]
         drivers_out = []
         for dl in target_drivers:
             pts = driver_tracks.get(dl['id'], [])
@@ -1111,10 +1123,20 @@ def gps_map_realtime_data():
                 return best_idx
             loading_idx = find_nearest_idx(loading_time, pts)
             unloading_idx = find_nearest_idx(unloading_time, pts)
+            # 各運行のstart_timeに最も近いGPS点を出発地点(clock_in)として特定
+            start_times = op_info.get('start_times', [])
+            clock_in_indices = set()
+            for st in start_times:
+                idx = find_nearest_idx(st, pts)
+                if idx is not None:
+                    clock_in_indices.add(idx)
+            # start_timesがない場合は最初の点を出発地点にする
+            if not clock_in_indices:
+                clock_in_indices.add(0)
             # locationsにtypeフィールドを追加
             locations = []
             for i, p in enumerate(pts):
-                if i == 0:
+                if i in clock_in_indices:
                     loc_type = 'clock_in'
                 elif i == loading_idx:
                     loc_type = 'loading'

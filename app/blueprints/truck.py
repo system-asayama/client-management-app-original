@@ -1073,13 +1073,15 @@ def gps_map_realtime_data():
             pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
-            # locationsにtypeフィールドを追加（通常の位置情報は'location'）
-            locations = [{
-                'lat': p['lat'],
-                'lng': p['lng'],
-                'time': p['time'],
-                'type': 'location',
-            } for p in pts]
+            # locationsにtypeフィールドを追加（最初の点は'clock_in'、それ以外は'location'）
+            locations = []
+            for i, p in enumerate(pts):
+                locations.append({
+                    'lat': p['lat'],
+                    'lng': p['lng'],
+                    'time': p['time'],
+                    'type': 'clock_in' if i == 0 else 'location',
+                })
             drivers_out.append({
                 'driver_id': dl['id'],
                 'staff_id': dl['id'],

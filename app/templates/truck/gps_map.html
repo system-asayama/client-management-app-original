@@ -64,6 +64,8 @@
 <div class="legend">
   <div class="legend-item"><span class="legend-dot" style="background:#2563eb;border-radius:2px;width:28px;height:7px;"></span> 移動経路</div>
   <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> 出発地点</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> 荷積み地点</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#7c3aed;"></span> 荷下ろし地点</div>
   <div class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> 休憩地点</div>
   <div class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span> 退勤地点</div>
 </div>
@@ -87,6 +89,8 @@ function clearLayers() {
 
 function colorForType(type) {
   if (type === 'clock_in') return '#16a34a';
+  if (type === 'loading') return '#2563eb';
+  if (type === 'unloading') return '#7c3aed';
   if (type === 'break_start') return '#f59e0b';
   if (type === 'break_end') return '#f59e0b';
   if (type === 'clock_out') return '#dc2626';
@@ -95,6 +99,8 @@ function colorForType(type) {
 
 function labelForType(type) {
   if (type === 'clock_in') return '出勤';
+  if (type === 'loading') return '荷積み地点';
+  if (type === 'unloading') return '荷下ろし地点';
   if (type === 'break_start') return '休憩地点';
   if (type === 'break_end') return '休憩地点';
   if (type === 'clock_out') return '退勤';

@@ -1068,19 +1068,65 @@ def gps_map_realtime_data():
             except Exception:
                 pass
 
+        # 各ドライバーの運行情報（荷積み・荷下ろし時刻）を取得
+        op_times = {}
+        if driver_ids:
+            ops = db.execute(text(f"""
+                SELECT driver_id, loading_start_time, unloading_start_time
+                FROM truck_operations
+                WHERE driver_id IN ({ids_str})
+                  AND operation_date = :op_date
+            """), {'op_date': target_date}).fetchall()
+            for op in ops:
+                op_times[op[0]] = {
+                    'loading': op[1],
+                    'unloading': op[2],
+                }
         drivers_out = []
         for dl in target_drivers:
             pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
-            # locationsにtypeフィールドを追加（最初の点は'clock_in'、それ以外は'location'）
+            # 荷積み・荷下ろし時刻に最も近いGPS点のインデックスを特定
+            op_info = op_times.get(dl['id'], {})
+            loading_time = op_info.get('loading')
+            unloading_time = op_info.get('unloading')
+            def find_nearest_idx(target_time, pts_list):
+                if not target_time:
+                    return None
+                target_str = target_time.strftime('%H:%M:%S')
+                best_idx = None
+                best_diff = None
+                for idx, p in enumerate(pts_list):
+                    try:
+                        from datetime import datetime as dt2
+                        t = dt2.strptime(p['time'], '%H:%M:%S')
+                        tgt = dt2.strptime(target_str, '%H:%M:%S')
+                        diff = abs((t - tgt).total_seconds())
+                        if best_diff is None or diff < best_diff:
+                            best_diff = diff
+                            best_idx = idx
+                    except Exception:
+                        pass
+                return best_idx
+            loading_idx = find_nearest_idx(loading_time, pts)
+            unloading_idx = find_nearest_idx(unloading_time, pts)
+            # locationsにtypeフィールドを追加
             locations = []
             for i, p in enumerate(pts):
+                if i == 0:
+                    loc_type = 'clock_in'
+                elif i == loading_idx:
+                    loc_type = 'loading'
+                elif i == unloading_idx:
+                    loc_type = 'unloading'
+                else:
+                    loc_type = 'location'
                 locations.append({
                     'lat': p['lat'],
                     'lng': p['lng'],
                     'time': p['time'],
-                    'type': 'clock_in' if i == 0 else 'location',
+                    'type': loc_type,
                 })
             drivers_out.append({
                 'driver_id': dl['id'],
@@ -2066,8 +2112,13 @@ def mobile_operation_status():
         if not op:
             return jsonify({'ok': False, 'error': '運行記録が見つかりません'}), 404
         op.status = status
+        now = datetime.now()
         if status == 'finished':
-            op.end_time = datetime.now()
+            op.end_time = now
+        elif status == 'loading':
+            op.loading_start_time = now
+        elif status == 'unloading':
+            op.unloading_start_time = now
         db.commit()
         return jsonify({'ok': True})
     finally:

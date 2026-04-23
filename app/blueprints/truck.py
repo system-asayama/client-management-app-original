@@ -1831,7 +1831,7 @@ def apk_settings():
             apk_version = request.form.get('apk_version', '').strip()
             gps_interval_raw = request.form.get('gps_interval_seconds', '30').strip()
             try:
-                gps_interval_sec = max(5, int(gps_interval_raw))
+                gps_interval_sec = max(1, int(gps_interval_raw))
             except (ValueError, TypeError):
                 gps_interval_sec = 30
             TruckAppSettings.set(db, 'android_apk_url', apk_url, tenant_id)

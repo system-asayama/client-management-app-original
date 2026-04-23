@@ -14,6 +14,18 @@ def _get_admin_name():
     return session.get('user_name', '管理者')
 
 
+@bp.route("/")
+@bp.route("")
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def index():
+    """スタンプカードトップ - セッションのstore_idへリダイレクト"""
+    store_id = session.get("store_id")
+    if store_id:
+        return redirect(url_for("stampcard_app.settings", store_id=store_id))
+    flash("店舗が選択されていません。ダッシュボードから店舗を選択してください。", "error")
+    return redirect(url_for("app_manager.dashboard"))
+
+
 # ===== 設定 =====
 @bp.route('/store/<int:store_id>/settings', methods=['GET', 'POST'])
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])

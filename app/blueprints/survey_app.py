@@ -30,6 +30,18 @@ def _get_admin_info():
     }
 
 
+@bp.route("/")
+@bp.route("")
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def index():
+    """アンケートシステムトップ - セッションのstore_idへリダイレクト"""
+    store_id = session.get("store_id")
+    if store_id:
+        return redirect(url_for("survey_app.dashboard", store_id=store_id))
+    flash("店舗が選択されていません。ダッシュボードから店舗を選択してください。", "error")
+    return redirect(url_for("app_manager.dashboard"))
+
+
 # ===== ダッシュボード =====
 @bp.route('/store/<int:store_id>/')
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])

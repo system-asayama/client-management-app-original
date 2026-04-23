@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}予約一覧 - {{ store.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>予約一覧</h1>
+  
+  <div class="store-info-card">
+    <h2>{{ store.name }}</h2>
+    <p><strong>店舗ID:</strong> {{ store.id }}</p>
+  </div>
+  
+  <!-- 日付フィルター -->
+  <div class="filter-section">
+    <form method="GET" class="date-filter-form">
+      <label>表示日:</label>
+      <input type="date" name="date" value="{{ filter_date }}" onchange="this.form.submit()">
+      <button type="button" id="today-btn">今日</button>
+    </form>
+    
+    <div class="action-buttons">
+      <a href="{{ url_for('reservation_app.calendar', store_id=store.id) }}" class="btn btn-secondary">カレンダー表示</a>
+      <a href="{{ url_for('reservation_app.settings', store_id=store.id) }}" class="btn btn-info">予約設定</a>
+    </div>
+  </div>
+  
+  <!-- 統計情報 -->
+  {% if stats %}
+  <div class="stats-section">
+    <div class="stat-card">
+      <div class="stat-label">予約数</div>
+      <div class="stat-value">{{ stats['total_count'] or 0 }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">来店予定人数</div>
+      <div class="stat-value">{{ stats['total_guests'] or 0 }}名</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">確定</div>
+      <div class="stat-value confirmed">{{ stats['confirmed_count'] or 0 }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">キャンセル</div>
+      <div class="stat-value cancelled">{{ stats['cancelled_count'] or 0 }}</div>
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- 予約一覧 -->
+  <div class="reservations-section">
+    {% if reservations %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>予約番号</th>
+            <th>時刻</th>
+            <th>人数</th>
+            <th>顧客名</th>
+            <th>電話番号</th>
+            <th>テーブル</th>
+            <th>ステータス</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reservation in reservations %}
+          <tr class="{% if reservation['ステータス'] == 'cancelled' %}cancelled-row{% endif %}">
+            <td><strong>{{ reservation['予約番号'] }}</strong></td>
+            <td>{{ reservation['予約時刻'] }}</td>
+            <td>{{ reservation['人数'] }}名</td>
+            <td>{{ reservation['顧客名'] }}</td>
+            <td>{{ reservation['顧客電話番号'] }}</td>
+            <td>{{ reservation['テーブル割当'] or '-' }}</td>
+            <td>
+              {% if reservation['ステータス'] == 'confirmed' %}
+                <span class="status-badge status-confirmed">確定</span>
+              {% elif reservation['ステータス'] == 'cancelled' %}
+                <span class="status-badge status-cancelled">キャンセル</span>
+              {% else %}
+                <span class="status-badge">{{ reservation['ステータス'] }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if reservation['ステータス'] == 'confirmed' %}
+                <a href="{{ url_for('reservation_app.edit_reservation', store_id=store.id, reservation_id=reservation['id']) }}" class="btn btn-sm btn-primary">編集</a>
+                <form method="POST" action="{{ url_for('reservation_app.cancel_reservation', store_id=store.id, reservation_id=reservation['id']) }}" style="display:inline;" onsubmit="return confirm('予約をキャンセルしますか?');">
+                  <button type="submit" class="btn btn-sm btn-danger">キャンセル</button>
+                </form>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="no-data">
+        <p>{{ filter_date }}の予約はありません</p>
+      </div>
+    {% endif %}
+  </div>
+  
+  <div class="back-link">
+    <a href="{{ url_for('admin.store_apps', store_id=store.id) }}">店舗アプリ一覧に戻る</a>
+  </div>
+</div>
+
+<style>
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .store-info-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .store-info-card h2 {
+    margin: 0 0 10px 0;
+    color: #333;
+  }
+  
+  .filter-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+  }
+  
+  .date-filter-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .date-filter-form label {
+    font-weight: 500;
+  }
+  
+  .date-filter-form input[type="date"] {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .stats-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .stat-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+  
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #333;
+  }
+  
+  .stat-value.confirmed {
+    color: #4CAF50;
+  }
+  
+  .stat-value.cancelled {
+    color: #f44336;
+  }
+  
+  .reservations-section {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 24px;
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .data-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .data-table tr:hover {
+    background: #f8f9fa;
+  }
+  
+  .data-table tr.cancelled-row {
+    opacity: 0.6;
+  }
+  
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .status-confirmed {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  
+  .status-cancelled {
+    background: #ffebee;
+    color: #c62828;
+  }
+  
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s;
+  }
+  
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .btn-primary {
+    background: #4CAF50;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #45a049;
+  }
+  
+  .btn-secondary {
+    background: #2196F3;
+    color: white;
+  }
+  
+  .btn-secondary:hover {
+    background: #0b7dda;
+  }
+  
+  .btn-info {
+    background: #FF9800;
+    color: white;
+  }
+  
+  .btn-info:hover {
+    background: #F57C00;
+  }
+  
+  .btn-danger {
+    background: #f44336;
+    color: white;
+  }
+  
+  .btn-danger:hover {
+    background: #da190b;
+  }
+  
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+  }
+  
+  .text-muted {
+    color: #999;
+  }
+  
+  .back-link {
+    margin-top: 30px;
+    text-align: center;
+  }
+  
+  .back-link a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<script>
+  // 今日の日付を設定するボタン
+  document.addEventListener('DOMContentLoaded', function() {
+    const todayBtn = document.getElementById('today-btn');
+    if (todayBtn) {
+      todayBtn.onclick = function() {
+        const today = new Date().toISOString().split('T')[0];
+        location.href = '?date=' + today;
+      };
+    }
+  });
+</script>
+{% endblock %}

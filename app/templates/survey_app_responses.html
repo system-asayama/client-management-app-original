@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}アンケート結果 - {{ store.store_name }}{% endblock %}
+
+{% block content %}
+<style>
+    .stats-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    
+    .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #1976d2;
+    }
+    
+    .stat-label {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .rating-bar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .rating-label {
+        width: 60px;
+        font-weight: bold;
+    }
+    
+    .rating-progress {
+        flex: 1;
+        height: 20px;
+        background: #e0e0e0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 0 10px;
+    }
+    
+    .rating-fill {
+        height: 100%;
+        background: #fbbf24;
+        transition: width 0.3s ease;
+    }
+    
+    .rating-count {
+        width: 50px;
+        text-align: right;
+    }
+    
+    .response-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .response-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .response-rating {
+        font-size: 1.5em;
+        color: #fbbf24;
+    }
+    
+    .response-date {
+        color: #666;
+        font-size: 0.9em;
+    }
+    
+    .response-section {
+        margin-bottom: 15px;
+    }
+    
+    .response-label {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+    }
+    
+    .response-value {
+        color: #666;
+        padding-left: 10px;
+    }
+    
+    .generated-review {
+        background: #f0f7ff;
+        border-left: 4px solid #1976d2;
+        padding: 15px;
+        border-radius: 4px;
+        margin-top: 15px;
+    }
+    
+    .btn-back {
+        background-color: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        text-decoration: none;
+        display: inline-block;
+        margin-bottom: 20px;
+    }
+    
+    .btn-back:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .response-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .response-date {
+            margin-top: 5px;
+        }
+    }
+</style>
+
+<h1>アンケート結果</h1>
+<h2>{{ store.store_name }}</h2>
+
+<a href="{{ url_for('admin.store_apps', store_id=store.id) }}" class="btn-back">← アプリ一覧に戻る</a>
+
+<!-- 統計情報 -->
+<div class="stats-card">
+    <h3>統計情報</h3>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-value">{{ total_responses }}</div>
+            <div class="stat-label">総回答数</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ avg_rating }}</div>
+            <div class="stat-label">平均評価</div>
+        </div>
+    </div>
+    
+    <h4>評価分布</h4>
+    {% for rating in [5, 4, 3, 2, 1] %}
+    <div class="rating-bar">
+        <div class="rating-label">★ {{ rating }}</div>
+        <div class="rating-progress">
+            <div class="rating-fill" style="width: {% if total_responses > 0 %}{{ (rating_distribution.get(rating, 0) / total_responses * 100)|round }}{% else %}0{% endif %}%"></div>
+        </div>
+        <div class="rating-count">{{ rating_distribution.get(rating, 0) }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 回答一覧 -->
+<h3>回答一覧</h3>
+{% if responses %}
+    {% for response in responses %}
+    <div class="response-card">
+        <div class="response-header">
+            <div class="response-rating">
+                {% for i in range(response.rating) %}★{% endfor %}
+                {% for i in range(5 - response.rating) %}☆{% endfor %}
+            </div>
+            <div class="response-date">{{ response.created_at }}</div>
+        </div>
+        
+        {% if response.response_json %}
+            {% for key, value in response.response_json.items() %}
+                {% if key not in ['rating', 'generated_review'] and value %}
+                <div class="response-section">
+                    <div class="response-label">{{ key }}:</div>
+                    <div class="response-value">
+                        {% if value is iterable and value is not string %}
+                            {{ value|join(', ') }}
+                        {% else %}
+                            {{ value }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        
+        {% if response.generated_review %}
+        <div class="generated-review">
+            <strong>生成されたレビュー:</strong><br>
+            {{ response.generated_review }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p>まだ回答がありません。</p>
+{% endif %}
+
+{% endblock %}

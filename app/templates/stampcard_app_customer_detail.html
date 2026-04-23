@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+
+{% block title %}顧客詳細 - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="header">
+    <h1>顧客詳細</h1>
+    <p class="store-name">{{ store_name }}</p>
+  </div>
+  
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  
+  <!-- 顧客情報 -->
+  <div class="info-card">
+    <h2>顧客情報</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">顧客名</div>
+        <div class="info-value">{{ customer[1] }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">電話番号</div>
+        <div class="info-value">{{ customer[2] or '-' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">メールアドレス</div>
+        <div class="info-value">{{ customer[3] or '-' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">登録日</div>
+        <div class="info-value">{{ customer[4].strftime('%Y-%m-%d') if customer[4] else '-' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">最終ログイン</div>
+        <div class="info-value">{{ customer[5].strftime('%Y-%m-%d') if customer[5] else '-' }}</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- スタンプカード情報 -->
+  {% if card %}
+  <div class="card-info-card">
+    <h2>スタンプカード情報</h2>
+    <div class="stamp-stats">
+      <div class="stamp-stat">
+        <div class="stamp-stat-value">{{ card[1] }}</div>
+        <div class="stamp-stat-label">現在のスタンプ</div>
+      </div>
+      <div class="stamp-stat">
+        <div class="stamp-stat-value">{{ card[2] }}</div>
+        <div class="stamp-stat-label">累計スタンプ</div>
+      </div>
+      <div class="stamp-stat">
+        <div class="stamp-stat-value">{{ card[3] }}</div>
+        <div class="stamp-stat-label">特典利用回数</div>
+      </div>
+    </div>
+    
+    <div class="stamp-actions">
+      <button onclick="showAddStampModal()" class="btn btn-primary">
+        <span class="btn-icon">➕</span>
+        スタンプを追加
+      </button>
+      <button onclick="showRemoveStampModal()" class="btn btn-danger">
+        <span class="btn-icon">➖</span>
+        スタンプを削除
+      </button>
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- スタンプ履歴 -->
+  {% if history %}
+  <div class="history-card">
+    <h2>スタンプ履歴</h2>
+    <div class="history-list">
+      {% for h in history %}
+        <div class="history-item">
+          <div class="history-icon {% if h[1] == 'add' %}icon-add{% else %}icon-remove{% endif %}">
+            {% if h[1] == 'add' %}+{% else %}-{% endif %}
+          </div>
+          <div class="history-content">
+            <div class="history-action">
+              {% if h[1] == 'add' %}
+                スタンプ追加 (+{{ h[0] }}個)
+              {% elif h[1] == 'remove' %}
+                スタンプ削除 ({{ h[0] }}個)
+              {% else %}
+                特典利用 ({{ h[0] }}個)
+              {% endif %}
+            </div>
+            {% if h[2] %}
+              <div class="history-note">{{ h[2] }}</div>
+            {% endif %}
+            <div class="history-meta">
+              <span class="history-by">{{ h[3] }}</span>
+              <span class="history-date">{{ h[4] }}</span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- 特典利用履歴 -->
+  {% if reward_history %}
+  <div class="history-card">
+    <h2>特典利用履歴</h2>
+    <div class="history-list">
+      {% for r in reward_history %}
+        <div class="history-item">
+          <div class="history-icon icon-reward">🎁</div>
+          <div class="history-content">
+            <div class="history-action">{{ r[1] }}</div>
+            <div class="history-note">{{ r[0] }}スタンプ使用</div>
+            <div class="history-meta">
+              <span class="history-by">{{ r[2] }}</span>
+              <span class="history-date">{{ r[3] }}</span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  
+  <div class="back-link">
+    <a href="{{ url_for('stampcard_app.customers', store_id=store_id) }}">&larr; 顧客一覧に戻る</a>
+  </div>
+</div>
+
+<!-- スタンプ追加モーダル -->
+<div id="addStampModal" class="modal">
+  <div class="modal-content">
+    <h3>スタンプを追加</h3>
+    <form method="POST" action="{{ url_for('stampcard_app.add_stamp', store_id=store_id, customer_id=customer[0]) }}">
+      <div class="form-group">
+        <label for="stamps">追加するスタンプ数</label>
+        <input type="number" id="stamps" name="stamps" value="1" min="1" max="10" required>
+      </div>
+      <div class="form-group">
+        <label for="note">メモ（任意）</label>
+        <input type="text" id="note" name="note" placeholder="例: 来店特典">
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary">追加</button>
+        <button type="button" onclick="closeModal('addStampModal')" class="btn btn-secondary">キャンセル</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- スタンプ削除モーダル -->
+<div id="removeStampModal" class="modal">
+  <div class="modal-content">
+    <h3>スタンプを削除</h3>
+    <form method="POST" action="{{ url_for('stampcard_app.remove_stamp', store_id=store_id, customer_id=customer[0]) }}">
+      <div class="form-group">
+        <label for="stamps_remove">削除するスタンプ数</label>
+        <input type="number" id="stamps_remove" name="stamps" value="1" min="1" max="{{ card[1] if card else 0 }}" required>
+        <small>現在のスタンプ数: {{ card[1] if card else 0 }}個</small>
+      </div>
+      <div class="form-group">
+        <label for="note_remove">メモ（任意）</label>
+        <input type="text" id="note_remove" name="note" placeholder="例: 誤付与の修正">
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-danger">削除</button>
+        <button type="button" onclick="closeModal('removeStampModal')" class="btn btn-secondary">キャンセル</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showAddStampModal() {
+  document.getElementById('addStampModal').style.display = 'flex';
+}
+
+function showRemoveStampModal() {
+  document.getElementById('removeStampModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).style.display = 'none';
+}
+
+// モーダル外クリックで閉じる
+window.onclick = function(event) {
+  if (event.target.classList.contains('modal')) {
+    event.target.style.display = 'none';
+  }
+}
+</script>
+
+<style>
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  
+  h1 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 28px;
+  }
+  
+  .store-name {
+    color: #666;
+    font-size: 18px;
+  }
+  
+  .alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+  
+  .alert-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  
+  .alert-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  .info-card,
+  .card-info-card,
+  .history-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+  }
+  
+  h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 20px;
+  }
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+  }
+  
+  .info-item {
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  
+  .info-label {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  
+  .info-value {
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .stamp-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stamp-stat {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  
+  .stamp-stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #4CAF50;
+    margin-bottom: 8px;
+  }
+  
+  .stamp-stat-label {
+    color: #666;
+    font-size: 14px;
+  }
+  
+  .stamp-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .btn {
+    padding: 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-icon {
+    font-size: 18px;
+  }
+  
+  .btn-primary {
+    background: #4CAF50;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #45a049;
+  }
+  
+  .btn-danger {
+    background: #f44336;
+    color: white;
+  }
+  
+  .btn-danger:hover {
+    background: #da190b;
+  }
+  
+  .btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+  }
+  
+  .btn-secondary:hover {
+    background: #d0d0d0;
+  }
+  
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .history-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  
+  .history-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  
+  .icon-add {
+    background: #d4edda;
+    color: #155724;
+  }
+  
+  .icon-remove {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  
+  .icon-reward {
+    font-size: 24px;
+  }
+  
+  .history-content {
+    flex: 1;
+  }
+  
+  .history-action {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+  }
+  
+  .history-note {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  
+  .history-meta {
+    font-size: 13px;
+    color: #999;
+  }
+  
+  .history-by {
+    margin-right: 12px;
+  }
+  
+  .back-link {
+    text-align: center;
+  }
+  
+  .back-link a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+  
+  /* モーダル */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+  }
+  
+  .modal-content h3 {
+    margin: 0 0 24px 0;
+    color: #333;
+    font-size: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 600;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 15px;
+    box-sizing: border-box;
+  }
+  
+  .form-group small {
+    display: block;
+    margin-top: 4px;
+    color: #666;
+    font-size: 13px;
+  }
+  
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  
+  .modal-actions .btn {
+    flex: 1;
+  }
+  
+  @media (max-width: 768px) {
+    .container {
+      padding: 16px;
+    }
+    
+    .stamp-stats {
+      grid-template-columns: 1fr;
+    }
+    
+    .stamp-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}

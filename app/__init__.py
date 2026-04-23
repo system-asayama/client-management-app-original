@@ -437,6 +437,27 @@ def create_app() -> Flask:
         print("✅ breeder blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ breeder blueprint 登録エラー: {e}")
+    # アンケートシステム blueprint登録
+    try:
+        from .blueprints.survey_app import bp as survey_app_bp
+        app.register_blueprint(survey_app_bp)
+        print("✅ survey_app blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ survey_app blueprint 登録エラー: {e}")
+    # スタンプカード blueprint登録
+    try:
+        from .blueprints.stampcard_app import bp as stampcard_app_bp
+        app.register_blueprint(stampcard_app_bp)
+        print("✅ stampcard_app blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ stampcard_app blueprint 登録エラー: {e}")
+    # 予約管理 blueprint登録
+    try:
+        from .blueprints.reservation_app import bp as reservation_app_bp
+        app.register_blueprint(reservation_app_bp)
+        print("✅ reservation_app blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ reservation_app blueprint 登録エラー: {e}")
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

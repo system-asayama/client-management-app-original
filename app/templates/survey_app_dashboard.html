@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}アンケートシステム - {{ store_name }}{% endblock %}
+{% block header %}📝 アンケートシステム - {{ store_name }}{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:1000px;margin:0 auto;">
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+    <a href="{{ url_for('survey_app.survey_editor', store_id=store_id) }}" class="btn" style="background:#3b82f6;color:white;border:none;">📝 アンケート編集</a>
+    <a href="{{ url_for('survey_app.responses', store_id=store_id) }}" class="btn" style="background:#10b981;color:white;border:none;">📊 回答一覧</a>
+    <a href="{{ url_for('survey_app.export_csv', store_id=store_id) }}" class="btn" style="background:#6b7280;color:white;border:none;">⬇️ CSV出力</a>
+    <a href="{{ url_for('survey_app.answer', store_id=store_id) }}" class="btn" style="background:#f59e0b;color:white;border:none;" target="_blank">🔗 回答フォームを開く</a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+    <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);text-align:center;">
+      <div style="font-size:36px;font-weight:bold;color:#3b82f6;">{{ total_responses }}</div>
+      <div style="color:#6b7280;margin-top:4px;">総回答数</div>
+    </div>
+    <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);text-align:center;">
+      <div style="font-size:36px;font-weight:bold;color:#f59e0b;">{{ avg_rating }}</div>
+      <div style="color:#6b7280;margin-top:4px;">平均評価</div>
+    </div>
+  </div>
+
+  <div style="background:white;padding:24px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin-bottom:24px;">
+    <h2 style="font-size:18px;margin:0 0 16px;">評価分布</h2>
+    {% for star in [5,4,3,2,1] %}
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+      <span style="width:60px;text-align:right;">★ {{ star }}</span>
+      <div style="flex:1;background:#f3f4f6;border-radius:4px;height:20px;overflow:hidden;">
+        {% if total_responses > 0 %}
+        <div style="background:#f59e0b;height:100%;width:{{ (rating_counts[star] / total_responses * 100)|round }}%;"></div>
+        {% endif %}
+      </div>
+      <span style="width:40px;color:#6b7280;">{{ rating_counts[star] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div style="background:white;padding:24px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <h2 style="font-size:18px;margin:0 0 16px;">最新の回答</h2>
+    {% if recent_responses %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid #e5e7eb;">
+          <th style="padding:8px;text-align:left;">日時</th>
+          <th style="padding:8px;text-align:center;">評価</th>
+          <th style="padding:8px;text-align:left;">コメント</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_responses %}
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:8px;font-size:13px;color:#6b7280;">{{ r.timestamp[:16] }}</td>
+          <td style="padding:8px;text-align:center;">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</td>
+          <td style="padding:8px;font-size:13px;">{{ r.comment[:60] }}{% if r.comment|length > 60 %}...{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#6b7280;text-align:center;">まだ回答がありません</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

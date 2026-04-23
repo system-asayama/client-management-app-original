@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}統計 - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="header">
+    <h1>スタンプカード統計</h1>
+    <p class="store-name">{{ store_name }}</p>
+  </div>
+  
+  <!-- 統計サマリー -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-value">{{ stats.total_customers }}</div>
+      <div class="stat-label">登録顧客数</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">✨</div>
+      <div class="stat-value">{{ stats.active_customers }}</div>
+      <div class="stat-label">アクティブ顧客数</div>
+      <div class="stat-note">過去30日間</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">🎟️</div>
+      <div class="stat-value">{{ stats.total_stamps }}</div>
+      <div class="stat-label">累計スタンプ数</div>
+    </div>
+    
+    <div class="stat-card">
+      <div class="stat-icon">🎁</div>
+      <div class="stat-value">{{ stats.total_rewards }}</div>
+      <div class="stat-label">累計特典利用回数</div>
+    </div>
+  </div>
+  
+  <!-- スタンプ付与数推移 -->
+  {% if stamp_trend %}
+  <div class="chart-card">
+    <h2>スタンプ付与数推移（過去30日間）</h2>
+    <div class="chart-container">
+      <canvas id="stampTrendChart"></canvas>
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- 特典利用数推移 -->
+  {% if reward_trend %}
+  <div class="chart-card">
+    <h2>特典利用数推移（過去30日間）</h2>
+    <div class="chart-container">
+      <canvas id="rewardTrendChart"></canvas>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if not stamp_trend and not reward_trend %}
+  <div class="empty-state">
+    <p>まだデータがありません</p>
+    <p class="empty-hint">顧客がスタンプを獲得すると、ここに統計が表示されます。</p>
+  </div>
+  {% endif %}
+  
+  <div class="back-link">
+    <a href="{{ url_for('admin.store_apps', store_id=store_id) }}">&larr; アプリ一覧に戻る</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// スタンプ付与数推移グラフ
+{% if stamp_trend %}
+const stampDates = {{ stamp_trend | map(attribute=0) | list | tojson }};
+const stampCounts = {{ stamp_trend | map(attribute=1) | list | tojson }};
+
+const stampCtx = document.getElementById('stampTrendChart').getContext('2d');
+new Chart(stampCtx, {
+  type: 'line',
+  data: {
+    labels: stampDates,
+    datasets: [{
+      label: 'スタンプ付与数',
+      data: stampCounts,
+      borderColor: '#4CAF50',
+      backgroundColor: 'rgba(76, 175, 80, 0.1)',
+      tension: 0.3,
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1
+        }
+      }
+    }
+  }
+});
+{% endif %}
+
+// 特典利用数推移グラフ
+{% if reward_trend %}
+const rewardDates = {{ reward_trend | map(attribute=0) | list | tojson }};
+const rewardCounts = {{ reward_trend | map(attribute=1) | list | tojson }};
+
+const rewardCtx = document.getElementById('rewardTrendChart').getContext('2d');
+new Chart(rewardCtx, {
+  type: 'bar',
+  data: {
+    labels: rewardDates,
+    datasets: [{
+      label: '特典利用数',
+      data: rewardCounts,
+      backgroundColor: '#FF9800',
+      borderRadius: 6
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1
+        }
+      }
+    }
+  }
+});
+{% endif %}
+</script>
+
+<style>
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  
+  h1 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 28px;
+  }
+  
+  .store-name {
+    color: #666;
+    font-size: 18px;
+  }
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.2s ease;
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .stat-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  
+  .stat-value {
+    font-size: 48px;
+    font-weight: 700;
+    color: #4CAF50;
+    margin-bottom: 8px;
+  }
+  
+  .stat-label {
+    color: #666;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .stat-note {
+    color: #999;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  
+  .chart-card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+  }
+  
+  .chart-card h2 {
+    color: #333;
+    margin-bottom: 24px;
+    font-size: 20px;
+  }
+  
+  .chart-container {
+    position: relative;
+    height: 300px;
+  }
+  
+  .empty-state {
+    background: white;
+    border-radius: 12px;
+    padding: 60px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  
+  .empty-state p {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  
+  .empty-hint {
+    color: #999;
+    font-size: 14px;
+  }
+  
+  .back-link {
+    text-align: center;
+  }
+  
+  .back-link a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+  
+  @media (max-width: 768px) {
+    .container {
+      padding: 16px;
+    }
+    
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+      padding: 24px;
+    }
+    
+    .chart-card {
+      padding: 24px;
+    }
+    
+    .chart-container {
+      height: 250px;
+    }
+  }
+</style>
+{% endblock %}

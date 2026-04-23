@@ -2319,6 +2319,30 @@ AVAILABLE_APPS = [
         'url': '/breeder/dashboard',
         'icon': '🐕',
         'scope': 'store'
+    },
+    {
+        'name': 'survey',
+        'display_name': 'アンケートシステム',
+        'description': 'お客様アンケートの作成・回答収集・結果分析を行うアプリ',
+        'url': '/apps/survey',
+        'icon': '📝',
+        'scope': 'store'
+    },
+    {
+        'name': 'stampcard',
+        'display_name': 'スタンプカード',
+        'description': 'デジタルスタンプカードで顧客のリピート来店を促進するアプリ',
+        'url': '/apps/stampcard',
+        'icon': '🎫',
+        'scope': 'store'
+    },
+    {
+        'name': 'reservation',
+        'display_name': '予約管理',
+        'description': 'お客様の予約受付・管理・カレンダー表示を行うアプリ',
+        'url': '/apps/reservation',
+        'icon': '📅',
+        'scope': 'store'
     }
 ]
 

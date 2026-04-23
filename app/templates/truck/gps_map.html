@@ -137,10 +137,26 @@ function loadMap() {
             layers.push(circle);
           }
         });
-        // 最新位置マーカー
+        // 最新位置マーカー（移動中は水色丸印、退勤後はトラックアイコン）
         var last = driver.locations[driver.locations.length - 1];
-        var marker = L.marker([last.lat, last.lng]).addTo(map);
-        marker.bindPopup('<strong>' + driver.name + '</strong><br>最終更新: ' + last.time);
+        var driverName = driver.staff_name || driver.name || '';
+        if (driver.is_finished) {
+          // 退勤済み: トラックアイコン（小さめピン）
+          var truckIcon = L.divIcon({
+            className: '',
+            html: '<div style="background:#1e3a5f;color:#fff;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">🚛 ' + driverName + '</div>',
+            iconAnchor: [20, 14],
+            popupAnchor: [0, -14]
+          });
+          var marker = L.marker([last.lat, last.lng], {icon: truckIcon}).addTo(map);
+          marker.bindPopup('<strong>' + driverName + '</strong><br>退勤済み<br>最終更新: ' + last.time);
+        } else {
+          // 移動中: 水色の丸印（小さめ）
+          var marker = L.circleMarker([last.lat, last.lng], {
+            radius: 10, fillColor: '#06b6d4', color: '#fff', weight: 2.5, fillOpacity: 0.95
+          }).addTo(map);
+          marker.bindPopup('<strong>' + driverName + '</strong><br>移動中<br>最終更新: ' + last.time);
+        }
         layers.push(marker);
       });
       if (allPoints.length > 0) {

@@ -1072,7 +1072,7 @@ def gps_map_realtime_data():
         op_times = {}
         if driver_ids:
             ops = db.execute(text(f"""
-                SELECT driver_id, loading_start_time, unloading_start_time, start_time
+                SELECT driver_id, loading_start_time, unloading_start_time, start_time, status
                 FROM truck_operations
                 WHERE driver_id IN ({ids_str})
                   AND operation_date = :op_date
@@ -1085,6 +1085,7 @@ def gps_map_realtime_data():
                         'loading': op[1],
                         'unloading': op[2],
                         'start_times': [],
+                        'is_finished': False,
                     }
                 # 複数運行の開始時刻をすべて記録
                 if op[3]:
@@ -1094,6 +1095,9 @@ def gps_map_realtime_data():
                     op_times[did]['loading'] = op[1]
                 if op[2]:
                     op_times[did]['unloading'] = op[2]
+                # 退勤済みかどうか（最後の運行のstatusで判定）
+                if op[4] == 'finished':
+                    op_times[did]['is_finished'] = True
         drivers_out = []
         for dl in target_drivers:
             pts = driver_tracks.get(dl['id'], [])
@@ -1155,6 +1159,7 @@ def gps_map_realtime_data():
                 'staff_id': dl['id'],
                 'staff_name': dl['name'],
                 'locations': locations,
+                'is_finished': op_info.get('is_finished', False),
             })
 
         return jsonify({'ok': True, 'drivers': drivers_out})

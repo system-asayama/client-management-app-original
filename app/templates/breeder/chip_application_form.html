@@ -1,0 +1,53 @@
+{% extends 'breeder/base.html' %}
+{% block title %}チップ申請登録{% endblock %}
+{% block topbar_title %}チップ申請登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">チップ申請を登録</div>
+  <a href="{{ url_for('breeder.chip_applications') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">子犬</label>
+        <select name="puppy_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for p in puppies %}<option value="{{ p.id }}">{{ p.name or '（名前なし）' }} - {{ p.breed }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">親犬</label>
+        <select name="dog_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for d in dogs %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">申請日</label>
+        <input type="date" name="application_date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ステータス</label>
+        <select name="status" class="form-control">
+          <option value="pending">申請中</option>
+          <option value="approved">承認済</option>
+          <option value="rejected">却下</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">チップ番号</label>
+        <input type="text" name="chip_number" class="form-control">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control"></textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('breeder.chip_applications') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

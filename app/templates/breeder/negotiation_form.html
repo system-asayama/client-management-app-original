@@ -1,0 +1,51 @@
+{% extends 'breeder/base.html' %}
+{% block title %}商談登録{% endblock %}
+{% block topbar_title %}商談登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">商談を登録</div>
+  <a href="{{ url_for('breeder.negotiations_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">コンタクト</label>
+        <select name="contact_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for c in contacts %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">子犬</label>
+        <select name="puppy_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for p in puppies %}<option value="{{ p.id }}">{{ p.name or '（名前なし）' }} - {{ p.breed }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ステータス</label>
+        <select name="status" class="form-control">
+          <option value="inquiry">問い合わせ</option>
+          <option value="negotiating">商談中</option>
+          <option value="reserved">予約済</option>
+          <option value="contracted">契約済</option>
+          <option value="cancelled">キャンセル</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">価格（円）</label>
+        <input type="number" name="price" class="form-control">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control"></textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('breeder.negotiations_list') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

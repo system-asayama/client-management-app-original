@@ -1,0 +1,44 @@
+{% extends 'breeder/base.html' %}
+{% block title %}血統書申請{% endblock %}
+{% block topbar_title %}血統書申請管理{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.pedigree_application_new') }}" class="btn btn-primary btn-sm">+ 申請登録</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if apps %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>申請日</th><th>対象</th><th>血統書番号</th><th>ステータス</th><th>メモ</th></tr></thead>
+      <tbody>
+        {% for a in apps %}
+        <tr>
+          <td class="text-sm">{{ a.application_date.strftime('%Y/%m/%d') if a.application_date else '—' }}</td>
+          <td class="text-sm">
+            {% if a.puppy_id and puppies.get(a.puppy_id) %}{{ puppies[a.puppy_id].name or '子犬' }}
+            {% elif a.dog_id and dogs.get(a.dog_id) %}{{ dogs[a.dog_id].name }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ a.pedigree_number or '—' }}</td>
+          <td>
+            {% if a.status == 'pending' %}<span class="badge badge-orange">申請中</span>
+            {% elif a.status == 'approved' %}<span class="badge badge-green">承認済</span>
+            {% elif a.status == 'rejected' %}<span class="badge badge-red">却下</span>
+            {% else %}<span class="badge badge-gray">{{ a.status }}</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ a.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">□</div>
+    <div class="empty-text">血統書申請はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.pedigree_application_new') }}" class="btn btn-primary btn-sm">+ 申請登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

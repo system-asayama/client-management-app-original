@@ -2311,6 +2311,14 @@ AVAILABLE_APPS = [
         'url': '/apps/teikan',
         'icon': '🏢',
         'scope': 'store'
+    },
+    {
+        'name': 'breeder-management',
+        'display_name': 'ブリーダー管理アプリ',
+        'description': '犬のブリーダー向け総合管理システム（親犬・子犬・繁殖・健康管理・申請・商談）',
+        'url': '/breeder/dashboard',
+        'icon': '🐕',
+        'scope': 'store'
     }
 ]
 

@@ -1,0 +1,79 @@
+{% extends 'breeder/base.html' %}
+{% block title %}子犬一覧{% endblock %}
+{% block topbar_title %}子犬一覧{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.puppy_new') }}" class="btn btn-primary btn-sm">+ 新規登録</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <form method="get" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <input type="text" name="q" value="{{ q }}" placeholder="名前・犬種で検索" class="form-control search-input">
+    <select name="status" class="form-control" style="width:auto;">
+      <option value="">すべてのステータス</option>
+      <option value="available" {{ 'selected' if status == 'available' }}>販売可</option>
+      <option value="reserved" {{ 'selected' if status == 'reserved' }}>予約済</option>
+      <option value="sold" {{ 'selected' if status == 'sold' }}>販売済</option>
+      <option value="transferred" {{ 'selected' if status == 'transferred' }}>譲渡済</option>
+      <option value="deceased" {{ 'selected' if status == 'deceased' }}>死亡</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">検索</button>
+  </form>
+</div>
+
+<div class="card">
+  {% if puppies %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>名前</th>
+          <th>犬種</th>
+          <th>性別</th>
+          <th>生年月日</th>
+          <th>毛色</th>
+          <th>価格</th>
+          <th>ステータス</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for puppy in puppies %}
+        <tr>
+          <td style="font-weight:500;">{{ puppy.name or '（名前なし）' }}</td>
+          <td>{{ puppy.breed }}</td>
+          <td>
+            {% if puppy.gender == 'female' %}
+              <span class="badge badge-purple">♀ メス</span>
+            {% else %}
+              <span class="badge badge-blue">♂ オス</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">{{ puppy.birth_date.strftime('%Y/%m/%d') if puppy.birth_date else '—' }}</td>
+          <td class="text-sm text-muted">{{ puppy.color or '—' }}</td>
+          <td class="text-sm">{{ '¥{:,.0f}'.format(puppy.price) if puppy.price else '—' }}</td>
+          <td>
+            {% if puppy.status == 'available' %}<span class="badge badge-green">販売可</span>
+            {% elif puppy.status == 'reserved' %}<span class="badge badge-orange">予約済</span>
+            {% elif puppy.status == 'sold' %}<span class="badge badge-blue">販売済</span>
+            {% elif puppy.status == 'transferred' %}<span class="badge badge-gray">譲渡済</span>
+            {% elif puppy.status == 'deceased' %}<span class="badge badge-red">死亡</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('breeder.puppy_edit', puppy_id=puppy.id) }}" class="btn btn-secondary btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">◇</div>
+    <div class="empty-text">登録された子犬はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.puppy_new') }}" class="btn btn-primary btn-sm">+ 新規登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

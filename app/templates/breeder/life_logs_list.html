@@ -1,0 +1,34 @@
+{% extends 'breeder/base.html' %}
+{% block title %}ライフログ{% endblock %}
+{% block topbar_title %}ライフログ一覧{% endblock %}
+{% block content %}
+<div class="card">
+  {% if logs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>日時</th><th>カテゴリ</th><th>対象</th><th>内容</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="text-xs text-dim">{{ log.logged_at.strftime('%Y/%m/%d %H:%M') if log.logged_at else '—' }}</td>
+          <td><span class="badge badge-gray">{{ log.category or '—' }}</span></td>
+          <td class="text-sm">
+            {% if log.dog_id and dogs.get(log.dog_id) %}{{ dogs[log.dog_id].name }}
+            {% elif log.puppy_id and puppies.get(log.puppy_id) %}{{ puppies[log.puppy_id].name or '子犬' }}
+            {% elif log.contact_id and contacts.get(log.contact_id) %}{{ contacts[log.contact_id].name }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-sm">{{ log.content or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">≡</div>
+    <div class="empty-text">ライフログはありません</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

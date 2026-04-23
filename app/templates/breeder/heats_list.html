@@ -1,0 +1,53 @@
+{% extends 'breeder/base.html' %}
+{% block title %}ヒート管理{% endblock %}
+{% block topbar_title %}ヒート管理{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.heat_new') }}" class="btn btn-primary btn-sm">+ ヒート登録</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  {% if heats %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>犬名</th>
+          <th>犬種</th>
+          <th>開始日</th>
+          <th>最終確認日</th>
+          <th>次回予定日</th>
+          <th>ステータス</th>
+          <th>メモ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for heat, dog in heats %}
+        <tr>
+          <td><a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" style="font-weight:500;">{{ dog.name }}</a></td>
+          <td class="text-sm text-muted">{{ dog.breed }}</td>
+          <td class="text-sm">{{ heat.start_date.strftime('%Y/%m/%d') if heat.start_date else '—' }}</td>
+          <td class="text-sm">{{ heat.last_confirmed_date.strftime('%Y/%m/%d') if heat.last_confirmed_date else '—' }}</td>
+          <td class="text-sm text-accent">{{ heat.next_predicted_date.strftime('%Y/%m/%d') if heat.next_predicted_date else '—' }}</td>
+          <td>
+            {% if heat.status == 'active' %}<span class="badge badge-purple">発情中</span>
+            {% elif heat.status == 'imminent' %}<span class="badge badge-orange">間近</span>
+            {% elif heat.status == 'completed' %}<span class="badge badge-gray">完了</span>
+            {% else %}<span class="badge badge-gray">{{ heat.status }}</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ heat.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">♥</div>
+    <div class="empty-text">ヒート記録はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.heat_new') }}" class="btn btn-primary btn-sm">+ ヒート登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

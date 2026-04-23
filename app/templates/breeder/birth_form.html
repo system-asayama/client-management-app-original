@@ -1,0 +1,57 @@
+{% extends 'breeder/base.html' %}
+{% block title %}出産登録{% endblock %}
+{% block topbar_title %}出産登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">出産を登録</div>
+  <a href="{{ url_for('breeder.births_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">母犬 *</label>
+        <select name="mother_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for dog in dogs %}{% if dog.gender == 'female' %}<option value="{{ dog.id }}">{{ dog.name }}</option>{% endif %}{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">父犬</label>
+        <select name="father_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for dog in dogs %}{% if dog.gender == 'male' %}<option value="{{ dog.id }}">{{ dog.name }}</option>{% endif %}{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">出産日 *</label>
+        <input type="date" name="birth_date" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">総頭数</label>
+        <input type="number" name="total_count" class="form-control" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">生存頭数</label>
+        <input type="number" name="alive_count" class="form-control" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">オス頭数</label>
+        <input type="number" name="male_count" class="form-control" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メス頭数</label>
+        <input type="number" name="female_count" class="form-control" value="0" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control"></textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('breeder.births_list') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

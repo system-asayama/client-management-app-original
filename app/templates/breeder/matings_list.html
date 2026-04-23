@@ -1,0 +1,45 @@
+{% extends 'breeder/base.html' %}
+{% block title %}交配管理{% endblock %}
+{% block topbar_title %}交配管理{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.mating_new') }}" class="btn btn-primary btn-sm">+ 交配登録</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if matings %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>母犬</th><th>父犬</th><th>交配日</th><th>方法</th><th>出産予定日</th><th>ステータス</th><th>メモ</th></tr>
+      </thead>
+      <tbody>
+        {% for m in matings %}
+        <tr>
+          <td style="font-weight:500;">{{ dogs.get(m.mother_id).name if dogs.get(m.mother_id) else '—' }}</td>
+          <td>{{ dogs.get(m.father_id).name if dogs.get(m.father_id) else '—' }}</td>
+          <td class="text-sm">{{ m.mating_date.strftime('%Y/%m/%d') if m.mating_date else '—' }}</td>
+          <td class="text-sm">{{ '自然交配' if m.method == 'natural' else ('人工授精' if m.method == 'ai' else m.method) }}</td>
+          <td class="text-sm text-accent">{{ m.expected_birth_date.strftime('%Y/%m/%d') if m.expected_birth_date else '—' }}</td>
+          <td>
+            {% if m.status == 'mated' %}<span class="badge badge-blue">交配済</span>
+            {% elif m.status == 'pregnant' %}<span class="badge badge-purple">妊娠中</span>
+            {% elif m.status == 'born' %}<span class="badge badge-green">出産済</span>
+            {% elif m.status == 'failed' %}<span class="badge badge-red">失敗</span>
+            {% else %}<span class="badge badge-gray">{{ m.status }}</span>
+            {% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ m.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">⟳</div>
+    <div class="empty-text">交配記録はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.mating_new') }}" class="btn btn-primary btn-sm">+ 交配登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

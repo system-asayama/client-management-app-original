@@ -1,0 +1,39 @@
+{% extends 'breeder/base.html' %}
+{% block title %}出産管理{% endblock %}
+{% block topbar_title %}出産管理{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.birth_new') }}" class="btn btn-primary btn-sm">+ 出産登録</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if births %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>出産日</th><th>母犬</th><th>父犬</th><th>総頭数</th><th>生存</th><th>オス</th><th>メス</th><th>メモ</th></tr>
+      </thead>
+      <tbody>
+        {% for b in births %}
+        <tr>
+          <td class="text-sm">{{ b.birth_date.strftime('%Y/%m/%d') if b.birth_date else '—' }}</td>
+          <td style="font-weight:500;">{{ dogs.get(b.mother_id).name if dogs.get(b.mother_id) else '—' }}</td>
+          <td class="text-muted">{{ dogs.get(b.father_id).name if dogs.get(b.father_id) else '—' }}</td>
+          <td><strong>{{ b.total_count }}</strong></td>
+          <td class="text-green">{{ b.alive_count }}</td>
+          <td class="text-blue">{{ b.male_count }}</td>
+          <td class="text-purple">{{ b.female_count }}</td>
+          <td class="text-sm text-muted">{{ b.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">★</div>
+    <div class="empty-text">出産記録はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.birth_new') }}" class="btn btn-primary btn-sm">+ 出産登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends 'breeder/base.html' %}
+{% block title %}設定{% endblock %}
+{% block topbar_title %}設定{% endblock %}
+{% block content %}
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+  <!-- アプリ設定 -->
+  <div class="card">
+    <div class="card-title">アプリ設定</div>
+    <form method="post" action="{{ url_for('breeder.settings_save') }}">
+      <div class="form-group">
+        <label class="form-label">ブリーダー名</label>
+        <input type="text" name="breeder_name" class="form-control" value="{{ settings.get('breeder_name', '') }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ブリーダー登録番号</label>
+        <input type="text" name="breeder_license" class="form-control" value="{{ settings.get('breeder_license', '') }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">住所</label>
+        <input type="text" name="address" class="form-control" value="{{ settings.get('address', '') }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input type="text" name="phone" class="form-control" value="{{ settings.get('phone', '') }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メールアドレス</label>
+        <input type="email" name="email" class="form-control" value="{{ settings.get('email', '') }}">
+      </div>
+      <button type="submit" class="btn btn-primary mt-3">保存する</button>
+    </form>
+  </div>
+
+  <!-- イベントプリセット -->
+  <div class="card">
+    <div class="card-title">イベントプリセット</div>
+    {% if presets %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>カテゴリ</th><th>名前</th><th>日数オフセット</th></tr></thead>
+        <tbody>
+          {% for p in presets %}
+          <tr>
+            <td><span class="badge badge-gray">{{ p.category }}</span></td>
+            <td class="text-sm">{{ p.name }}</td>
+            <td class="text-sm text-muted">{{ p.days_offset if p.days_offset is not none else '—' }}日</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:2rem 0;">
+      <div class="empty-text">イベントプリセットはありません</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- データエクスポート -->
+<div class="card mt-4">
+  <div class="card-title">データエクスポート</div>
+  <p class="text-sm text-muted mb-3">各種データをCSV形式でエクスポートできます。</p>
+  <div class="flex gap-2 flex-wrap">
+    <a href="{{ url_for('breeder.dogs_list') }}" class="btn btn-secondary btn-sm">親犬データ</a>
+    <a href="{{ url_for('breeder.puppies_list') }}" class="btn btn-secondary btn-sm">子犬データ</a>
+    <a href="{{ url_for('breeder.heats_list') }}" class="btn btn-secondary btn-sm">ヒートデータ</a>
+    <a href="{{ url_for('breeder.births_list') }}" class="btn btn-secondary btn-sm">出産データ</a>
+    <a href="{{ url_for('breeder.ledger') }}" class="btn btn-secondary btn-sm">台帳データ</a>
+  </div>
+</div>
+{% endblock %}

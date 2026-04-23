@@ -1,0 +1,46 @@
+{% extends 'breeder/base.html' %}
+{% block title %}台帳管理{% endblock %}
+{% block topbar_title %}台帳管理{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.ledger_new') }}" class="btn btn-primary btn-sm">+ 記録追加</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if entries %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>記録日</th><th>種別</th><th>対象</th><th>内容</th><th>メモ</th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="text-sm">{{ e.entry_date.strftime('%Y/%m/%d') if e.entry_date else '—' }}</td>
+          <td>
+            {% if e.entry_type == 'birth' %}<span class="badge badge-green">出生</span>
+            {% elif e.entry_type == 'death' %}<span class="badge badge-red">死亡</span>
+            {% elif e.entry_type == 'transfer' %}<span class="badge badge-blue">譲渡</span>
+            {% elif e.entry_type == 'import' %}<span class="badge badge-purple">輸入</span>
+            {% elif e.entry_type == 'export' %}<span class="badge badge-orange">輸出</span>
+            {% else %}<span class="badge badge-gray">{{ e.entry_type }}</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">
+            {% if e.dog_id and dogs.get(e.dog_id) %}{{ dogs[e.dog_id].name }}
+            {% elif e.puppy_id and puppies.get(e.puppy_id) %}{{ puppies[e.puppy_id].name or '子犬' }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-sm">{{ e.description or '—' }}</td>
+          <td class="text-sm text-muted">{{ e.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">≣</div>
+    <div class="empty-text">台帳記録はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.ledger_new') }}" class="btn btn-primary btn-sm">+ 記録追加</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'breeder/base.html' %}
+{% block title %}商談管理{% endblock %}
+{% block topbar_title %}商談管理{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.negotiation_new') }}" class="btn btn-primary btn-sm">+ 商談登録</a>
+{% endblock %}
+{% block content %}
+<div class="filter-bar">
+  <form method="get" style="display:flex; gap:0.5rem;">
+    <select name="status" class="form-control" style="width:auto;">
+      <option value="">すべてのステータス</option>
+      <option value="inquiry" {{ 'selected' if status == 'inquiry' }}>問い合わせ</option>
+      <option value="negotiating" {{ 'selected' if status == 'negotiating' }}>商談中</option>
+      <option value="reserved" {{ 'selected' if status == 'reserved' }}>予約済</option>
+      <option value="contracted" {{ 'selected' if status == 'contracted' }}>契約済</option>
+      <option value="cancelled" {{ 'selected' if status == 'cancelled' }}>キャンセル</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">絞り込み</button>
+  </form>
+</div>
+<div class="card">
+  {% if negotiations %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>コンタクト</th><th>子犬</th><th>ステータス</th><th>価格</th><th>登録日</th><th>メモ</th></tr></thead>
+      <tbody>
+        {% for n in negotiations %}
+        <tr>
+          <td style="font-weight:500;">{{ contacts.get(n.contact_id).name if contacts.get(n.contact_id) else '—' }}</td>
+          <td class="text-sm">{{ puppies.get(n.puppy_id).name if puppies.get(n.puppy_id) else '—' }}</td>
+          <td>
+            {% if n.status == 'inquiry' %}<span class="badge badge-blue">問い合わせ</span>
+            {% elif n.status == 'negotiating' %}<span class="badge badge-orange">商談中</span>
+            {% elif n.status == 'reserved' %}<span class="badge badge-purple">予約済</span>
+            {% elif n.status == 'contracted' %}<span class="badge badge-green">契約済</span>
+            {% elif n.status == 'cancelled' %}<span class="badge badge-red">キャンセル</span>
+            {% else %}<span class="badge badge-gray">{{ n.status }}</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">{{ '¥{:,.0f}'.format(n.price) if n.price else '—' }}</td>
+          <td class="text-xs text-dim">{{ n.created_at.strftime('%Y/%m/%d') if n.created_at else '—' }}</td>
+          <td class="text-sm text-muted">{{ n.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">¥</div>
+    <div class="empty-text">商談はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.negotiation_new') }}" class="btn btn-primary btn-sm">+ 商談登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

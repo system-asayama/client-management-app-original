@@ -15,6 +15,7 @@ try:
     from . import models_voucher  # noqa: F401
     from . import models_property  # noqa: F401
     from . import models_truck  # noqa: F401
+    from . import models_breeder  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -429,6 +430,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ truck blueprint 登録エラー: {e}")
 
+    # ブリーダー管理 blueprint登録
+    try:
+        from .blueprints.breeder import bp as breeder_bp
+        app.register_blueprint(breeder_bp)
+        print("✅ breeder blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ breeder blueprint 登録エラー: {e}")
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

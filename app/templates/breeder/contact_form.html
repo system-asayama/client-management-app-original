@@ -1,0 +1,39 @@
+{% extends 'breeder/base.html' %}
+{% block title %}コンタクト登録{% endblock %}
+{% block topbar_title %}コンタクト登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">コンタクトを登録</div>
+  <a href="{{ url_for('breeder.contacts_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">名前 *</label>
+        <input type="text" name="name" class="form-control" value="{{ contact.name if contact else '' }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">メールアドレス</label>
+        <input type="email" name="email" class="form-control" value="{{ contact.email if contact else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input type="tel" name="phone" class="form-control" value="{{ contact.phone if contact else '' }}">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">住所</label>
+        <input type="text" name="address" class="form-control" value="{{ contact.address if contact else '' }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control">{{ contact.notes if contact else '' }}</textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('breeder.contacts_list') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

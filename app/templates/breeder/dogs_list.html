@@ -1,0 +1,84 @@
+{% extends 'breeder/base.html' %}
+{% block title %}{{ '外部犬' if dog_type == 'external' else '親犬' }}一覧{% endblock %}
+{% block topbar_title %}{{ '外部犬' if dog_type == 'external' else '親犬' }}一覧{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.dog_new') }}" class="btn btn-primary btn-sm">+ 新規登録</a>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <form method="get" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <input type="hidden" name="type" value="{{ dog_type }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="名前・犬種で検索" class="form-control search-input">
+    <select name="status" class="form-control" style="width:auto;">
+      <option value="">すべてのステータス</option>
+      <option value="active" {{ 'selected' if status == 'active' }}>在舎</option>
+      <option value="retired" {{ 'selected' if status == 'retired' }}>引退</option>
+      <option value="transferred" {{ 'selected' if status == 'transferred' }}>譲渡済</option>
+      <option value="deceased" {{ 'selected' if status == 'deceased' }}>死亡</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">検索</button>
+  </form>
+  <div style="margin-left:auto; display:flex; gap:0.5rem;">
+    <a href="{{ url_for('breeder.dogs_list') }}?type=parent" class="btn {{ 'btn-primary' if dog_type == 'parent' else 'btn-secondary' }} btn-sm">親犬</a>
+    <a href="{{ url_for('breeder.dogs_list') }}?type=external" class="btn {{ 'btn-primary' if dog_type == 'external' else 'btn-secondary' }} btn-sm">外部犬</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if dogs %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>名前</th>
+          <th>登録名</th>
+          <th>犬種</th>
+          <th>性別</th>
+          <th>生年月日</th>
+          <th>毛色</th>
+          <th>チップ番号</th>
+          <th>ステータス</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dog in dogs %}
+        <tr>
+          <td><a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" style="font-weight:500;">{{ dog.name }}</a></td>
+          <td class="text-muted text-sm">{{ dog.registration_name or '—' }}</td>
+          <td>{{ dog.breed }}</td>
+          <td>
+            {% if dog.gender == 'female' %}
+              <span class="badge badge-purple">♀ メス</span>
+            {% else %}
+              <span class="badge badge-blue">♂ オス</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">{{ dog.birth_date.strftime('%Y/%m/%d') if dog.birth_date else '—' }}</td>
+          <td class="text-sm text-muted">{{ dog.color or '—' }}</td>
+          <td class="text-xs text-dim">{{ dog.microchip_number or '—' }}</td>
+          <td>
+            {% if dog.status == 'active' %}<span class="badge badge-green">在舎</span>
+            {% elif dog.status == 'retired' %}<span class="badge badge-gray">引退</span>
+            {% elif dog.status == 'transferred' %}<span class="badge badge-orange">譲渡済</span>
+            {% elif dog.status == 'deceased' %}<span class="badge badge-red">死亡</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('breeder.dog_edit', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">◆</div>
+    <div class="empty-text">登録された犬はありません</div>
+    <div class="mt-3"><a href="{{ url_for('breeder.dog_new') }}" class="btn btn-primary btn-sm">+ 新規登録</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

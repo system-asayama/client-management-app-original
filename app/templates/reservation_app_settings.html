@@ -6,7 +6,7 @@
 <div class="container">
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
     <h1 style="margin: 0;">予約設定</h1>
-    <a href="{{ url_for('admin.store_apps', store_id=store.id) }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; white-space: nowrap;">🏠 店舗アプリ一覧</a>
+    <a href="{{ url_for('admin.available_apps') }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; white-space: nowrap;">🏠 店舗アプリ一覧</a>
   </div>
 
   <div class="store-info-card">
@@ -119,7 +119,7 @@
   
   <div class="back-link">
     <a href="{{ url_for('reservation_app.reservation_list', store_id=store.id) }}">予約一覧へ</a> |
-    <a href="{{ url_for('admin.store_apps', store_id=store.id) }}">店舗アプリ一覧に戻る</a>
+    <a href="{{ url_for('admin.available_apps') }}">店舗アプリ一覧に戻る</a>
   </div>
 </div>
 

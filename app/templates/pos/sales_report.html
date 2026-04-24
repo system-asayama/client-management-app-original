@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>売上集計</h2>
 <!-- DEBUG: {{ debug_info }} -->
@@ -42,7 +42,7 @@
   <div>
     <button class="btn" type="submit">集計する</button>
     {% if has_endpoint and has_endpoint('floor') %}
-      <a class="btn sub" href="{{ url_for('floor') }}">フロアへ戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.floor') }}">フロアへ戻る</a>
     {% endif %}
   </div>
 </form>

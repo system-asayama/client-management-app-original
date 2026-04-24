@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 
 {% block title %}店舗情報編集{% endblock %}
 
@@ -208,7 +208,7 @@
 
     <div class="btn-group">
       <button type="submit" class="btn btn-primary">💾 保存</button>
-      <a href="{{ url_for('admin_console') }}" class="btn btn-secondary">戻る</a>
+      <a href="{{ url_for('pos_app.admin_console') }}" class="btn btn-secondary">戻る</a>
     </div>
   </form>
 </div>

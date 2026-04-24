@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 
 {% block content %}
 <div class="card">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
     <h2>{{ title }}</h2>
-    <a href="{{ url_for('admin_product_options_new') }}" class="btn">＋ 新規作成</a>
+    <a href="{{ url_for('pos_app.admin_product_options_new') }}" class="btn">＋ 新規作成</a>
   </div>
 
   {% if options %}
@@ -51,8 +51,8 @@
         <td>{{ opt.display_order }}</td>
         <td>
           <div class="actions">
-            <a href="{{ url_for('admin_product_options_edit', option_id=opt.id) }}" class="btn sub" style="padding:6px 10px; font-size:12px;">編集</a>
-            <form method="post" action="{{ url_for('admin_product_options_delete', option_id=opt.id) }}" style="display:inline;" onsubmit="return confirm('本当に削除しますか？');">
+            <a href="{{ url_for('pos_app.admin_product_options_edit', option_id=opt.id) }}" class="btn sub" style="padding:6px 10px; font-size:12px;">編集</a>
+            <form method="post" action="{{ url_for('pos_app.admin_product_options_delete', option_id=opt.id) }}" style="display:inline;" onsubmit="return confirm('本当に削除しますか？');">
               <button type="submit" class="btn sub" style="padding:6px 10px; font-size:12px; background:#fee2e2; border-color:#fecaca; color:#991b1b;">削除</button>
             </form>
           </div>
@@ -64,7 +64,7 @@
   {% else %}
   <p style="color:var(--muted); text-align:center; padding:40px 0;">オプションが登録されていません。</p>
   <div style="text-align:center;">
-    <a href="{{ url_for('admin_product_options_new') }}" class="btn">最初のオプションを作成</a>
+    <a href="{{ url_for('pos_app.admin_product_options_new') }}" class="btn">最初のオプションを作成</a>
   </div>
   {% endif %}
 </div>

@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>KDSカテゴリ</h2>
 
 <!-- 戻るボタン -->
 <div style="margin:8px 0 16px;">
   {% if has_endpoint('admin_kds_home') %}
-    <a class="btn" href="{{ url_for('admin_kds_home') }}">← 戻る</a>
+    <a class="btn" href="{{ url_for('pos_app.admin_kds_home') }}">← 戻る</a>
   {% else %}
     <a class="btn" href="javascript:history.back()">← 戻る</a>
   {% endif %}

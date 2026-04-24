@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>店舗管理</h2>
 
 <div class="card">
   <h3 style="margin:0 0 10px">新規作成</h3>
-  <form method="post" action="{{ url_for('tenant_stores_new') }}">
+  <form method="post" action="{{ url_for('pos_app.tenant_stores_new') }}">
     {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
     <label>店舗コード</label><input name="code" required>
     <label>名称</label><input name="name" required>
@@ -19,14 +19,14 @@
     <div class="small" style="color:var(--muted)">ID: {{ s.id }}</div>
 
     <div class="actions" style="margin-top:12px">
-      <a class="btn" href="{{ url_for('tenant_store_edit', sid=s.id) }}">編集</a>
+      <a class="btn" href="{{ url_for('pos_app.tenant_store_edit', sid=s.id) }}">編集</a>
 
-      <form method="post" action="{{ url_for('tenant_store_delete', sid=s.id) }}">
+      <form method="post" action="{{ url_for('pos_app.tenant_store_delete', sid=s.id) }}">
         {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
         <button class="btn sub" type="submit" onclick="return confirm('削除しますか？');">削除</button>
       </form>
 
-      <a class="btn sub" href="{{ url_for('tenant_store_admin_new', sid=s.id) }}">店舗管理者を追加</a>
+      <a class="btn sub" href="{{ url_for('pos_app.tenant_store_admin_new', sid=s.id) }}">店舗管理者を追加</a>
     </div>
   </div>
   {% endfor %}

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>テナント編集</h2>
 <div class="card" style="max-width:640px">
@@ -17,7 +17,7 @@
 
     <div style="margin-top:12px;display:flex;gap:8px">
       <button class="btn" type="submit">保存する</button>
-      <a class="btn sub" href="{{ url_for('dev_tools') }}">戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.dev_tools') }}">戻る</a>
     </div>
   </form>
 </div>

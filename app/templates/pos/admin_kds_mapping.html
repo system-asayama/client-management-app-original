@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>KDSカテゴリ割当</h2>
 
 <!-- 戻るボタン -->
 <div style="margin:8px 0 16px;">
   {% if has_endpoint('admin_kds_home') %}
-    <a class="btn" href="{{ url_for('admin_kds_home') }}">← 戻る</a>
+    <a class="btn" href="{{ url_for('pos_app.admin_kds_home') }}">← 戻る</a>
   {% else %}
     <a class="btn" href="javascript:history.back()">← 戻る</a>
   {% endif %}
@@ -18,7 +18,7 @@
     <p class="small" style="color:var(--muted); margin-bottom:12px;">
       メニューをどのKDSカテゴリに表示するかを割り当てます。
     </p>
-    <form method="post" action="{{ url_for('admin_kds_mapping') }}">
+    <form method="post" action="{{ url_for('pos_app.admin_kds_mapping') }}">
       <input type="hidden" name="act" value="create">
 
       <label>メニュー（必須）</label>
@@ -62,7 +62,7 @@
             <td>{{ item.kds_category_name }}</td>
             <td>
               <form method="post"
-                    action="{{ url_for('admin_kds_mapping') }}"
+                    action="{{ url_for('pos_app.admin_kds_mapping') }}"
                     onsubmit="return confirm('この割当を削除しますか？');">
                 <input type="hidden" name="act" value="delete">
                 <input type="hidden" name="mapping_id" value="{{ item.id }}">

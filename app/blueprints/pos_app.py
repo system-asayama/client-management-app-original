@@ -794,9 +794,25 @@ def _current_tenant_id():
 # --- 4階層ロール定義とヘルパ ----------------------------------------------------
 ROLE_LEVELS = {"staff": 1, "store_admin": 2, "tenant_admin": 3, "sysadmin": 4}
 
+# --- client-management-app の role を POS の role にマッピング -------------------
+_CLIENT_ROLE_TO_POS_ROLE = {
+    "system_admin": "sysadmin",
+    "app_manager":  "sysadmin",
+    "tenant_admin": "tenant_admin",
+    "admin":        "store_admin",
+    "employee":     "staff",
+}
+
+def _get_pos_role_from_client_session():
+    """
+    client-management-app のセッション(role)から POS の role を返す。
+    """
+    client_role = session.get("role", "")
+    return _CLIENT_ROLE_TO_POS_ROLE.get(client_role, "")
+
 # --- ロールレベル数値化 ----------------------------------------------------------
 def role_level():
-    r = (session.get("role") or "").strip()
+    r = (_get_pos_role_from_client_session() or "").strip()
     return ROLE_LEVELS.get(r, 0)
 
 # --- ロール閾値以上か判定 --------------------------------------------------------
@@ -805,7 +821,7 @@ def has_role_at_least(min_role: str) -> bool:
 
 # --- sysadmin 判定 ---------------------------------------------------------------
 def is_sysadmin() -> bool:
-    return (session.get("role") == "sysadmin")
+    return (_get_pos_role_from_client_session() == "sysadmin")
 
 # --- tenant_admin 以上か判定 -----------------------------------------------------
 def is_tenant_admin_or_higher() -> bool:
@@ -1032,8 +1048,25 @@ def _load_tenant_row(db):
 def _before_request_tenant():
     """
     各リクエストでテナントを解決し、g.tenant / g.tenant_id をセット。
+    - client-management-app のセッション(tenant_id)からテナントslugを解決する
     - "M_テナント" テーブル未作成（UndefinedTable）でも自己修復する
     """
+    # client-management-app のセッションから tenant_slug を解決してセッションに設定
+    client_tenant_id = session.get("tenant_id")
+    if client_tenant_id and not session.get("tenant_slug"):
+        try:
+            from app.utils.db import get_db_connection
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute('SELECT slug FROM "T_テナント" WHERE id = %s', (client_tenant_id,))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            if row:
+                session["tenant_slug"] = row[0]
+        except Exception as e:
+            current_app.logger.warning(f"[POS] テナントslug解決失敗: {e}")
+
     scoped = _scoped_session()
     tenant = None
 
@@ -1063,17 +1096,34 @@ def _before_request_tenant():
         except Exception:
             pass
 
+        # client-management-app の T_テナントから slug を取得してM_テナントに自動作成
+        target_slug = session.get("tenant_slug") or DEFAULT_TENANT_SLUG
+        target_name = "Default Tenant"
+        if target_slug != DEFAULT_TENANT_SLUG:
+            try:
+                from app.utils.db import get_db_connection
+                conn = get_db_connection()
+                cur = conn.cursor()
+                cur.execute('SELECT "名称" FROM "T_テナント" WHERE slug = %s', (target_slug,))
+                row = cur.fetchone()
+                cur.close()
+                conn.close()
+                if row:
+                    target_name = row[0]
+            except Exception:
+                pass
+
         scoped = _scoped_session()
         try:
             with scoped() as s:
                 exists = s.execute(
                     text('SELECT 1 FROM "M_テナント" WHERE slug = :slug'),
-                    {"slug": DEFAULT_TENANT_SLUG}
+                    {"slug": target_slug}
                 ).first()
                 if not exists:
                     s.execute(
                         text('INSERT INTO "M_テナント"("名称", slug) VALUES(:name, :slug)'),
-                        {"name": "Default Tenant", "slug": DEFAULT_TENANT_SLUG}
+                        {"name": target_name, "slug": target_slug}
                     )
                     s.commit()
         finally:
@@ -3046,8 +3096,9 @@ def logout_session():
 def require_any(viewfunc):
     @wraps(viewfunc)
     def wrapper(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("pos_app.login_choice", next=request.path))
+        # client-management-app のセッションで認証チェック
+        if not session.get("role"):
+            return redirect(url_for("auth.select_login"))
         return viewfunc(*args, **kwargs)
     return wrapper
 
@@ -3057,8 +3108,8 @@ def _role_guard(min_role: str, redirect_endpoint: str):
     def deco(viewfunc):
         @wraps(viewfunc)
         def wrapper(*args, **kwargs):
-            if not session.get("logged_in") or not has_role_at_least(min_role):
-                return redirect(url_for(redirect_endpoint, next=request.path))
+            if not session.get("role") or not has_role_at_least(min_role):
+                return redirect(url_for("auth.select_login"))
             return viewfunc(*args, **kwargs)
         return wrapper
     return deco
@@ -3069,8 +3120,8 @@ def _role_exact(required_role: str, redirect_endpoint: str):
     def deco(viewfunc):
         @wraps(viewfunc)
         def wrapper(*args, **kwargs):
-            if not session.get("logged_in") or session.get("role") != required_role:
-                return redirect(url_for(redirect_endpoint, next=request.path))
+            if not session.get("role") or _get_pos_role_from_client_session() != required_role:
+                return redirect(url_for("auth.select_login"))
             return viewfunc(*args, **kwargs)
         return wrapper
     return deco
@@ -3090,8 +3141,8 @@ def require_tenant_admin(viewfunc):
 def require_store_admin(viewfunc):
     @wraps(viewfunc)
     def wrapper(*args, **kwargs):
-        if not session.get("logged_in") or not is_store_admin_or_higher():
-            return redirect(url_for("pos_app.admin_login", next=request.path))
+        if not session.get("role") or not is_store_admin_or_higher():
+            return redirect(url_for("auth.select_login"))
         return viewfunc(*args, **kwargs)
     return wrapper
 
@@ -3104,8 +3155,8 @@ require_admin = require_store_admin
 def require_staff(viewfunc):
     @wraps(viewfunc)
     def wrapper(*args, **kwargs):
-        if not session.get("logged_in") or role_level() < ROLE_LEVELS["staff"]:
-            return redirect(url_for("pos_app.staff_login", next=request.path))
+        if not session.get("role") or role_level() < ROLE_LEVELS["staff"]:
+            return redirect(url_for("auth.select_login"))
         return viewfunc(*args, **kwargs)
     return wrapper
 
@@ -3164,10 +3215,10 @@ def check_csrf():
 # ログイン/ログアウト & ブートストラップ
 # -----------------------------------------------------------------------------
 
-# --- ログイン選択画面 -----------------------------------------------------------
+# --- ログイン選択画面（client-management-app のログインへリダイレクト） --------
 @bp.route("/login")
 def login_choice():
-    return render_template("pos/login_choice.html")
+    return redirect(url_for("auth.select_login"))
 
 
 # --- システム管理者ログイン -----------------------------------------------------
@@ -6982,13 +7033,15 @@ def admin_order_item_cancel(order_id, item_id):
 # --- ルート：ロール別トップへ誘導 ---------------------------------------------
 @bp.route("/")
 def index():
-    if not session.get("logged_in"):
-        return redirect(url_for("pos_app.login_choice"))
-    r = session.get("role")
-    if r == "sysadmin":
-        # ▼ 修正: システム管理者も店舗管理ページへ誘導（必要なら dev_tools に戻してOK）
+    # client-management-app のセッションで認証チェック
+    if not session.get("role"):
+        return redirect(url_for("auth.select_login"))
+    pos_role = _get_pos_role_from_client_session()
+    if pos_role == "sysadmin":
         return redirect(url_for("pos_app.admin_console"))
-    return redirect(url_for("pos_app.floor") if is_store_admin_or_higher() else url_for("pos_app.staff_floor"))
+    if pos_role in ("store_admin", "tenant_admin"):
+        return redirect(url_for("pos_app.floor"))
+    return redirect(url_for("pos_app.staff_floor"))
 
 
 # --- フロア画面（テーブル状況＋オーダー要約） --------------------------------

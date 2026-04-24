@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>支払方法マスタ</h2>
 
@@ -14,7 +14,7 @@
       {% endif %}
     {% endwith %}
 
-    <form method="post" action="{{ url_for('admin_payment_methods_new') }}">
+    <form method="post" action="{{ url_for('pos_app.admin_payment_methods_new') }}">
       <label>コード <span class="small" style="color:var(--muted)">（例: CASH / CARD / QR / IC）</span></label>
       <input name="コード" required placeholder="例: CASH">
 
@@ -83,7 +83,7 @@
               編集
             </button>
             <form method="post"
-                  action="{{ url_for('admin_payment_methods_toggle', pid=r['id']) }}"
+                  action="{{ url_for('pos_app.admin_payment_methods_toggle', pid=r['id']) }}"
                   style="display:inline">
               <button class="btn sub" type="submit">
                 {{ '無効化' if r['有効']==1 else '有効化' }}
@@ -108,7 +108,7 @@
 
 <!-- 画面下：戻る -->
 <div style="margin-top:16px">
-  <a class="btn sub" href="{{ url_for('floor') }}">フロアへ戻る</a>
+  <a class="btn sub" href="{{ url_for('pos_app.floor') }}">フロアへ戻る</a>
 </div>
 
 <!-- 編集モーダル -->

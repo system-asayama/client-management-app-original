@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block title %}削除済みメニュー一覧{% endblock %}
 {% block content %}
 
 <h2>削除済みメニュー一覧</h2>
 
 <div style="margin:8px 0 16px">
-  <a class="btn sub" href="{{ url_for('admin_menu_list') }}">← メニュー一覧へ戻る</a>
+  <a class="btn sub" href="{{ url_for('pos_app.admin_menu_list') }}">← メニュー一覧へ戻る</a>
 </div>
 
 <style>
@@ -56,15 +56,15 @@
         <td>{{ m.deleted_at or '-' }}</td>
         <td class="actions">
           <!-- 復活（論理削除解除） -->
-          <form method="post" action="{{ url_for('admin_menu_restore', mid=m.id) }}">
+          <form method="post" action="{{ url_for('pos_app.admin_menu_restore', mid=m.id) }}">
             <button class="btn" type="submit">復活</button>
           </form>
           <!-- 復活＋提供開始（任意。不要なら削除） -->
-          <form method="post" action="{{ url_for('admin_menu_restore_and_enable', mid=m.id) }}">
+          <form method="post" action="{{ url_for('pos_app.admin_menu_restore_and_enable', mid=m.id) }}">
             <button class="btn sub" type="submit">復活して提供開始</button>
           </form>
           <!-- 物理削除（本当に不要なら削除推奨）。外部キーがあると失敗します -->
-          {# <form method="post" action="{{ url_for('admin_menu_hard_delete', mid=m.id) }}"
+          {# <form method="post" action="{{ url_for('pos_app.admin_menu_hard_delete', mid=m.id) }}"
                 onsubmit="return confirm('完全に削除します。元に戻せません。よろしいですか？');">
             <button class="btn danger" type="submit">完全削除</button>
           </form> #}

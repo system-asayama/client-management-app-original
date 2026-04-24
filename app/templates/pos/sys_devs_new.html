@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>開発者を招待 / 追加</h2>
 
 <div class="card" style="max-width:720px">
-  <form method="post" action="{{ url_for('sys_devs_create') }}" autocomplete="off">
+  <form method="post" action="{{ url_for('pos_app.sys_devs_create') }}" autocomplete="off">
     <!-- 🔒 CSRF -->
     <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
 
@@ -43,7 +43,7 @@
 
     <div style="margin-top:14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
       <button class="btn" type="submit">追加する</button>
-      <a class="btn secondary" href="{{ url_for('sys_devs') }}">一覧へ戻る</a>
+      <a class="btn secondary" href="{{ url_for('pos_app.sys_devs') }}">一覧へ戻る</a>
     </div>
   </form>
 </div>

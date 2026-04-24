@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>メニュー管理</h2>
 
 <!-- ▼ 入力モードトグル（cookie保存：/admin/price-mode POST） -->
-<form action="{{ url_for('set_price_mode') }}" method="post" style="margin:8px 0 16px 0; display:flex; gap:10px; align-items:center">
+<form action="{{ url_for('pos_app.set_price_mode') }}" method="post" style="margin:8px 0 16px 0; display:flex; gap:10px; align-items:center">
   <input type="hidden" name="mode" value="{{ 'excl' if price_input_mode=='incl' else 'incl' }}">
   <button type="submit" class="btn sub">
     価格入力: {{ '税込入力' if price_input_mode=='incl' else '税抜入力' }} → 切替
@@ -17,7 +17,7 @@
   <!-- 左：新規登録 -->
   <div class="card">
     <h3>新規登録</h3>
-    <form id="menu-create-form" method="post" action="{{ url_for('admin_menu_new') }}" enctype="multipart/form-data">
+    <form id="menu-create-form" method="post" action="{{ url_for('pos_app.admin_menu_new') }}" enctype="multipart/form-data">
       <!-- 基本情報 -->
       <label>名称</label>
       <input name="名称" required placeholder="例：唐揚げ">
@@ -178,14 +178,14 @@
           <td>{{ '◯' if m['提供可否']==1 else '×' }}</td>
           <td>
             <div class="actions">
-              <a class="btn sub" href="{{ url_for('admin_menu_edit', mid=m['id']) }}">編集</a>
-              <a class="btn sub" href="{{ url_for('admin_menu_toggle', mid=m['id']) }}">
+              <a class="btn sub" href="{{ url_for('pos_app.admin_menu_edit', mid=m['id']) }}">編集</a>
+              <a class="btn sub" href="{{ url_for('pos_app.admin_menu_toggle', mid=m['id']) }}">
                 提供切替{{ '（停止）' if m['提供可否']==1 else '（開始）' }}
               </a>
               <!-- 削除（POST + 確認） -->
               <form
                 method="post"
-                action="{{ url_for('admin_menu_delete', mid=m['id']) }}"
+                action="{{ url_for('pos_app.admin_menu_delete', mid=m['id']) }}"
                 style="display:inline"
                 onsubmit="return confirm('削除しますか？このメニューに紐付くカテゴリ付与は削除されますが、注文履歴は残ります。');"
               >

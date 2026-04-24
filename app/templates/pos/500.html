@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <div class="card" style="max-width:640px;margin:40px auto;text-align:center">
   <h2>エラーが発生しました</h2>
@@ -7,7 +7,7 @@
     <p class="muted">テナント：<code>{{ g.tenant.slug }}</code></p>
   {% endif %}
   <div class="stack" style="justify-content:center;margin-top:12px">
-    <a class="btn" href="{{ url_for('index') }}">ホームへ</a>
+    <a class="btn" href="{{ url_for('pos_app.index') }}">ホームへ</a>
   </div>
 </div>
 {% endblock %}

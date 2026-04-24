@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>店舗管理者の新規作成</h2>
 
@@ -15,7 +15,7 @@
     {% endif %}
   {% endwith %}
 
-  <form method="post" action="{{ url_for('tenant_store_admin_new', sid=store.id) }}">
+  <form method="post" action="{{ url_for('pos_app.tenant_store_admin_new', sid=store.id) }}">
     <div class="form-row">
       <label for="login_id">ログインID</label>
       <input id="login_id" name="login_id" required autocomplete="username">
@@ -33,7 +33,7 @@
 
     <div class="actions" style="margin-top:12px; display:flex; gap:8px;">
       <button class="btn" type="submit">作成する</button>
-      <a class="btn sub" href="{{ url_for('tenant_stores') }}">店舗一覧へ戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.tenant_stores') }}">店舗一覧へ戻る</a>
     </div>
   </form>
 </div>

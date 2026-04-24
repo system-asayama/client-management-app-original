@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>テナント管理者 追加: {{ tenant.名称 }}</h2>
 
@@ -32,7 +32,7 @@
 
   <div class="actions" style="margin-top:12px; display:flex; gap:8px;">
     <button class="btn" type="submit">追加する</button>
-    <a class="btn sub" href="{{ url_for('sys_tenant_admins', tid=tenant.id) }}">キャンセル</a>
+    <a class="btn sub" href="{{ url_for('pos_app.sys_tenant_admins', tid=tenant.id) }}">キャンセル</a>
   </div>
 </form>
 {% endblock %}

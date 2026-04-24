@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>テナント管理者（{{ tenant.名称 }} / {{ tenant.slug }}）</h2>
 
@@ -15,7 +15,7 @@
         <td>{% if a.active == 1 %}<span class="badge">有効</span>{% else %}<span class="badge" style="background:#fee2e2;border-color:#fecaca">無効</span>{% endif %}</td>
         <td class="actions">
           <!-- 有効/無効トグル -->
-          <form method="post" action="{{ url_for('sys_tenant_admins_update', tid=tenant.id) }}">
+          <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_update', tid=tenant.id) }}">
             {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
             <input type="hidden" name="op" value="toggle">
             <input type="hidden" name="id" value="{{ a.id }}">
@@ -23,7 +23,7 @@
           </form>
 
           <!-- パスワード更新 -->
-          <form method="post" action="{{ url_for('sys_tenant_admins_update', tid=tenant.id) }}" onsubmit="return confirm('パスワードを更新しますか？')">
+          <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_update', tid=tenant.id) }}" onsubmit="return confirm('パスワードを更新しますか？')">
             {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
             <input type="hidden" name="op" value="resetpw">
             <input type="hidden" name="id" value="{{ a.id }}">
@@ -32,7 +32,7 @@
           </form>
 
           <!-- 削除 -->
-          <form method="post" action="{{ url_for('sys_tenant_admins_update', tid=tenant.id) }}" onsubmit="return confirm('削除しますか？')">
+          <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_update', tid=tenant.id) }}" onsubmit="return confirm('削除しますか？')">
             {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
             <input type="hidden" name="op" value="delete">
             <input type="hidden" name="id" value="{{ a.id }}">
@@ -47,7 +47,7 @@
 
 <div class="card" style="margin-top:16px">
   <h3 style="margin:0 0 10px">追加</h3>
-  <form method="post" action="{{ url_for('sys_tenant_admins_new', tid=tenant.id) }}">
+  <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_new', tid=tenant.id) }}">
     {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
     <label>ログインID（小文字推奨）</label><input name="login_id" required>
     <label>氏名</label><input name="name" required>

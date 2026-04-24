@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>開発者 / SysAdmin 一覧</h2>
 
@@ -23,7 +23,7 @@
         <td style="padding:6px 8px"><code>{{ u.role }}</code></td>
         <td style="padding:6px 8px">{{ '有効' if (u.active|default(1)) else '無効' }}</td>
         <td style="padding:6px 8px">
-          <a class="btn small" href="{{ url_for('sys_dev_edit', did=u.id) }}">編集</a>
+          <a class="btn small" href="{{ url_for('pos_app.sys_dev_edit', did=u.id) }}">編集</a>
         </td>
       </tr>
       {% else %}
@@ -36,7 +36,7 @@
 {% if can_invite %}
 <div class="card">
   <h3>開発者を招待 / 追加</h3>
-  <form method="post" action="{{ url_for('sys_devs_create') }}">
+  <form method="post" action="{{ url_for('pos_app.sys_devs_create') }}">
     <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <label style="flex:1 1 200px">氏名
@@ -64,14 +64,14 @@
     </div>
     <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
       <button class="btn" type="submit">追加する</button>
-      <a class="btn secondary" href="{{ url_for('dev_tools') }}">開発者ツールへ戻る</a>
+      <a class="btn secondary" href="{{ url_for('pos_app.dev_tools') }}">開発者ツールへ戻る</a>
     </div>
   </form>
 </div>
 {% else %}
 <div class="card">
   <p style="color:#666">あなたには招待権限がありません（lead / sysadmin のみ）。</p>
-  <a class="btn secondary" href="{{ url_for('dev_tools') }}">開発者ツールへ戻る</a>
+  <a class="btn secondary" href="{{ url_for('pos_app.dev_tools') }}">開発者ツールへ戻る</a>
 </div>
 {% endif %}
 

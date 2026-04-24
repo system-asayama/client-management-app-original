@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>KDS（キッチン・ドリンカー）</h2>
 
@@ -59,8 +59,8 @@
 </table>
 
 <script>
-const KDS_API_URL = "{{ url_for('kds_api_get_items') }}";
-const API_CATS    = "{{ url_for('api_kds_categories') }}";
+const KDS_API_URL = "{{ url_for('pos_app.kds_api_get_items') }}";
+const API_CATS    = "{{ url_for('pos_app.api_kds_categories') }}";
 
 /* ====== デバッグ設定 ====== */
 const DEBUG_KDS = true;
@@ -494,7 +494,7 @@ if (soundToggle) {
 }
 
 /* ====== 注文通知音声再生 ====== */
-const notifyAudio = new Audio('{{ url_for("static", filename="sounds/customer_is_calling.mp3") }}');
+const notifyAudio = new Audio('{{ url_for("pos_app.static", filename="sounds/customer_is_calling.mp3") }}');
 notifyAudio.preload = 'auto';
 
 window.playNotify = async function(){
@@ -512,7 +512,7 @@ window.playNotify = async function(){
 };
 
 /* ====== 店員呼び出し音声再生 ====== */
-const staffCallAudio = new Audio('{{ url_for("static", filename="sounds/customer_is_calling.mp3") }}');
+const staffCallAudio = new Audio('{{ url_for("pos_app.static", filename="sounds/customer_is_calling.mp3") }}');
 staffCallAudio.preload = 'auto';
 
 window.playStaffCall = async function(){

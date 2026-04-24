@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 
 {% block content %}
 <div class="card">
@@ -54,7 +54,7 @@
 
     <div style="margin-top:24px; display:flex; gap:12px;">
       <button type="submit" class="btn">作成して選択肢を追加</button>
-      <a href="{{ url_for('admin_product_options') }}" class="btn sub">キャンセル</a>
+      <a href="{{ url_for('pos_app.admin_product_options') }}" class="btn sub">キャンセル</a>
     </div>
   </form>
 </div>

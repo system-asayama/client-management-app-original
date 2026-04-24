@@ -1,16 +1,16 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>スタッフ：テーブル一覧</h2>
 <!-- DEBUG: {{ debug_info }} -->
 
 <div class="small" style="color:var(--muted);margin-bottom:8px">
   ようこそ、{{ staff_name }} さん
-  <a class="btn sub" href="{{ url_for('logout') }}" style="float:right">ログアウト</a>
+  <a class="btn sub" href="{{ url_for('pos_app.logout') }}" style="float:right">ログアウト</a>
 </div>
 
 <!-- ★★★ 追加：テーブル移動履歴ページへのボタン ★★★ -->
 <div style="margin-bottom:16px; display:flex; gap:8px; align-items:center;">
-  <a class="btn" href="{{ url_for('admin_table_move_history') }}" style="background:#6366f1; color:white;">
+  <a class="btn" href="{{ url_for('pos_app.admin_table_move_history') }}" style="background:#6366f1; color:white;">
     📋 テーブル移動履歴を見る
   </a>
   <span class="small" style="color:var(--muted)">過去のテーブル移動の履歴を確認できます</span>
@@ -64,10 +64,10 @@
 
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
           <!-- 注文入力へ -->
-          <a class="btn" href="{{ url_for('staff_open_menu', table_id=t['id']) }}">注文入力へ</a>
+          <a class="btn" href="{{ url_for('pos_app.staff_open_menu', table_id=t['id']) }}">注文入力へ</a>
 
           <!-- 明細（order_id をクエリに付与） -->
-          <a class="btn sub" href="{{ url_for('table_detail', table_id=t['id']) }}?order_id={{ o['id'] }}">明細</a>
+          <a class="btn sub" href="{{ url_for('pos_app.table_detail', table_id=t['id']) }}?order_id={{ o['id'] }}">明細</a>
 
           <!-- 会計：未クローズのとき有効 -->
           <button class="btn {{ 'sub' if is_closed else '' }}" type="button"
@@ -101,8 +101,8 @@
       {% else %}
         <div class="small">現在合計: ¥0</div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
-          <a class="btn sub" href="{{ url_for('staff_open_menu', table_id=t['id']) }}">新規注文</a>
-          <a class="btn" href="{{ url_for('table_detail', table_id=t['id']) }}">明細</a>
+          <a class="btn sub" href="{{ url_for('pos_app.staff_open_menu', table_id=t['id']) }}">新規注文</a>
+          <a class="btn" href="{{ url_for('pos_app.table_detail', table_id=t['id']) }}">明細</a>
         </div>
       {% endif %}
     </div>

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>従業員ログイン（PIN）</h2>
 
@@ -8,7 +8,7 @@
     <input name="pin" inputmode="numeric" pattern="[0-9]*" required autofocus placeholder="例：1001">
     <div style="margin-top:12px; display:flex; gap:8px;">
       <button class="btn" type="submit">ログイン</button>
-      <a class="btn sub" href="{{ url_for('login_choice') }}">戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.login_choice') }}">戻る</a>
     </div>
     {% if error %}
       <div class="small" style="color:var(--danger); margin-top:8px;">{{ error }}</div>

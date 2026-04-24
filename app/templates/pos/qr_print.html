@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 
 {% if error %}
   <div class="card">
     <h3>QR印刷</h3>
     <p style="color:var(--danger)">{{ error }}</p>
-    <a class="btn" href="{{ url_for('floor') }}">フロアに戻る</a>
+    <a class="btn" href="{{ url_for('pos_app.floor') }}">フロアに戻る</a>
   </div>
 {% else %}
   <div class="card" style="text-align:center">
@@ -23,7 +23,7 @@
 
     <div style="margin-top:12px">
       <button class="btn" onclick="window.print()">印刷</button>
-      <a class="btn sub" href="{{ url_for('floor') }}">戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.floor') }}">戻る</a>
     </div>
   </div>
 {% endif %}

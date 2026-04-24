@@ -44,7 +44,7 @@
 <body>
   <header>
     <div class="left">
-      <a href="{{ url_for('index') }}"><strong>{{ APP_TITLE or "Simple POS" }}</strong></a>
+      <a href="{{ url_for('pos_app.index') }}"><strong>{{ APP_TITLE or "Simple POS" }}</strong></a>
 
       {# 役割別ナビ（ログイン済み） #}
       {% if session.get('logged_in') %}
@@ -52,15 +52,15 @@
         <nav class="nav">
           {# --- システム管理者 --- #}
           {% if _role == 'sysadmin' %}
-            <a class="btn sub" href="{{ url_for('dev_tools') }}">開発者ツール</a>
-            <a class="btn sub" href="{{ url_for('sys_tenants') }}">テナント一覧</a>
+            <a class="btn sub" href="{{ url_for('pos_app.dev_tools') }}">開発者ツール</a>
+            <a class="btn sub" href="{{ url_for('pos_app.sys_tenants') }}">テナント一覧</a>
 
           {# --- テナント管理者 --- #}
           {% elif _role == 'tenant_admin' %}
-            <a class="btn sub" href="{{ url_for('tenant_portal') }}">テナントポータル</a>
-            <a class="btn sub" href="{{ url_for('floor') }}">フロア</a>
-            <a class="btn sub" href="{{ url_for('kds') }}">KDS</a>
-            <a class="btn sales" href="{{ url_for('sales_report') }}">📊 売上集計</a>
+            <a class="btn sub" href="{{ url_for('pos_app.tenant_portal') }}">テナントポータル</a>
+            <a class="btn sub" href="{{ url_for('pos_app.floor') }}">フロア</a>
+            <a class="btn sub" href="{{ url_for('pos_app.kds') }}">KDS</a>
+            <a class="btn sales" href="{{ url_for('pos_app.sales_report') }}">📊 売上集計</a>
 
           {# --- 店舗管理者（旧 admin） --- #}
           {% elif _role == 'store_admin' %}
@@ -69,34 +69,34 @@
             {% set _has_mypage  = has_endpoint('admin_mypage') %}
 
             {% if _has_console %}
-              <a class="btn sub" href="{{ url_for('admin_console') }}">店舗管理ページ</a>
+              <a class="btn sub" href="{{ url_for('pos_app.admin_console') }}">店舗管理ページ</a>
             {% endif %}
             {% if _has_mypage %}
-              <a class="btn sub" href="{{ url_for('admin_mypage') }}">管理者マイページ</a>
+              <a class="btn sub" href="{{ url_for('pos_app.admin_mypage') }}">管理者マイページ</a>
             {% endif %}
 
-            <a class="btn sub" href="{{ url_for('floor') }}">フロア</a>
-            <a class="btn sub" href="{{ url_for('kds') }}">KDS</a>
-            <a class="btn sub" href="{{ url_for('staff_floor') }}">スタッフ画面</a>
-            <a class="btn sales" href="{{ url_for('sales_report') }}">📊 売上集計</a>
+            <a class="btn sub" href="{{ url_for('pos_app.floor') }}">フロア</a>
+            <a class="btn sub" href="{{ url_for('pos_app.kds') }}">KDS</a>
+            <a class="btn sub" href="{{ url_for('pos_app.staff_floor') }}">スタッフ画面</a>
+            <a class="btn sales" href="{{ url_for('pos_app.sales_report') }}">📊 売上集計</a>
 
           {# --- 従業員 --- #}
           {% else %}
-            <a class="btn sub" href="{{ url_for('staff_mypage') }}">従業員マイページ</a>
-            <a class="btn sub" href="{{ url_for('staff_floor') }}">スタッフフロア</a>
-            <a class="btn sub" href="{{ url_for('floor') }}">フロア</a>
+            <a class="btn sub" href="{{ url_for('pos_app.staff_mypage') }}">従業員マイページ</a>
+            <a class="btn sub" href="{{ url_for('pos_app.staff_floor') }}">スタッフフロア</a>
+            <a class="btn sub" href="{{ url_for('pos_app.floor') }}">フロア</a>
           {% endif %}
         </nav>
       {% else %}
         {# 未ログイン時の簡易ナビ（QRユーザーの場合は非表示） #}
         {% if not is_qr_user %}
         <nav class="nav">
-          <a class="btn sub" href="{{ url_for('login_choice') }}">ログイン選択</a>
-          <a class="btn sub" href="{{ url_for('sysadmin_login') }}">システム管理者ログイン</a>
+          <a class="btn sub" href="{{ url_for('pos_app.login_choice') }}">ログイン選択</a>
+          <a class="btn sub" href="{{ url_for('pos_app.sysadmin_login') }}">システム管理者ログイン</a>
           {# ▼ ここを前室に変更 ▼ #}
-          <a class="btn sub" href="{{ url_for('tenant_admin_login_entry') }}">テナント管理者ログイン</a>
-          <a class="btn sub" href="{{ url_for('admin_login') }}">店舗管理者ログイン</a>
-          <a class="btn sub" href="{{ url_for('staff_login') }}">従業員ログイン</a>
+          <a class="btn sub" href="{{ url_for('pos_app.tenant_admin_login_entry') }}">テナント管理者ログイン</a>
+          <a class="btn sub" href="{{ url_for('pos_app.admin_login') }}">店舗管理者ログイン</a>
+          <a class="btn sub" href="{{ url_for('pos_app.staff_login') }}">従業員ログイン</a>
         </nav>
         {% endif %}
       {% endif %}
@@ -118,10 +118,10 @@
           ユーザー: <strong>{{ session.get('user_name') }}</strong>
           （{{ role_label }}）
         </span>
-        <a class="btn sub" href="{{ url_for('logout') }}">ログアウト</a>
+        <a class="btn sub" href="{{ url_for('pos_app.logout') }}">ログアウト</a>
       {% else %}
         {% if not is_qr_user %}
-        <a class="btn sub" href="{{ url_for('login_choice') }}">ログイン</a>
+        <a class="btn sub" href="{{ url_for('pos_app.login_choice') }}">ログイン</a>
         {% endif %}
       {% endif %}
     </div>
@@ -143,7 +143,7 @@
 
   <!-- ▼ 通知サウンド（共通）：KDSや他画面から window.playNotify() を呼ぶだけで鳴る ▼ -->
   <audio id="notify-audio"
-         src="{{ url_for('static', filename='sounds/order_notify.wav') }}"
+         src="{{ url_for('pos_app.static', filename='sounds/order_notify.wav') }}"
          preload="auto"
          style="display:none"></audio>
 

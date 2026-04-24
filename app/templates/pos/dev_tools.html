@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <style>
   .dev-wrap{display:grid;gap:16px}
@@ -32,7 +32,7 @@
       <strong>開発者の管理</strong>
       <div class="hint">新しい開発者アカウントを招待・追加できます（権限: SysAdmin / Lead）。</div>
     </div>
-    <a class="btn" href="{{ url_for('sys_devs_new_form') }}">+ 開発者を招待 / 追加</a>
+    <a class="btn" href="{{ url_for('pos_app.sys_devs_new_form') }}">+ 開発者を招待 / 追加</a>
   </div>
 {% endif %}
 
@@ -83,8 +83,8 @@
               <td>{{ t.名称 }}</td>
               <td><code class="mono">{{ t.slug }}</code></td>
               <td class="actions">
-                <a class="btn small secondary" href="{{ url_for('sys_tenant_edit', tid=t.id) }}">編集</a>
-                <a class="btn small" href="{{ url_for('sys_tenant_admins', tid=t.id) }}">管理者一覧</a>
+                <a class="btn small secondary" href="{{ url_for('pos_app.sys_tenant_edit', tid=t.id) }}">編集</a>
+                <a class="btn small" href="{{ url_for('pos_app.sys_tenant_admins', tid=t.id) }}">管理者一覧</a>
               </td>
             </tr>
           {% endfor %}
@@ -101,7 +101,7 @@
     <!-- 1) テナント新規作成 -->
     <div class="card">
       <h3>テナントを追加（初期店舗・初期管理者を自動作成）</h3>
-      <form method="post" action="{{ url_for('sys_tenants_new') }}">
+      <form method="post" action="{{ url_for('pos_app.sys_tenants_new') }}">
         <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
         <div class="row">
           <div>
@@ -129,13 +129,13 @@
         管理者の追加は <strong>テナント一覧</strong> から対象テナントを開き、
         「テナント管理者一覧」→「テナント管理者追加」で行います。
       </p>
-      <a class="btn" href="{{ url_for('sys_tenants') }}">テナント一覧を開く</a>
+      <a class="btn" href="{{ url_for('pos_app.sys_tenants') }}">テナント一覧を開く</a>
     </div>
 
     <!-- 3) SQLite → PostgreSQL への移行 -->
     <div class="card">
       <h3>データ移行：SQLite → PostgreSQL</h3>
-      <form method="post" action="{{ url_for('sys_migrate') }}">
+      <form method="post" action="{{ url_for('pos_app.sys_migrate') }}">
         <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
         <label>SQLite ファイルパス（または接続URL）
           <input class="mono" type="text" name="sqlite_url" required placeholder="例）sqlite:///database.db">
@@ -176,7 +176,7 @@
     <div class="card">
       <h3>開発者ログインID／パスワード変更（本人）</h3>
       <p class="hint">現在ログインしている開発者アカウントのログインIDとパスワードを変更します。</p>
-      <form method="post" action="{{ url_for('sys_admins_update') }}">
+      <form method="post" action="{{ url_for('pos_app.sys_admins_update') }}">
         <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
         <label>現在のパスワード
           <input type="password" name="current_password" required>
@@ -202,7 +202,7 @@
 
         <div class="row" style="align-items:center">
           <button class="btn" type="submit">変更する</button>
-          <a class="btn secondary" href="{{ url_for('sys_mypage') }}">詳細マイページへ</a>
+          <a class="btn secondary" href="{{ url_for('pos_app.sys_mypage') }}">詳細マイページへ</a>
         </div>
       </form>
     </div>
@@ -214,18 +214,18 @@
     <div class="card">
       <h3>便利リンク</h3>
       <ul>
-        <li><a href="{{ url_for('sys_tenants') }}">SysAdmin: テナント一覧</a></li>
-        <li><a href="{{ url_for('sys_admins') }}">開発者/SysAdmin 管理</a></li>
-        <li><a href="{{ url_for('sys_mypage') }}">開発者マイページ（ID/パス変更）</a></li>
+        <li><a href="{{ url_for('pos_app.sys_tenants') }}">SysAdmin: テナント一覧</a></li>
+        <li><a href="{{ url_for('pos_app.sys_admins') }}">開発者/SysAdmin 管理</a></li>
+        <li><a href="{{ url_for('pos_app.sys_mypage') }}">開発者マイページ（ID/パス変更）</a></li>
         {% if session.get('sysadmin_role') in ['sysadmin','lead'] %}
-          <li><a href="{{ url_for('sys_devs_new_form') }}">+ 開発者を招待 / 追加</a></li>
+          <li><a href="{{ url_for('pos_app.sys_devs_new_form') }}">+ 開発者を招待 / 追加</a></li>
         {% endif %}
-        <li><a href="{{ url_for('floor') }}">フロア画面</a></li>
-        <li><a href="{{ url_for('kds') }}">KDS画面</a></li>
-        <li><a href="{{ url_for('admin_tables') }}">テーブル管理</a></li>
-        <li><a href="{{ url_for('admin_printers') }}">プリンタ管理</a></li>
-        <li><a href="{{ url_for('admin_rules') }}">印刷ルール管理</a></li>
-        <li><a href="{{ url_for('payment_methods_json') }}">支払方法 JSON</a></li>
+        <li><a href="{{ url_for('pos_app.floor') }}">フロア画面</a></li>
+        <li><a href="{{ url_for('pos_app.kds') }}">KDS画面</a></li>
+        <li><a href="{{ url_for('pos_app.admin_tables') }}">テーブル管理</a></li>
+        <li><a href="{{ url_for('pos_app.admin_printers') }}">プリンタ管理</a></li>
+        <li><a href="{{ url_for('pos_app.admin_rules') }}">印刷ルール管理</a></li>
+        <li><a href="{{ url_for('pos_app.payment_methods_json') }}">支払方法 JSON</a></li>
       </ul>
     </div>
   </div>

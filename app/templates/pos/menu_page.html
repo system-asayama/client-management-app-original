@@ -190,7 +190,7 @@
     <div class="muted" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       テーブル: <span id="table-label">-</span>
       <a class="btn sub" id="btn-detail"
-         href="{{ url_for('table_detail', table_id=_tid, token=qr_token) if _tid and qr_token else (url_for('table_detail', table_id=_tid) if _tid else '#') }}"
+         href="{{ url_for('pos_app.table_detail', table_id=_tid, token=qr_token) if _tid and qr_token else (url_for('pos_app.table_detail', table_id=_tid) if _tid else '#') }}"
          {% if not _tid %}aria-disabled="true" role="button"{% endif %}>
         注文明細
       </a>
@@ -198,14 +198,14 @@
       {# ★ Jinja: && → and に修正 #}
       {% if is_staff_or_higher and not is_public %}
         <span class="inline-actions">
-          <a class="btn sub" href="{{ url_for('staff_floor') }}">テーブル一覧へ</a>
+          <a class="btn sub" href="{{ url_for('pos_app.staff_floor') }}">テーブル一覧へ</a>
         </span>
       {% endif %}
 
       {# ★★★ 追加：スタッフ以上なら“セッション初期化”ボタンを表示（空注文のみ有効） ★★★ #}
       {% if is_staff_or_higher and order and order.id %}
       <form method="post"
-            action="{{ url_for('reset_order_session', order_id=order.id) }}"
+            action="{{ url_for('pos_app.reset_order_session', order_id=order.id) }}"
             onsubmit="return confirm('このテーブルの未注文セッションを初期化します（空の注文ヘッダのみ削除）。よろしいですか？');"
             style="display:inline;">
         <input type="hidden" name="csrf_token" value="{{ token }}">

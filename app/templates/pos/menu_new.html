@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>メニュー新規作成</h2>
 
 <!-- 価格入力モードトグル -->
-<form action="{{ url_for('set_price_mode') }}" method="post" style="margin:8px 0 16px 0; display:flex; gap:10px; align-items:center">
+<form action="{{ url_for('pos_app.set_price_mode') }}" method="post" style="margin:8px 0 16px 0; display:flex; gap:10px; align-items:center">
   <input type="hidden" name="mode" value="{{ 'excl' if price_input_mode=='incl' else 'incl' }}">
   <button type="submit" class="btn sub">
     価格入力: {{ '税込入力' if price_input_mode=='incl' else '税抜入力' }} → 切替
@@ -14,7 +14,7 @@
 </form>
 
 <div class="card" style="max-width:720px">
-  <form id="menu-create-form" method="post" action="{{ url_for('admin_menu_new') }}" enctype="multipart/form-data">
+  <form id="menu-create-form" method="post" action="{{ url_for('pos_app.admin_menu_new') }}" enctype="multipart/form-data">
     <label>名称</label>
     <input name="名称" required placeholder="例：唐揚げ">
 
@@ -95,7 +95,7 @@
 
     <div style="margin-top:12px">
       <button class="btn" type="submit">登録</button>
-      <a class="btn sub" href="{{ url_for('admin_menu_home') }}" style="margin-left:8px">戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.admin_menu_home') }}" style="margin-left:8px">戻る</a>
     </div>
   </form>
 </div>

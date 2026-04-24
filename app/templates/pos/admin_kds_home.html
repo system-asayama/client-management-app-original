@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2 style="margin-bottom:12px;">KDS管理</h2>
 <p class="small" style="color:#666; margin-top:0;">
@@ -17,7 +17,7 @@
     </div>
     <div class="actions">
       {% if has_endpoint('admin_kds_categories') %}
-        <a class="btn" href="{{ url_for('admin_kds_categories') }}">開く</a>
+        <a class="btn" href="{{ url_for('pos_app.admin_kds_categories') }}">開く</a>
       {% else %}
         <span class="btn sub" aria-disabled="true" title="未実装">開く</span>
       {% endif %}
@@ -35,7 +35,7 @@
     </div>
     <div class="actions">
       {% if has_endpoint('admin_kds_mapping') %}
-        <a class="btn" href="{{ url_for('admin_kds_mapping') }}">開く</a>
+        <a class="btn" href="{{ url_for('pos_app.admin_kds_mapping') }}">開く</a>
       {% else %}
         <span class="btn sub" aria-disabled="true" title="未実装">開く</span>
       {% endif %}

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2 style="margin:0 0 12px">テーブル売上履歴</h2>
 <p class="small" style="color:#666; margin-top:0;">
@@ -9,7 +9,7 @@
 {# CSRF（取消・返金・再開のPOSTで使用） #}
 <input type="hidden" id="csrf" value="{{ csrf_token }}">
 
-<form method="get" action="{{ url_for('admin_table_sales') }}" class="card" style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); align-items:end;">
+<form method="get" action="{{ url_for('pos_app.admin_table_sales') }}" class="card" style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); align-items:end;">
   <div>
     <label>テーブル</label>
     <select name="table_id">
@@ -39,7 +39,7 @@
   <div>
     <button class="btn" type="submit">絞り込む</button>
     {% if request.query_string %}
-      <a class="btn sub" href="{{ url_for('admin_table_sales') }}" style="margin-left:6px;">クリア</a>
+      <a class="btn sub" href="{{ url_for('pos_app.admin_table_sales') }}" style="margin-left:6px;">クリア</a>
     {% endif %}
   </div>
 </form>

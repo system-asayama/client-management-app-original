@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>テナント管理者ログイン</h2>
 
@@ -16,5 +16,5 @@
   <p style="color:red;">{{ error }}</p>
 {% endif %}
 
-<a class="btn sub" href="{{ url_for('login_choice') }}">ログイン選択に戻る</a>
+<a class="btn sub" href="{{ url_for('pos_app.login_choice') }}">ログイン選択に戻る</a>
 {% endblock %}

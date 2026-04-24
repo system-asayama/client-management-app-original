@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block head_extra %}
 <style>
   /* ★ 画面全体を使うスタイル */
@@ -42,7 +42,7 @@
   <!-- 新規登録 -->
   <div class="card">
     <h3>新規カテゴリ</h3>
-    <form method="post" action="{{ url_for('admin_categories_new') }}">
+    <form method="post" action="{{ url_for('pos_app.admin_categories_new') }}">
       <label>名称</label>
       <input name="名称" required>
 
@@ -91,11 +91,11 @@
             <td>{{ '◯' if c['有効']==1 else '×' }}</td>
             <td>
               <div class="actions">
-                <a class="btn sub" href="{{ url_for('admin_categories_edit', cid=c['id']) }}">編集</a>
-                <form method="post" action="{{ url_for('admin_categories_toggle', cid=c['id']) }}" style="display:inline">
+                <a class="btn sub" href="{{ url_for('pos_app.admin_categories_edit', cid=c['id']) }}">編集</a>
+                <form method="post" action="{{ url_for('pos_app.admin_categories_toggle', cid=c['id']) }}" style="display:inline">
                   <button class="btn sub" type="submit">{{ '無効化' if c['有効']==1 else '有効化' }}</button>
                 </form>
-                <form method="post" action="{{ url_for('admin_categories_delete', cid=c['id']) }}" style="display:inline" onsubmit="return confirm('削除しますか？子や商品割当がある場合は削除できません。')">
+                <form method="post" action="{{ url_for('pos_app.admin_categories_delete', cid=c['id']) }}" style="display:inline" onsubmit="return confirm('削除しますか？子や商品割当がある場合は削除できません。')">
                   <button class="btn sub" type="submit">削除</button>
                 </form>
               </div>

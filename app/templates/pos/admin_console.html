@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2 style="margin-bottom:12px;">店舗管理ページ</h2>
 <p class="small" style="color:#666; margin-top:0;">
@@ -19,7 +19,7 @@
     </div>
     <div class="actions">
       {% if has_endpoint('admin_kds_home') %}
-        <a class="btn" href="{{ url_for('admin_kds_home') }}">開く</a>
+        <a class="btn" href="{{ url_for('pos_app.admin_kds_home') }}">開く</a>
       {% else %}
         <span class="btn sub" aria-disabled="true" title="未実装">開く</span>
       {% endif %}
@@ -38,7 +38,7 @@
     </div>
     <div class="actions">
       {% if has_endpoint('admin_table_sales') %}
-        <a class="btn" href="{{ url_for('admin_table_sales') }}">開く</a>
+        <a class="btn" href="{{ url_for('pos_app.admin_table_sales') }}">開く</a>
       {% else %}
         <span class="btn sub" aria-disabled="true" title="未実装">開く</span>
       {% endif %}
@@ -60,7 +60,7 @@
     {% set require_join_pin_val = require_join_pin if require_join_pin is defined else 1 %}
 
     <form method="post"
-          action="{{ url_for('admin_toggle_join_pin') }}"
+          action="{{ url_for('pos_app.admin_toggle_join_pin') }}"
           id="join-pin-form">
 
       {# CSRF トークンを使っている場合はここに hidden を入れる（例: csrf_token 変数があるとき） #}

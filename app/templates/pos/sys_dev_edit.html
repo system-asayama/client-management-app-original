@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>開発者を編集: {{ dev.name }} <small>(ID {{ dev.id }})</small></h2>
 
 <div class="card" style="max-width:640px">
-  <form method="post" action="{{ url_for('sys_dev_update', did=dev.id) }}">
+  <form method="post" action="{{ url_for('pos_app.sys_dev_update', did=dev.id) }}">
     <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
 
     <label>氏名
@@ -33,7 +33,7 @@
 
     <div style="margin-top:12px; display:flex; gap:8px;">
       <button class="btn" type="submit">保存</button>
-      <a class="btn secondary" href="{{ url_for('sys_devs') }}">一覧へ戻る</a>
+      <a class="btn secondary" href="{{ url_for('pos_app.sys_devs') }}">一覧へ戻る</a>
     </div>
   </form>
 </div>

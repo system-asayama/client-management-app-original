@@ -22,7 +22,7 @@
             <p class="alert">PINコードの有効期限が切れました。最初の注文を始めた方に、画面を更新して新しいPINコードを再発行してもらうようにお願いしてください。</p>
         {% endif %}
 
-        <form method="GET" action="{{ url_for('menu_page', tenant_slug=tenant_slug, token=token) }}">
+        <form method="GET" action="{{ url_for('pos_app.menu_page', tenant_slug=tenant_slug, token=token) }}">
             <input type="hidden" name="order_id" value="{{ order_id }}">
             <input type="hidden" name="token" value="{{ token }}">
             <input type="text" name="join_pin" placeholder="4桁のPINコードを入力" maxlength="4" inputmode="numeric" required>

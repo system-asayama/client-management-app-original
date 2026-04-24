@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>テナント管理者ポータル</h2>
 <p class="small" style="color:#666">
@@ -22,21 +22,21 @@
     <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
       {% if is_sysadmin %}
         <!-- sysadmin 用: 既存のシステム側操作 -->
-        <a class="btn" href="{{ url_for('sys_tenant_edit', tid=tenant.id) }}">編集（Sys）</a>
+        <a class="btn" href="{{ url_for('pos_app.sys_tenant_edit', tid=tenant.id) }}">編集（Sys）</a>
 
-        <form method="post" action="{{ url_for('sys_tenant_delete', tid=tenant.id) }}" style="display:inline">
+        <form method="post" action="{{ url_for('pos_app.sys_tenant_delete', tid=tenant.id) }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <button class="btn sub" type="submit" onclick="return confirm('削除しますか？配下データは残ります。');">削除（Sys）</button>
         </form>
 
-        <form method="post" action="{{ url_for('sys_tenant_purge', tid=tenant.id) }}" style="display:inline">
+        <form method="post" action="{{ url_for('pos_app.sys_tenant_purge', tid=tenant.id) }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <button class="btn sub" type="submit" onclick="return confirm('⚠ テナント配下を全削除します。実行しますか？');">パージ（Sys）</button>
         </form>
       {% else %}
         <!-- tenant_admin 用: 自分のテナントを編集/削除 -->
-        <a class="btn" href="{{ url_for('tenant_me_edit') }}">編集</a>
-        <form method="post" action="{{ url_for('tenant_me_delete') }}" style="display:inline">
+        <a class="btn" href="{{ url_for('pos_app.tenant_me_edit') }}">編集</a>
+        <form method="post" action="{{ url_for('pos_app.tenant_me_delete') }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <button class="btn sub" type="submit" onclick="return confirm('このテナントを削除します。配下データは残ります。よろしいですか？');">削除</button>
         </form>
@@ -61,14 +61,14 @@
     <div class="actions" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
       {% if is_sysadmin %}
         <!-- sysadmin がテナント管理者を操作する -->
-        <form method="post" action="{{ url_for('sys_tenant_admins_update', tid=tenant.id) }}" style="display:inline">
+        <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_update', tid=tenant.id) }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <input type="hidden" name="op" value="toggle">
           <input type="hidden" name="id" value="{{ admin.id }}">
           <button class="btn sub" type="submit">有効/無効</button>
         </form>
 
-        <form method="post" action="{{ url_for('sys_tenant_admins_update', tid=tenant.id) }}" style="display:inline">
+        <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_update', tid=tenant.id) }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <input type="hidden" name="op" value="resetpw">
           <input type="hidden" name="id" value="{{ admin.id }}">
@@ -76,7 +76,7 @@
           <button class="btn sub" type="submit">PW更新</button>
         </form>
 
-        <form method="post" action="{{ url_for('sys_tenant_admins_update', tid=tenant.id) }}" style="display:inline">
+        <form method="post" action="{{ url_for('pos_app.sys_tenant_admins_update', tid=tenant.id) }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <input type="hidden" name="op" value="delete">
           <input type="hidden" name="id" value="{{ admin.id }}">
@@ -84,7 +84,7 @@
         </form>
       {% else %}
         <!-- tenant_admin: 自分のパスワード変更 -->
-        <form method="post" action="{{ url_for('tenant_me_resetpw') }}" style="display:inline">
+        <form method="post" action="{{ url_for('pos_app.tenant_me_resetpw') }}" style="display:inline">
           {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
           <input type="password" name="password" placeholder="新PW" required style="width:160px">
           <button class="btn sub" type="submit">自分のPWを更新</button>
@@ -101,7 +101,7 @@
   <h3>配下の店舗と管理者</h3>
 
   <!-- 店舗作成フォーム（tenant_admin 可） -->
-  <form method="post" action="{{ url_for('tenant_stores_new') }}" style="margin:12px 0">
+  <form method="post" action="{{ url_for('pos_app.tenant_stores_new') }}" style="margin:12px 0">
     {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
     <div style="display:flex; gap:8px; flex-wrap:wrap">
       <input name="code" placeholder="店舗コード" required style="min-width:160px">
@@ -132,7 +132,7 @@
                   {% for ad in item.admins %}
                     <li>
                       {{ ad.name }}（{{ ad.login_id }}）
-                      <form method="post" action="{{ url_for('tenant_store_admin_delete', sid=st.id, aid=ad.id) }}" style="display:inline">
+                      <form method="post" action="{{ url_for('pos_app.tenant_store_admin_delete', sid=st.id, aid=ad.id) }}" style="display:inline">
                         {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
                         <button class="btn sub" type="submit" onclick="return confirm('管理者を削除しますか？');">削除</button>
                       </form>
@@ -144,7 +144,7 @@
               {% endif %}
 
               <!-- 管理者追加フォーム -->
-              <form method="post" action="{{ url_for('tenant_store_admin_new', sid=st.id) }}" style="margin-top:6px;">
+              <form method="post" action="{{ url_for('pos_app.tenant_store_admin_new', sid=st.id) }}" style="margin-top:6px;">
                 {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
                 <input name="login_id" placeholder="ログインID" required style="width:120px">
                 <input name="name" placeholder="氏名" required style="width:100px">
@@ -153,8 +153,8 @@
               </form>
             </td>
             <td class="actions" style="white-space:nowrap;">
-              <a class="btn sub" href="{{ url_for('tenant_store_edit', sid=st.id) }}">編集</a>
-              <form method="post" action="{{ url_for('tenant_store_delete', sid=st.id) }}" style="display:inline">
+              <a class="btn sub" href="{{ url_for('pos_app.tenant_store_edit', sid=st.id) }}">編集</a>
+              <form method="post" action="{{ url_for('pos_app.tenant_store_delete', sid=st.id) }}" style="display:inline">
                 {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
                 <button class="btn sub" type="submit" onclick="return confirm('店舗を削除しますか？');">削除</button>
               </form>
@@ -169,8 +169,8 @@
 </div>
 
 <div class="actions" style="display:flex; gap:8px; flex-wrap:wrap;">
-  <a class="btn" href="{{ url_for('floor') }}">フロア</a>
-  <a class="btn sub" href="{{ url_for('kds') }}">KDS</a>
-  <a class="btn sub" href="{{ url_for('logout') }}">ログアウト</a>
+  <a class="btn" href="{{ url_for('pos_app.floor') }}">フロア</a>
+  <a class="btn sub" href="{{ url_for('pos_app.kds') }}">KDS</a>
+  <a class="btn sub" href="{{ url_for('pos_app.logout') }}">ログアウト</a>
 </div>
 {% endblock %}

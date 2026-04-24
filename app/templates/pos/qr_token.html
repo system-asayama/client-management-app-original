@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>セルフオーダー用 QR</h2>
 
@@ -19,7 +19,7 @@
   </p>
   <div class="stack" style="justify-content:center;margin-top:12px">
     <button class="btn" onclick="window.print()">印刷</button>
-    <a class="btn" href="{{ url_for('floor') }}">フロアへ戻る</a>
+    <a class="btn" href="{{ url_for('pos_app.floor') }}">フロアへ戻る</a>
   </div>
 </div>
 {% endblock %}

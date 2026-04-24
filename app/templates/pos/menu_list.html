@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 
 {% block head_extra %}
 <style>
@@ -61,10 +61,10 @@
     <h2>作成済みメニュー</h2>
     <div class="actions">
       {% if has_endpoint('admin_menu_new_form') %}
-        <a class="btn primary" href="{{ url_for('admin_menu_new_form') }}">＋ 新規作成</a>
+        <a class="btn primary" href="{{ url_for('pos_app.admin_menu_new_form') }}">＋ 新規作成</a>
       {% endif %}
       {% if has_endpoint('admin_menu_home') %}
-        <a class="btn" href="{{ url_for('admin_menu_home') }}">メニュー管理トップへ</a>
+        <a class="btn" href="{{ url_for('pos_app.admin_menu_home') }}">メニュー管理トップへ</a>
       {% endif %}
     </div>
   </div>

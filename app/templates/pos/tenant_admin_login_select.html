@@ -16,7 +16,7 @@
 <body>
   <div class="box">
     <h2>テナントを選択</h2>
-    <form method="post" action="{{ url_for('tenant_admin_login_entry') }}">
+    <form method="post" action="{{ url_for('pos_app.tenant_admin_login_entry') }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
       <label for="tenant_slug">テナント識別子（slug）</label>
       <input id="tenant_slug" name="tenant_slug" type="text" placeholder="例: company-a" required>

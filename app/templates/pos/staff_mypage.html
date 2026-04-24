@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2 style="margin:0 0 12px">従業員マイページ</h2>
 
@@ -47,7 +47,7 @@
   <!-- プロフィール編集 -->
   <section class="card">
     <h3 style="margin:0 0 8px">プロフィール編集</h3>
-    <form method="post" action="{{ url_for('staff_mypage') }}" autocomplete="off">
+    <form method="post" action="{{ url_for('pos_app.staff_mypage') }}" autocomplete="off">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="profile">
 
@@ -81,7 +81,7 @@
   <!-- パスワード変更 -->
   <section class="card">
     <h3 style="margin:0 0 8px">パスワード変更</h3>
-    <form method="post" action="{{ url_for('staff_mypage') }}" autocomplete="off">
+    <form method="post" action="{{ url_for('pos_app.staff_mypage') }}" autocomplete="off">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="password">
 
@@ -127,7 +127,7 @@
               <td>
                 {% if sid != current_store_id %}
                   <a class="btn sub"
-                     href="{{ url_for('switch_store', store_id=sid, next=request.full_path) }}">
+                     href="{{ url_for('pos_app.switch_store', store_id=sid, next=request.full_path) }}">
                     この店舗に切り替え
                   </a>
                 {% else %}

@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>印刷ルール</h2>
 
 <div class="grid">
   <div class="card">
     <h3>新規ルール</h3>
-    <form method="post" action="{{ url_for('admin_rules_new') }}">
+    <form method="post" action="{{ url_for('pos_app.admin_rules_new') }}">
       <label>カテゴリ（任意）</label>
       <select name="カテゴリID">
         <option value="">(なし)</option>
@@ -49,7 +49,7 @@
           <td>{{ r['menu_name'] or '-' }}</td>
           <td>{{ r['printer_name'] }}</td>
           <td>
-            <form method="post" action="{{ url_for('admin_rules_delete', rid=r['id']) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+            <form method="post" action="{{ url_for('pos_app.admin_rules_delete', rid=r['id']) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
               <button class="btn sub" type="submit">削除</button>
             </form>
           </td>

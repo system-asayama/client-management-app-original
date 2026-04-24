@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>管理者ログイン</h2>
 
@@ -15,7 +15,7 @@
 
     <div style="margin-top:12px;display:flex;gap:8px">
       <button class="btn" type="submit">ログイン</button>
-      <a class="btn sub" href="{{ url_for('login_choice') }}">戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.login_choice') }}">戻る</a>
     </div>
 
     {% if error %}

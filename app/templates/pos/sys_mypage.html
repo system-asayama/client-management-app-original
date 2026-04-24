@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>開発者マイページ（ログインID/パスワード変更）</h2>
 
 <div class="card" style="max-width:640px">
-  <form method="post" action="{{ url_for('sys_admins_update') }}" autocomplete="off" novalidate>
+  <form method="post" action="{{ url_for('pos_app.sys_admins_update') }}" autocomplete="off" novalidate>
     <!-- 🔒 CSRF -->
     <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
 
@@ -48,7 +48,7 @@
 
     <div style="margin-top:14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
       <button class="btn" type="submit">更新する</button>
-      <a class="btn sub" href="{{ url_for('dev_tools') }}">開発者ツールに戻る</a>
+      <a class="btn sub" href="{{ url_for('pos_app.dev_tools') }}">開発者ツールに戻る</a>
     </div>
   </form>
 </div>

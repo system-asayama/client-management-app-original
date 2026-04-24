@@ -272,7 +272,7 @@
 
     <!-- フィルター -->
     <div class="filter-section">
-      <form method="GET" action="{{ url_for('admin_table_move_history') }}">
+      <form method="GET" action="{{ url_for('pos_app.admin_table_move_history') }}">
         <div class="filter-row">
           <div class="filter-group">
             <label for="from_date">開始日</label>
@@ -297,7 +297,7 @@
             <button type="submit" class="btn btn-primary">絞り込み</button>
           </div>
           <div class="filter-group">
-            <a href="{{ url_for('admin_table_move_history') }}" class="btn btn-secondary">クリア</a>
+            <a href="{{ url_for('pos_app.admin_table_move_history') }}" class="btn btn-secondary">クリア</a>
           </div>
         </div>
       </form>

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2 class="center" style="margin-bottom:8px">
   フロア
@@ -137,19 +137,19 @@
 
     <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
       {% if table_id is not none %}
-        <a class="btn" href="{{ url_for('table_detail', table_id=table_id) }}">明細</a>
+        <a class="btn" href="{{ url_for('pos_app.table_detail', table_id=table_id) }}">明細</a>
       {% endif %}
       {% if order_id is not none %}
         {# 印刷ボタン #}
         {# 明細印刷：会計前のみ表示 #}
         {% if paid_int == 0 %}
-          <a class="btn" href="{{ url_for('bill_print', order_id=order_id) }}" target="_blank" rel="noopener">🖨️ 明細印刷</a>
+          <a class="btn" href="{{ url_for('pos_app.bill_print', order_id=order_id) }}" target="_blank" rel="noopener">🖨️ 明細印刷</a>
         {% endif %}
         
         {# レシートと領収書：会計済みかつ会計完了前のみ表示 #}
         {% if (paid_int > 0) and (not is_closed) %}
-          <a class="btn" href="{{ url_for('receipt_print', order_id=order_id) }}" target="_blank" rel="noopener">🧾 レシート</a>
-          <a class="btn" href="{{ url_for('invoice_print', order_id=order_id) }}" target="_blank" rel="noopener">📜 領収書</a>
+          <a class="btn" href="{{ url_for('pos_app.receipt_print', order_id=order_id) }}" target="_blank" rel="noopener">🧾 レシート</a>
+          <a class="btn" href="{{ url_for('pos_app.invoice_print', order_id=order_id) }}" target="_blank" rel="noopener">📜 領収書</a>
         {% endif %}
         
         <button class="btn sub" onclick="openSettleModal({{ table_id }}, {{ order_id }})">会計</button>
@@ -175,7 +175,7 @@
       {% endif %}
     </div>
 
-    <form method="post" action="{{ url_for('admin_new_token') }}" class="small" style="margin-top:8px">
+    <form method="post" action="{{ url_for('pos_app.admin_new_token') }}" class="small" style="margin-top:8px">
       <input type="hidden" name="table_id" value="{{ table_id }}">
       <div class="center" style="gap:8px">
         <input type="number" name="ttl_minutes" placeholder="有効分(空=無期限)" style="width:50%">
@@ -186,12 +186,12 @@
     {% if last_qr %}
       <div class="small" style="margin-top:6px">
         URL:
-        <a href="{{ url_for('menu_page', tenant_slug=current_tenant_slug, token=last_qr, _external=True) }}"
+        <a href="{{ url_for('pos_app.menu_page', tenant_slug=current_tenant_slug, token=last_qr, _external=True) }}"
            target="_blank" rel="noopener">開く</a>
       </div>
       <div style="margin-top:6px">
         {% if table_id is not none %}
-          <a class="btn sub" href="{{ url_for('qr_print', table_id=table_id) }}" target="_blank" rel="noopener">QR印刷</a>
+          <a class="btn sub" href="{{ url_for('pos_app.qr_print', table_id=table_id) }}" target="_blank" rel="noopener">QR印刷</a>
         {% else %}
           <button class="btn sub" type="button" disabled title="テーブルIDが不明です">QR印刷</button>
         {% endif %}

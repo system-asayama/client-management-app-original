@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 
 <!-- debug: {{ debug_info }} -->
@@ -310,17 +310,17 @@
 
 <div style="display: flex; gap: 10px; margin-top: 20px;">
   {% if orders and orders[0] and not is_qr_user %}
-  <a class="btn" href="{{ url_for('receipt_print', order_id=orders[0].id) }}" target="_blank" style="background: #2563eb; color: white;">
+  <a class="btn" href="{{ url_for('pos_app.receipt_print', order_id=orders[0].id) }}" target="_blank" style="background: #2563eb; color: white;">
     📝 レシート印刷
   </a>
-  <a class="btn" href="{{ url_for('invoice_print', order_id=orders[0].id) }}" target="_blank" style="background: #059669; color: white;">
+  <a class="btn" href="{{ url_for('pos_app.invoice_print', order_id=orders[0].id) }}" target="_blank" style="background: #059669; color: white;">
     📄 領収書印刷
   </a>
-  <a class="btn" href="{{ url_for('bill_print', order_id=orders[0].id) }}" target="_blank" style="background: #f59e0b; color: white;">
+  <a class="btn" href="{{ url_for('pos_app.bill_print', order_id=orders[0].id) }}" target="_blank" style="background: #f59e0b; color: white;">
     🍴 注文伝票印刷
   </a>
   {% endif %}
-  <a id="btn-back" class="btn" href="{{ url_for('floor') }}">戻る</a>
+  <a id="btn-back" class="btn" href="{{ url_for('pos_app.floor') }}">戻る</a>
 </div>
 
 <script>
@@ -330,7 +330,7 @@
     back.addEventListener('click', function (e) {
       e.preventDefault();
       var hasHistory = (document.referrer && document.referrer !== location.href) || (history.length > 1);
-      if (hasHistory) { history.back(); } else { location.href = "{{ url_for('floor') }}"; }
+      if (hasHistory) { history.back(); } else { location.href = "{{ url_for('pos_app.floor') }}"; }
     });
   })();
 </script>

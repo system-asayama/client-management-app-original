@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>初回セットアップ（最初の sysadmin 作成）</h2>
 
@@ -8,7 +8,7 @@
     作成後はこのページは表示されなくなります。
   </p>
 
-  <form method="post" action="{{ url_for('first_admin_setup') }}" autocomplete="off">
+  <form method="post" action="{{ url_for('pos_app.first_admin_setup') }}" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       <label style="flex:1 1 240px">氏名

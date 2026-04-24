@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "pos/base.html" %}
 {% block content %}
 <h2>スタッフ：注文入力（テーブル {{ table.no }})</h2>
 <div class="small" style="color:var(--muted);margin-bottom:8px">
   担当: {{ staff_name }} /
-  <a class="btn sub" href="{{ url_for('staff_floor') }}">テーブル一覧へ戻る</a>
+  <a class="btn sub" href="{{ url_for('pos_app.staff_floor') }}">テーブル一覧へ戻る</a>
 </div>
 
 <style>
@@ -315,7 +315,7 @@ async function loadMenus(cid){
   if (String(cid) === '0'){ return loadAllMenusByCategoryOrderStaff(); }
 
   try{
-    const url  = '{{ url_for("api_menus_by_category", category_id=0) }}'.replace(/0$/, String(cid));
+    const url  = '{{ url_for("pos_app.api_menus_by_category", category_id=0) }}'.replace(/0$/, String(cid));
     const resp = await fetch(url, {headers:{'Accept':'application/json'}});
     const data = await resp.json();
 
@@ -343,7 +343,7 @@ async function loadAllMenusByCategoryOrderStaff(){
 
   for (const cid of catIds){
     try{
-      const url  = '{{ url_for("api_menus_by_category", category_id=0) }}'.replace(/0$/, String(cid));
+      const url  = '{{ url_for("pos_app.api_menus_by_category", category_id=0) }}'.replace(/0$/, String(cid));
       const resp = await fetch(url, {headers:{'Accept':'application/json'}});
       const data = await resp.json();
 
@@ -391,7 +391,7 @@ async function doSearch(){
   if(!q){ const active=document.querySelector('#cat-bar .pill.active'); const cid=active?active.dataset.cid:'0'; return loadMenus(cid); }
   const grid = document.getElementById('menu-grid'); grid.innerHTML='<div class="loading">検索中...</div>';
   try{
-    const resp = await fetch('{{ url_for("api_menus_by_category", category_id=0) }}', {headers:{'Accept':'application/json'}});
+    const resp = await fetch('{{ url_for("pos_app.api_menus_by_category", category_id=0) }}', {headers:{'Accept':'application/json'}});
     const j = await resp.json();
     const kw=kanaFold(q);
     const filtered=(j.menus||[])
@@ -496,7 +496,7 @@ async function submitOrder(){
   }
 
   try{
-    const res = await fetch('{{ url_for("staff_api_order") }}', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch('{{ url_for("pos_app.staff_api_order") }}', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j = await res.json();
     if (!res.ok || !j.ok){ alert('送信に失敗しました: ' + (j.error || res.status)); return; }
     alert('送信しました（注文番号: ' + j.order_id + '）');

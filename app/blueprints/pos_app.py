@@ -1102,7 +1102,7 @@ def _before_request_tenant():
 
 
 # --- URL からの <tenant_slug> を g にコピー（pop しない） -----------------------
-@app.url_value_preprocessor
+@bp.url_value_preprocessor
 def pull_tenant_slug(endpoint, values):
     if values and "tenant_slug" in values:
         # ★ 引数を消さない：pop → 参照のみに変更
@@ -2908,8 +2908,8 @@ def trigger_print_async(order_id: int) -> None:
     def _run(oid: int) -> None:
         try:
             # アプリコンテキスト → ダミーのリクエストコンテキストを張る
-            with app.app_context():
-                with app.test_request_context("/__print_async__"):
+            with current_app.app_context():
+                with current_app.test_request_context("/__print_async__"):
                     # マルチテナントのフィルタが g / session を見る想定に合わせて注入
                     if tenant_id is not None:
                         g.tenant_id = tenant_id
@@ -3818,7 +3818,7 @@ def _is_safe_url(target: str) -> bool:
 def _first_existing_url(*endpoint_names, default="/"):
     for name in endpoint_names:
         try:
-            if name and name in current_app.view_functions:
+            if name and name in current_current_app.view_functions:
                 return url_for(name)
         except Exception:
             pass
@@ -6023,7 +6023,7 @@ def _guess_tax_rate(src_item=None, menu=None):
 
 
 # ---- 取消API：数量nだけの部分取消で「マイナス監査行」を新規作成 ----
-@app.post("/staff/api/order_item/<int:item_id>/status")
+@bp.post("/staff/api/order_item/<int:item_id>/status")
 @require_staff
 def staff_api_order_item_status(item_id: int):
     """
@@ -6144,7 +6144,7 @@ def inject_helpers():
     # テンプレから has_endpoint('admin_console') のように呼べる
     def has_endpoint(name: str) -> bool:
         try:
-            return name in current_app.view_functions
+            return name in current_current_app.view_functions
         except Exception:
             return False
     return dict(has_endpoint=has_endpoint)
@@ -7217,7 +7217,7 @@ def floor():
 
 
 # --- フロア変更検知（ポーリングAPI：バージョン比較） ---------------------------
-@app.get("/admin/floor/changed")
+@bp.get("/admin/floor/changed")
 def floor_changed():
     """
     クライアントから ?since=（前回受け取った version, int）を受け取り、
@@ -7233,7 +7233,7 @@ def floor_changed():
 
 
 # --- フロアイベント（SSE: Server-Sent Events 配信） ---------------------------
-@app.get("/events/floor")
+@bp.get("/events/floor")
 def events_floor():
     q = queue.Queue(maxsize=8)
     with _floor_lock:
@@ -8352,7 +8352,7 @@ def _recalc_order_amounts(session_db, header: OrderHeader) -> None:
 
 
 # --- [Menu API] カテゴリ別メニュー一覧 -----------------------------------------
-@app.get("/api/menus/by_category/<int:category_id>", endpoint="api_menus_by_category")
+@bp.get("/api/menus/by_category/<int:category_id>", endpoint="api_menus_by_category")
 def api_menus_by_category(category_id: int):
     s = SessionLocal()
     try:
@@ -8423,7 +8423,7 @@ def api_menus_by_category(category_id: int):
 
 
 # --- [Menu API] 複数カテゴリのメニューを一括取得 -----------------------------------------
-@app.get("/api/menus/by_categories", endpoint="api_menus_by_categories")
+@bp.get("/api/menus/by_categories", endpoint="api_menus_by_categories")
 def api_menus_by_categories():
     """GET /api/menus/by_categories?category_ids=1,2,3&token=xxx"""
     s = SessionLocal()
@@ -8683,9 +8683,9 @@ def order_detail_json(order_id: int):
 
 # --- [Order API] 会計完了（残額=0 確認→クローズ） ------------------------------
 # --- dev guard: avoid duplicate endpoint registration (開発中のみ) ------------
-if "order_complete" in app.view_functions:
+if "order_complete" in current_app.view_functions:
     current_app.logger.warning("replacing endpoint: order_complete")
-    del app.view_functions["order_complete"]
+    del current_app.view_functions["order_complete"]
 
 
 # --- [Order API] 会計完了（残額=0 確認→クローズ） -----------------------------------------------
@@ -8896,7 +8896,7 @@ def order_complete(order_id: int):
 
 
 # --- debug: お客様詳細（T_お客様詳細）覗き見 -----------------------------------------------
-@app.get("/__probe/customer_detail")
+@bp.get("/__probe/customer_detail")
 def __probe_customer_detail():
     s = SessionLocal()
     try:
@@ -8928,7 +8928,7 @@ def __probe_customer_detail():
 
 
 # --- debug: お客様詳細履歴を強制追加（/__debug/append_history/<order_id>） -----------------------
-@app.post("/__debug/append_history/<int:order_id>")
+@bp.post("/__debug/append_history/<int:order_id>")
 def __debug_append_history(order_id):
     s = SessionLocal()
     try:
@@ -9035,7 +9035,7 @@ def order_void_payments(order_id: int):
 
 
 # --- [Public API] 現在の明細 JSON（トークン検証） -------------------------------
-@app.get("/public/order/<int:order_id>/detail/json")
+@bp.get("/public/order/<int:order_id>/detail/json")
 def public_order_detail_json(order_id: int):
     token = (request.args.get("token") or "").strip()
     if not token:
@@ -9126,7 +9126,7 @@ def public_order_detail_json(order_id: int):
 
 
 # --- [Table API] テーブル番号ラベル取得 ----------------------------------------
-@app.get("/api/tables/<int:table_id>/label")
+@bp.get("/api/tables/<int:table_id>/label")
 def api_table_label(table_id: int):
     s = SessionLocal()
     try:
@@ -9996,7 +9996,7 @@ def _collect_descendant_category_ids(s, root_cid: int, include_root: bool = True
     return result
 
 # --- API：カテゴリ一括 提供開始/停止 ---
-@app.post("/api/admin/category/<int:cid>/bulk_available")
+@bp.post("/api/admin/category/<int:cid>/bulk_available")
 @require_admin
 def api_admin_category_bulk_available(cid: int):
     """
@@ -10049,7 +10049,7 @@ def api_admin_category_bulk_available(cid: int):
 
 
 # --- API：カテゴリ一括 論理削除 ---
-@app.post("/api/admin/category/<int:cid>/bulk_delete")
+@bp.post("/api/admin/category/<int:cid>/bulk_delete")
 @require_admin
 def api_admin_category_bulk_delete(cid: int):
     """
@@ -10678,7 +10678,7 @@ def admin_menu_delete(mid: int):
         SessionLocal.remove()
 
 # --- 復活API：削除済みメニューの復元（提供状態は復元しない） ----------------------
-@app.post("/admin/menu/<int:mid>/restore", endpoint="admin_menu_restore")
+@bp.post("/admin/menu/<int:mid>/restore", endpoint="admin_menu_restore")
 @require_admin
 def admin_menu_restore(mid: int):
     """
@@ -10721,7 +10721,7 @@ def admin_menu_restore(mid: int):
         SessionLocal.remove()
 
 # --- 復活API：削除済みメニューの復元＋提供開始 ---------------------------
-@app.post("/admin/menu/<int:mid>/restore_and_enable", endpoint="admin_menu_restore_and_enable")
+@bp.post("/admin/menu/<int:mid>/restore_and_enable", endpoint="admin_menu_restore_and_enable")
 @require_admin
 def admin_menu_restore_and_enable(mid: int):
     """
@@ -10762,7 +10762,7 @@ def admin_menu_restore_and_enable(mid: int):
         SessionLocal.remove()
 
 # --- 画面：削除済みメニュー一覧 ---------------------------------------------
-@app.get("/admin/menus/deleted", endpoint="admin_menu_list_deleted")
+@bp.get("/admin/menus/deleted", endpoint="admin_menu_list_deleted")
 @require_admin
 def admin_menu_list_deleted():
     """
@@ -14012,7 +14012,7 @@ def api_order():
 # アイテム追加API（パブリック／スタッフ共通の土台・未実装部あり）
 # ---------------------------------------------------------------------
 # --- [API] アイテム追加API（パブリック／スタッフ共通の土台） -------------------------------
-@app.post("/api/order/add_item")
+@bp.post("/api/order/add_item")
 def api_add_item():
     s = SessionLocal()
     try:
@@ -15401,7 +15401,7 @@ def staff_api_order():
 
 
 # --- 明細( OrderItem )の状態を更新するAPI -----------------------------------
-@app.post("/staff/api/order_item/<int:item_id>/status")
+@bp.post("/staff/api/order_item/<int:item_id>/status")
 @require_staff
 def staff_api_progress_update(item_id: int):
     return _progress_update_core(item_id)
@@ -17710,7 +17710,7 @@ def _reset_customer_detail_after_checkout(s, *, order_id=None, table_id=None) ->
 
 # ---- 保存 ----
 # --- API：お客様情報 保存（POST /api/customer_detail, api_customer_detail_post） ---
-@app.post("/api/customer_detail")
+@bp.post("/api/customer_detail")
 def api_customer_detail_post():
     s = SessionLocal()
     try:
@@ -17764,7 +17764,7 @@ def api_customer_detail_post():
 
 # ---- ステータス ----
 # --- API：お客様情報 ステータス確認（GET /api/customer_detail/status） ------------
-@app.get("/api/customer_detail/status")
+@bp.get("/api/customer_detail/status")
 def api_customer_detail_status():
     s = SessionLocal()
     try:
@@ -17905,7 +17905,7 @@ def _find_customer_detail(s, *, id=None, order_id=None, token=None, table_id=Non
 
 
 # --- API：お客様情報 取得（GET /api/customer_detail/<cid>） ------------------------
-@app.get("/api/customer_detail/<int:cid>")
+@bp.get("/api/customer_detail/<int:cid>")
 def api_customer_detail_get_by_id(cid):
     s = SessionLocal()
     try:
@@ -17924,7 +17924,7 @@ def api_customer_detail_get_by_id(cid):
         SessionLocal.remove()
 
 # --- API：お客様情報 更新（PUT /api/customer_detail/<cid>） ------------------------
-@app.put("/api/customer_detail/<int:cid>")
+@bp.put("/api/customer_detail/<int:cid>")
 def api_customer_detail_put_by_id(cid):
     s = SessionLocal()
     try:
@@ -17958,7 +17958,7 @@ def api_customer_detail_put_by_id(cid):
 
 
 # --- API：お客様情報 更新（IDなし, PUT /api/customer_detail） ----------------------
-@app.put("/api/customer_detail")
+@bp.put("/api/customer_detail")
 def api_customer_detail_put():
     s = SessionLocal()
     try:
@@ -17994,7 +17994,7 @@ def api_customer_detail_put():
 
 
 # --- API：お客様情報 削除（DELETE /api/customer_detail/<cid>） ---------------------
-@app.delete("/api/customer_detail/<int:cid>")
+@bp.delete("/api/customer_detail/<int:cid>")
 def api_customer_detail_delete(cid):
     s = SessionLocal()
     try:
@@ -18767,7 +18767,7 @@ def admin_table_move_cancel_check(history_id):
 # 起動（※ すべてのルート定義の"後ろ"に置く）
 # ---------------------------------------------------------------------
 # --- デバッグ：メニュー一覧（__menu_test） ---------------------------------------
-@app.get("/__menu_test")
+@bp.get("/__menu_test")
 def __menu_test():
     s = SessionLocal()
     try:
@@ -18791,7 +18791,7 @@ def __menu_test():
 
 
 # --- 診断：メニュー件数（__menu_diag） --------------------------------------------
-@app.get("/__menu_diag")
+@bp.get("/__menu_diag")
 def __menu_diag():
     s = SessionLocal()
     try:
@@ -19252,7 +19252,7 @@ if __name__ == "__main__":
     import os
     host = "0.0.0.0"                           # ← 重要：外部端末（スマホ）からアクセス可
     port = int(os.getenv("PORT", "5000"))      # 任意のポートにしたい場合は環境変数で上書き
-    app.run(host=host, port=port, debug=True, threaded=True)
+    pass  # app.run() は不要（ブループリントとして統合済み）
 
 
 # ========================================
@@ -19625,8 +19625,8 @@ def download_printer_server_exe():
 # ========================================
 # Printer-Serverログ受信API
 # ========================================
-from printer_server_log_api import register_printer_server_log_api
-register_printer_server_log_api(app)
+# from printer_server_log_api import register_printer_server_log_api
+# register_printer_server_log_api(app)  # ブループリント統合済み
 
 # ========================================
 # プリンターサーバー ダウンロードページ

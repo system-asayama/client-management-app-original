@@ -478,7 +478,7 @@ def mypage_select_store():
 def select_tenant_from_mypage():
     """マイページからテナント選択してテナント管理者ダッシュボードへ遷移"""
     # 権限チェック
-    if session.get('role') != 'app_manager':
+    if session.get('role') not in ('app_manager', 'system_admin'):
         flash('権限がありません。', 'warning')
         return redirect(url_for('auth.select_login'))
     
@@ -513,7 +513,7 @@ def select_tenant_from_mypage():
 def select_store_from_mypage():
     """マイページから店舗選択して店舗管理者ダッシュボードへ遷移"""
     # 権限チェック
-    if session.get('role') != 'app_manager':
+    if session.get('role') not in ('app_manager', 'system_admin'):
         flash('権限がありません。', 'warning')
         return redirect(url_for('auth.select_login'))
     

@@ -102,7 +102,7 @@ bp = Blueprint(
     url_prefix='/apps/pos',
     template_folder='../templates/pos',
     static_folder='../static/pos',
-    static_url_path='/apps/pos/static',
+    static_url_path='/static/pos',
 )
 
 # ---------------------------------------------------------------------

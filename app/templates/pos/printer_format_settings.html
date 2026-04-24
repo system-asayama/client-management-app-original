@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プリンタ印刷設定 - {{ printer_name }}</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        h1 {
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        .mode-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .mode-section h3 {
+            margin-top: 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <a href="/admin/printers" class="back-link">← プリンタ一覧に戻る</a>
+    
+    <h1>プリンタ印刷設定：{{ printer_name }}</h1>
+    
+    <form method="POST" action="/admin/printer-format/{{ printer_name }}/save">
+        <!-- 印刷モード選択 -->
+        <div class="form-group">
+            <label for="print_mode">印刷モード</label>
+            <select id="print_mode" name="print_mode" onchange="toggleModeSettings()">
+                <option value="kitchen" {% if setting.print_mode == 'kitchen' %}selected{% endif %}>厨房モード（KDS用）</option>
+                <option value="receipt" {% if setting.print_mode == 'receipt' %}selected{% endif %}>伝票モード（お客様用）</option>
+            </select>
+        </div>
+        
+        <!-- 共通設定 -->
+        <div class="mode-section">
+            <h3>共通設定</h3>
+            
+            <div class="form-group">
+                <label for="margin_before">印刷前の余白（行数）</label>
+                <input type="number" id="margin_before" name="margin_before" min="0" max="10" value="{{ setting.margin_before }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="margin_after">印刷後の余白（行数）</label>
+                <input type="number" id="margin_after" name="margin_after" min="0" max="10" value="{{ setting.margin_after }}">
+            </div>
+        </div>
+        
+        <!-- 伝票モード専用設定 -->
+        <div id="receipt_settings" class="mode-section" style="display: none;">
+            <h3>伝票モード専用設定</h3>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_title" {% if setting.show_title %}checked{% endif %}>
+                    タイトルを表示
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label for="title_text">タイトルテキスト</label>
+                <input type="text" id="title_text" name="title_text" value="{{ setting.title_text }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="title_size">タイトルサイズ</label>
+                <select id="title_size" name="title_size">
+                    <option value="1" {% if setting.title_size == 1 %}selected{% endif %}>通常</option>
+                    <option value="2" {% if setting.title_size == 2 %}selected{% endif %}>2倍</option>
+                    <option value="3" {% if setting.title_size == 3 %}selected{% endif %}>3倍</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="title_align">タイトル揃え</label>
+                <select id="title_align" name="title_align">
+                    <option value="left" {% if setting.title_align == 'left' %}selected{% endif %}>左揃え</option>
+                    <option value="center" {% if setting.title_align == 'center' %}selected{% endif %}>中央揃え</option>
+                    <option value="right" {% if setting.title_align == 'right' %}selected{% endif %}>右揃え</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="title_bold" {% if setting.title_bold %}checked{% endif %}>
+                    タイトルを太字にする
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_separator" {% if setting.show_separator %}checked{% endif %}>
+                    区切り線を表示
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_datetime" {% if setting.show_datetime %}checked{% endif %}>
+                    日時を表示
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label for="datetime_format">日時フォーマット</label>
+                <input type="text" id="datetime_format" name="datetime_format" value="{{ setting.datetime_format }}" placeholder="YYYY/MM/DD HH:mm:ss">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_price" {% if setting.show_price %}checked{% endif %}>
+                    金額を表示
+                </label>
+            </div>
+        </div>
+        
+        <!-- 厨房モード専用設定 -->
+        <div id="kitchen_settings" class="mode-section" style="display: none;">
+            <h3>厨房モード専用設定</h3>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_new_additional" {% if setting.show_new_additional %}checked{% endif %}>
+                    新規/追加を表示
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label for="kitchen_datetime_format">日時フォーマット</label>
+                <select id="kitchen_datetime_format" name="kitchen_datetime_format">
+                    <option value="HH:mm" {% if setting.kitchen_datetime_format == 'HH:mm' %}selected{% endif %}>HH:mm</option>
+                    <option value="HH:mm:ss" {% if setting.kitchen_datetime_format == 'HH:mm:ss' %}selected{% endif %}>HH:mm:ss</option>
+                    <option value="none" {% if setting.kitchen_datetime_format == 'none' %}selected{% endif %}>表示しない</option>
+                </select>
+            </div>
+        </div>
+        
+        <button type="submit">保存</button>
+    </form>
+    
+    <script>
+        function toggleModeSettings() {
+            const mode = document.getElementById('print_mode').value;
+            const receiptSettings = document.getElementById('receipt_settings');
+            const kitchenSettings = document.getElementById('kitchen_settings');
+            
+            if (mode === 'receipt') {
+                receiptSettings.style.display = 'block';
+                kitchenSettings.style.display = 'none';
+            } else {
+                receiptSettings.style.display = 'none';
+                kitchenSettings.style.display = 'block';
+            }
+        }
+        
+        // ページ読み込み時に実行
+        toggleModeSettings();
+    </script>
+</body>
+</html>

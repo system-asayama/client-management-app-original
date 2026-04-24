@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>スタッフ：テーブル一覧</h2>
+<!-- DEBUG: {{ debug_info }} -->
+
+<div class="small" style="color:var(--muted);margin-bottom:8px">
+  ようこそ、{{ staff_name }} さん
+  <a class="btn sub" href="{{ url_for('logout') }}" style="float:right">ログアウト</a>
+</div>
+
+<!-- ★★★ 追加：テーブル移動履歴ページへのボタン ★★★ -->
+<div style="margin-bottom:16px; display:flex; gap:8px; align-items:center;">
+  <a class="btn" href="{{ url_for('admin_table_move_history') }}" style="background:#6366f1; color:white;">
+    📋 テーブル移動履歴を見る
+  </a>
+  <span class="small" style="color:var(--muted)">過去のテーブル移動の履歴を確認できます</span>
+</div>
+
+<!-- ★★★ 過去日付注文モード ★★★ -->
+<div style="margin-bottom:8px;">
+  <!-- チェックボックスのみ常時表示 -->
+  <label style="margin:0; display:inline-flex; align-items:center; gap:4px; font-size:13px; cursor:pointer;">
+    <input type="checkbox" id="past-order-mode-toggle" style="width:16px; height:16px; cursor:pointer;">
+    <span style="color:#92400e; font-weight:500;">過去日付注文モード</span>
+  </label>
+  
+  <!-- チェック時に展開表示される詳細コントロール -->
+  <div id="past-order-details" style="display:none; margin-top:8px; padding:10px; background:#fef3c7; border:1px solid #f59e0b; border-radius:6px;">
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <input type="datetime-local" id="custom-order-date" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:4px; font-size:14px;">
+      <button type="button" id="btn-set-date" style="padding:6px 12px; background:#2563eb; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">設定</button>
+      <button type="button" id="btn-clear-date" style="padding:6px 12px; background:#dc2626; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">クリア</button>
+      <span id="current-date-display" style="font-size:13px; color:#92400e; font-weight:600;"></span>
+    </div>
+  </div>
+</div>
+
+<div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:12px">
+  {% for t in tables %}
+    <div class="card">
+      <div class="row-title">テーブル {{ t['テーブル番号'] }}</div>
+      <div class="small" style="color:var(--muted)">状態: {{ t['状態'] }}</div>
+
+      {% if t['order'] %}
+        <div class="small">
+          現在合計: ¥{{ t['order']['合計']|int }}
+          {% if t['order'].get('既払') is not none and t['order'].get('残額') is not none %}
+            ／ 既払: ¥{{ t['order']['既払']|int }} ／ 残額: ¥{{ t['order']['残額']|int }}
+          {% endif %}
+          {% if t['order'].get('状態') %}
+            ／ 伝票状態: <strong>{{ t['order']['状態'] }}</strong>
+          {% endif %}
+        </div>
+
+        {# ==== ボタン群（表示条件を金額ベースに修正） ==== #}
+        {% set o = t['order'] %}
+        {% set status = o.get('状態') or '' %}
+        {% set paid = (o.get('既払', 0) | int) %}
+        {% set remaining = (o.get('残額', 0) | int) %}
+        {# クローズ扱いの状態（必要に応じて追加） #}
+        {% set is_closed = status in ['会計済','closed','paid','会計済(統合)','会計済(返品)','会計済(訂正)'] %}
+        {% set can_void = (paid > 0) and (not is_closed) %}
+        {% set can_complete = (remaining == 0) and (paid > 0) and (not is_closed) %}
+
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          <!-- 注文入力へ -->
+          <a class="btn" href="{{ url_for('staff_open_menu', table_id=t['id']) }}">注文入力へ</a>
+
+          <!-- 明細（order_id をクエリに付与） -->
+          <a class="btn sub" href="{{ url_for('table_detail', table_id=t['id']) }}?order_id={{ o['id'] }}">明細</a>
+
+          <!-- 会計：未クローズのとき有効 -->
+          <button class="btn {{ 'sub' if is_closed else '' }}" type="button"
+                  onclick="openSettleModal({{ t['id'] }}, {{ o['id'] }})"
+                  {{ 'disabled' if is_closed }}>
+            会計
+          </button>
+
+          <!-- 会計取り消し：既払>0 かつ 未クローズ -->
+          {% if can_void %}
+            <button class="btn warn" type="button"
+                    onclick="voidPayments({{ o['id'] }})">
+              会計取り消し
+            </button>
+          {% endif %}
+
+          <!-- 会計完了：残額0 かつ 既払>0 かつ 未クローズ -->
+          {% if can_complete %}
+            <button class="btn" type="button"
+                    onclick="completeOrder({{ o['id'] }})">
+              会計完了
+            </button>
+          {% endif %}
+
+          <!-- テーブル移動 -->
+          <button class="btn sub" type="button"
+                  onclick="openMoveModal({{ t['id'] }}, {{ o['id'] }})">
+            テーブル移動
+          </button>
+        </div>
+      {% else %}
+        <div class="small">現在合計: ¥0</div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          <a class="btn sub" href="{{ url_for('staff_open_menu', table_id=t['id']) }}">新規注文</a>
+          <a class="btn" href="{{ url_for('table_detail', table_id=t['id']) }}">明細</a>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+<!-- ================= モーダル（分割会計） ================= -->
+<div id="settle-modal" class="modal" style="display:none">
+  <div class="modal-body">
+    <h3>会計</h3>
+    <div class="small" id="settle-table-hint"></div>
+    <div class="small" id="settle-summary" style="margin-top:6px"></div>
+
+    <!-- 支払行 -->
+    <div id="pay-rows" style="display:flex; flex-direction:column; gap:8px; margin-top:12px"></div>
+
+    <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+      <button class="btn sub" type="button" onclick="addPayRow()">支払方法を追加</button>
+      <button class="btn" id="btn-do-split">この内容で登録</button>
+      <button class="btn sub" type="button" onclick="closeSettleModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- =============== モーダル（テーブル移動） =============== -->
+<div id="move-modal" class="modal" style="display:none">
+  <div class="modal-body">
+    <h3>テーブル移動</h3>
+    <div class="small" id="move-hint"></div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px">
+      <label class="small">移動先テーブル</label>
+      <select id="move-dest" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px"></select>
+
+      <label class="small">モード</label>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <label><input type="radio" name="move-mode" value="deny" checked> 先客がいれば移動不可（deny）</label>
+        <label><input type="radio" name="move-mode" value="merge"> 先客がいれば合算（merge）</label>
+        <label><input type="radio" name="move-mode" value="merge_new"> 合算＋新しい伝票を作成（merge_new）</label>
+        <label><input type="radio" name="move-mode" value="swap"> 先客がいれば交換（swap）</label>
+      </div>
+
+      <div class="small" style="color:var(--muted)">
+        ・merge：明細/支払/お客様情報を移動先の伝票に集約します（移動先の伝票IDを温存）。<br>
+        ・merge_new：双方の伝票を会計済(統合)にし、新しい伝票IDを作ってそこへ集約します。<br>
+        ・swap：二つの伝票・お客様状態・QR を相互に入れ替えます。
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+        <button class="btn" id="btn-do-move">実行</button>
+        <button class="btn sub" type="button" onclick="closeMoveModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* 簡易モーダル（共用） */
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center; z-index:9999;}
+.modal-body{ background:#fff; color:#111; width:min(680px, 94vw); border-radius:12px; padding:16px; box-shadow:0 10px 24px rgba(0,0,0,.18);}
+.modal-body h3{ margin:0 0 8px 0;}
+.pay-row{ display:grid; grid-template-columns: 1fr 160px 36px; gap:8px; align-items:center; }
+.pay-row select, .pay-row input{ width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; }
+.pay-row button{ width:36px; height:36px; }
+/* バッジ色 */
+.badge-ok{ background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:0 6px; border-radius:10px; }
+.badge-warn{ background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:0 6px; border-radius:10px; }
+</style>
+
+<script>
+// ===== 画面データをJSへ（テーブル一覧を移動UIに活用） =====
+window.__tables = {{ tables|tojson }};
+
+let _settle_ctx = {
+  table_id: null,
+  order_id: null,
+  total: 0,
+  paid: 0,
+  remaining: 0,
+  methods: [] // {id, name, code}
+};
+
+function yen(n){
+  try{ return '¥' + Number(n).toLocaleString('ja-JP'); }catch(e){ return '¥' + n; }
+}
+
+function forceReload(){
+  const url = new URL(location.href);
+  url.searchParams.set('r', Date.now().toString());
+  setTimeout(()=>{ location.assign(url.toString()); }, 60);
+}
+
+/* ============ 会計モーダル群（既存） ============ */
+function closeSettleModal(){
+  const m = document.getElementById('settle-modal');
+  if(m) m.style.display = 'none';
+  _settle_ctx = { table_id:null, order_id:null, total:0, paid:0, remaining:0, methods:[] };
+  document.getElementById('pay-rows').innerHTML = '';
+}
+function canSettleFromSummary(sm){
+  const pending = Number((sm && sm.items_pending) ?? 0);
+  if (typeof sm?.items_ready === 'boolean') {
+    return {ready: sm.items_ready, pending};
+  }
+  return {ready: pending === 0, pending};
+}
+
+async function openSettleModal(table_id, order_id){
+  _settle_ctx.table_id = table_id;
+  _settle_ctx.order_id = order_id;
+  document.getElementById('settle-table-hint').textContent = `テーブルID: ${table_id} / 注文ID: ${order_id}`;
+
+  // ---- サマリ取得（互換キー対応）----
+  try{
+    const r2 = await fetch(`/admin/order/${order_id}/summary`);
+    const j = await r2.json();
+    if(!j.ok) throw new Error(j.error || 'summary load failed');
+
+    // 取消反映後の金額はサーバが返す j.total / j.paid / j.remaining を最優先
+    const total     = j.total     ?? j.合計        ?? j.grand_total ?? 0;
+    const paid      = j.paid      ?? j.既払        ?? j.paid_total  ?? 0;
+    const remaining = j.remaining ?? j.残額        ?? j.amount_due  ?? (total - paid);
+
+    // 既存の「未提供チェック」互換（j.summary があれば使う、無ければスキップ）
+    let ready = true, pending = 0;
+    if (j.summary) {
+      const rdy = canSettleFromSummary(j.summary);
+      ready = rdy.ready; pending = rdy.pending;
+    }
+    if (!ready) {
+      const go = confirm(`未提供/調理中の明細が ${pending} 件あります。\nそれでも会計を続行しますか？`);
+      if (!go) return;
+    }
+
+    _settle_ctx.total = Number(total);
+    _settle_ctx.paid = Number(paid);
+    _settle_ctx.remaining = Number(remaining);
+    document.getElementById('settle-summary').innerHTML =
+      `合計: <strong>${yen(_settle_ctx.total)}</strong> ／ 既払: <strong>${yen(_settle_ctx.paid)}</strong> ／ 残額: <strong>${yen(_settle_ctx.remaining)}</strong>`;
+  }catch(e){
+    alert('注文サマリの取得に失敗しました。');
+    return;
+  }
+
+  // ---- 支払方法の取得 ----
+  try{
+    const r1 = await fetch('/admin/payment_methods/json');
+    const j1 = await r1.json();
+    if(!j1.ok) throw new Error('methods load failed');
+    _settle_ctx.methods = j1.methods || [];
+  }catch(e){
+    alert('支払方法の取得に失敗しました。ページを更新してください。');
+    return;
+  }
+
+  // 初期行を1行追加して開く
+  const box = document.getElementById('pay-rows');
+  box.innerHTML = '';
+  addPayRow();
+  document.getElementById('btn-do-split').onclick = doSplitSettle;
+  document.getElementById('settle-modal').style.display = 'flex';
+}
+
+function buildMethodSelect(){
+  const sel = document.createElement('select');
+  _settle_ctx.methods.forEach(m=>{
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.name} (${m.code})`;
+    sel.appendChild(opt);
+  });
+  return sel;
+}
+function addPayRow(){
+  const row = document.createElement('div');
+  row.className = 'pay-row';
+  const sel = buildMethodSelect(); sel.required = true;
+  const input = document.createElement('input'); input.type = 'number'; input.min='1'; input.step='1'; input.placeholder='金額（例：1000）';
+  const del = document.createElement('button'); del.type='button'; del.className='btn sub'; del.textContent='×';
+  del.onclick = () => { row.remove(); updateRemainingHint(); };
+  input.addEventListener('input', updateRemainingHint);
+  row.appendChild(sel); row.appendChild(input); row.appendChild(del);
+  document.getElementById('pay-rows').appendChild(row);
+  updateRemainingHint();
+}
+function calcEnteredSum(){
+  const inputs = Array.from(document.querySelectorAll('#pay-rows input[type="number"]'));
+  return inputs.reduce((a, el)=> a + Number(el.value||0), 0);
+}
+function updateRemainingHint(){
+  const sum = calcEnteredSum();
+  const remainAfter = Math.max(0, _settle_ctx.remaining - sum);
+  const sdiv = document.getElementById('settle-summary');
+  const over = sum > _settle_ctx.remaining;
+  const badgeClass = over ? 'badge-warn' : 'badge-ok';
+  sdiv.innerHTML = `合計: <strong>${yen(_settle_ctx.total)}</strong> ／ 既払: <strong>${yen(_settle_ctx.paid)}</strong> ／ 残額: <strong>${yen(_settle_ctx.remaining)}</strong>
+    <span class="${badgeClass}" style="margin-left:8px">今回入力合計: ${yen(sum)} / 登録後の残額: ${yen(remainAfter)}</span>`;
+}
+async function doSplitSettle(){
+  let force = false;
+  try{
+    const r = await fetch(`/admin/order/${_settle_ctx.order_id}/summary`);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'summary reload failed');
+    // j.summary がある時だけ未提供チェック
+    if (j.summary){
+      const {ready, pending} = canSettleFromSummary(j.summary || {});
+      if (!ready) {
+        const go = confirm(`未提供の明細が ${pending} 件あります。\nそれでも会計を続行しますか？`);
+        if (!go) { closeSettleModal(); return; }
+        force = true;
+      }
+    }
+  }catch(e){
+    alert('サマリの再取得に失敗しました。'); return;
+  }
+  const rows = Array.from(document.querySelectorAll('#pay-rows .pay-row'));
+  if(rows.length === 0){ alert('支払行を1つ以上追加してください。'); return; }
+  const payments = [];
+  for(const r of rows){
+    const method_id = Number(r.querySelector('select').value || 0);
+    const amount = Number(r.querySelector('input').value || 0);
+    if(!method_id){ alert('支払方法を選択してください。'); return; }
+    if(!(amount > 0)){ alert('金額は1以上で入力してください。'); return; }
+    payments.push({method_id, amount});
+  }
+  const enteredSum = payments.reduce((a,p)=>a+p.amount,0);
+  if(enteredSum > _settle_ctx.remaining){ alert('入力金額の合計が残額を超えています。'); return; }
+  try{
+    const r = await fetch(`/admin/settle/${_settle_ctx.table_id}/pay`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ order_id: _settle_ctx.order_id, payments, force })
+    });
+    let j = await r.json();
+    if(!j.ok && j.need_force){
+      const go = confirm(`未提供の明細があります（${j.pending} 件）。\nそれでも会計を続行しますか？`);
+      if(!go) return;
+      const r2 = await fetch(`/admin/settle/${_settle_ctx.table_id}/pay`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ order_id: _settle_ctx.order_id, payments, force:true })
+      });
+      j = await r2.json();
+    }
+    if(!j.ok){ alert(j.error || '登録に失敗しました'); return; }
+    alert('支払いを登録しました。最新表示に更新します。'); forceReload();
+  }catch(e){ alert('通信に失敗しました'); }
+}
+
+/* ============ 会計取消 / 完了 ============ */
+async function voidPayments(order_id){
+  if(!confirm('この伝票の支払いを取り消します。よろしいですか？（会計済の伝票は取り消せません）')) return;
+  const btn = event?.currentTarget;
+  if(btn){ btn.disabled = true; btn.dataset.lbl = btn.textContent; btn.textContent = '処理中…'; }
+  try{
+    const r = await fetch(`/admin/order/${order_id}/void-payments`, { method:'POST' });
+    const j = await r.json();
+    if(!j.ok){ alert(j.error || '取り消しに失敗しました'); return; }
+    alert('支払いを取り消しました。最新表示に更新します。'); forceReload();
+  }catch(e){ alert('通信に失敗しました'); }
+  finally{ if(btn){ btn.disabled = false; btn.textContent = btn.dataset.lbl || '会計取り消し'; } }
+}
+async function completeOrder(order_id){
+  if(!confirm('この伝票を会計完了にしますか？（残額0である必要があります）')) return;
+  const btn = event?.currentTarget;
+  if(btn){ btn.disabled = true; btn.dataset.lbl = btn.textContent; btn.textContent = '処理中…'; }
+  try{
+    const r = await fetch(`/admin/order/${order_id}/complete`, { method:'POST' });
+    const j = await r.json();
+    if(!j.ok){ alert(j.error || '完了に失敗しました'); return; }
+    alert('会計を完了しました。最新表示に更新します。'); forceReload();
+  }catch(e){ alert('通信に失敗しました'); }
+  finally{ if(btn){ btn.disabled = false; btn.textContent = btn.dataset.lbl || '会計完了'; } }
+}
+
+/* ============ テーブル移動モーダル群 ============ */
+let _move_ctx = { from_table_id: null, from_order_id: null };
+
+function closeMoveModal(){
+  const m = document.getElementById('move-modal');
+  if(m) m.style.display = 'none';
+  _move_ctx = { from_table_id:null, from_order_id:null };
+  const sel = document.getElementById('move-dest');
+  if (sel) sel.innerHTML = '';
+}
+
+function buildDestOptions(from_id){
+  const sel = document.getElementById('move-dest');
+  sel.innerHTML = '';
+  (window.__tables || []).forEach(t=>{
+    if (t.id === from_id) return; // 自席は除外
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = `テーブル ${t["テーブル番号"]}（ID:${t.id}）`;
+    sel.appendChild(opt);
+  });
+}
+
+function getSelectedMoveMode(){
+  const v = document.querySelector('input[name="move-mode"]:checked')?.value || 'deny';
+  return v;
+}
+
+function openMoveModal(from_table_id, from_order_id){
+  _move_ctx.from_table_id = from_table_id;
+  _move_ctx.from_order_id = from_order_id;
+  buildDestOptions(from_table_id);
+  document.getElementById('move-hint').textContent = `移動元テーブルID: ${from_table_id} / 注文ID: ${from_order_id}`;
+  document.getElementById('btn-do-move').onclick = doMove;
+  document.getElementById('move-modal').style.display = 'flex';
+}
+
+async function doMove(){
+  const to_table_id = Number(document.getElementById('move-dest').value || 0);
+  const mode = getSelectedMoveMode(); // "deny" | "merge" | "merge_new" | "swap"
+  if(!to_table_id){ alert('移動先テーブルを選択してください。'); return; }
+  const btn = document.getElementById('btn-do-move');
+  if(btn){ btn.disabled = true; btn.dataset.lbl = btn.textContent; btn.textContent = '処理中…'; }
+  try{
+    const r = await fetch('/admin/table/move', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ from_table_id: _move_ctx.from_table_id, to_table_id, mode })
+    });
+
+    if (r.status === 409) {
+      const j409 = await r.json().catch(()=>({}));
+      alert(j409.error || '移動できません（先客がいます）');
+      return;
+    }
+
+    const j = await r.json();
+    if(!j.ok){
+      alert(j.error || 'テーブル移動に失敗しました'); return;
+    }
+
+    // 成功メッセージ（モード別）
+    if (mode === 'merge_new' && j.merged_new && j.new_order_id){
+      alert(`統合して新しい伝票を作成しました（新伝票ID: ${j.new_order_id}）。\n最新表示に更新します。`);
+    } else if (mode === 'swap' && j.swapped){
+      alert('テーブルを交換しました。最新表示に更新します。');
+    } else {
+      alert('テーブル移動が完了しました。最新表示に更新します。');
+    }
+    forceReload();
+  }catch(e){ alert('通信に失敗しました'); }
+  finally{ if(btn){ btn.disabled = false; btn.textContent = btn.dataset.lbl || '実行'; } }
+}
+
+// ============================================================
+// 過去日付注文モード
+// ============================================================
+// アクティブな過去日付注文があるかチェック
+async function checkActiveOrders() {
+  try {
+    const response = await fetch('/api/orders/active_past_orders');
+    const data = await response.json();
+    return data.has_active_orders || false;
+  } catch (error) {
+    console.error('アクティブ注文のチェックに失敗:', error);
+    return false; // エラー時は解除を許可
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const toggle = document.getElementById('past-order-mode-toggle');
+  const details = document.getElementById('past-order-details');
+  const dateInput = document.getElementById('custom-order-date');
+  const btnSet = document.getElementById('btn-set-date');
+  const btnClear = document.getElementById('btn-clear-date');
+  const display = document.getElementById('current-date-display');
+
+  // ページ読み込み時にlocalStorageから状態を復元
+  function loadState() {
+    const enabled = localStorage.getItem('pastOrderModeEnabled') === 'true';
+    const savedDate = localStorage.getItem('customOrderDate');
+    const source = localStorage.getItem('pastOrderModeSource');
+
+    toggle.checked = enabled;
+    details.style.display = enabled ? 'block' : 'none';
+
+    if (enabled && savedDate) {
+      // ISO形式 (YYYY-MM-DD HH:MM:SS) を datetime-local用に変換
+      const isoDate = savedDate.replace(' ', 'T').substring(0, 16);
+      dateInput.value = isoDate;
+      display.textContent = `設定中: ${savedDate}`;
+    } else {
+      display.textContent = '';
+    }
+  }
+
+  // トグル変更
+  toggle.addEventListener('change', async function() {
+    const enabled = toggle.checked;
+    
+    // モードをオフにしようとしている場合、アクティブなセッションをチェック
+    if (!enabled) {
+      const hasActiveOrders = await checkActiveOrders();
+      if (hasActiveOrders) {
+        alert('過去日付で注文中のセッションがあります。\n会計完了またはセッション初期化を行ってから解除してください。');
+        toggle.checked = true; // 元に戻す
+        return;
+      }
+    }
+    
+    details.style.display = enabled ? 'block' : 'none';
+
+    if (enabled) {
+      localStorage.setItem('pastOrderModeEnabled', 'true');
+    } else {
+      localStorage.removeItem('pastOrderModeEnabled');
+      localStorage.removeItem('customOrderDate');
+      localStorage.removeItem('pastOrderModeSource');
+      dateInput.value = '';
+      display.textContent = '';
+    }
+  });
+
+  // 日付を設定
+  btnSet.addEventListener('click', function() {
+    const val = dateInput.value;
+    if (!val) {
+      alert('日付を選択してください');
+      return;
+    }
+    // datetime-local形式 (YYYY-MM-DDTHH:mm) をバックエンド用に変換
+    const formatted = val.replace('T', ' ') + ':00';
+    localStorage.setItem('customOrderDate', formatted);
+    localStorage.setItem('pastOrderModeEnabled', 'true');
+    localStorage.setItem('pastOrderModeSource', 'floor');
+    display.textContent = `設定中: ${formatted}`;
+    alert(`過去日付が設定されました: ${formatted}`);
+  });
+
+  // 日付をクリア
+  btnClear.addEventListener('click', function() {
+    localStorage.removeItem('customOrderDate');
+    localStorage.removeItem('pastOrderModeEnabled');
+    localStorage.removeItem('pastOrderModeSource');
+    dateInput.value = '';
+    display.textContent = '';
+    toggle.checked = false;
+    dateInput.disabled = true;
+    btnSet.disabled = true;
+    btnClear.disabled = true;
+    alert('過去日付設定をクリアしました');
+  });
+
+  loadState();
+});
+</script>
+{% endblock %}

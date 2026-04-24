@@ -2362,6 +2362,14 @@ AVAILABLE_APPS = [
         'url': '/apps/reservation',
         'icon': '📅',
         'scope': 'store'
+    },
+    {
+        'name': 'pos',
+        'display_name': 'POSシステム',
+        'description': 'QRオーダー対応の高機能POSシステム。テーブル管理・メニュー管理・売上集計・印刷対応',
+        'url': '/apps/pos',
+        'icon': '💳',
+        'scope': 'store'
     }
 ]
 

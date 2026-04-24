@@ -8682,10 +8682,7 @@ def order_detail_json(order_id: int):
 
 
 # --- [Order API] 会計完了（残額=0 確認→クローズ） ------------------------------
-# --- dev guard: avoid duplicate endpoint registration (開発中のみ) ------------
-if "order_complete" in current_app.view_functions:
-    current_app.logger.warning("replacing endpoint: order_complete")
-    del current_app.view_functions["order_complete"]
+# --- dev guard: removed (blueprint mode - no duplicate registration) ----
 
 
 # --- [Order API] 会計完了（残額=0 確認→クローズ） -----------------------------------------------

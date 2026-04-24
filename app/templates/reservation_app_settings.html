@@ -17,7 +17,7 @@
   <!-- 予約基本設定 -->
   <div class="settings-section">
     <h2>基本設定</h2>
-    <form method="POST" action="{{ url_for('reservation_app.save_settings', store_id=store.id) }}">
+    <form method="POST" action="{{ url_for('reservation_app.settings', store_id=store.id) }}">
       <div class="form-group">
         <label>営業開始時刻</label>
         <input type="time" name="営業開始時刻" value="{{ settings['営業開始時刻'] if settings else '11:00' }}" required>

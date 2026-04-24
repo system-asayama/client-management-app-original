@@ -32,7 +32,7 @@ def _get_admin_info():
 
 @bp.route("/")
 @bp.route("")
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def index():
     """アンケートシステムトップ - セッションのstore_idへリダイレクト"""
     store_id = session.get("store_id")
@@ -44,7 +44,7 @@ def index():
 
 # ===== ダッシュボード =====
 @bp.route('/store/<int:store_id>/')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def dashboard(store_id):
     """アンケートダッシュボード"""
     admin = _get_admin_info()
@@ -104,7 +104,7 @@ def dashboard(store_id):
 
 # ===== 回答一覧 =====
 @bp.route('/store/<int:store_id>/responses')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def responses(store_id):
     """全回答データを表示"""
     admin = _get_admin_info()
@@ -136,7 +136,7 @@ def responses(store_id):
 
 # ===== CSV エクスポート =====
 @bp.route('/store/<int:store_id>/export/csv')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def export_csv(store_id):
     """回答データをCSVでエクスポート"""
     conn = get_db_connection()
@@ -162,7 +162,7 @@ def export_csv(store_id):
 
 # ===== アンケート設定エディタ =====
 @bp.route('/store/<int:store_id>/editor', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def survey_editor(store_id):
     """アンケート設定エディタ"""
     admin = _get_admin_info()

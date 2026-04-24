@@ -16,7 +16,7 @@ def _get_admin_name():
 
 @bp.route("/")
 @bp.route("")
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def index():
     """スタンプカードトップ - セッションのstore_idへリダイレクト"""
     store_id = session.get("store_id")
@@ -28,7 +28,7 @@ def index():
 
 # ===== 設定 =====
 @bp.route('/store/<int:store_id>/settings', methods=['GET', 'POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def settings(store_id):
     """スタンプカード設定（複数特典対応）"""
     conn = get_db_connection()
@@ -122,7 +122,7 @@ def settings(store_id):
 
 # ===== 顧客一覧 =====
 @bp.route('/store/<int:store_id>/customers')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def customers(store_id):
     """顧客一覧"""
     conn = get_db_connection()
@@ -164,7 +164,7 @@ def customers(store_id):
 
 # ===== 顧客詳細 =====
 @bp.route('/store/<int:store_id>/customers/<int:customer_id>')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def customer_detail(store_id, customer_id):
     """顧客詳細"""
     conn = get_db_connection()
@@ -213,7 +213,7 @@ def customer_detail(store_id, customer_id):
 
 # ===== スタンプ追加 =====
 @bp.route('/store/<int:store_id>/customers/<int:customer_id>/add_stamp', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def add_stamp(store_id, customer_id):
     """スタンプを追加"""
     stamps_to_add = int(request.form.get('stamps_to_add', 1))
@@ -278,7 +278,7 @@ def add_stamp(store_id, customer_id):
 
 # ===== スタンプ削除 =====
 @bp.route('/store/<int:store_id>/customers/<int:customer_id>/remove_stamp', methods=['POST'])
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def remove_stamp(store_id, customer_id):
     """スタンプを削除"""
     stamps_to_remove = int(request.form.get('stamps_to_remove', 1))
@@ -320,7 +320,7 @@ def remove_stamp(store_id, customer_id):
 
 # ===== 統計 =====
 @bp.route('/store/<int:store_id>/stats')
-@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def stats(store_id):
     """統計・レポート"""
     conn = get_db_connection()

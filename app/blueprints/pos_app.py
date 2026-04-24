@@ -418,7 +418,7 @@ def get_db_session():
             current_app.logger.error(f"[DB] Session cleanup failed: {close_error}")
 
 # --- [Flask] リクエスト後のクリーンアップ ---------------------------------------------
-@bp.teardown_appcontext
+@bp.teardown_request
 def shutdown_session(exception=None):
     """
     リクエスト終了時にデータベースセッションをクリーンアップ。

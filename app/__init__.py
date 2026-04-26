@@ -458,19 +458,6 @@ def create_app() -> Flask:
         print("✅ reservation_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ reservation_app blueprint 登録エラー: {e}")
-    # POSシステム blueprint登録
-    try:
-        from .blueprints.pos_app import bp as pos_app_bp
-        app.register_blueprint(pos_app_bp)
-        print("✅ pos_app blueprint 登録完了")
-    except Exception as e:
-        print(f"⚠️ pos_app blueprint 登録エラー: {e}")
-    try:
-        from .blueprints.pos_printer_format import pos_printer_format_bp
-        app.register_blueprint(pos_printer_format_bp)
-        print("✅ pos_printer_format blueprint 登録完了")
-    except Exception as e:
-        print(f"⚠️ pos_printer_format blueprint 登録エラー: {e}")
     # カスタムJinja2フィルター
     import json as _json
     @app.template_filter('from_json')

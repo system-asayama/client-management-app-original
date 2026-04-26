@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}スタンプカード集計 - テナント全店舗{% endblock %}
+{% block header %}🎫 スタンプカード集計 - 全店舗{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:1200px;margin:0 auto;">
+
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
+    <h2 style="margin:0;font-size:20px;flex:1;">店舗別スタンプカード集計</h2>
+    <a href="{{ url_for('tenant_admin.tenant_apps') }}" class="btn" style="background:#6b7280;color:white;border:none;">← アプリ一覧に戻る</a>
+  </div>
+
+  {% if not store_stats %}
+  <div class="alert alert-warning">配下の店舗が見つかりません。</div>
+  {% endif %}
+
+  {% for stat in store_stats %}
+  <div style="background:white;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:32px;overflow:hidden;">
+    <!-- 店舗ヘッダー -->
+    <div style="background:linear-gradient(135deg,#10b981,#059669);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h3 style="margin:0;color:white;font-size:20px;">🏪 {{ stat.store.name }}</h3>
+        <span style="color:rgba(255,255,255,0.8);font-size:14px;">スタンプカード集計</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="{{ url_for('stampcard_app.customers', store_id=stat.store.id) }}"
+           style="background:white;color:#059669;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          👥 顧客一覧
+        </a>
+        <a href="{{ url_for('stampcard_app.settings', store_id=stat.store.id) }}"
+           style="background:rgba(255,255,255,0.2);color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">
+          ⚙️ 店舗設定
+        </a>
+        <a href="{{ url_for('stampcard_app.stats', store_id=stat.store.id) }}"
+           style="background:rgba(255,255,255,0.2);color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">
+          📊 統計
+        </a>
+      </div>
+    </div>
+
+    <div style="padding:24px;">
+      <!-- サマリーカード -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
+        <div style="background:#ecfdf5;padding:16px;border-radius:12px;text-align:center;">
+          <div style="font-size:32px;font-weight:bold;color:#10b981;">{{ stat.total_customers }}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">登録顧客数</div>
+        </div>
+        <div style="background:#eff6ff;padding:16px;border-radius:12px;text-align:center;">
+          <div style="font-size:32px;font-weight:bold;color:#3b82f6;">{{ stat.total_stamps }}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">累計スタンプ数</div>
+        </div>
+        <div style="background:#fef3c7;padding:16px;border-radius:12px;text-align:center;">
+          <div style="font-size:32px;font-weight:bold;color:#d97706;">{{ stat.total_rewards }}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">特典使用回数</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex-wrap:wrap;">
+
+        <!-- 上位顧客 -->
+        <div>
+          <h4 style="margin:0 0 12px;font-size:15px;color:#374151;">スタンプ上位顧客</h4>
+          {% if stat.top_customers %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="background:#f9fafb;">
+                  <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">顧客名</th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">現在</th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">累計</th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">特典</th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in stat.top_customers %}
+                <tr style="border-bottom:1px solid #f3f4f6;{% if loop.index is odd %}background:#fafafa;{% endif %}">
+                  <td style="padding:8px 10px;font-weight:500;color:#374151;">{{ c.name }}</td>
+                  <td style="padding:8px 10px;text-align:center;color:#3b82f6;font-weight:600;">{{ c.current_stamps }}</td>
+                  <td style="padding:8px 10px;text-align:center;color:#374151;">{{ c.total_stamps }}</td>
+                  <td style="padding:8px 10px;text-align:center;color:#d97706;">{{ c.rewards_used }}</td>
+                  <td style="padding:8px 10px;text-align:center;">
+                    <a href="{{ url_for('stampcard_app.customer_detail', store_id=stat.store.id, customer_id=c.customer_id) }}"
+                       style="color:#3b82f6;font-size:12px;text-decoration:none;">詳細</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;">
+            <a href="{{ url_for('stampcard_app.customers', store_id=stat.store.id) }}" style="color:#10b981;font-size:14px;text-decoration:none;">
+              全顧客を見る →
+            </a>
+          </div>
+          {% else %}
+          <div style="text-align:center;padding:20px;color:#9ca3af;font-size:14px;">顧客データがありません</div>
+          {% endif %}
+        </div>
+
+        <!-- 最近の履歴 -->
+        <div>
+          <h4 style="margin:0 0 12px;font-size:15px;color:#374151;">最近のスタンプ履歴</h4>
+          {% if stat.recent_history %}
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="background:#f9fafb;">
+                  <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">日時</th>
+                  <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">顧客名</th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">操作</th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for h in stat.recent_history %}
+                <tr style="border-bottom:1px solid #f3f4f6;{% if loop.index is odd %}background:#fafafa;{% endif %}">
+                  <td style="padding:8px 10px;color:#6b7280;white-space:nowrap;font-size:12px;">{{ h.created_at }}</td>
+                  <td style="padding:8px 10px;color:#374151;">{{ h.customer_name }}</td>
+                  <td style="padding:8px 10px;text-align:center;">
+                    {% if h.action_type == 'add' %}
+                    <span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;font-size:12px;">追加</span>
+                    {% elif h.action_type == 'remove' %}
+                    <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:10px;font-size:12px;">削除</span>
+                    {% elif h.action_type == 'reward' %}
+                    <span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:10px;font-size:12px;">特典</span>
+                    {% else %}
+                    <span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:10px;font-size:12px;">{{ h.action_type }}</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding:8px 10px;text-align:center;font-weight:600;color:#374151;">{{ h.stamps_added }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div style="text-align:center;padding:20px;color:#9ca3af;font-size:14px;">履歴がありません</div>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

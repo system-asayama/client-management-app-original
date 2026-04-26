@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}予約集計 - テナント全店舗{% endblock %}
+{% block header %}📅 予約集計 - 全店舗（{{ today }}）{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:1200px;margin:0 auto;">
+
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
+    <h2 style="margin:0;font-size:20px;flex:1;">本日の予約状況</h2>
+    <span style="background:#eff6ff;color:#3b82f6;padding:6px 14px;border-radius:20px;font-size:14px;font-weight:600;">📅 {{ today }}</span>
+    <a href="{{ url_for('tenant_admin.tenant_apps') }}" class="btn" style="background:#6b7280;color:white;border:none;">← アプリ一覧に戻る</a>
+  </div>
+
+  <!-- 全店舗サマリー -->
+  {% set total_all_groups = store_stats | sum(attribute='total_groups') %}
+  {% set total_all_people = store_stats | sum(attribute='total_people') %}
+  <div style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-radius:16px;padding:20px 24px;margin-bottom:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;">
+    <div style="text-align:center;color:white;">
+      <div style="font-size:36px;font-weight:bold;">{{ store_stats|length }}</div>
+      <div style="font-size:13px;opacity:0.85;margin-top:4px;">店舗数</div>
+    </div>
+    <div style="text-align:center;color:white;">
+      <div style="font-size:36px;font-weight:bold;">{{ total_all_groups }}</div>
+      <div style="font-size:13px;opacity:0.85;margin-top:4px;">総予約組数</div>
+    </div>
+    <div style="text-align:center;color:white;">
+      <div style="font-size:36px;font-weight:bold;">{{ total_all_people }}</div>
+      <div style="font-size:13px;opacity:0.85;margin-top:4px;">総予約人数</div>
+    </div>
+  </div>
+
+  {% if not store_stats %}
+  <div class="alert alert-warning">配下の店舗が見つかりません。</div>
+  {% endif %}
+
+  {% for stat in store_stats %}
+  <div style="background:white;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:28px;overflow:hidden;">
+    <!-- 店舗ヘッダー -->
+    <div style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div>
+          <h3 style="margin:0;color:white;font-size:18px;">🏪 {{ stat.store.name }}</h3>
+          <span style="color:rgba(255,255,255,0.8);font-size:13px;">本日の予約</span>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div style="background:rgba(255,255,255,0.2);border-radius:10px;padding:8px 16px;text-align:center;">
+            <div style="font-size:24px;font-weight:bold;color:white;">{{ stat.total_groups }}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.8);">組</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.2);border-radius:10px;padding:8px 16px;text-align:center;">
+            <div style="font-size:24px;font-weight:bold;color:white;">{{ stat.total_people }}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.8);">名</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="{{ url_for('reservation_app.reservation_list', store_id=stat.store.id) }}"
+           style="background:white;color:#6d28d9;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          📋 予約一覧
+        </a>
+        <a href="{{ url_for('reservation_app.calendar', store_id=stat.store.id) }}"
+           style="background:rgba(255,255,255,0.2);color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">
+          📆 カレンダー
+        </a>
+        <a href="{{ url_for('reservation_app.settings', store_id=stat.store.id) }}"
+           style="background:rgba(255,255,255,0.2);color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">
+          ⚙️ 設定
+        </a>
+      </div>
+    </div>
+
+    <div style="padding:20px 24px;">
+      {% if stat.reservations %}
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="background:#f9fafb;">
+              <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">時刻</th>
+              <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">予約番号</th>
+              <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">顧客名</th>
+              <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">人数</th>
+              <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">ステータス</th>
+              <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">テーブル</th>
+              <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">詳細</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in stat.reservations %}
+            <tr style="border-bottom:1px solid #f3f4f6;{% if loop.index is odd %}background:#fafafa;{% endif %}"
+                id="res-row-{{ stat.store.id }}-{{ r.id }}">
+              <td style="padding:10px 12px;font-weight:600;color:#374151;white-space:nowrap;">{{ r.time }}</td>
+              <td style="padding:10px 12px;color:#6b7280;font-size:12px;">{{ r.number }}</td>
+              <td style="padding:10px 12px;font-weight:500;color:#374151;">{{ r.customer_name }}</td>
+              <td style="padding:10px 12px;text-align:center;">
+                <span style="background:#eff6ff;color:#3b82f6;padding:3px 10px;border-radius:20px;font-weight:600;">{{ r.party_size }}名</span>
+              </td>
+              <td style="padding:10px 12px;text-align:center;">
+                {% if r.status == 'confirmed' %}
+                <span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:12px;">確定</span>
+                {% elif r.status == 'pending' %}
+                <span style="background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:20px;font-size:12px;">仮予約</span>
+                {% elif r.status == 'seated' %}
+                <span style="background:#eff6ff;color:#3b82f6;padding:3px 10px;border-radius:20px;font-size:12px;">着席中</span>
+                {% elif r.status == 'completed' %}
+                <span style="background:#f3f4f6;color:#6b7280;padding:3px 10px;border-radius:20px;font-size:12px;">完了</span>
+                {% else %}
+                <span style="background:#f3f4f6;color:#6b7280;padding:3px 10px;border-radius:20px;font-size:12px;">{{ r.status }}</span>
+                {% endif %}
+              </td>
+              <td style="padding:10px 12px;color:#374151;">{{ r.table or '--' }}</td>
+              <td style="padding:10px 12px;text-align:center;">
+                <button onclick="toggleDetail('{{ stat.store.id }}-{{ r.id }}')"
+                        style="background:#8b5cf6;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;">
+                  詳細
+                </button>
+              </td>
+            </tr>
+            <!-- 詳細行（折りたたみ） -->
+            <tr id="detail-{{ stat.store.id }}-{{ r.id }}" style="display:none;background:#f8f5ff;">
+              <td colspan="7" style="padding:12px 20px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;font-size:13px;">
+                  <div>
+                    <span style="color:#6b7280;">電話番号：</span>
+                    <span style="color:#374151;font-weight:500;">{{ r.phone or '--' }}</span>
+                  </div>
+                  <div>
+                    <span style="color:#6b7280;">特記事項：</span>
+                    <span style="color:#374151;">{{ r.note or 'なし' }}</span>
+                  </div>
+                  <div>
+                    <a href="{{ url_for('reservation_app.edit_reservation', store_id=stat.store.id, reservation_id=r.id) }}"
+                       style="color:#8b5cf6;text-decoration:none;font-weight:500;">✏️ 編集する</a>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:32px;color:#9ca3af;">
+        <div style="font-size:40px;margin-bottom:8px;">📭</div>
+        <div style="font-size:15px;">本日の予約はありません</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<script>
+function toggleDetail(key) {
+  var row = document.getElementById('detail-' + key);
+  if (row) {
+    row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+  }
+}
+</script>
+{% endblock %}

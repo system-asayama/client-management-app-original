@@ -2429,3 +2429,115 @@ def preset_delete(preset_id):
         return redirect(url_for('breeder.presets_list'))
     finally:
         db.close()
+
+
+# ─── JKCドッグショースケジュール取得API ────────────────────────────────────────
+@bp.route('/api/jkc-shows')
+def api_jkc_shows():
+    """JKC公式サイトからドッグショースケジュールをスクレイピングして返す"""
+    import requests as req
+    from bs4 import BeautifulSoup
+    import re
+    from datetime import datetime, timedelta
+
+    try:
+        today = datetime.today()
+        start = today.strftime('%Y%m%d')
+        end = (today + timedelta(days=180)).strftime('%Y%m%d')
+        url = f'https://www.jkc.or.jp/events/event_schedule/?_sfm_acf_ev_date={start}+{end}'
+        headers = {'User-Agent': 'Mozilla/5.0 (compatible; BreederApp/1.0)'}
+        resp = req.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, 'html.parser')
+
+        events = []
+        # JKCサイトの構造: 各イベントは .p-schedule__item 内に日付・タイトル・会場がある
+        # 日付は .p-schedule__date, タイトルは .p-schedule__title, 会場は .p-schedule__place
+        items = soup.select('.p-schedule__item')
+        if not items:
+            # 別のセレクタを試す
+            items = soup.select('.p-event-list__item, .p-schedule-list__item, article')
+
+        current_date = None
+        # 日付ヘッダーとイベントのペアを解析
+        for elem in soup.find_all(['h4', 'h3', 'div'], recursive=True):
+            text = elem.get_text(strip=True)
+            # 日付パターン: 2026年5月2日(土) など
+            date_match = re.match(r'(\d{4})年(\d{1,2})月(\d{1,2})日', text)
+            if date_match:
+                y, m, d = int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3))
+                try:
+                    current_date = datetime(y, m, d).strftime('%Y-%m-%d')
+                except Exception:
+                    pass
+
+        # より確実な方法: テキスト全体から日付+イベント名+会場を抽出
+        events = []
+        full_text = resp.text
+        # 日付ブロックを正規表現で抽出
+        # パターン: 開催日 → 日付 → 種別 → タイトル → 会場
+        date_pattern = re.compile(
+            r'(\d{4})年(\d{1,2})月(\d{1,2})日[^<]*?(?:水|木|金|土|日|月|火|祝|･)*\)'
+        )
+        
+        # BeautifulSoupで構造的に解析
+        # スケジュールコンテナを探す
+        schedule_container = soup.find(id='schedule-list') or soup.find(class_='p-schedule') or soup.find(class_='p-event-list')
+        
+        # テキストベースで解析
+        raw_text = soup.get_text(separator='\n')
+        lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+        
+        i = 0
+        current_date_str = None
+        while i < len(lines):
+            line = lines[i]
+            dm = re.match(r'^(\d{4})年(\d{1,2})月(\d{1,2})日', line)
+            if dm:
+                y, m, d = int(dm.group(1)), int(dm.group(2)), int(dm.group(3))
+                try:
+                    current_date_str = datetime(y, m, d).strftime('%Y-%m-%d')
+                except Exception:
+                    current_date_str = None
+                i += 1
+                continue
+            
+            if current_date_str:
+                # ドッグショーのイベント名を探す（「展」「クラブ」「ショー」を含む行）
+                if re.search(r'展\[|展（|クラブ展|ショー展|部会展|連合会展|インターナショナル', line):
+                    title = line
+                    # 次の行が会場名の可能性
+                    venue = ''
+                    if i + 1 < len(lines):
+                        next_line = lines[i + 1]
+                        # 会場名っぽい行（市・町・区・都・道・府・県・施設・公園・広場を含む）
+                        if re.search(r'市|町|区|都|道|府|県|施設|公園|広場|センター|ホール|アリーナ', next_line):
+                            venue = next_line
+                    
+                    events.append({
+                        'title': f'🐕 {title}',
+                        'start': current_date_str,
+                        'venue': venue,
+                        'color': '#2e7d32',
+                        'textColor': '#ffffff',
+                        'url': 'https://www.jkc.or.jp/events/event_schedule/',
+                        'extendedProps': {
+                            'venue': venue,
+                            'type': 'jkc_show'
+                        }
+                    })
+            i += 1
+        
+        # 重複除去（同日同タイトル）
+        seen = set()
+        unique_events = []
+        for ev in events:
+            key = (ev['start'], ev['title'])
+            if key not in seen:
+                seen.add(key)
+                unique_events.append(ev)
+        
+        return {'events': unique_events, 'count': len(unique_events)}
+    
+    except Exception as e:
+        return {'events': [], 'error': str(e)}, 200

@@ -564,8 +564,11 @@
         <li><a href="{{ url_for('breeder.heats_list') }}" class="{{ 'active' if 'heat' in request.endpoint }}">
           <span class="nav-icon">♥</span>ヒート管理
         </a></li>
-        <li><a href="{{ url_for('breeder.matings_list') }}" class="{{ 'active' if 'mating' in request.endpoint }}">
+        <li><a href="{{ url_for('breeder.matings_list') }}" class="{{ 'active' if request.endpoint == 'breeder.matings_list' or request.endpoint == 'breeder.mating_detail' }}">
           <span class="nav-icon">⟳</span>交配管理
+        </a></li>
+        <li><a href="{{ url_for('breeder.mating_bulk') }}" class="{{ 'active' if request.endpoint == 'breeder.mating_bulk' }}">
+          <span class="nav-icon">🔬</span>相性一括チェック
         </a></li>
         <li><a href="{{ url_for('breeder.births_list') }}" class="{{ 'active' if 'birth' in request.endpoint }}">
           <span class="nav-icon">★</span>出産管理

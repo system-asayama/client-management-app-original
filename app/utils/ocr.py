@@ -54,13 +54,15 @@ def extract_pedigree_info(filepath: str, scan_type: str = 'pedigree') -> dict:
         except ImportError:
             raise Exception('PDFの処理にはpdf2imageが必要です。画像ファイル（JPG/PNG）でアップロードしてください。')
 
+    # APIキーを階層順に取得
+    # 1. アプリ設定 → 2. 店舗設定 → 3. テナント設定 → 4. システム管理者設定 → 5. 環境変数
+    google_api_key, openai_api_key = _resolve_api_keys()
+
     # Google Cloud Vision APIを試みる
-    google_api_key = os.environ.get('GOOGLE_CLOUD_VISION_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     if google_api_key:
         return _extract_with_google_vision(filepath, scan_type, google_api_key)
 
     # OpenAI Vision APIを試みる
-    openai_api_key = os.environ.get('OPENAI_API_KEY')
     if openai_api_key:
         return _extract_with_openai_vision(filepath, scan_type, openai_api_key)
 
@@ -68,6 +70,121 @@ def extract_pedigree_info(filepath: str, scan_type: str = 'pedigree') -> dict:
         'OCR APIキーが設定されていません。'
         'アプリ設定でGoogle Cloud Vision APIキーまたはOpenAI APIキーを設定してください。'
     )
+
+
+def _resolve_api_keys() -> tuple:
+    """
+    APIキーを以下の優先順位で解決して返す:
+    1. アプリ設定 (app_settings テーブル: key='google_vision_api_key' / 'openai_api_key')
+    2. 店舗設定 (T_店舗テーブル: store_id はセッションから)
+    3. テナント設定 (T_テナントテーブル)
+    4. システム管理者設定 (T_管理者テーブル)
+    5. アプリ管理者グループ設定 (T_アプリ管理者グループテーブル)
+    6. 環境変数
+
+    Returns:
+        (google_vision_api_key, openai_api_key) のタプル。未設定の場合は None
+    """
+    google_key = None
+    openai_key = None
+
+    try:
+        from flask import session as flask_session
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            tenant_id = flask_session.get('tenant_id')
+            store_id = flask_session.get('store_id')
+            user_id = flask_session.get('user_id')
+
+            # ── 1. アプリ設定 (app_settings key-value) ──────────────────────────
+            from app.models_breeder import AppSetting
+            q = db.query(AppSetting)
+            if tenant_id:
+                q = q.filter(AppSetting.tenant_id == tenant_id)
+            if store_id:
+                q = q.filter(AppSetting.store_id == store_id)
+            for row in q.all():
+                if row.key == 'google_vision_api_key' and row.value:
+                    google_key = row.value
+                elif row.key == 'openai_api_key' and row.value:
+                    openai_key = row.value
+            if google_key or openai_key:
+                return google_key, openai_key
+
+            # ── 2. 店舗設定 (T_店舗) ────────────────────────────────────────────
+            if store_id:
+                from app.models_login import TTenpo
+                tenpo = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+                if tenpo:
+                    google_key = getattr(tenpo, 'google_vision_api_key', None) or None
+                    openai_key = getattr(tenpo, 'openai_api_key', None) or None
+                    if google_key or openai_key:
+                        return google_key, openai_key
+
+            # ── 3. テナント設定 (T_テナント) ─────────────────────────────────────
+            if tenant_id:
+                from app.models_login import TTenant
+                tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+                if tenant:
+                    google_key = getattr(tenant, 'google_vision_api_key', None) or None
+                    openai_key = getattr(tenant, 'openai_api_key', None) or None
+                    if google_key or openai_key:
+                        return google_key, openai_key
+
+            # ── 4. システム管理者設定 (T_管理者) ─────────────────────────────────
+            if user_id:
+                from app.models_login import TKanrisha
+                admin = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+                if admin:
+                    google_key = getattr(admin, 'google_vision_api_key', None) or None
+                    openai_key = getattr(admin, 'openai_api_key', None) or None
+                    if google_key or openai_key:
+                        return google_key, openai_key
+                    # ── 5. アプリ管理者グループ設定 ────────────────────────────
+                    group_id = getattr(admin, 'app_manager_group_id', None)
+                    if group_id:
+                        from app.models_login import TAppManagerGroup
+                        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+                        if group:
+                            google_key = getattr(group, 'google_vision_api_key', None) or None
+                            openai_key = getattr(group, 'openai_api_key', None) or None
+                            if google_key or openai_key:
+                                return google_key, openai_key
+
+            # システム管理者を全件検索（role='system_admin'のいずれかのAPIキーを使用）
+            try:
+                from app.models_login import TKanrisha
+                sys_admins = db.query(TKanrisha).filter(
+                    TKanrisha.role == 'system_admin'
+                ).all()
+                for sa in sys_admins:
+                    gk = getattr(sa, 'google_vision_api_key', None) or None
+                    ok = getattr(sa, 'openai_api_key', None) or None
+                    if gk or ok:
+                        return gk, ok
+                    group_id = getattr(sa, 'app_manager_group_id', None)
+                    if group_id:
+                        from app.models_login import TAppManagerGroup
+                        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
+                        if group:
+                            gk2 = getattr(group, 'google_vision_api_key', None) or None
+                            ok2 = getattr(group, 'openai_api_key', None) or None
+                            if gk2 or ok2:
+                                return gk2, ok2
+            except Exception:
+                pass
+
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    # ── 6. 環境変数 ──────────────────────────────────────────────────────────
+    google_key = os.environ.get('GOOGLE_CLOUD_VISION_API_KEY') or os.environ.get('GOOGLE_API_KEY') or None
+    openai_key = os.environ.get('OPENAI_API_KEY') or None
+    return google_key, openai_key
 
 
 def _build_prompt(scan_type: str) -> str:

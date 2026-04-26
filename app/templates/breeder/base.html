@@ -672,6 +672,11 @@
             <span style="font-size:0.65rem;background:var(--border);color:var(--text-dim);padding:0.1rem 0.4rem;border-radius:99px;margin-left:0.3rem;">全店舗</span>
           {% endif %}
         </a></li>
+        {% if session.get('role') == 'tenant_admin' %}
+        <li><a href="{{ url_for('breeder.permissions') }}" class="{{ 'active' if 'permission' in request.endpoint }}">
+          <span class="nav-icon">🔑</span>権限管理
+        </a></li>
+        {% endif %}
       </ul>
     </div>
 

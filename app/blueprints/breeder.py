@@ -27,11 +27,31 @@ def _require_login():
     return None
 
 
+def _get_breeder_permission(admin_id, tenant_id):
+    """admin_idがtenant_idに対して持つブリーダー権限レベルを返す。
+    戻り値: 'operate'（操作権限）, 'view'（閲覧のみ）, None（権限なし）
+    """
+    if not admin_id or not tenant_id:
+        return None
+    try:
+        from app.models_breeder import BreederPermission
+        db = _get_db()
+        perm = db.query(BreederPermission).filter(
+            BreederPermission.admin_id == admin_id,
+            BreederPermission.tenant_id == tenant_id
+        ).first()
+        db.close()
+        return perm.permission_level if perm else None
+    except Exception:
+        return None
+
+
 def _get_tenant_store():
     """ロールに応じてtenant_idとstore_idを返す。
     - system_admin: 両方None（全データ）
     - tenant_admin: tenant_idのみ（全店舗集計）、store_idはNone
-    - admin/employee: tenant_id + store_id
+    - admin: デフォルトは自店舗のみ。breeder_permissionsに権限があればテナント全体
+    - employee: tenant_id + store_id（自店舗のみ）
     """
     role = session.get('role', '')
     if role == 'system_admin':
@@ -40,7 +60,33 @@ def _get_tenant_store():
     if role == 'tenant_admin':
         return tenant_id, None  # 全店舗集計
     store_id = session.get('store_id')
+    # admin の場合、権限チェック
+    if role == 'admin':
+        admin_id = session.get('user_id')
+        perm = _get_breeder_permission(admin_id, tenant_id)
+        if perm in ('view', 'operate'):
+            return tenant_id, None  # テナント全体を参照
     return tenant_id, store_id
+
+
+def _can_operate(tenant_id=None):
+    """現在のユーザーがデータの追加・編集・削除（操作）を行えるか判定。
+    - system_admin / tenant_admin: 常にTrue
+    - admin: 自店舗データは常にTrue。テナント全体は 'operate' 権限が必要
+    - employee: 自店舗データのみTrue
+    """
+    role = session.get('role', '')
+    if role in ('system_admin', 'tenant_admin'):
+        return True
+    if role == 'admin':
+        # テナント全体操作の場合は operate 権限が必要
+        if tenant_id and session.get('tenant_id') == tenant_id:
+            admin_id = session.get('user_id')
+            perm = _get_breeder_permission(admin_id, tenant_id)
+            if perm == 'operate':
+                return True
+        return True  # 自店舗データは常に操作可
+    return role == 'employee'  # employee は自店舗のみ操作可
 
 def _get_role():
     return session.get('role', '')
@@ -1335,6 +1381,96 @@ def select_store():
                                current_store_id=session.get('store_id'))
     finally:
         db.close()
+
+# ─── 権限管理 ──────────────────────────────────────────────
+@bp.route('/permissions')
+@require_roles(ROLES["TENANT_ADMIN"])
+def permissions():
+    """権限管理ページ（テナント管理者のみ）"""
+    from app.models_breeder import BreederPermission
+    from app.models_login import TKanrisha, TTenpo
+    db = _get_db()
+    try:
+        tenant_id = session.get('tenant_id')
+        role = _get_role()
+
+        # テナント内の全admin一覧
+        admins_q = db.query(TKanrisha).filter(
+            TKanrisha.role == 'admin',
+            TKanrisha.active == 1
+        )
+        if tenant_id:
+            admins_q = admins_q.filter(TKanrisha.tenant_id == tenant_id)
+        admins = admins_q.order_by(TKanrisha.name).all()
+
+        # 既存の権限一覧
+        perms_q = db.query(BreederPermission)
+        if tenant_id:
+            perms_q = perms_q.filter(BreederPermission.tenant_id == tenant_id)
+        perms = {p.admin_id: p for p in perms_q.all()}
+
+        return render_template('breeder/permissions.html',
+            admins=admins,
+            perms=perms,
+            role=role,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/permissions/set', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"])
+def permissions_set():
+    """権限付与・変更・剥奪（テナント管理者のみ）"""
+    from app.models_breeder import BreederPermission
+    db = _get_db()
+    try:
+        tenant_id = session.get('tenant_id')
+        granted_by = session.get('user_id')
+        admin_id = request.form.get('admin_id', type=int)
+        permission_level = request.form.get('permission_level', '')  # 'view', 'operate', '' (剥奪)
+
+        if not admin_id or not tenant_id:
+            flash('パラメータが不正です', 'error')
+            return redirect(url_for('breeder.permissions'))
+
+        existing = db.query(BreederPermission).filter(
+            BreederPermission.admin_id == admin_id,
+            BreederPermission.tenant_id == tenant_id
+        ).first()
+
+        if permission_level in ('view', 'operate'):
+            if existing:
+                existing.permission_level = permission_level
+                existing.granted_by = granted_by
+                existing.updated_at = datetime.now()
+                flash('権限を更新しました', 'success')
+            else:
+                new_perm = BreederPermission(
+                    admin_id=admin_id,
+                    tenant_id=tenant_id,
+                    permission_level=permission_level,
+                    granted_by=granted_by
+                )
+                db.add(new_perm)
+                flash('権限を付与しました', 'success')
+        else:
+            # 剥奪
+            if existing:
+                db.delete(existing)
+                flash('権限を剥奪しました', 'success')
+            else:
+                flash('対象の権限が見つかりません', 'warning')
+
+        db.commit()
+        return redirect(url_for('breeder.permissions'))
+    except Exception as e:
+        db.rollback()
+        flash(f'エラーが発生しました: {e}', 'error')
+        return redirect(url_for('breeder.permissions'))
+    finally:
+        db.close()
+
 
 # ─── ユーティリティ ──────────────────────────────────────────
 def _parse_date(s):

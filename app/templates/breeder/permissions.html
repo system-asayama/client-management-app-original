@@ -1,0 +1,88 @@
+{% extends 'breeder/base.html' %}
+
+{% block topbar_title %}権限管理{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px;">
+  <div style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 0.4rem;">ブリーダーアプリ 権限管理</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted);">
+      店舗管理者（admin）に対して、テナント全体のデータへのアクセス権限を付与・変更できます。<br>
+      <strong>閲覧のみ</strong>：テナント全店舗のデータを参照できます（追加・編集・削除は不可）。<br>
+      <strong>操作</strong>：テナント全店舗のデータを追加・編集・削除できます。
+    </p>
+  </div>
+
+  {% if admins %}
+  <div class="card" style="overflow: visible;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--border);">
+          <th style="text-align: left; padding: 0.75rem 1rem; color: var(--text-muted); font-weight: 600;">管理者名</th>
+          <th style="text-align: left; padding: 0.75rem 1rem; color: var(--text-muted); font-weight: 600;">ログインID</th>
+          <th style="text-align: center; padding: 0.75rem 1rem; color: var(--text-muted); font-weight: 600;">現在の権限</th>
+          <th style="text-align: center; padding: 0.75rem 1rem; color: var(--text-muted); font-weight: 600;">変更</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for admin in admins %}
+        {% set perm = perms.get(admin.id) %}
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 0.75rem 1rem; color: var(--text); font-weight: 500;">{{ admin.name }}</td>
+          <td style="padding: 0.75rem 1rem; color: var(--text-muted);">{{ admin.login_id }}</td>
+          <td style="padding: 0.75rem 1rem; text-align: center;">
+            {% if perm %}
+              {% if perm.permission_level == 'operate' %}
+                <span style="background: var(--accent-dim); color: var(--accent-light); padding: 0.2rem 0.7rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600;">操作</span>
+              {% elif perm.permission_level == 'view' %}
+                <span style="background: rgba(59,130,246,0.15); color: #60a5fa; padding: 0.2rem 0.7rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600;">閲覧のみ</span>
+              {% endif %}
+            {% else %}
+              <span style="background: var(--border); color: var(--text-dim); padding: 0.2rem 0.7rem; border-radius: 99px; font-size: 0.78rem;">権限なし</span>
+            {% endif %}
+          </td>
+          <td style="padding: 0.75rem 1rem; text-align: center;">
+            <form method="POST" action="{{ url_for('breeder.permissions_set') }}" style="display: inline-flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: center;">
+              <input type="hidden" name="admin_id" value="{{ admin.id }}">
+              {% if perm and perm.permission_level == 'view' %}
+                <button type="submit" name="permission_level" value="operate"
+                  class="btn btn-sm" style="background: var(--accent-dim); color: var(--accent-light); border: 1px solid var(--accent);">
+                  操作に昇格
+                </button>
+                <button type="submit" name="permission_level" value=""
+                  class="btn btn-sm btn-secondary" onclick="return confirm('権限を剥奪しますか？')">
+                  剥奪
+                </button>
+              {% elif perm and perm.permission_level == 'operate' %}
+                <button type="submit" name="permission_level" value="view"
+                  class="btn btn-sm" style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid #3b82f6;">
+                  閲覧のみに変更
+                </button>
+                <button type="submit" name="permission_level" value=""
+                  class="btn btn-sm btn-secondary" onclick="return confirm('権限を剥奪しますか？')">
+                  剥奪
+                </button>
+              {% else %}
+                <button type="submit" name="permission_level" value="view"
+                  class="btn btn-sm" style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid #3b82f6;">
+                  閲覧のみ付与
+                </button>
+                <button type="submit" name="permission_level" value="operate"
+                  class="btn btn-sm" style="background: var(--accent-dim); color: var(--accent-light); border: 1px solid var(--accent);">
+                  操作権限付与
+                </button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+    <p>このテナントに店舗管理者（admin）が登録されていません。</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

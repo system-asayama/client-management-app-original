@@ -418,3 +418,20 @@ class DocumentScan(Base):
     file_path = Column(String(500), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ─────────────────────────────────────────────
+# ブリーダーアプリ権限管理
+# ─────────────────────────────────────────────
+class BreederPermission(Base):
+    """ブリーダーアプリ権限テーブル
+    admin（店舗管理者）にテナント単位の閲覧・操作権限を付与する。
+    permission_level: 'view'=閲覧のみ, 'operate'=操作（閲覧+編集・追加・削除）
+    """
+    __tablename__ = 'breeder_permissions'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    admin_id = Column(Integer, nullable=False, index=True, comment='対象管理者ID')
+    tenant_id = Column(Integer, nullable=False, index=True, comment='対象テナントID')
+    permission_level = Column(String(20), nullable=False, default='view', comment='view or operate')
+    granted_by = Column(Integer, nullable=True, comment='付与したテナント管理者ID')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

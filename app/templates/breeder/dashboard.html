@@ -163,6 +163,86 @@
   </div>
 </div>
 
+<!-- ═══ 年間売上予実グラフ（Churupi相当） ═══ -->
+{% if annual_sales %}
+<div class="card mt-4">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+    <div class="card-title" style="margin:0;">📊 年間売上予実</div>
+    <span style="font-size:0.8rem;color:var(--text-dim);">成約件数 / 売上金額</span>
+  </div>
+  <div style="display:flex;align-items:flex-end;gap:0.4rem;height:120px;padding:0.5rem 0;">
+    {% set max_amt = annual_sales | map(attribute='amount') | max %}
+    {% for s in annual_sales %}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
+      <div style="font-size:0.65rem;color:var(--text-dim);">{{ s.count }}件</div>
+      <div style="
+        width:100%;
+        background:{% if s.count > 0 %}var(--accent){% else %}var(--border){% endif %};
+        border-radius:4px 4px 0 0;
+        height:{% if max_amt > 0 %}{{ (s.amount / max_amt * 80) | int }}px{% else %}4px{% endif %};
+        min-height:4px;
+        opacity:{% if s.count > 0 %}0.8{% else %}0.3{% endif %};
+      "></div>
+      <div style="font-size:0.6rem;color:var(--text-dim);white-space:nowrap;">{{ s.month }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="margin-top:0.5rem;text-align:right;font-size:0.8rem;color:var(--text-dim);">
+    年間合計: <strong>{{ annual_sales | sum(attribute='count') }}件</strong>
+    / <strong>¥{{ '{:,}'.format(annual_sales | sum(attribute='amount')) }}</strong>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ 繁忙予測（今後3ヶ月）（Churupi相当） ═══ -->
+{% if busy_forecast %}
+<div class="card mt-4">
+  <div class="card-title">📅 繁忙予測（今後3ヶ月）</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+    {% for bf in busy_forecast %}
+    <div style="padding:1rem;background:var(--surface-2, var(--surface));border-radius:8px;text-align:center;border:1px solid var(--border);">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:0.5rem;">{{ bf.month }}</div>
+      <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.8;">
+        🌡️ ヒート予測: <strong style="color:var(--accent);">{{ bf.heats }}</strong>件<br>
+        🐾 出産予定: <strong style="color:var(--green, #38a169);">{{ bf.births }}</strong>件
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ 遺伝疾患サマリー（Churupi相当） ═══ -->
+{% if gene_summary %}
+<div class="card mt-4">
+  <div class="card-title">🧬 遺伝疾患サマリー</div>
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:0.6rem 0.8rem;">疾患名</th>
+          <th style="text-align:center;padding:0.6rem 0.8rem;"><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;">クリア</span></th>
+          <th style="text-align:center;padding:0.6rem 0.8rem;"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;">キャリア</span></th>
+          <th style="text-align:center;padding:0.6rem 0.8rem;"><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;">アフェクテッド</span></th>
+          <th style="text-align:center;padding:0.6rem 0.8rem;">不明</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for gs in gene_summary %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.6rem 0.8rem;font-weight:600;">{{ gs.disease }}</td>
+          <td style="text-align:center;padding:0.6rem 0.8rem;">{{ gs.clear }}</td>
+          <td style="text-align:center;padding:0.6rem 0.8rem;">{{ gs.carrier }}</td>
+          <td style="text-align:center;padding:0.6rem 0.8rem;">{{ gs.affected }}</td>
+          <td style="text-align:center;padding:0.6rem 0.8rem;color:var(--text-dim);">{{ gs.unknown }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- 店舗別集計テーブル（テナント管理者・システム管理者のみ） -->
 {% if session.get('role') in ('tenant_admin', 'system_admin') and store_stats %}
 <div class="card mt-4">

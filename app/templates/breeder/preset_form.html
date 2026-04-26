@@ -1,0 +1,64 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}{% if preset %}プリセット編集{% else %}プリセット新規登録{% endif %}{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.presets_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{% if preset %}✏️ プリセット編集{% else %}+ プリセット新規登録{% endif %}</h1>
+</div>
+
+<div class="card" style="max-width:500px;">
+  <form method="POST">
+    <div class="form-group">
+      <label class="form-label">プリセット名 <span style="color:var(--red);">*</span></label>
+      <input type="text" name="name" class="form-control" required
+             value="{{ preset.name if preset else '' }}"
+             placeholder="例: ワクチン接種リマインド">
+    </div>
+    <div class="form-group">
+      <label class="form-label">カテゴリ</label>
+      <select name="category" class="form-control">
+        {% set categories = [
+          ('heat',     'ヒート'),
+          ('mating',   '交配'),
+          ('birth',    '出産'),
+          ('pedigree', '血統書申請'),
+          ('chip',     'チップ申請'),
+          ('general',  '一般'),
+        ] %}
+        {% for val, label in categories %}
+        <option value="{{ val }}" {% if preset and preset.category == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-hint">このプリセットが自動適用されるイベントの種類</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">起点からの日数オフセット</label>
+      <input type="number" name="days_offset" class="form-control"
+             value="{{ preset.days_offset if preset else 0 }}"
+             placeholder="0">
+      <div class="form-hint">
+        正の値 = イベント後N日、負の値 = イベント前N日、0 = 当日<br>
+        例: 出産後7日にワクチン確認 → <strong>+7</strong>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">備考</label>
+      <textarea name="notes" class="form-control" rows="3"
+                placeholder="このプリセットの説明や注意事項">{{ preset.notes if preset else '' }}</textarea>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+      <button type="submit" class="btn btn-primary">
+        {% if preset %}更新する{% else %}登録する{% endif %}
+      </button>
+      <a href="{{ url_for('breeder.presets_list') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+
+<style>
+.form-hint { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.3rem; line-height: 1.5; }
+</style>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}遺伝疾患検査結果 - {{ dog.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">← 戻る</a>
+    <h1 class="page-title">🧬 遺伝疾患検査結果 - {{ dog.name }}</h1>
+  </div>
+</div>
+
+<!-- 登録フォーム -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">新規登録</h2></div>
+  <div class="card-body">
+    <form method="POST">
+      <input type="hidden" name="action" value="add">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">疾患名 <span style="color:red;">*</span></label>
+          <input type="text" name="disease_name" class="form-control" required placeholder="例: PRA, MDR1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">検査結果 <span style="color:red;">*</span></label>
+          <select name="result" class="form-control" required>
+            <option value="clear">クリア</option>
+            <option value="carrier">キャリア</option>
+            <option value="affected">アフェクテッド</option>
+            <option value="unknown">不明</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">検査日</label>
+          <input type="date" name="tested_at" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">検査機関</label>
+          <input type="text" name="lab_name" class="form-control" placeholder="例: Laboklin">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">備考</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+    </form>
+  </div>
+</div>
+
+<!-- 一覧 -->
+<div class="card">
+  <div class="card-header"><h2 class="card-title">登録済み検査結果</h2></div>
+  <div class="card-body" style="padding:0;">
+    {% if tests %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>疾患名</th>
+          <th>結果</th>
+          <th>検査日</th>
+          <th>検査機関</th>
+          <th>備考</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tests %}
+        <tr>
+          <td><strong>{{ t.disease_name }}</strong></td>
+          <td>
+            {% if t.result == 'clear' %}<span class="badge badge-success">クリア</span>
+            {% elif t.result == 'carrier' %}<span class="badge badge-warning">キャリア</span>
+            {% elif t.result == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
+            {% else %}<span class="badge badge-secondary">不明</span>{% endif %}
+          </td>
+          <td>{{ t.tested_at or '—' }}</td>
+          <td>{{ t.lab_name or '—' }}</td>
+          <td>{{ t.notes or '—' }}</td>
+          <td>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="rec_id" value="{{ t.id }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:2rem;text-align:center;color:var(--text-dim);">まだ検査結果が登録されていません</div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.badge { display:inline-block;padding:0.2rem 0.6rem;border-radius:99px;font-size:0.78rem;font-weight:600; }
+.badge-success { background:#d1fae5;color:#065f46; }
+.badge-warning { background:#fef3c7;color:#92400e; }
+.badge-danger  { background:#fee2e2;color:#991b1b; }
+.badge-secondary { background:var(--surface-3);color:var(--text-dim); }
+</style>
+{% endblock %}

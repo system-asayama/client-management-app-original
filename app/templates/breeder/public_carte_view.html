@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ dog.name }} の公開カルテ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem 1rem; text-align: center; }
+    .header h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .header p { opacity: 0.85; font-size: 0.95rem; }
+    .container { max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.25rem; overflow: hidden; }
+    .card-header { padding: 1rem 1.25rem; border-bottom: 1px solid #e2e8f0; font-weight: 700; font-size: 1rem; }
+    .card-body { padding: 1.25rem; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+    .info-item label { font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 0.2rem; }
+    .info-item strong { font-size: 0.95rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.8rem; font-weight: 600; margin: 0.2rem; }
+    .badge-clear    { background: #d1fae5; color: #065f46; }
+    .badge-carrier  { background: #fef3c7; color: #92400e; }
+    .badge-affected { background: #fee2e2; color: #991b1b; }
+    .badge-unknown  { background: #f1f5f9; color: #64748b; }
+    .coi-box { padding: 1rem; border-radius: 8px; text-align: center; margin-bottom: 1rem; }
+    .coi-low    { background: #d1fae5; }
+    .coi-medium { background: #fef3c7; }
+    .coi-high   { background: #fee2e2; }
+    .show-item { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 0.5rem; }
+    .weight-chart { display: flex; align-items: flex-end; gap: 0.5rem; height: 80px; padding: 0.5rem 0; }
+    .weight-bar { flex: 1; background: #667eea; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; }
+    .weight-bar span { position: absolute; bottom: -1.2rem; left: 50%; transform: translateX(-50%); font-size: 0.65rem; color: #64748b; white-space: nowrap; }
+    .footer { text-align: center; padding: 2rem 1rem; color: #94a3b8; font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; text-align: left; }
+    th { background: #f8fafc; font-weight: 600; color: #64748b; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>{{ dog.name }}</h1>
+  <p>{{ dog.breed or '' }}{% if dog.breed and dog.gender %} · {% endif %}{% if dog.gender == 'male' %}♂ オス{% elif dog.gender == 'female' %}♀ メス{% endif %}</p>
+</div>
+
+<div class="container">
+
+  {% if carte.intro_text %}
+  <div class="card">
+    <div class="card-body" style="font-size:0.95rem;line-height:1.7;color:#475569;">
+      {{ carte.intro_text }}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 基本情報 -->
+  <div class="card">
+    <div class="card-header">📋 基本情報</div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div class="info-item"><label>犬名</label><strong>{{ dog.name }}</strong></div>
+        <div class="info-item"><label>犬種</label><strong>{{ dog.breed or '—' }}</strong></div>
+        <div class="info-item"><label>性別</label><strong>{% if dog.gender == 'male' %}♂ オス{% elif dog.gender == 'female' %}♀ メス{% else %}—{% endif %}</strong></div>
+        <div class="info-item"><label>生年月日</label><strong>{{ dog.birth_date or '—' }}</strong></div>
+        <div class="info-item"><label>毛色</label><strong>{{ dog.color or '—' }}</strong></div>
+        <div class="info-item"><label>登録番号</label><strong>{{ dog.registration_number or '—' }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COI -->
+  <div class="card">
+    <div class="card-header">🧬 近交係数（COI）</div>
+    <div class="card-body">
+      <div class="coi-box {% if coi < 6.25 %}coi-low{% elif coi < 12.5 %}coi-medium{% else %}coi-high{% endif %}">
+        <div style="font-size:2rem;font-weight:700;">{{ coi }}%</div>
+        <div style="font-size:0.85rem;margin-top:0.25rem;">
+          {% if coi < 6.25 %}✅ 低リスク（推奨範囲）
+          {% elif coi < 12.5 %}⚠️ 中リスク
+          {% else %}🚨 高リスク{% endif %}
+        </div>
+      </div>
+      <p style="font-size:0.8rem;color:#64748b;text-align:center;">
+        COIは近親交配の度合いを示す指標です。6.25%未満が推奨されています。
+      </p>
+    </div>
+  </div>
+
+  <!-- 遺伝疾患検査 -->
+  {% if gene_tests %}
+  <div class="card">
+    <div class="card-header">🔬 遺伝疾患検査結果</div>
+    <div class="card-body">
+      <div style="display:flex;flex-wrap:wrap;">
+        {% for t in gene_tests %}
+        <span class="badge badge-{% if t.result == 'clear' %}clear{% elif t.result == 'carrier' %}carrier{% elif t.result == 'affected' %}affected{% else %}unknown{% endif %}">
+          {{ t.disease_name }}: {% if t.result == 'clear' %}クリア{% elif t.result == 'carrier' %}キャリア{% elif t.result == 'affected' %}アフェクテッド{% else %}不明{% endif %}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ショー実績 -->
+  {% if show_recs %}
+  <div class="card">
+    <div class="card-header">🏆 ショー実績</div>
+    <div class="card-body" style="padding:0.75rem;">
+      {% for r in show_recs %}
+      <div class="show-item">
+        <div style="font-weight:600;">{{ r.show_name }}</div>
+        <div style="font-size:0.82rem;color:#64748b;margin-top:0.2rem;">
+          {{ r.show_date }}{% if r.location %} · {{ r.location }}{% endif %}
+        </div>
+        {% if r.title_earned %}
+        <div style="margin-top:0.4rem;">
+          <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">
+            🏆 {{ r.title_earned }}
+          </span>
+        </div>
+        {% endif %}
+        {% if r.placement %}<div style="font-size:0.82rem;margin-top:0.3rem;">順位: {{ r.placement }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ワクチン接種歴 -->
+  {% if vaccines %}
+  <div class="card">
+    <div class="card-header">💉 ワクチン接種歴</div>
+    <div class="card-body" style="padding:0;">
+      <table>
+        <thead><tr><th>ワクチン名</th><th>接種日</th><th>次回接種予定</th></tr></thead>
+        <tbody>
+          {% for v in vaccines %}
+          <tr>
+            <td>{{ v.vaccine_name }}</td>
+            <td>{{ v.vaccinated_at }}</td>
+            <td>{{ v.next_due_date or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 体重推移 -->
+  {% if weights %}
+  <div class="card">
+    <div class="card-header">⚖️ 体重記録（直近{{ weights|length }}件）</div>
+    <div class="card-body">
+      {% set max_w = weights|map(attribute='weight_kg')|max %}
+      <div class="weight-chart">
+        {% for w in weights|reverse %}
+        <div class="weight-bar" style="height:{{ ((w.weight_kg / max_w) * 60)|int }}px;">
+          <span>{{ w.weight_kg }}kg</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top:1.5rem;font-size:0.85rem;color:#64748b;text-align:center;">
+        最新: {{ weights[0].weight_kg }}kg（{{ weights[0].measured_at }}）
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="footer">
+  このカルテはブリーダー管理システムで生成されました
+</div>
+
+</body>
+</html>

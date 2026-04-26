@@ -201,6 +201,58 @@ def dashboard():
                     'negotiations': s_negotiations,
                 })
 
+        # ── 年間売上予実管理（月別成約数・売上合計） ──
+        annual_sales = []
+        try:
+            for m in range(1, 13):
+                sold_cnt = _tf(db.query(func.count(Negotiation.id)).filter(
+                    Negotiation.status == 'contracted',
+                    func.extract('year', Negotiation.updated_at) == today.year,
+                    func.extract('month', Negotiation.updated_at) == m,
+                ), Negotiation).scalar() or 0
+                sold_amt = _tf(db.query(func.coalesce(func.sum(Negotiation.sale_price), 0)).filter(
+                    Negotiation.status == 'contracted',
+                    func.extract('year', Negotiation.updated_at) == today.year,
+                    func.extract('month', Negotiation.updated_at) == m,
+                ), Negotiation).scalar() or 0
+                annual_sales.append({'month': f'{m}月', 'count': sold_cnt, 'amount': int(sold_amt)})
+        except Exception:
+            annual_sales = [{'month': f'{m}月', 'count': 0, 'amount': 0} for m in range(1, 13)]
+
+        # ── 遺伝疾患サマリー ──
+        from app.models_breeder import GeneticTestResult
+        gene_summary = []
+        try:
+            disease_rows = db.query(
+                GeneticTestResult.disease_name,
+                GeneticTestResult.result,
+                func.count(GeneticTestResult.id)
+            ).group_by(GeneticTestResult.disease_name, GeneticTestResult.result).all()
+            disease_map = {}
+            for row in disease_rows:
+                d_name = row[0]
+                if d_name not in disease_map:
+                    disease_map[d_name] = {'clear': 0, 'carrier': 0, 'affected': 0, 'unknown': 0}
+                disease_map[d_name][row[1]] = disease_map[d_name].get(row[1], 0) + row[2]
+            for disease, counts in disease_map.items():
+                gene_summary.append({'disease': disease, **counts})
+        except Exception:
+            pass
+
+        # ── 繁忙予測（今後3ヶ月のヒート予測・出産予定） ──
+        busy_forecast = []
+        try:
+            for i in range(3):
+                d = today.replace(day=1) + timedelta(days=32 * i)
+                d = d.replace(day=1)
+                heat_cnt = db.query(func.count(Heat.id)).filter(
+                    func.extract('year', Heat.next_predicted_date) == d.year,
+                    func.extract('month', Heat.next_predicted_date) == d.month,
+                ).scalar() or 0
+                busy_forecast.append({'month': d.strftime('%Y/%m'), 'heats': heat_cnt, 'births': 0})
+        except Exception:
+            busy_forecast = []
+
         return render_template('breeder/dashboard.html',
             parent_count=parent_count,
             puppy_count=puppy_count,
@@ -216,6 +268,9 @@ def dashboard():
             unregistered_alert_count=unregistered_alert_count,
             unregistered_alert_puppies=unregistered_alert_puppies,
             store_stats=store_stats,
+            annual_sales=annual_sales,
+            gene_summary=gene_summary,
+            busy_forecast=busy_forecast,
         )
     finally:
         db.close()
@@ -1528,3 +1583,746 @@ def _decimal_or_none(s):
         return Decimal(s) if s else None
     except Exception:
         return None
+
+# ═══════════════════════════════════════════════════════════════════
+# 交配シミュレーション（Churupi相当）
+# ═══════════════════════════════════════════════════════════════════
+
+def _calc_coi(dog_id, db, depth=4):
+    """
+    Wright係数法によるCOI（近交係数）の簡易計算。
+    depth世代分の祖先を遡り、共通祖先が存在する場合に係数を加算する。
+    """
+    from app.models_breeder import Dog
+
+    def get_ancestors(did, gen, memo=None):
+        if memo is None:
+            memo = {}
+        if gen == 0 or did is None:
+            return memo
+        if did in memo:
+            memo[did].append(gen)
+        else:
+            memo[did] = [gen]
+        d = db.query(Dog).filter(Dog.id == did).first()
+        if d:
+            get_ancestors(d.mother_id, gen - 1, memo)
+            get_ancestors(d.father_id, gen - 1, memo)
+        return memo
+
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        return 0.0
+
+    sire_anc = get_ancestors(dog.father_id, depth)
+    dam_anc  = get_ancestors(dog.mother_id, depth)
+
+    common = set(sire_anc.keys()) & set(dam_anc.keys())
+    coi = 0.0
+    for anc_id in common:
+        for n1 in sire_anc[anc_id]:
+            for n2 in dam_anc[anc_id]:
+                coi += (0.5 ** (n1 + n2 + 1))
+    return round(coi * 100, 2)
+
+
+def _calc_coi_pair(sire_id, dam_id, db, depth=4):
+    """
+    仮想子犬のCOIを計算する（シミュレーション用）。
+    """
+    from app.models_breeder import Dog
+
+    def get_ancestors(did, gen, memo=None):
+        if memo is None:
+            memo = {}
+        if gen == 0 or did is None:
+            return memo
+        if did in memo:
+            memo[did].append(gen)
+        else:
+            memo[did] = [gen]
+        d = db.query(Dog).filter(Dog.id == did).first()
+        if d:
+            get_ancestors(d.mother_id, gen - 1, memo)
+            get_ancestors(d.father_id, gen - 1, memo)
+        return memo
+
+    sire_anc = get_ancestors(sire_id, depth)
+    dam_anc  = get_ancestors(dam_id, depth)
+
+    common = set(sire_anc.keys()) & set(dam_anc.keys())
+    coi = 0.0
+    for anc_id in common:
+        for n1 in sire_anc[anc_id]:
+            for n2 in dam_anc[anc_id]:
+                coi += (0.5 ** (n1 + n2 + 1))
+    return round(coi * 100, 2)
+
+
+@bp.route('/simulation', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def simulation():
+    """交配シミュレーションページ"""
+    from app.models_breeder import Dog
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+
+    def _tf(q):
+        if tenant_id:
+            q = q.filter(Dog.tenant_id == tenant_id)
+        if store_id:
+            q = q.filter(Dog.store_id == store_id)
+        return q
+
+    males   = _tf(db.query(Dog).filter(Dog.status == 'active', Dog.gender == 'male')).all()
+    females = _tf(db.query(Dog).filter(Dog.status == 'active', Dog.gender == 'female')).all()
+
+    result = None
+    sire_id = dam_id = None
+    if request.method == 'POST':
+        sire_id = request.form.get('sire_id', type=int)
+        dam_id  = request.form.get('dam_id',  type=int)
+        if sire_id and dam_id:
+            coi = _calc_coi_pair(sire_id, dam_id, db)
+            sire = db.query(Dog).filter(Dog.id == sire_id).first()
+            dam  = db.query(Dog).filter(Dog.id == dam_id).first()
+            # 遺伝疾患リスク評価
+            from app.models_breeder import GeneticTestResult
+            sire_genes = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == sire_id).all()
+            dam_genes  = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == dam_id).all()
+            gene_risks = []
+            sire_map = {g.disease_name: g.result for g in sire_genes}
+            dam_map  = {g.disease_name: g.result for g in dam_genes}
+            all_diseases = set(list(sire_map.keys()) + list(dam_map.keys()))
+            for disease in all_diseases:
+                s_res = sire_map.get(disease, 'unknown')
+                d_res = dam_map.get(disease,  'unknown')
+                risk = 'low'
+                if s_res == 'affected' or d_res == 'affected':
+                    risk = 'high'
+                elif s_res == 'carrier' and d_res == 'carrier':
+                    risk = 'medium'
+                elif s_res == 'carrier' or d_res == 'carrier':
+                    risk = 'low_carrier'
+                gene_risks.append({
+                    'disease': disease,
+                    'sire': s_res,
+                    'dam': d_res,
+                    'risk': risk,
+                })
+            result = {
+                'coi': coi,
+                'coi_level': 'low' if coi < 6.25 else ('medium' if coi < 12.5 else 'high'),
+                'sire': sire,
+                'dam': dam,
+                'gene_risks': gene_risks,
+            }
+
+    return render_template('breeder/simulation.html',
+                           males=males, females=females,
+                           result=result, sire_id=sire_id, dam_id=dam_id)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 相性一括チェック（Churupi相当）
+# ═══════════════════════════════════════════════════════════════════
+
+@bp.route('/mating-bulk')
+@require_roles(*BREEDER_ROLES)
+def mating_bulk():
+    """相性一括チェックページ"""
+    from app.models_breeder import Dog
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+
+    def _tf(q):
+        if tenant_id:
+            q = q.filter(Dog.tenant_id == tenant_id)
+        if store_id:
+            q = q.filter(Dog.store_id == store_id)
+        return q
+
+    males   = _tf(db.query(Dog).filter(Dog.status == 'active', Dog.gender == 'male')).all()
+    females = _tf(db.query(Dog).filter(Dog.status == 'active', Dog.gender == 'female')).all()
+
+    # 全ペアのCOIを計算
+    matrix = []
+    for dam in females:
+        row = {'dam': dam, 'pairs': []}
+        for sire in males:
+            coi = _calc_coi_pair(sire.id, dam.id, db)
+            level = 'low' if coi < 6.25 else ('medium' if coi < 12.5 else 'high')
+            row['pairs'].append({'sire': sire, 'coi': coi, 'level': level})
+        matrix.append(row)
+
+    return render_template('breeder/mating_bulk.html',
+                           males=males, females=females, matrix=matrix)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 遺伝疾患検査結果管理（Churupi相当）
+# ═══════════════════════════════════════════════════════════════════
+
+@bp.route('/dogs/<int:dog_id>/genetic-tests', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def genetic_tests(dog_id):
+    from app.models_breeder import Dog, GeneticTestResult
+    db = _get_db()
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        flash('犬が見つかりません', 'error')
+        return redirect(url_for('breeder.dogs_list'))
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            rec = GeneticTestResult(
+                tenant_id=dog.tenant_id,
+                store_id=dog.store_id,
+                dog_id=dog_id,
+                disease_name=request.form.get('disease_name', ''),
+                result=request.form.get('result', 'unknown'),
+                tested_at=request.form.get('tested_at') or None,
+                lab_name=request.form.get('lab_name') or None,
+                notes=request.form.get('notes') or None,
+            )
+            db.add(rec)
+            db.commit()
+            flash('遺伝疾患検査結果を登録しました', 'success')
+        elif action == 'delete':
+            rec_id = request.form.get('rec_id', type=int)
+            rec = db.query(GeneticTestResult).filter(GeneticTestResult.id == rec_id).first()
+            if rec:
+                db.delete(rec)
+                db.commit()
+                flash('削除しました', 'success')
+        return redirect(url_for('breeder.genetic_tests', dog_id=dog_id))
+
+    tests = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == dog_id).order_by(GeneticTestResult.tested_at.desc()).all()
+    return render_template('breeder/genetic_tests.html', dog=dog, tests=tests)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ショー記録管理（Churupi相当）
+# ═══════════════════════════════════════════════════════════════════
+
+@bp.route('/dogs/<int:dog_id>/show-records', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def show_records_dog(dog_id):
+    from app.models_breeder import Dog, ShowRecord
+    db = _get_db()
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        flash('犬が見つかりません', 'error')
+        return redirect(url_for('breeder.dogs_list'))
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            rec = ShowRecord(
+                tenant_id=dog.tenant_id,
+                store_id=dog.store_id,
+                dog_id=dog_id,
+                show_name=request.form.get('show_name', ''),
+                show_date=request.form.get('show_date'),
+                location=request.form.get('location') or None,
+                title_earned=request.form.get('title_earned') or None,
+                placement=request.form.get('placement') or None,
+                judge_name=request.form.get('judge_name') or None,
+                notes=request.form.get('notes') or None,
+            )
+            db.add(rec)
+            db.commit()
+            flash('ショー記録を登録しました', 'success')
+        elif action == 'delete':
+            rec_id = request.form.get('rec_id', type=int)
+            rec = db.query(ShowRecord).filter(ShowRecord.id == rec_id).first()
+            if rec:
+                db.delete(rec)
+                db.commit()
+                flash('削除しました', 'success')
+        return redirect(url_for('breeder.show_records_dog', dog_id=dog_id))
+
+    records = db.query(ShowRecord).filter(ShowRecord.dog_id == dog_id).order_by(ShowRecord.show_date.desc()).all()
+    return render_template('breeder/show_records.html', dog=dog, records=records)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 家系図（Churupi相当）
+# ═══════════════════════════════════════════════════════════════════
+
+@bp.route('/dogs/<int:dog_id>/pedigree-tree')
+@require_roles(*BREEDER_ROLES)
+def pedigree_tree(dog_id):
+    from app.models_breeder import Dog
+    db = _get_db()
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        flash('犬が見つかりません', 'error')
+        return redirect(url_for('breeder.dogs_list'))
+
+    def build_tree(did, depth=3):
+        if did is None or depth == 0:
+            return None
+        d = db.query(Dog).filter(Dog.id == did).first()
+        if not d:
+            return None
+        return {
+            'id': d.id,
+            'name': d.name,
+            'breed': d.breed or '',
+            'gender': d.gender or '',
+            'reg_no': d.registration_number or '',
+            'sire': build_tree(d.father_id, depth - 1),
+            'dam':  build_tree(d.mother_id, depth - 1),
+        }
+
+    tree = build_tree(dog_id)
+    coi = _calc_coi(dog_id, db)
+    return render_template('breeder/pedigree_tree.html', dog=dog, tree=tree, coi=coi)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 公開カルテ（Churupi相当）
+# ═══════════════════════════════════════════════════════════════════
+
+@bp.route('/dogs/<int:dog_id>/public-carte', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def public_carte_manage(dog_id):
+    import secrets as _secrets
+    from app.models_breeder import Dog, PublicCarte, GeneticTestResult, ShowRecord
+    db = _get_db()
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        flash('犬が見つかりません', 'error')
+        return redirect(url_for('breeder.dogs_list'))
+
+    carte = db.query(PublicCarte).filter(PublicCarte.dog_id == dog_id).first()
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'create' and not carte:
+            carte = PublicCarte(
+                tenant_id=dog.tenant_id,
+                store_id=dog.store_id,
+                dog_id=dog_id,
+                public_token=_secrets.token_urlsafe(32),
+                is_published=0,
+                intro_text=request.form.get('intro_text') or None,
+            )
+            db.add(carte)
+            db.commit()
+            flash('公開カルテを作成しました', 'success')
+        elif action == 'update' and carte:
+            carte.is_published = int(request.form.get('is_published', 0))
+            carte.intro_text = request.form.get('intro_text') or None
+            db.commit()
+            flash('公開カルテを更新しました', 'success')
+        return redirect(url_for('breeder.public_carte_manage', dog_id=dog_id))
+
+    gene_tests = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == dog_id).all()
+    show_recs  = db.query(ShowRecord).filter(ShowRecord.dog_id == dog_id).all()
+    return render_template('breeder/public_carte_manage.html',
+                           dog=dog, carte=carte,
+                           gene_tests=gene_tests, show_recs=show_recs)
+
+
+@bp.route('/carte/<token>')
+def public_carte_view(token):
+    """認証不要の公開カルテビュー"""
+    from app.models_breeder import PublicCarte, Dog, GeneticTestResult, ShowRecord, WeightRecord, VaccineRecord
+    db = _get_db()
+    carte = db.query(PublicCarte).filter(PublicCarte.public_token == token).first()
+    if not carte or not carte.is_published:
+        return render_template('breeder/public_carte_404.html'), 404
+
+    # 閲覧数カウント
+    carte.view_count = (carte.view_count or 0) + 1
+    db.commit()
+
+    dog = db.query(Dog).filter(Dog.id == carte.dog_id).first()
+    gene_tests = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == carte.dog_id).all()
+    show_recs  = db.query(ShowRecord).filter(ShowRecord.dog_id == carte.dog_id).all()
+    weights    = db.query(WeightRecord).filter(WeightRecord.dog_id == carte.dog_id).order_by(WeightRecord.measured_at.desc()).limit(10).all()
+    vaccines   = db.query(VaccineRecord).filter(VaccineRecord.dog_id == carte.dog_id).order_by(VaccineRecord.vaccinated_at.desc()).all()
+    coi = _calc_coi(carte.dog_id, db)
+
+    return render_template('breeder/public_carte_view.html',
+                           dog=dog, carte=carte,
+                           gene_tests=gene_tests, show_recs=show_recs,
+                           weights=weights, vaccines=vaccines, coi=coi)
+
+
+
+# ─── 販売管理：カンバンボード（Churupi相当） ──────────────────────────
+@bp.route('/negotiations/kanban')
+@require_roles(*BREEDER_ROLES)
+def negotiations_kanban():
+    """カンバンボード形式の商談管理（Churupiのdealsページ相当）"""
+    from app.models_breeder import Negotiation, Contact, Puppy
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        query = db.query(Negotiation)
+        if tenant_id:
+            query = query.filter(Negotiation.tenant_id == tenant_id)
+        if store_id:
+            query = query.filter(Negotiation.store_id == store_id)
+        all_negs = query.order_by(asc(Negotiation.created_at)).all()
+        contacts = {c.id: c for c in db.query(Contact).all()}
+        puppies  = {p.id: p for p in db.query(Puppy).all()}
+        # カンバンカラム定義（Churupiと同等）
+        columns = [
+            {'key': 'inquiry',     'label': '問い合わせ',  'color': '#6366f1'},
+            {'key': 'negotiating', 'label': '商談中',       'color': '#f59e0b'},
+            {'key': 'reserved',    'label': '予約済み',     'color': '#3b82f6'},
+            {'key': 'contracted',  'label': '成約',         'color': '#10b981'},
+            {'key': 'cancelled',   'label': 'キャンセル',   'color': '#ef4444'},
+        ]
+        kanban = {col['key']: [] for col in columns}
+        for neg in all_negs:
+            col_key = neg.status if neg.status in kanban else 'inquiry'
+            kanban[col_key].append(neg)
+        return render_template('breeder/negotiations_kanban.html',
+                               columns=columns, kanban=kanban,
+                               contacts=contacts, puppies=puppies)
+    finally:
+        db.close()
+
+
+@bp.route('/negotiations/<int:neg_id>/move', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def negotiation_move(neg_id):
+    """カンバンカードのステータス変更（ドラッグ&ドロップ対応）"""
+    from app.models_breeder import Negotiation
+    db = _get_db()
+    try:
+        neg = db.query(Negotiation).filter(Negotiation.id == neg_id).first()
+        if not neg:
+            return jsonify({'error': 'not found'}), 404
+        new_status = request.json.get('status') if request.is_json else request.form.get('status')
+        valid_statuses = ['inquiry', 'negotiating', 'reserved', 'contracted', 'cancelled']
+        if new_status not in valid_statuses:
+            return jsonify({'error': 'invalid status'}), 400
+        neg.status = new_status
+        neg.updated_at = datetime.utcnow()
+        db.commit()
+        return jsonify({'success': True, 'status': new_status})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+# ─── CSVエクスポート（Churupi相当） ──────────────────────────────────
+@bp.route('/export')
+@require_roles(*BREEDER_ROLES)
+def export_page():
+    """エクスポートページ（Churupiのexportsページ相当）"""
+    return render_template('breeder/export.html')
+
+
+@bp.route('/export/download')
+@require_roles(*BREEDER_ROLES)
+def export_download():
+    """CSVエクスポート実行"""
+    import csv
+    import io
+    from flask import Response
+    from app.models_breeder import Dog, Puppy, Negotiation, Contact, Heat, Birth, PedigreeApplication
+
+    target = request.args.get('target', 'dogs')
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        if target == 'dogs':
+            writer.writerow(['ID', '犬名', '犬種', '性別', '生年月日', '毛色', '登録番号', 'ステータス', '備考'])
+            query = db.query(Dog)
+            if tenant_id:
+                query = query.filter(Dog.tenant_id == tenant_id)
+            for d in query.all():
+                writer.writerow([d.id, d.name, d.breed or '', d.gender or '', d.birth_date or '',
+                                  d.color or '', d.registration_number or '', d.status or '', d.notes or ''])
+
+        elif target == 'puppies':
+            writer.writerow(['ID', '子犬名', '犬種', '性別', '生年月日', '毛色', 'ステータス', '販売価格'])
+            query = db.query(Puppy)
+            if tenant_id:
+                query = query.filter(Puppy.tenant_id == tenant_id)
+            for p in query.all():
+                writer.writerow([p.id, p.name or '', p.breed or '', p.gender or '', p.birth_date or '',
+                                  p.color or '', p.status or '', p.price or ''])
+
+        elif target == 'negotiations':
+            writer.writerow(['ID', 'ステータス', '顧客名', '子犬名', '成約価格', '作成日', '更新日'])
+            query = db.query(Negotiation)
+            if tenant_id:
+                query = query.filter(Negotiation.tenant_id == tenant_id)
+            contacts = {c.id: c for c in db.query(Contact).all()}
+            puppies  = {p.id: p for p in db.query(Puppy).all()}
+            for n in query.all():
+                contact_name = contacts[n.contact_id].name if n.contact_id and n.contact_id in contacts else ''
+                puppy_name   = puppies[n.puppy_id].name if n.puppy_id and n.puppy_id in puppies else ''
+                writer.writerow([n.id, n.status or '', contact_name, puppy_name,
+                                  n.sale_price or '', n.created_at or '', n.updated_at or ''])
+
+        elif target == 'contacts':
+            writer.writerow(['ID', '氏名', '電話番号', 'メールアドレス', '住所', '備考'])
+            query = db.query(Contact)
+            if tenant_id:
+                query = query.filter(Contact.tenant_id == tenant_id)
+            for c in query.all():
+                writer.writerow([c.id, c.name or '', c.phone or '', c.email or '',
+                                  c.address or '', c.notes or ''])
+
+        elif target == 'heats':
+            writer.writerow(['ID', '犬名', '開始日', '終了日', 'ステータス', '次回予測日'])
+            query = db.query(Heat)
+            if tenant_id:
+                query = query.filter(Heat.tenant_id == tenant_id)
+            dogs = {d.id: d for d in db.query(Dog).all()}
+            for h in query.all():
+                dog_name = dogs[h.dog_id].name if h.dog_id and h.dog_id in dogs else ''
+                writer.writerow([h.id, dog_name, h.start_date or '', h.end_date or '',
+                                  h.status or '', h.next_predicted_date or ''])
+
+        elif target == 'births':
+            writer.writerow(['ID', '出産日', '総頭数', '生存頭数', '備考'])
+            query = db.query(Birth)
+            if tenant_id:
+                query = query.filter(Birth.tenant_id == tenant_id)
+            for b in query.all():
+                writer.writerow([b.id, b.birth_date or '', b.total_count or 0,
+                                  b.alive_count or 0, b.notes or ''])
+
+        elif target == 'pedigree_applications':
+            writer.writerow(['ID', '子犬名', '申請日', 'ステータス', '申請番号'])
+            query = db.query(PedigreeApplication)
+            if tenant_id:
+                query = query.filter(PedigreeApplication.tenant_id == tenant_id)
+            puppies = {p.id: p for p in db.query(Puppy).all()}
+            for a in query.all():
+                puppy_name = puppies[a.puppy_id].name if a.puppy_id and a.puppy_id in puppies else ''
+                writer.writerow([a.id, puppy_name, a.applied_at or '', a.status or '', a.application_number or ''])
+
+        output.seek(0)
+        filename = f'breeder_{target}_{date.today().strftime("%Y%m%d")}.csv'
+        return Response(
+            '\ufeff' + output.getvalue(),  # BOM付きUTF-8（Excel対応）
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}'}
+        )
+    finally:
+        db.close()
+
+
+# ─── 設定：細分化タブ（Churupi相当） ──────────────────────────────────
+@bp.route('/settings/advanced')
+@require_roles(*BREEDER_ROLES)
+def settings_advanced():
+    """詳細設定ページ（Churupiの設定タブ細分化相当）"""
+    from app.models_breeder import AppSetting
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        query = db.query(AppSetting)
+        if tenant_id:
+            query = query.filter(AppSetting.tenant_id == tenant_id)
+        if store_id:
+            query = query.filter(AppSetting.store_id == store_id)
+        setting = query.first()
+        return render_template('breeder/settings_advanced.html', setting=setting)
+    finally:
+        db.close()
+
+
+@bp.route('/settings/advanced/save', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def settings_advanced_save():
+    """詳細設定の保存"""
+    from app.models_breeder import AppSetting
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        query = db.query(AppSetting)
+        if tenant_id:
+            query = query.filter(AppSetting.tenant_id == tenant_id)
+        if store_id:
+            query = query.filter(AppSetting.store_id == store_id)
+        setting = query.first()
+        if not setting:
+            setting = AppSetting(tenant_id=tenant_id, store_id=store_id)
+            db.add(setting)
+
+        block = request.form.get('block', 'general')
+
+        if block == 'animal':
+            # 生体設定
+            setting.default_breed = request.form.get('default_breed', '')
+            setting.default_heat_cycle_days = int(request.form.get('default_heat_cycle_days') or 180)
+            setting.default_gestation_days  = int(request.form.get('default_gestation_days') or 63)
+
+        elif block == 'deal':
+            # 商談設定
+            setting.deal_default_view = request.form.get('deal_default_view', 'list')
+            setting.deal_auto_archive_days = int(request.form.get('deal_auto_archive_days') or 90)
+
+        elif block == 'application':
+            # 申請設定
+            setting.pedigree_alert_days = int(request.form.get('pedigree_alert_days') or 60)
+            setting.chip_alert_days     = int(request.form.get('chip_alert_days') or 90)
+
+        elif block == 'carte':
+            # カルテ設定
+            setting.carte_show_weight    = request.form.get('carte_show_weight') == '1'
+            setting.carte_show_vaccine   = request.form.get('carte_show_vaccine') == '1'
+            setting.carte_show_gene      = request.form.get('carte_show_gene') == '1'
+            setting.carte_show_show_rec  = request.form.get('carte_show_show_rec') == '1'
+
+        db.commit()
+        flash('設定を保存しました', 'success')
+        return redirect(url_for('breeder.settings_advanced') + f'?block={block}')
+    except Exception as e:
+        db.rollback()
+        flash(f'保存エラー: {e}', 'error')
+        return redirect(url_for('breeder.settings_advanced'))
+    finally:
+        db.close()
+
+
+# ─── 遺伝疾患検査・ショー記録の一覧ページ ──────────────────────────────
+@bp.route('/genetic-tests')
+@require_roles(*BREEDER_ROLES)
+def genetic_tests_list():
+    """遺伝疾患検査結果の一覧（全犬）"""
+    from app.models_breeder import GeneticTestResult, Dog
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        query = db.query(GeneticTestResult)
+        if tenant_id:
+            query = query.filter(GeneticTestResult.tenant_id == tenant_id)
+        tests = query.order_by(desc(GeneticTestResult.tested_at)).all()
+        dogs = {d.id: d for d in db.query(Dog).all()}
+        return render_template('breeder/genetic_tests.html', tests=tests, dogs=dogs, dog=None, dog_id=None)
+    finally:
+        db.close()
+
+
+@bp.route('/show-records')
+@require_roles(*BREEDER_ROLES)
+def show_records_list():
+    """ショー記録の一覧（全犬）"""
+    from app.models_breeder import ShowRecord, Dog
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        query = db.query(ShowRecord)
+        if tenant_id:
+            query = query.filter(ShowRecord.tenant_id == tenant_id)
+        records = query.order_by(desc(ShowRecord.show_date)).all()
+        dogs = {d.id: d for d in db.query(Dog).all()}
+        return render_template('breeder/show_records.html', records=records, dogs=dogs, dog=None, dog_id=None)
+    finally:
+        db.close()
+
+
+# ─── イベントプリセット一覧ページ ──────────────────────────────────────
+@bp.route('/presets')
+@require_roles(*BREEDER_ROLES)
+def presets_list():
+    """イベントプリセット一覧（Churupiのpresetsページ相当）"""
+    from app.models_breeder import EventPreset
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        query = db.query(EventPreset)
+        if tenant_id:
+            query = query.filter(EventPreset.tenant_id == tenant_id)
+        presets = query.order_by(EventPreset.category, EventPreset.name).all()
+        return render_template('breeder/presets_list.html', presets=presets)
+    finally:
+        db.close()
+
+
+@bp.route('/presets/new', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def preset_new():
+    """イベントプリセット新規作成"""
+    from app.models_breeder import EventPreset
+    db = _get_db()
+    try:
+        if request.method == 'POST':
+            tenant_id, store_id = _get_tenant_store()
+            preset = EventPreset(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                name=request.form.get('name', ''),
+                category=request.form.get('category', 'general'),
+                days_offset=int(request.form.get('days_offset') or 0),
+                notes=request.form.get('notes', ''),
+            )
+            db.add(preset)
+            db.commit()
+            flash('プリセットを登録しました', 'success')
+            return redirect(url_for('breeder.presets_list'))
+        return render_template('breeder/preset_form.html', preset=None)
+    except Exception as e:
+        db.rollback()
+        flash(f'登録エラー: {e}', 'error')
+        return redirect(url_for('breeder.presets_list'))
+    finally:
+        db.close()
+
+
+@bp.route('/presets/<int:preset_id>/edit', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def preset_edit(preset_id):
+    """イベントプリセット編集"""
+    from app.models_breeder import EventPreset
+    db = _get_db()
+    try:
+        preset = db.query(EventPreset).filter(EventPreset.id == preset_id).first()
+        if not preset:
+            flash('プリセットが見つかりません', 'error')
+            return redirect(url_for('breeder.presets_list'))
+        if request.method == 'POST':
+            preset.name        = request.form.get('name', preset.name)
+            preset.category    = request.form.get('category', preset.category)
+            preset.days_offset = int(request.form.get('days_offset') or 0)
+            preset.notes       = request.form.get('notes', '')
+            db.commit()
+            flash('プリセットを更新しました', 'success')
+            return redirect(url_for('breeder.presets_list'))
+        return render_template('breeder/preset_form.html', preset=preset)
+    except Exception as e:
+        db.rollback()
+        flash(f'更新エラー: {e}', 'error')
+        return redirect(url_for('breeder.presets_list'))
+    finally:
+        db.close()
+
+
+@bp.route('/presets/<int:preset_id>/delete', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def preset_delete(preset_id):
+    """イベントプリセット削除"""
+    from app.models_breeder import EventPreset
+    db = _get_db()
+    try:
+        preset = db.query(EventPreset).filter(EventPreset.id == preset_id).first()
+        if preset:
+            db.delete(preset)
+            db.commit()
+            flash('プリセットを削除しました', 'success')
+        return redirect(url_for('breeder.presets_list'))
+    except Exception as e:
+        db.rollback()
+        flash(f'削除エラー: {e}', 'error')
+        return redirect(url_for('breeder.presets_list'))
+    finally:
+        db.close()

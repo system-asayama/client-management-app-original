@@ -435,3 +435,91 @@ class BreederPermission(Base):
     granted_by = Column(Integer, nullable=True, comment='付与したテナント管理者ID')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ─────────────────────────────────────────────
+# 遺伝疾患検査結果（Churupi相当）
+# ─────────────────────────────────────────────
+class GeneticTestResult(Base):
+    """遺伝疾患検査結果テーブル
+    クリア / キャリア / アフェクテッド を犬ごとに記録する。
+    """
+    __tablename__ = 'genetic_test_results'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    store_id = Column(Integer, nullable=True, index=True)
+    dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
+    puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
+    disease_name = Column(String(200), nullable=False, comment='疾患名')
+    result = Column(SAEnum('clear', 'carrier', 'affected', 'unknown', name='gene_result'),
+                    nullable=False, default='unknown', comment='クリア/キャリア/アフェクテッド/不明')
+    tested_at = Column(Date, nullable=True, comment='検査日')
+    lab_name = Column(String(200), nullable=True, comment='検査機関')
+    certificate_url = Column(Text, nullable=True, comment='証明書URL')
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ─────────────────────────────────────────────
+# ショー記録（Churupi相当）
+# ─────────────────────────────────────────────
+class ShowRecord(Base):
+    """ドッグショー記録テーブル"""
+    __tablename__ = 'show_records'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    store_id = Column(Integer, nullable=True, index=True)
+    dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
+    puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
+    show_name = Column(String(300), nullable=False, comment='ショー名')
+    show_date = Column(Date, nullable=False, comment='開催日')
+    location = Column(String(300), nullable=True, comment='開催地')
+    title_earned = Column(String(200), nullable=True, comment='取得タイトル')
+    placement = Column(String(100), nullable=True, comment='順位・受賞内容')
+    judge_name = Column(String(200), nullable=True, comment='審査員名')
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ─────────────────────────────────────────────
+# 公開カルテ（Churupi相当）
+# ─────────────────────────────────────────────
+class PublicCarte(Base):
+    """公開カルテテーブル
+    子犬・親犬の情報を外部（顧客）向けに公開するための設定。
+    public_token を URL に埋め込んで認証なしでアクセス可能にする。
+    """
+    __tablename__ = 'public_cartes'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    store_id = Column(Integer, nullable=True, index=True)
+    dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
+    puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
+    public_token = Column(String(64), nullable=False, unique=True, comment='公開URL用トークン')
+    is_published = Column(Integer, nullable=False, default=0, comment='0=非公開 1=公開')
+    intro_text = Column(Text, nullable=True, comment='ワンちゃん紹介文')
+    view_count = Column(Integer, nullable=False, default=0, comment='閲覧数')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ─────────────────────────────────────────────
+# 犬舎情報（Churupi相当）
+# ─────────────────────────────────────────────
+class KennelProfile(Base):
+    """犬舎プロフィールテーブル
+    犬舎の紹介文・ギャラリー・環境情報などを管理する。
+    """
+    __tablename__ = 'kennel_profiles'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    store_id = Column(Integer, nullable=True, index=True)
+    kennel_name = Column(String(200), nullable=True, comment='犬舎名')
+    intro_text = Column(Text, nullable=True, comment='犬舎紹介文')
+    address = Column(String(300), nullable=True, comment='所在地')
+    phone = Column(String(30), nullable=True)
+    email = Column(String(320), nullable=True)
+    website_url = Column(Text, nullable=True)
+    gallery_json = Column(Text, nullable=True, comment='ギャラリー画像URL JSON配列')
+    staff_per_dog_ratio = Column(Numeric(5, 2), nullable=True, comment='スタッフ1人あたり親犬頭数')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+

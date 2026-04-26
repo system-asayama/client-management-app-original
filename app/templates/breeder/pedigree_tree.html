@@ -1,0 +1,129 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}家系図 - {{ dog.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">← 戻る</a>
+    <h1 class="page-title">🌳 家系図 - {{ dog.name }}</h1>
+  </div>
+  <div style="margin-top:0.5rem;font-size:0.9rem;color:var(--text-dim);">
+    COI（近交係数）: <strong style="color:{% if coi < 6.25 %}#065f46{% elif coi < 12.5 %}#92400e{% else %}#991b1b{% endif %};">{{ coi }}%</strong>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">3世代家系図</h2>
+    <span style="font-size:0.8rem;color:var(--text-dim);">
+      <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;margin-right:6px;">♂ オス</span>
+      <span style="background:#fce7f3;color:#9d174d;padding:2px 8px;border-radius:4px;">♀ メス</span>
+    </span>
+  </div>
+  <div class="card-body" style="overflow-x:auto;">
+    <div class="pedigree-tree" id="pedigreeTree">
+      {{ render_node(tree) }}
+    </div>
+  </div>
+</div>
+
+{% macro render_node(node) %}
+{% if node %}
+<div class="pedigree-node-wrap">
+  <div class="pedigree-node {% if node.gender == 'male' %}node-male{% elif node.gender == 'female' %}node-female{% endif %}">
+    <div class="node-name">{{ node.name }}</div>
+    {% if node.breed %}<div class="node-breed">{{ node.breed }}</div>{% endif %}
+    {% if node.reg_no %}<div class="node-reg">{{ node.reg_no }}</div>{% endif %}
+  </div>
+  {% if node.sire or node.dam %}
+  <div class="pedigree-children">
+    <div class="pedigree-child">
+      {% if node.sire %}{{ render_node(node.sire) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
+    </div>
+    <div class="pedigree-child">
+      {% if node.dam %}{{ render_node(node.dam) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+<style>
+.pedigree-tree {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  min-width: 900px;
+  overflow-x: auto;
+}
+.pedigree-node-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.pedigree-node {
+  min-width: 140px;
+  max-width: 160px;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.82rem;
+  position: relative;
+  flex-shrink: 0;
+}
+.pedigree-node.node-male {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+.pedigree-node.node-female {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+}
+.node-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-bottom: 2px;
+}
+.node-breed {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+.node-reg {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+.pedigree-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-left: 0;
+  padding-left: 1.5rem;
+  border-left: 2px solid var(--border);
+  position: relative;
+}
+.pedigree-child {
+  position: relative;
+}
+.pedigree-child::before {
+  content: '';
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  width: 1.5rem;
+  height: 2px;
+  background: var(--border);
+}
+.pedigree-empty {
+  min-width: 140px;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 2px dashed var(--border);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  text-align: center;
+}
+</style>
+{% endblock %}

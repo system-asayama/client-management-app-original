@@ -1,0 +1,139 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}交配シミュレーション{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🧬 交配シミュレーション</h1>
+  <p class="page-desc">父犬・母犬を選択して、仮想子犬の近交係数（COI）と遺伝疾患リスクをシミュレーションします。</p>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">親犬を選択</h2></div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('breeder.simulation') }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+        <div class="form-group">
+          <label class="form-label">父犬（オス）</label>
+          <select name="sire_id" class="form-control" required>
+            <option value="">-- 父犬を選択 --</option>
+            {% for dog in males %}
+            <option value="{{ dog.id }}" {% if sire_id == dog.id %}selected{% endif %}>
+              {{ dog.name }}{% if dog.breed %} ({{ dog.breed }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">母犬（メス）</label>
+          <select name="dam_id" class="form-control" required>
+            <option value="">-- 母犬を選択 --</option>
+            {% for dog in females %}
+            <option value="{{ dog.id }}" {% if dam_id == dog.id %}selected{% endif %}>
+              {{ dog.name }}{% if dog.breed %} ({{ dog.breed }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:1rem;">
+        <button type="submit" class="btn btn-primary">シミュレーション実行</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if result %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header">
+    <h2 class="card-title">シミュレーション結果</h2>
+    <span style="color:var(--text-dim);font-size:0.9rem;">
+      {{ result.sire.name }} × {{ result.dam.name }}
+    </span>
+  </div>
+  <div class="card-body">
+
+    <!-- COI表示 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem;">
+      <div class="stat-card {% if result.coi_level == 'low' %}stat-card-success{% elif result.coi_level == 'medium' %}stat-card-warning{% else %}stat-card-danger{% endif %}"
+           style="padding:1.5rem;border-radius:12px;text-align:center;
+                  background:{% if result.coi_level == 'low' %}#d1fae5{% elif result.coi_level == 'medium' %}#fef3c7{% else %}#fee2e2{% endif %};
+                  border:1px solid {% if result.coi_level == 'low' %}#6ee7b7{% elif result.coi_level == 'medium' %}#fcd34d{% else %}#fca5a5{% endif %};">
+        <div style="font-size:2.5rem;font-weight:700;color:{% if result.coi_level == 'low' %}#065f46{% elif result.coi_level == 'medium' %}#92400e{% else %}#991b1b{% endif %};">
+          {{ result.coi }}%
+        </div>
+        <div style="font-size:0.9rem;margin-top:0.25rem;color:var(--text-dim);">近交係数（COI）</div>
+        <div style="margin-top:0.5rem;font-size:0.85rem;font-weight:600;
+                    color:{% if result.coi_level == 'low' %}#065f46{% elif result.coi_level == 'medium' %}#92400e{% else %}#991b1b{% endif %};">
+          {% if result.coi_level == 'low' %}✅ 低リスク（6.25%未満）
+          {% elif result.coi_level == 'medium' %}⚠️ 中リスク（6.25〜12.5%）
+          {% else %}🚨 高リスク（12.5%以上）{% endif %}
+        </div>
+      </div>
+
+      <div style="padding:1.5rem;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);">
+        <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">COIの目安</div>
+        <div style="font-size:0.8rem;line-height:1.8;">
+          <span style="color:#065f46;">● 0〜6.25%</span>：低リスク（推奨範囲）<br>
+          <span style="color:#92400e;">● 6.25〜12.5%</span>：中リスク（要注意）<br>
+          <span style="color:#991b1b;">● 12.5%以上</span>：高リスク（避けることを推奨）
+        </div>
+      </div>
+    </div>
+
+    <!-- 遺伝疾患リスク -->
+    {% if result.gene_risks %}
+    <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">遺伝疾患リスク評価</h3>
+    <div style="overflow-x:auto;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>疾患名</th>
+            <th>父犬（{{ result.sire.name }}）</th>
+            <th>母犬（{{ result.dam.name }}）</th>
+            <th>子犬リスク</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for gr in result.gene_risks %}
+          <tr>
+            <td>{{ gr.disease }}</td>
+            <td>
+              {% if gr.sire == 'clear' %}<span class="badge badge-success">クリア</span>
+              {% elif gr.sire == 'carrier' %}<span class="badge badge-warning">キャリア</span>
+              {% elif gr.sire == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
+              {% else %}<span class="badge badge-secondary">不明</span>{% endif %}
+            </td>
+            <td>
+              {% if gr.dam == 'clear' %}<span class="badge badge-success">クリア</span>
+              {% elif gr.dam == 'carrier' %}<span class="badge badge-warning">キャリア</span>
+              {% elif gr.dam == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
+              {% else %}<span class="badge badge-secondary">不明</span>{% endif %}
+            </td>
+            <td>
+              {% if gr.risk == 'high' %}<span class="badge badge-danger">🚨 高リスク</span>
+              {% elif gr.risk == 'medium' %}<span class="badge badge-warning">⚠️ 中リスク（25%発症）</span>
+              {% elif gr.risk == 'low_carrier' %}<span class="badge badge-info">キャリア可能性あり</span>
+              {% else %}<span class="badge badge-success">✅ 低リスク</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">遺伝疾患検査データが登録されていません。犬の詳細ページから遺伝疾患検査結果を登録してください。</div>
+    {% endif %}
+
+  </div>
+</div>
+{% endif %}
+
+<style>
+.badge { display:inline-block;padding:0.2rem 0.6rem;border-radius:99px;font-size:0.78rem;font-weight:600; }
+.badge-success { background:#d1fae5;color:#065f46; }
+.badge-warning { background:#fef3c7;color:#92400e; }
+.badge-danger  { background:#fee2e2;color:#991b1b; }
+.badge-info    { background:#dbeafe;color:#1e40af; }
+.badge-secondary { background:var(--surface-3);color:var(--text-dim); }
+</style>
+{% endblock %}

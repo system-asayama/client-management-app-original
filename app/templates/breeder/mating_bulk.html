@@ -1,0 +1,76 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}相性一括チェック{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🔬 相性一括チェック</h1>
+  <p class="page-desc">全ての父犬×母犬の組み合わせのCOI（近交係数）を一覧表示します。</p>
+</div>
+
+{% if not males or not females %}
+<div class="alert alert-warning">
+  オスとメスの親犬が両方登録されている必要があります。
+  <a href="{{ url_for('breeder.dogs_list') }}">親犬を登録する</a>
+</div>
+{% else %}
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">COIマトリクス</h2>
+    <div style="font-size:0.85rem;color:var(--text-dim);">
+      <span style="display:inline-block;width:12px;height:12px;background:#d1fae5;border-radius:2px;margin-right:4px;"></span>低リスク（<6.25%）
+      <span style="display:inline-block;width:12px;height:12px;background:#fef3c7;border-radius:2px;margin:0 4px 0 12px;"></span>中リスク（6.25〜12.5%）
+      <span style="display:inline-block;width:12px;height:12px;background:#fee2e2;border-radius:2px;margin:0 4px 0 12px;"></span>高リスク（≥12.5%）
+    </div>
+  </div>
+  <div class="card-body" style="overflow-x:auto;padding:0;">
+    <table style="width:100%;border-collapse:collapse;min-width:600px;">
+      <thead>
+        <tr style="background:var(--surface-2);">
+          <th style="padding:0.75rem 1rem;text-align:left;border-bottom:1px solid var(--border);font-size:0.85rem;white-space:nowrap;">
+            母犬 ↓ / 父犬 →
+          </th>
+          {% for sire in males %}
+          <th style="padding:0.75rem 0.5rem;text-align:center;border-bottom:1px solid var(--border);font-size:0.8rem;white-space:nowrap;min-width:100px;">
+            {{ sire.name }}<br>
+            <span style="color:var(--text-dim);font-weight:400;">{{ sire.breed or '' }}</span>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in matrix %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.75rem 1rem;font-weight:600;font-size:0.85rem;white-space:nowrap;background:var(--surface-2);">
+            {{ row.dam.name }}<br>
+            <span style="color:var(--text-dim);font-weight:400;">{{ row.dam.breed or '' }}</span>
+          </td>
+          {% for pair in row.pairs %}
+          <td style="padding:0.5rem;text-align:center;
+                     background:{% if pair.level == 'low' %}#d1fae5{% elif pair.level == 'medium' %}#fef3c7{% else %}#fee2e2{% endif %};">
+            <a href="{{ url_for('breeder.simulation') }}" 
+               onclick="document.querySelector('[name=sire_id]').value='{{ pair.sire.id }}';document.querySelector('[name=dam_id]').value='{{ row.dam.id }}';return false;"
+               style="text-decoration:none;">
+              <div style="font-size:1rem;font-weight:700;
+                          color:{% if pair.level == 'low' %}#065f46{% elif pair.level == 'medium' %}#92400e{% else %}#991b1b{% endif %};">
+                {{ pair.coi }}%
+              </div>
+              <div style="font-size:0.7rem;
+                          color:{% if pair.level == 'low' %}#065f46{% elif pair.level == 'medium' %}#92400e{% else %}#991b1b{% endif %};">
+                {% if pair.level == 'low' %}✅{% elif pair.level == 'medium' %}⚠️{% else %}🚨{% endif %}
+              </div>
+            </a>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div style="margin-top:1rem;text-align:right;">
+  <a href="{{ url_for('breeder.simulation') }}" class="btn btn-primary">詳細シミュレーションへ</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,223 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}商談管理（カンバン）{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.negotiations_list') }}" class="btn btn-secondary btn-sm">リスト表示</a>
+  <a href="{{ url_for('breeder.negotiation_new') }}" class="btn btn-primary btn-sm">+ 新規商談</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.kanban-board {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: calc(100vh - 200px);
+}
+.kanban-col {
+  min-width: 260px;
+  max-width: 280px;
+  flex-shrink: 0;
+  background: var(--surface-2, #f8fafc);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.kanban-col-header {
+  padding: 0.75rem 1rem;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.kanban-col-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+}
+.kanban-col-count {
+  background: rgba(255,255,255,0.3);
+  color: white;
+  border-radius: 99px;
+  padding: 1px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.kanban-cards {
+  padding: 0.5rem;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 100px;
+}
+.kanban-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.kanban-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  transform: translateY(-1px);
+}
+.kanban-card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+.kanban-col.drag-over .kanban-cards {
+  background: rgba(99,102,241,0.05);
+  border-radius: 0 0 8px 8px;
+}
+.card-puppy-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 0.25rem;
+}
+.card-contact-name {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+.card-price {
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+.card-date {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+}
+.card-actions {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+}
+.card-actions a {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2, #f8fafc);
+}
+.card-actions a:hover { background: var(--border); }
+</style>
+
+<div class="kanban-board" id="kanbanBoard">
+  {% for col in columns %}
+  <div class="kanban-col" data-status="{{ col.key }}" id="col-{{ col.key }}">
+    <div class="kanban-col-header" style="background: {{ col.color }};">
+      <span class="kanban-col-title">{{ col.label }}</span>
+      <span class="kanban-col-count">{{ kanban[col.key]|length }}</span>
+    </div>
+    <div class="kanban-cards" id="cards-{{ col.key }}">
+      {% for neg in kanban[col.key] %}
+      <div class="kanban-card"
+           draggable="true"
+           data-neg-id="{{ neg.id }}"
+           data-current-status="{{ neg.status }}">
+        <div class="card-puppy-name">
+          {% if neg.puppy_id and neg.puppy_id in puppies %}
+            🐶 {{ puppies[neg.puppy_id].name or '子犬' }}
+            {% if puppies[neg.puppy_id].breed %}
+            <span style="font-weight:400;color:var(--text-dim);font-size:0.78rem;">（{{ puppies[neg.puppy_id].breed }}）</span>
+            {% endif %}
+          {% else %}
+            🐶 子犬未設定
+          {% endif %}
+        </div>
+        <div class="card-contact-name">
+          👤 {% if neg.contact_id and neg.contact_id in contacts %}{{ contacts[neg.contact_id].name }}{% else %}顧客未設定{% endif %}
+        </div>
+        {% if neg.sale_price %}
+        <div class="card-price">¥{{ '{:,}'.format(neg.sale_price|int) }}</div>
+        {% elif neg.price %}
+        <div class="card-price">¥{{ '{:,}'.format(neg.price|int) }}</div>
+        {% endif %}
+        {% if neg.notes %}
+        <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">{{ neg.notes }}</div>
+        {% endif %}
+        <div class="card-date">{{ neg.created_at.strftime('%Y/%m/%d') if neg.created_at else '' }}</div>
+        <div class="card-actions">
+          <a href="{{ url_for('breeder.negotiation_edit', neg_id=neg.id) }}">✏️ 編集</a>
+          <a href="{{ url_for('breeder.negotiation_detail', neg_id=neg.id) if 'negotiation_detail' in url_for.__globals__ else '#' }}">👁 詳細</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+// ─── ドラッグ&ドロップ カンバン ───
+let dragCard = null;
+
+document.querySelectorAll('.kanban-card').forEach(card => {
+  card.addEventListener('dragstart', e => {
+    dragCard = card;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    dragCard = null;
+    document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+  });
+});
+
+document.querySelectorAll('.kanban-col').forEach(col => {
+  col.addEventListener('dragover', e => {
+    e.preventDefault();
+    col.classList.add('drag-over');
+  });
+  col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+  col.addEventListener('drop', async e => {
+    e.preventDefault();
+    col.classList.remove('drag-over');
+    if (!dragCard) return;
+
+    const newStatus = col.dataset.status;
+    const negId     = dragCard.dataset.negId;
+    const oldStatus = dragCard.dataset.currentStatus;
+
+    if (newStatus === oldStatus) return;
+
+    // UI先行更新
+    const cardsArea = col.querySelector('.kanban-cards');
+    cardsArea.appendChild(dragCard);
+    dragCard.dataset.currentStatus = newStatus;
+
+    // カウント更新
+    document.querySelectorAll('.kanban-col').forEach(c => {
+      c.querySelector('.kanban-col-count').textContent = c.querySelector('.kanban-cards').children.length;
+    });
+
+    // サーバー更新
+    try {
+      const resp = await fetch(`{{ url_for('breeder.negotiation_move', neg_id=0) }}`.replace('/0/', `/${negId}/`), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: newStatus})
+      });
+      if (!resp.ok) throw new Error('update failed');
+    } catch (err) {
+      console.error('ステータス更新失敗:', err);
+      // ロールバック
+      const oldCol = document.getElementById(`cards-${oldStatus}`);
+      if (oldCol) oldCol.appendChild(dragCard);
+      dragCard.dataset.currentStatus = oldStatus;
+      alert('ステータスの更新に失敗しました');
+    }
+  });
+});
+</script>
+{% endblock %}

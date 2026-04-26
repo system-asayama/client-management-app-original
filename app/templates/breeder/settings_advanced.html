@@ -1,0 +1,150 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}詳細設定{% endblock %}
+
+{% block content %}
+{% set block = request.args.get('block', 'general') %}
+<div class="page-header">
+  <h1 class="page-title">⚙️ 詳細設定</h1>
+</div>
+
+<!-- タブナビゲーション（Churupiの設定タブ相当） -->
+<div style="display:flex;gap:0.25rem;margin-bottom:1.5rem;border-bottom:2px solid var(--border);overflow-x:auto;">
+  {% set tabs = [
+    ('general',     '基本設定'),
+    ('animal',      '生体設定'),
+    ('deal',        '商談設定'),
+    ('application', '申請設定'),
+    ('carte',       'カルテ設定'),
+  ] %}
+  {% for key, label in tabs %}
+  <a href="?block={{ key }}"
+     style="padding:0.6rem 1.2rem;font-size:0.88rem;font-weight:{% if block == key %}700{% else %}500{% endif %};
+            color:{% if block == key %}var(--accent){% else %}var(--text-dim){% endif %};
+            border-bottom:2px solid {% if block == key %}var(--accent){% else %}transparent{% endif %};
+            margin-bottom:-2px;text-decoration:none;white-space:nowrap;">
+    {{ label }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card" style="max-width:600px;">
+  <form method="POST" action="{{ url_for('breeder.settings_advanced_save') }}">
+    <input type="hidden" name="block" value="{{ block }}">
+
+    {% if block == 'general' %}
+    <div class="card-header"><h2 class="card-title">基本設定</h2></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">犬舎名</label>
+        <input type="text" name="kennel_name" class="form-control"
+               value="{{ setting.kennel_name if setting else '' }}"
+               placeholder="例: ○○ケネル">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input type="text" name="kennel_phone" class="form-control"
+               value="{{ setting.kennel_phone if setting else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">住所</label>
+        <input type="text" name="kennel_address" class="form-control"
+               value="{{ setting.kennel_address if setting else '' }}">
+      </div>
+    </div>
+
+    {% elif block == 'animal' %}
+    <div class="card-header"><h2 class="card-title">生体設定</h2></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">デフォルト犬種</label>
+        <input type="text" name="default_breed" class="form-control"
+               value="{{ setting.default_breed if setting and setting.default_breed else '' }}"
+               placeholder="例: トイプードル">
+        <div class="form-hint">新規登録時のデフォルト犬種</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ヒートサイクル（日数）</label>
+        <input type="number" name="default_heat_cycle_days" class="form-control"
+               value="{{ setting.default_heat_cycle_days if setting and setting.default_heat_cycle_days else 180 }}"
+               min="120" max="365">
+        <div class="form-hint">次回ヒート予測の基準日数（デフォルト: 180日）</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">妊娠期間（日数）</label>
+        <input type="number" name="default_gestation_days" class="form-control"
+               value="{{ setting.default_gestation_days if setting and setting.default_gestation_days else 63 }}"
+               min="58" max="70">
+        <div class="form-hint">出産予定日計算の基準日数（デフォルト: 63日）</div>
+      </div>
+    </div>
+
+    {% elif block == 'deal' %}
+    <div class="card-header"><h2 class="card-title">商談設定</h2></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">商談一覧のデフォルト表示</label>
+        <select name="deal_default_view" class="form-control">
+          <option value="list" {% if not setting or setting.deal_default_view == 'list' %}selected{% endif %}>リスト表示</option>
+          <option value="kanban" {% if setting and setting.deal_default_view == 'kanban' %}selected{% endif %}>カンバン表示</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">自動アーカイブ（日数）</label>
+        <input type="number" name="deal_auto_archive_days" class="form-control"
+               value="{{ setting.deal_auto_archive_days if setting and setting.deal_auto_archive_days else 90 }}"
+               min="30" max="365">
+        <div class="form-hint">成約・キャンセルから指定日数後に自動アーカイブ</div>
+      </div>
+    </div>
+
+    {% elif block == 'application' %}
+    <div class="card-header"><h2 class="card-title">申請設定</h2></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">血統書申請アラート（出産後 日数）</label>
+        <input type="number" name="pedigree_alert_days" class="form-control"
+               value="{{ setting.pedigree_alert_days if setting and setting.pedigree_alert_days else 60 }}"
+               min="1" max="180">
+        <div class="form-hint">出産後この日数を超えると未申請アラートを表示</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">マイクロチップ申請アラート（出産後 日数）</label>
+        <input type="number" name="chip_alert_days" class="form-control"
+               value="{{ setting.chip_alert_days if setting and setting.chip_alert_days else 90 }}"
+               min="1" max="180">
+      </div>
+    </div>
+
+    {% elif block == 'carte' %}
+    <div class="card-header"><h2 class="card-title">カルテ設定</h2></div>
+    <div class="card-body">
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">
+        公開カルテに表示する情報を選択してください。
+      </p>
+      {% set carte_items = [
+        ('carte_show_weight',   '体重記録を表示する'),
+        ('carte_show_vaccine',  'ワクチン接種歴を表示する'),
+        ('carte_show_gene',     '遺伝疾患検査結果を表示する'),
+        ('carte_show_show_rec', 'ショー記録を表示する'),
+      ] %}
+      {% for name, label in carte_items %}
+      <div class="form-group" style="display:flex;align-items:center;gap:0.75rem;">
+        <input type="checkbox" name="{{ name }}" value="1" id="{{ name }}"
+               {% if setting and setting[name] %}checked{% endif %}
+               style="width:16px;height:16px;">
+        <label for="{{ name }}" style="margin:0;cursor:pointer;">{{ label }}</label>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--border);">
+      <button type="submit" class="btn btn-primary">設定を保存</button>
+    </div>
+  </form>
+</div>
+
+<style>
+.form-hint { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem; }
+</style>
+{% endblock %}

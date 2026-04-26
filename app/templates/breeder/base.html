@@ -591,8 +591,11 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">販売管理</div>
       <ul class="sidebar-nav">
-        <li><a href="{{ url_for('breeder.negotiations_list') }}" class="{{ 'active' if 'negotiation' in request.endpoint }}">
+        <li><a href="{{ url_for('breeder.negotiations_list') }}" class="{{ 'active' if 'negotiation' in request.endpoint and 'kanban' not in request.endpoint }}">
           <span class="nav-icon">¥</span>商談管理
+        </a></li>
+        <li><a href="{{ url_for('breeder.negotiations_kanban') }}" class="{{ 'active' if 'kanban' in request.endpoint }}">
+          <span class="nav-icon">▦</span>カンバンボード
         </a></li>
         <li><a href="{{ url_for('breeder.contacts_list') }}" class="{{ 'active' if 'contact' in request.endpoint }}">
           <span class="nav-icon">人</span>コンタクト
@@ -640,6 +643,17 @@
     </div>
 
     <div class="sidebar-section">
+      <div class="sidebar-section-label">遺伝子・ショー</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.genetic_tests_list') }}" class="{{ 'active' if 'genetic' in request.endpoint }}">
+          <span class="nav-icon">🧬</span>遺伝疾患検査
+        </a></li>
+        <li><a href="{{ url_for('breeder.show_records_list') }}" class="{{ 'active' if 'show_record' in request.endpoint }}">
+          <span class="nav-icon">🏆</span>ショー記録
+        </a></li>
+      </ul>
+    </div>
+    <div class="sidebar-section">
       <div class="sidebar-section-label">法規制対応</div>
       <ul class="sidebar-nav">
         <li><a href="{{ url_for('breeder.ledger') }}" class="{{ 'active' if 'ledger' in request.endpoint }}">
@@ -651,8 +665,17 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">設定</div>
       <ul class="sidebar-nav">
-        <li><a href="{{ url_for('breeder.settings') }}" class="{{ 'active' if 'setting' in request.endpoint }}">
-          <span class="nav-icon">⚙</span>設定
+        <li><a href="{{ url_for('breeder.settings') }}" class="{{ 'active' if request.endpoint == 'breeder.settings' }}">
+          <span class="nav-icon">⚙</span>基本設定
+        </a></li>
+        <li><a href="{{ url_for('breeder.settings_advanced') }}" class="{{ 'active' if 'settings_advanced' in request.endpoint }}">
+          <span class="nav-icon">☰</span>詳細設定
+        </a></li>
+        <li><a href="{{ url_for('breeder.export_page') }}" class="{{ 'active' if 'export' in request.endpoint }}">
+          <span class="nav-icon">↓</span>エクスポート
+        </a></li>
+        <li><a href="{{ url_for('breeder.presets_list') }}" class="{{ 'active' if 'preset' in request.endpoint }}">
+          <span class="nav-icon">▶</span>イベントプリセット
         </a></li>
       </ul>
     </div>

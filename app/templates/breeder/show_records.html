@@ -1,0 +1,101 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}ショー記録 - {{ dog.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">← 戻る</a>
+    <h1 class="page-title">🏆 ショー記録 - {{ dog.name }}</h1>
+  </div>
+</div>
+
+<!-- 登録フォーム -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">新規登録</h2></div>
+  <div class="card-body">
+    <form method="POST">
+      <input type="hidden" name="action" value="add">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;">
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">ショー名 <span style="color:red;">*</span></label>
+          <input type="text" name="show_name" class="form-control" required placeholder="例: JKC全国展覧会">
+        </div>
+        <div class="form-group">
+          <label class="form-label">開催日 <span style="color:red;">*</span></label>
+          <input type="date" name="show_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">開催地</label>
+          <input type="text" name="location" class="form-control" placeholder="例: 東京都">
+        </div>
+        <div class="form-group">
+          <label class="form-label">取得タイトル</label>
+          <input type="text" name="title_earned" class="form-control" placeholder="例: BIS, BOB">
+        </div>
+        <div class="form-group">
+          <label class="form-label">順位・受賞内容</label>
+          <input type="text" name="placement" class="form-control" placeholder="例: 1位, 優秀賞">
+        </div>
+        <div class="form-group">
+          <label class="form-label">審査員名</label>
+          <input type="text" name="judge_name" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">備考</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+    </form>
+  </div>
+</div>
+
+<!-- 一覧 -->
+<div class="card">
+  <div class="card-header"><h2 class="card-title">ショー記録一覧</h2></div>
+  <div class="card-body" style="padding:0;">
+    {% if records %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ショー名</th>
+          <th>開催日</th>
+          <th>開催地</th>
+          <th>取得タイトル</th>
+          <th>順位</th>
+          <th>審査員</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td><strong>{{ r.show_name }}</strong></td>
+          <td>{{ r.show_date }}</td>
+          <td>{{ r.location or '—' }}</td>
+          <td>
+            {% if r.title_earned %}
+            <span style="background:#fef3c7;color:#92400e;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;">
+              🏆 {{ r.title_earned }}
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ r.placement or '—' }}</td>
+          <td>{{ r.judge_name or '—' }}</td>
+          <td>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="rec_id" value="{{ r.id }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:2rem;text-align:center;color:var(--text-dim);">まだショー記録が登録されていません</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

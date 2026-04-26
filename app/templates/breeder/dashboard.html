@@ -141,6 +141,28 @@
   </div>
 </div>
 
+<!-- 出産統計チャート -->
+<div class="card mt-4">
+  <div class="card-title">出産数推移（過去6ヶ月）</div>
+  <div style="display: flex; align-items: flex-end; gap: 0.5rem; height: 120px; padding: 0.5rem 0;">
+    {% set max_count = birth_stats | map(attribute='count') | max %}
+    {% for stat in birth_stats %}
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
+      <div style="font-size: 0.7rem; color: var(--text-dim);">{{ stat.count }}</div>
+      <div style="
+        width: 100%;
+        background: {% if stat.count > 0 %}var(--accent){% else %}var(--border){% endif %};
+        border-radius: 4px 4px 0 0;
+        height: {% if max_count > 0 %}{{ (stat.count / max_count * 80) | int }}px{% else %}4px{% endif %};
+        min-height: 4px;
+        opacity: {% if stat.count > 0 %}0.8{% else %}0.3{% endif %};
+      "></div>
+      <div style="font-size: 0.65rem; color: var(--text-dim); white-space: nowrap;">{{ stat.month }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
 <!-- 店舗別集計テーブル（テナント管理者・システム管理者のみ） -->
 {% if session.get('role') in ('tenant_admin', 'system_admin') and store_stats %}
 <div class="card mt-4">
@@ -187,26 +209,4 @@
   </table>
 </div>
 {% endif %}
-
-<!-- 出産統計チャート -->
-<div class="card mt-4">
-  <div class="card-title">出産数推移（過去6ヶ月）</div>
-  <div style="display: flex; align-items: flex-end; gap: 0.5rem; height: 120px; padding: 0.5rem 0;">
-    {% set max_count = birth_stats | map(attribute='count') | max %}
-    {% for stat in birth_stats %}
-    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.3rem;">
-      <div style="font-size: 0.7rem; color: var(--text-dim);">{{ stat.count }}</div>
-      <div style="
-        width: 100%;
-        background: {% if stat.count > 0 %}var(--accent){% else %}var(--border){% endif %};
-        border-radius: 4px 4px 0 0;
-        height: {% if max_count > 0 %}{{ (stat.count / max_count * 80) | int }}px{% else %}4px{% endif %};
-        min-height: 4px;
-        opacity: {% if stat.count > 0 %}0.8{% else %}0.3{% endif %};
-      "></div>
-      <div style="font-size: 0.65rem; color: var(--text-dim); white-space: nowrap;">{{ stat.month }}</div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
 {% endblock %}

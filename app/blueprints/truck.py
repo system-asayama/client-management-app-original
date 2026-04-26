@@ -2377,14 +2377,14 @@ def tenant_summary():
         for store in stores:
             ops = db.query(TruckOperation).filter(
                 TruckOperation.operation_date == today,
-                TruckOperation.store_id == store.id,
+                TruckOperation.tenant_id == store.tenant_id,
             ).all()
             sc = {}
             for op in ops:
                 sc[op.status] = sc.get(op.status, 0) + 1
                 total_status_counts[op.status] = total_status_counts.get(op.status, 0) + 1
-            t_count = db.query(Truck).filter(Truck.store_id == store.id, Truck.active == True).count()
-            d_count = db.query(TruckDriver).filter(TruckDriver.store_id == store.id, TruckDriver.active == True).count()
+            t_count = db.query(Truck).filter(Truck.tenant_id == store.tenant_id, Truck.active == True).count()
+            d_count = db.query(TruckDriver).filter(TruckDriver.tenant_id == store.tenant_id, TruckDriver.active == True).count()
             total_trucks += t_count
             total_drivers += d_count
             store_summaries.append({
@@ -2433,7 +2433,7 @@ def store_dashboard(store_id):
 
         ops = db.query(TruckOperation).filter(
             TruckOperation.operation_date == today,
-            TruckOperation.store_id == store_id,
+            TruckOperation.tenant_id == store.tenant_id,
         ).order_by(TruckOperation.start_time).all()
 
         status_counts = {}
@@ -2450,8 +2450,8 @@ def store_dashboard(store_id):
                 "end_time": op.end_time,
             })
 
-        trucks = db.query(Truck).filter(Truck.store_id == store_id, Truck.active == True).all()
-        drivers = db.query(TruckDriver).filter(TruckDriver.store_id == store_id, TruckDriver.active == True).all()
+        trucks = db.query(Truck).filter(Truck.tenant_id == store.tenant_id, Truck.active == True).all()
+        drivers = db.query(TruckDriver).filter(TruckDriver.tenant_id == store.tenant_id, TruckDriver.active == True).all()
 
         return render_template(
             "truck/store_dashboard.html",

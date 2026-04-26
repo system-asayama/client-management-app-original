@@ -26,6 +26,25 @@ def _require_login():
         return redirect(url_for('auth.select_login'))
     return None
 
+
+def _get_tenant_store():
+    """ロールに応じてtenant_idとstore_idを返す。
+    - system_admin: 両方None（全データ）
+    - tenant_admin: tenant_idのみ（全店舗集計）、store_idはNone
+    - admin/employee: tenant_id + store_id
+    """
+    role = session.get('role', '')
+    if role == 'system_admin':
+        return None, None
+    tenant_id = session.get('tenant_id')
+    if role == 'tenant_admin':
+        return tenant_id, None  # 全店舗集計
+    store_id = session.get('store_id')
+    return tenant_id, store_id
+
+def _get_role():
+    return session.get('role', '')
+
 # ─── ダッシュボード ──────────────────────────────────────────
 @bp.route('/')
 @bp.route('/dashboard')
@@ -35,29 +54,36 @@ def dashboard():
     db = _get_db()
     try:
         today = date.today()
+        tenant_id, store_id = _get_tenant_store()
+        def _tf(q, model):
+            if tenant_id:
+                q = q.filter(model.tenant_id == tenant_id)
+            if store_id:
+                q = q.filter(model.store_id == store_id)
+            return q
         # 在舎頭数
-        parent_count = db.query(func.count(Dog.id)).filter(Dog.status == 'active', Dog.dog_type == 'parent').scalar() or 0
-        puppy_count = db.query(func.count(Puppy.id)).filter(Puppy.status.in_(['available', 'reserved'])).scalar() or 0
+        parent_count = _tf(db.query(func.count(Dog.id)).filter(Dog.status == 'active', Dog.dog_type == 'parent'), Dog).scalar() or 0
+        puppy_count = _tf(db.query(func.count(Puppy.id)).filter(Puppy.status.in_(['available', 'reserved'])), Puppy).scalar() or 0
         # Todo未完了
-        todo_pending = db.query(func.count(Todo.id)).filter(Todo.status == 'pending').scalar() or 0
-        todo_today = db.query(func.count(Todo.id)).filter(Todo.status == 'pending', Todo.due_date == today).scalar() or 0
+        todo_pending = _tf(db.query(func.count(Todo.id)).filter(Todo.status == 'pending'), Todo).scalar() or 0
+        todo_today = _tf(db.query(func.count(Todo.id)).filter(Todo.status == 'pending', Todo.due_date == today), Todo).scalar() or 0
         # ヒート中
-        heat_active = db.query(func.count(Heat.id)).filter(Heat.status.in_(['active', 'imminent'])).scalar() or 0
+        heat_active = _tf(db.query(func.count(Heat.id)).filter(Heat.status.in_(['active', 'imminent'])), Heat).scalar() or 0
         # 妊娠中
-        pregnant = db.query(func.count(Mating.id)).filter(Mating.status == 'pregnant').scalar() or 0
+        pregnant = _tf(db.query(func.count(Mating.id)).filter(Mating.status == 'pregnant'), Mating).scalar() or 0
         # 今月の出産
-        births_this_month = db.query(func.count(Birth.id)).filter(
+        births_this_month = _tf(db.query(func.count(Birth.id)).filter(
             func.extract('year', Birth.birth_date) == today.year,
             func.extract('month', Birth.birth_date) == today.month
-        ).scalar() or 0
+        ), Birth).scalar() or 0
         # 商談中
-        negotiating = db.query(func.count(Negotiation.id)).filter(
+        negotiating = _tf(db.query(func.count(Negotiation.id)).filter(
             Negotiation.status.in_(['inquiry', 'negotiating', 'reserved'])
-        ).scalar() or 0
+        ), Negotiation).scalar() or 0
         # 直近Todoリスト
-        recent_todos = db.query(Todo).filter(
+        recent_todos = _tf(db.query(Todo).filter(
             Todo.status == 'pending'
-        ).order_by(asc(Todo.due_date)).limit(5).all()
+        ), Todo).order_by(asc(Todo.due_date)).limit(5).all()
         # 最近の出産（月別統計 - 過去6ヶ月）
         birth_stats = []
         for i in range(5, -1, -1):
@@ -124,7 +150,12 @@ def dogs_list():
         dog_type = request.args.get('type', 'parent')
         status = request.args.get('status', '')
         q = request.args.get('q', '')
+        tenant_id, store_id = _get_tenant_store()
         query = db.query(Dog).filter(Dog.dog_type == dog_type)
+        if tenant_id:
+            query = query.filter(Dog.tenant_id == tenant_id)
+        if store_id:
+            query = query.filter(Dog.store_id == store_id)
         if status:
             query = query.filter(Dog.status == status)
         if q:
@@ -141,7 +172,10 @@ def dog_new():
     if request.method == 'POST':
         db = _get_db()
         try:
+            tenant_id, store_id = _get_tenant_store()
             dog = Dog(
+                tenant_id=tenant_id,
+                store_id=store_id,
                 name=request.form['name'],
                 registration_name=request.form.get('registration_name'),
                 breed=request.form['breed'],
@@ -171,7 +205,11 @@ def dog_edit(dog_id):
     from app.models_breeder import Dog
     db = _get_db()
     try:
-        dog = db.query(Dog).filter(Dog.id == dog_id).first()
+        tenant_id, store_id = _get_tenant_store()
+        q = db.query(Dog).filter(Dog.id == dog_id)
+        if tenant_id:
+            q = q.filter(Dog.tenant_id == tenant_id)
+        dog = q.first()
         if not dog:
             flash('犬が見つかりません', 'error')
             return redirect(url_for('breeder.dogs_list'))
@@ -225,7 +263,12 @@ def puppies_list():
     try:
         status = request.args.get('status', '')
         q = request.args.get('q', '')
+        tenant_id, store_id = _get_tenant_store()
         query = db.query(Puppy)
+        if tenant_id:
+            query = query.filter(Puppy.tenant_id == tenant_id)
+        if store_id:
+            query = query.filter(Puppy.store_id == store_id)
         if status:
             query = query.filter(Puppy.status == status)
         if q:
@@ -242,7 +285,10 @@ def puppy_new():
     db = _get_db()
     try:
         if request.method == 'POST':
+            tenant_id, store_id = _get_tenant_store()
             puppy = Puppy(
+                tenant_id=tenant_id,
+                store_id=store_id,
                 name=request.form.get('name'),
                 breed=request.form['breed'],
                 gender=request.form['gender'],
@@ -313,7 +359,13 @@ def heats_list():
     from app.models_breeder import Heat, Dog
     db = _get_db()
     try:
-        heats = db.query(Heat, Dog).join(Dog, Heat.dog_id == Dog.id).order_by(desc(Heat.created_at)).all()
+        tenant_id, store_id = _get_tenant_store()
+        q = db.query(Heat, Dog).join(Dog, Heat.dog_id == Dog.id)
+        if tenant_id:
+            q = q.filter(Heat.tenant_id == tenant_id)
+        if store_id:
+            q = q.filter(Heat.store_id == store_id)
+        heats = q.order_by(desc(Heat.created_at)).all()
         return render_template('breeder/heats_list.html', heats=heats)
     finally:
         db.close()
@@ -325,7 +377,10 @@ def heat_new():
     db = _get_db()
     try:
         if request.method == 'POST':
+            tenant_id, store_id = _get_tenant_store()
             heat = Heat(
+                tenant_id=tenant_id,
+                store_id=store_id,
                 dog_id=int(request.form['dog_id']),
                 start_date=_parse_date(request.form.get('start_date')),
                 last_confirmed_date=_parse_date(request.form.get('last_confirmed_date')),
@@ -354,8 +409,19 @@ def matings_list():
     from app.models_breeder import Mating, Dog
     db = _get_db()
     try:
-        matings = db.query(Mating).order_by(desc(Mating.mating_date)).all()
-        dogs = {d.id: d for d in db.query(Dog).all()}
+        tenant_id, store_id = _get_tenant_store()
+        mq = db.query(Mating)
+        if tenant_id:
+            mq = mq.filter(Mating.tenant_id == tenant_id)
+        if store_id:
+            mq = mq.filter(Mating.store_id == store_id)
+        matings = mq.order_by(desc(Mating.mating_date)).all()
+        dq = db.query(Dog)
+        if tenant_id:
+            dq = dq.filter(Dog.tenant_id == tenant_id)
+        if store_id:
+            dq = dq.filter(Dog.store_id == store_id)
+        dogs = {d.id: d for d in dq.all()}
         return render_template('breeder/matings_list.html', matings=matings, dogs=dogs)
     finally:
         db.close()
@@ -369,7 +435,10 @@ def mating_new():
         if request.method == 'POST':
             mating_date = _parse_date(request.form.get('mating_date'))
             expected = mating_date + timedelta(days=63) if mating_date else None
+            tenant_id, store_id = _get_tenant_store()
             mating = Mating(
+                tenant_id=tenant_id,
+                store_id=store_id,
                 mother_id=int(request.form['mother_id']),
                 father_id=int(request.form['father_id']),
                 heat_id=_int_or_none(request.form.get('heat_id')),
@@ -1144,12 +1213,18 @@ def settings_save():
     from app.models_breeder import AppSetting
     db = _get_db()
     try:
+        tenant_id, store_id = _get_tenant_store()
         for key, value in request.form.items():
-            existing = db.query(AppSetting).filter(AppSetting.key == key).first()
+            q = db.query(AppSetting).filter(AppSetting.key == key)
+            if tenant_id:
+                q = q.filter(AppSetting.tenant_id == tenant_id)
+            if store_id:
+                q = q.filter(AppSetting.store_id == store_id)
+            existing = q.first()
             if existing:
                 existing.value = value
             else:
-                db.add(AppSetting(key=key, value=value))
+                db.add(AppSetting(key=key, value=value, tenant_id=tenant_id, store_id=store_id))
         db.commit()
         flash('設定を保存しました', 'success')
     except Exception as e:
@@ -1159,6 +1234,107 @@ def settings_save():
         db.close()
     return redirect(url_for('breeder.settings'))
 
+
+
+# ─── テナント管理者向け全店舗集計 ──────────────────────────────
+@bp.route('/tenant_summary')
+@require_roles(*BREEDER_ROLES)
+def tenant_summary():
+    """テナント管理者・システム管理者向け：全店舗の集計ダッシュボード"""
+    from app.models_breeder import Dog, Puppy, Heat, Mating, Birth, Todo, Negotiation
+    from app.models_login import TTenpo, TTenant
+    db = _get_db()
+    try:
+        role = _get_role()
+        tenant_id = session.get('tenant_id')
+        today = date.today()
+
+        # 店舗一覧取得
+        sq = db.query(TTenpo)
+        if role != 'system_admin' and tenant_id:
+            sq = sq.filter(TTenpo.tenant_id == tenant_id)
+        stores = sq.order_by(TTenpo.id).all()
+
+        # テナント名取得
+        tenant_name = None
+        if tenant_id:
+            t = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+            tenant_name = t.名称 if t else None
+
+        # 店舗別集計
+        store_stats = []
+        for store in stores:
+            sid = store.id
+            parents = db.query(func.count(Dog.id)).filter(
+                Dog.store_id == sid, Dog.status == 'active', Dog.dog_type == 'parent').scalar() or 0
+            puppies = db.query(func.count(Puppy.id)).filter(
+                Puppy.store_id == sid, Puppy.status.in_(['available', 'reserved'])).scalar() or 0
+            heats = db.query(func.count(Heat.id)).filter(
+                Heat.store_id == sid, Heat.status.in_(['active', 'imminent'])).scalar() or 0
+            pregnant = db.query(func.count(Mating.id)).filter(
+                Mating.store_id == sid, Mating.status == 'pregnant').scalar() or 0
+            todos = db.query(func.count(Todo.id)).filter(
+                Todo.store_id == sid, Todo.status == 'pending').scalar() or 0
+            negotiations = db.query(func.count(Negotiation.id)).filter(
+                Negotiation.store_id == sid,
+                Negotiation.status.in_(['inquiry', 'negotiating', 'reserved'])).scalar() or 0
+            store_stats.append({
+                'store': store,
+                'parents': parents,
+                'puppies': puppies,
+                'heats': heats,
+                'pregnant': pregnant,
+                'todos': todos,
+                'negotiations': negotiations,
+            })
+
+        # 全体合計
+        totals = {
+            'parents': sum(s['parents'] for s in store_stats),
+            'puppies': sum(s['puppies'] for s in store_stats),
+            'heats': sum(s['heats'] for s in store_stats),
+            'pregnant': sum(s['pregnant'] for s in store_stats),
+            'todos': sum(s['todos'] for s in store_stats),
+            'negotiations': sum(s['negotiations'] for s in store_stats),
+        }
+
+        return render_template('breeder/tenant_summary.html',
+            store_stats=store_stats,
+            totals=totals,
+            tenant_name=tenant_name,
+            role=role,
+            today=today,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/select_store', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def select_store():
+    """店舗切り替え"""
+    from app.models_login import TTenpo
+    db = _get_db()
+    try:
+        tenant_id = session.get('tenant_id')
+        role = _get_role()
+        sq = db.query(TTenpo)
+        if role != 'system_admin' and tenant_id:
+            sq = sq.filter(TTenpo.tenant_id == tenant_id)
+        stores = sq.order_by(TTenpo.id).all()
+
+        if request.method == 'POST':
+            store_id = request.form.get('store_id')
+            if store_id == 'all':
+                session['store_id'] = None
+            else:
+                session['store_id'] = int(store_id) if store_id else None
+            return redirect(request.form.get('next') or url_for('breeder.dashboard'))
+
+        return render_template('breeder/select_store.html', stores=stores,
+                               current_store_id=session.get('store_id'))
+    finally:
+        db.close()
 
 # ─── ユーティリティ ──────────────────────────────────────────
 def _parse_date(s):

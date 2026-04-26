@@ -1,0 +1,50 @@
+{% extends 'breeder/base.html' %}
+{% block title %}店舗切り替え{% endblock %}
+{% block topbar_title %}店舗切り替え{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.dashboard') }}" class="btn btn-secondary btn-sm">← 戻る</a>
+{% endblock %}
+{% block content %}
+<style>
+  .store-select-wrap { max-width: 480px; margin: 2rem auto; }
+  .store-select-wrap h2 { font-size: 1rem; color: var(--text-muted); margin-bottom: 1.25rem; }
+  .store-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .store-card.active { border-color: var(--accent); }
+  .store-card-name { font-weight: 600; color: var(--text); }
+  .store-card-name.active { color: var(--accent); }
+  .badge-current { font-size: 0.7rem; background: var(--accent-dim); color: var(--accent-light); padding: 0.1rem 0.5rem; border-radius: 99px; margin-left: 0.5rem; }
+</style>
+
+<div class="store-select-wrap">
+  <h2>表示する店舗を選択してください</h2>
+
+  <!-- 全店舗表示 -->
+  <div class="store-card {% if not current_store_id %}active{% endif %}">
+    <div class="store-card-name {% if not current_store_id %}active{% endif %}">
+      全店舗（集計表示）
+      {% if not current_store_id %}<span class="badge-current">現在</span>{% endif %}
+    </div>
+    <form method="post">
+      <input type="hidden" name="store_id" value="all">
+      <button type="submit" class="btn {% if not current_store_id %}btn-secondary{% else %}btn-primary{% endif %} btn-sm">
+        {% if not current_store_id %}選択中{% else %}切り替え{% endif %}
+      </button>
+    </form>
+  </div>
+
+  {% for store in stores %}
+  <div class="store-card {% if current_store_id == store.id %}active{% endif %}">
+    <div class="store-card-name {% if current_store_id == store.id %}active{% endif %}">
+      {{ store.名称 }}
+      {% if current_store_id == store.id %}<span class="badge-current">現在</span>{% endif %}
+    </div>
+    <form method="post">
+      <input type="hidden" name="store_id" value="{{ store.id }}">
+      <button type="submit" class="btn {% if current_store_id == store.id %}btn-secondary{% else %}btn-primary{% endif %} btn-sm">
+        {% if current_store_id == store.id %}選択中{% else %}切り替え{% endif %}
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

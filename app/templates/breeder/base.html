@@ -616,6 +616,24 @@
         </a></li>
       </ul>
     </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">店舗・テナント</div>
+      <ul class="sidebar-nav">
+        {% if session.get('role') in ('system_admin', 'tenant_admin') %}
+        <li><a href="{{ url_for('breeder.tenant_summary') }}" class="{{ 'active' if 'tenant_summary' in request.endpoint }}">
+          <span class="nav-icon">📊</span>全店舗集計
+        </a></li>
+        {% endif %}
+        <li><a href="{{ url_for('breeder.select_store') }}" class="{{ 'active' if 'select_store' in request.endpoint }}">
+          <span class="nav-icon">🏪</span>店舗切り替え
+          {% if session.get('store_id') %}
+            <span style="font-size:0.65rem;background:var(--accent-dim);color:var(--accent-light);padding:0.1rem 0.4rem;border-radius:99px;margin-left:0.3rem;">選択中</span>
+          {% else %}
+            <span style="font-size:0.65rem;background:var(--border);color:var(--text-dim);padding:0.1rem 0.4rem;border-radius:99px;margin-left:0.3rem;">全店舗</span>
+          {% endif %}
+        </a></li>
+      </ul>
+    </div>
 
     <div class="sidebar-footer">
       <div class="sidebar-user">

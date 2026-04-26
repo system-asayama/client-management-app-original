@@ -78,8 +78,8 @@ def _resolve_api_keys() -> tuple:
     1. アプリ設定 (app_settings テーブル: key='google_vision_api_key' / 'openai_api_key')
     2. 店舗設定 (T_店舗テーブル: store_id はセッションから)
     3. テナント設定 (T_テナントテーブル)
-    4. システム管理者設定 (T_管理者テーブル)
-    5. アプリ管理者グループ設定 (T_アプリ管理者グループテーブル)
+    4. アプリ管理者グループ設定 (T_アプリ管理者グループテーブル)
+    5. システム管理者設定 (T_管理者テーブル)
     6. 環境変数
 
     Returns:
@@ -133,27 +133,20 @@ def _resolve_api_keys() -> tuple:
                     if google_key or openai_key:
                         return google_key, openai_key
 
-            # ── 4. システム管理者設定 (T_管理者) ─────────────────────────────────
-            if user_id:
-                from app.models_login import TKanrisha
-                admin = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
-                if admin:
-                    google_key = getattr(admin, 'google_vision_api_key', None) or None
-                    openai_key = getattr(admin, 'openai_api_key', None) or None
-                    if google_key or openai_key:
-                        return google_key, openai_key
-                    # ── 5. アプリ管理者グループ設定 ────────────────────────────
-                    group_id = getattr(admin, 'app_manager_group_id', None)
-                    if group_id:
-                        from app.models_login import TAppManagerGroup
-                        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
-                        if group:
-                            google_key = getattr(group, 'google_vision_api_key', None) or None
-                            openai_key = getattr(group, 'openai_api_key', None) or None
-                            if google_key or openai_key:
-                                return google_key, openai_key
+            # ── 4. アプリ管理者グループ設定 (T_アプリ管理者グループ) ──────────────
+            try:
+                from app.models_login import TAppManagerGroup, TKanrisha
+                # 全アプリ管理者グループを検索（APIキーが設定されているもの優先）
+                groups = db.query(TAppManagerGroup).all()
+                for group in groups:
+                    gk = getattr(group, 'google_vision_api_key', None) or None
+                    ok = getattr(group, 'openai_api_key', None) or None
+                    if gk or ok:
+                        return gk, ok
+            except Exception:
+                pass
 
-            # システム管理者を全件検索（role='system_admin'のいずれかのAPIキーを使用）
+            # ── 5. システム管理者設定 (T_管理者 role='system_admin') ───────────────
             try:
                 from app.models_login import TKanrisha
                 sys_admins = db.query(TKanrisha).filter(
@@ -164,15 +157,6 @@ def _resolve_api_keys() -> tuple:
                     ok = getattr(sa, 'openai_api_key', None) or None
                     if gk or ok:
                         return gk, ok
-                    group_id = getattr(sa, 'app_manager_group_id', None)
-                    if group_id:
-                        from app.models_login import TAppManagerGroup
-                        group = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == group_id).first()
-                        if group:
-                            gk2 = getattr(group, 'google_vision_api_key', None) or None
-                            ok2 = getattr(group, 'openai_api_key', None) or None
-                            if gk2 or ok2:
-                                return gk2, ok2
             except Exception:
                 pass
 

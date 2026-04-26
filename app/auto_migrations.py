@@ -877,3 +877,219 @@ def run_truck_doc_migrations():
         logger.error(f"✗ truck_doc_migrations エラー: {e}")
     finally:
         session.close()
+
+
+def run_breeder_new_table_migrations():
+    """
+    Churupi相当機能のための新テーブルを作成する。
+    - genetic_test_results  : 遺伝疾患検査結果
+    - show_records          : ドッグショー記録
+    - public_cartes         : 公開カルテ
+    - kennel_profiles       : 犬舎プロフィール
+    - event_presetsにdays_offsetカラム追加
+    """
+    session = SessionLocal()
+    db_type = get_db_type()
+    is_pg = (db_type == 'postgresql')
+
+    def _create(table_name, mysql_ddl, pg_ddl):
+        if table_exists(session, table_name):
+            logger.info(f"- {table_name} テーブルは既に存在します（スキップ）")
+            return
+        try:
+            session.execute(text(pg_ddl if is_pg else mysql_ddl))
+            session.commit()
+            logger.info(f"✓ {table_name} テーブルを作成しました")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"テーブル作成エラー: {table_name} - {e}")
+
+    try:
+        logger.info(f"run_breeder_new_table_migrations 開始... (DB: {db_type})")
+
+        # ── genetic_test_results ──────────────────────────────────────
+        _create(
+            'genetic_test_results',
+            """
+            CREATE TABLE `genetic_test_results` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT,
+                `store_id` INT,
+                `dog_id` INT,
+                `puppy_id` INT,
+                `disease_name` VARCHAR(200) NOT NULL,
+                `result` ENUM('clear','carrier','affected','unknown') NOT NULL DEFAULT 'unknown',
+                `tested_at` DATE,
+                `lab_name` VARCHAR(200),
+                `certificate_url` TEXT,
+                `notes` TEXT,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_gtr_tenant (`tenant_id`),
+                INDEX idx_gtr_dog (`dog_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE genetic_test_results (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER,
+                store_id INTEGER,
+                dog_id INTEGER,
+                puppy_id INTEGER,
+                disease_name VARCHAR(200) NOT NULL,
+                result VARCHAR(20) NOT NULL DEFAULT 'unknown',
+                tested_at DATE,
+                lab_name VARCHAR(200),
+                certificate_url TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+            """
+        )
+
+        # ── show_records ──────────────────────────────────────────────
+        _create(
+            'show_records',
+            """
+            CREATE TABLE `show_records` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT,
+                `store_id` INT,
+                `dog_id` INT,
+                `puppy_id` INT,
+                `show_name` VARCHAR(300) NOT NULL,
+                `show_date` DATE NOT NULL,
+                `location` VARCHAR(300),
+                `title_earned` VARCHAR(200),
+                `placement` VARCHAR(100),
+                `judge_name` VARCHAR(200),
+                `notes` TEXT,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_sr_tenant (`tenant_id`),
+                INDEX idx_sr_dog (`dog_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE show_records (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER,
+                store_id INTEGER,
+                dog_id INTEGER,
+                puppy_id INTEGER,
+                show_name VARCHAR(300) NOT NULL,
+                show_date DATE NOT NULL,
+                location VARCHAR(300),
+                title_earned VARCHAR(200),
+                placement VARCHAR(100),
+                judge_name VARCHAR(200),
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+            """
+        )
+
+        # ── public_cartes ─────────────────────────────────────────────
+        _create(
+            'public_cartes',
+            """
+            CREATE TABLE `public_cartes` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT,
+                `store_id` INT,
+                `dog_id` INT,
+                `puppy_id` INT,
+                `public_token` VARCHAR(64) NOT NULL UNIQUE,
+                `is_published` TINYINT(1) NOT NULL DEFAULT 0,
+                `intro_text` TEXT,
+                `view_count` INT NOT NULL DEFAULT 0,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_pc_tenant (`tenant_id`),
+                INDEX idx_pc_token (`public_token`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE public_cartes (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER,
+                store_id INTEGER,
+                dog_id INTEGER,
+                puppy_id INTEGER,
+                public_token VARCHAR(64) NOT NULL UNIQUE,
+                is_published SMALLINT NOT NULL DEFAULT 0,
+                intro_text TEXT,
+                view_count INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+            """
+        )
+
+        # ── kennel_profiles ───────────────────────────────────────────
+        _create(
+            'kennel_profiles',
+            """
+            CREATE TABLE `kennel_profiles` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT,
+                `store_id` INT,
+                `kennel_name` VARCHAR(200),
+                `intro_text` TEXT,
+                `address` VARCHAR(300),
+                `phone` VARCHAR(30),
+                `email` VARCHAR(320),
+                `website_url` TEXT,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_kp_tenant (`tenant_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE kennel_profiles (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER,
+                store_id INTEGER,
+                kennel_name VARCHAR(200),
+                intro_text TEXT,
+                address VARCHAR(300),
+                phone VARCHAR(30),
+                email VARCHAR(320),
+                website_url TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+            """
+        )
+
+        # ── event_presetsにdays_offsetカラムを追加 ─────────────────────
+        if table_exists(session, 'event_presets'):
+            if not column_exists(session, 'event_presets', 'days_offset'):
+                try:
+                    if is_pg:
+                        session.execute(text(
+                            "ALTER TABLE event_presets ADD COLUMN days_offset INTEGER DEFAULT 0"
+                        ))
+                    else:
+                        session.execute(text(
+                            "ALTER TABLE `event_presets` ADD COLUMN `days_offset` INT DEFAULT 0 COMMENT '起点日からのオフセット日数'"
+                        ))
+                    session.commit()
+                    logger.info("✓ event_presets.days_offset カラムを追加しました")
+                except Exception as e:
+                    session.rollback()
+                    logger.error(f"event_presets.days_offset 追加エラー: {e}")
+            else:
+                logger.info("- event_presets.days_offset は既に存在します（スキップ）")
+
+        logger.info("✓ run_breeder_new_table_migrations 完了")
+
+    except Exception as e:
+        session.rollback()
+        logger.error(f"✗ run_breeder_new_table_migrations エラー: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+    finally:
+        session.close()

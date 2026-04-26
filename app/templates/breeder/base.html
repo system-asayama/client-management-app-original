@@ -180,6 +180,21 @@
       color: var(--text);
     }
     .topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .store-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.2;
+    }
+    .store-badge .store-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .store-badge .tenant-name {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
     .content {
       padding: 1.5rem;
       flex: 1;
@@ -657,6 +672,16 @@
       <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
       <div class="topbar-actions">
         {% block topbar_actions %}{% endblock %}
+        {% if current_store_name or current_tenant_name %}
+        <div class="store-badge">
+          {% if current_store_name %}
+          <span class="store-name">{{ current_store_name }}</span>
+          {% endif %}
+          {% if current_tenant_name %}
+          <span class="tenant-name">{{ current_tenant_name }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
         <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">ログアウト</a>
       </div>
     </header>

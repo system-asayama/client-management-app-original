@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}アプリ管理者編集{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem; display: flex; justify-content: space-between;
+    align-items: flex-end; flex-wrap: wrap; gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); padding: 0.45rem 1rem;
+    border-radius: 8px; text-decoration: none; font-size: 0.875rem; transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.9rem; }
+  .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 1.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.4rem; }
+  .form-group input, .form-group select { width: 100%; padding: 0.55rem 0.85rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #2563a8; box-shadow: 0 0 0 3px rgba(37,99,168,0.12); }
+  .form-group .hint { font-size: 0.8rem; color: #9ca3af; margin-top: 0.3rem; }
+  .req { color: #ef4444; }
+  .form-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e5e7eb; }
+  .btn-primary-form { background: #2563a8; color: #fff; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .btn-primary-form:hover { background: #1a4a8a; }
+  .btn-cancel-form { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; text-decoration: none; }
+  .btn-cancel-form:hover { background: #e5e7eb; }
+  .btn-danger-form { background: #ef4444; color: #fff; border: none; padding: 0.6rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-left: auto; }
+  .btn-danger-form:hover { background: #dc2626; }
+  .section-divider { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+  .section-label { font-size: 0.8rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+  .toggle-group { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .toggle-item { display: flex; align-items: center; gap: 0.5rem; }
+  .toggle-item input[type="radio"] { width: auto; }
+  .toggle-item label { font-size: 0.875rem; font-weight: 400; color: #374151; margin: 0; }
+</style>
+
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">LOGIN SYSTEM</div>
+    <h1>アプリ管理者編集</h1>
+  </div>
+  <div class="header-actions">
+    {% if manager.app_manager_group_id %}
+    <a href="{{ url_for('system_admin.app_manager_group_detail', group_id=manager.app_manager_group_id) }}">グループ詳細に戻る</a>
+    {% else %}
+    <a href="{{ url_for('system_admin.app_manager_groups') }}">一覧に戻る</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if get_flashed_messages() %}
+<div style="margin-bottom:1rem">
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="form-card">
+  <form method="post" id="editForm">
+    <div class="form-group">
+      <label>所属グループ <span class="req">*</span></label>
+      <select name="app_manager_group_id" required>
+        <option value="">-- グループを選択してください --</option>
+        {% for group in groups %}
+        <option value="{{ group.id }}" {% if manager.app_manager_group_id == group.id %}selected{% endif %}>{{ group.group_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>ログインID <span class="req">*</span></label>
+      <input type="text" name="login_id" required value="{{ manager.login_id }}" placeholder="例: uchiyama@estrella.jp">
+      <div class="hint">半角英数字・記号で入力してください</div>
+    </div>
+
+    <div class="form-group">
+      <label>氏名 <span class="req">*</span></label>
+      <input type="text" name="name" required value="{{ manager.name }}" placeholder="例: 内山 良一">
+    </div>
+
+    <div class="form-group">
+      <label>メールアドレス <span class="req">*</span></label>
+      <input type="email" name="email" required value="{{ manager.email }}" placeholder="例: uchiyama@estrella.jp">
+    </div>
+
+    <hr class="section-divider">
+    <div class="section-label">パスワード変更（変更しない場合は空欄）</div>
+
+    <div class="form-group">
+      <label>新しいパスワード</label>
+      <input type="password" name="password" minlength="8" placeholder="8文字以上（変更しない場合は空欄）">
+      <div class="hint">変更しない場合は空欄のままにしてください</div>
+    </div>
+
+    <div class="form-group">
+      <label>新しいパスワード（確認）</label>
+      <input type="password" name="password_confirm" minlength="8" placeholder="もう一度入力してください">
+    </div>
+
+    <hr class="section-divider">
+    <div class="section-label">アカウント設定</div>
+
+    <div class="form-group">
+      <label>状態</label>
+      <div class="toggle-group">
+        <div class="toggle-item">
+          <input type="radio" name="active" id="active_1" value="1" {% if manager.active == 1 %}checked{% endif %}>
+          <label for="active_1">有効</label>
+        </div>
+        <div class="toggle-item">
+          <input type="radio" name="active" id="active_0" value="0" {% if manager.active == 0 %}checked{% endif %}>
+          <label for="active_0">無効</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>オーナー権限</label>
+      <div class="toggle-group">
+        <div class="toggle-item">
+          <input type="radio" name="is_owner" id="owner_0" value="0" {% if manager.is_owner == 0 %}checked{% endif %}>
+          <label for="owner_0">なし</label>
+        </div>
+        <div class="toggle-item">
+          <input type="radio" name="is_owner" id="owner_1" value="1" {% if manager.is_owner == 1 %}checked{% endif %}>
+          <label for="owner_1">あり</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary-form">更新する</button>
+      {% if manager.app_manager_group_id %}
+      <a href="{{ url_for('system_admin.app_manager_group_detail', group_id=manager.app_manager_group_id) }}" class="btn-cancel-form">キャンセル</a>
+      {% else %}
+      <a href="{{ url_for('system_admin.app_manager_groups') }}" class="btn-cancel-form">キャンセル</a>
+      {% endif %}
+      <button type="button" class="btn-danger-form" onclick="confirmDelete()">削除する</button>
+    </div>
+  </form>
+
+  <!-- 削除フォーム（非表示） -->
+  <form method="post" action="{{ url_for('system_admin.app_manager_delete', manager_id=manager.id) }}" id="deleteForm" style="display:none;">
+  </form>
+</div>
+
+<script>
+  document.getElementById('editForm').addEventListener('submit', function(e) {
+    const password = document.querySelector('input[name="password"]').value;
+    const confirm = document.querySelector('input[name="password_confirm"]').value;
+    if (password && password !== confirm) {
+      e.preventDefault();
+      alert('パスワードが一致しません');
+    }
+  });
+
+  function confirmDelete() {
+    if (confirm('アプリ管理者「{{ manager.name }}」を削除してもよろしいですか？\nこの操作は元に戻せません。')) {
+      document.getElementById('deleteForm').submit();
+    }
+  }
+</script>
+{% endblock %}

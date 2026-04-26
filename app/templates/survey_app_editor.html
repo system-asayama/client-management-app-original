@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>アンケート作成・編集 - 管理画面</title>
+  <link rel="stylesheet" href="/static/slot.css">
+  <style>
+    body {
+      background: #f3f4f6;
+    }
+    .admin-header {
+      background: white;
+      padding: 16px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-header h1 {
+      font-size: 20px;
+      margin: 0;
+      color: #1f2937;
+    }
+    .admin-header .user-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .admin-header .user-name {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .btn-logout {
+      padding: 8px 16px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+    .section {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    .section h2 {
+      font-size: 18px;
+      margin: 0 0 20px 0;
+      color: #1f2937;
+    }
+    .form-group {
+      margin-bottom: 24px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+    .form-group input[type="text"],
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    .question-card {
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      background: #fafafa;
+    }
+    .question-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .question-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn-move {
+      padding: 4px 8px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-move:hover {
+      background: #4b5563;
+    }
+    .btn-move:disabled {
+      background: #d1d5db;
+      cursor: not-allowed;
+    }
+    .question-number {
+      font-weight: 700;
+      color: #3b82f6;
+      font-size: 16px;
+    }
+    .btn-remove {
+      padding: 6px 12px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-primary {
+      padding: 12px 24px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 12px;
+    }
+    .btn-secondary {
+      padding: 12px 24px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-add {
+      padding: 10px 20px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .option-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    .option-item input {
+      flex: 1;
+    }
+    .option-item button {
+      padding: 6px 12px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .help-text {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .alert-success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+    .alert-error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-header">
+    <h1>📝 アンケート作成・編集</h1>
+    <div class="user-info">
+      <span class="user-name">{{ admin.name }} ({{ admin.store_code }})</span>
+      <a href="{{ url_for('survey_app.admin_logout') }}" class="btn-logout">ログアウト</a>
+    </div>
+  </div>
+
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" id="surveyForm">
+      <div class="section">
+        <h2>基本設定</h2>
+        
+        <div class="form-group">
+          <label for="survey_title">アンケートタイトル</label>
+          <input 
+            type="text" 
+            id="survey_title" 
+            name="survey_title" 
+            value="{{ survey_config.title }}"
+            placeholder="例: お店アンケート"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="survey_description">説明文</label>
+          <textarea 
+            id="survey_description" 
+            name="survey_description"
+            placeholder="アンケートの説明を入力してください"
+          >{{ survey_config.description }}</textarea>
+          <div class="help-text">アンケートページの上部に表示されます</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>質問項目</h2>
+        <div id="questionsContainer">
+          {% for question in survey_config.questions %}
+          <div class="question-card" data-question-index="{{ loop.index0 }}">
+            <div class="question-header">
+              <span class="question-number">質問 {{ loop.index }}</span>
+              <div class="question-controls">
+                {% if loop.index0 != 0 %}
+                <button type="button" class="btn-move" onclick="moveQuestionUp(this)" title="上へ移動">▲</button>
+                <button type="button" class="btn-move" onclick="moveQuestionDown(this)" title="下へ移動">▼</button>
+                <button type="button" class="btn-remove" onclick="removeQuestion(this)">削除</button>
+                {% else %}
+                <span style="font-size: 12px; color: #6b7280;">（削除不可）</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>質問文</label>
+              <input 
+                type="text" 
+                name="questions[{{ loop.index0 }}][text]" 
+                value="{{ question.text }}"
+                placeholder="質問を入力してください"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label>質問タイプ</label>
+              <select name="questions[{{ loop.index0 }}][type]" onchange="updateQuestionType(this)">
+                <option value="rating" {% if question.type == 'rating' %}selected{% endif %}>星評価（1-5）</option>
+                <option value="comment_rating" {% if question.type == 'comment_rating' or question.type in ['radio','checkbox','text'] %}selected{% endif %}>コメント（5段階評価）</option>
+              </select>
+
+            </div>
+
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input 
+                  type="checkbox" 
+                  name="questions[{{ loop.index0 }}][required]" 
+                  value="true"
+                  {% if question.required %}checked{% endif %}
+                  style="width: auto; margin: 0;"
+                >
+                <span>この質問を必須にする</span>
+              </label>
+
+            </div>
+
+            {% if question.type == 'comment_rating' or question.type in ['radio', 'checkbox'] %}
+            <div class="form-group options-group">
+              <label>選択肢（5項目固定）</label>
+              <div class="options-container">
+                {% set question_index = loop.index0 %}
+                {% set default_options = ['非常に満足', '満足', '普通', 'やや不満', '非常に不満'] %}
+                {% set opts = question.options if question.options else default_options %}
+                {% for option in opts %}
+                <div class="option-item">
+                  <input 
+                    type="text" 
+                    name="questions[{{ question_index }}][options][]" 
+                    value="{{ option }}"
+                    placeholder="選択肢を入力"
+                    >
+                  <button type="button" onclick="removeOption(this)">削除</button>
+                </div>
+                {% endfor %}
+              </div>
+              <button type="button" class="btn-add" onclick="addOption(this)">+ 選択肢を追加</button>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+        <button type="button" class="btn-add" onclick="addQuestion()">+ 質問を追加</button>
+      </div>
+
+      <div class="section">
+        <button type="submit" class="btn-primary">保存</button>
+        <a href="{{ url_for('survey_app.admin_dashboard') }}" class="btn-secondary">キャンセル</a>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    let questionIndex = {{ survey_config.questions|length }};
+
+    function addQuestion() {
+      const container = document.getElementById('questionsContainer');
+      const questionCard = document.createElement('div');
+      questionCard.className = 'question-card';
+      questionCard.setAttribute('data-question-index', questionIndex);
+      
+      questionCard.innerHTML = `
+        <div class="question-header">
+          <span class="question-number">質問 ${questionIndex + 1}</span>
+          <div class="question-controls">
+            <button type="button" class="btn-move" onclick="moveQuestionUp(this)" title="上へ移動">▲</button>
+            <button type="button" class="btn-move" onclick="moveQuestionDown(this)" title="下へ移動">▼</button>
+            <button type="button" class="btn-remove" onclick="removeQuestion(this)">削除</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>質問文</label>
+          <input 
+            type="text" 
+            name="questions[${questionIndex}][text]" 
+            placeholder="質問を入力してください"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label>質問タイプ</label>
+          <select name="questions[${questionIndex}][type]" onchange="updateQuestionType(this)">
+            <option value="rating">星評価（1-5）</option>
+            <option value="comment_rating">コメント（5段階評価）</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input 
+              type="checkbox" 
+              name="questions[${questionIndex}][required]" 
+              value="true"
+              style="width: auto; margin: 0;"
+            >
+            <span>この質問を必須にする</span>
+          </label>
+        </div>
+      `;
+      
+      container.appendChild(questionCard);
+      questionIndex++;
+      updateQuestionNumbers();
+    }
+
+    function removeQuestion(button) {
+      if (confirm('この質問を削除しますか？')) {
+        button.closest('.question-card').remove();
+        updateQuestionNumbers();
+      }
+    }
+
+    function updateQuestionNumbers() {
+      const questions = document.querySelectorAll('.question-card');
+      questions.forEach((card, index) => {
+        card.querySelector('.question-number').textContent = `質問 ${index + 1}`;
+        card.setAttribute('data-question-index', index);
+        
+        // 上下移動ボタンの有効/無効化
+        const upBtn = card.querySelector('.btn-move:first-of-type');
+        const downBtn = card.querySelector('.btn-move:nth-of-type(2)');
+        if (upBtn) upBtn.disabled = (index === 0);
+        if (downBtn) downBtn.disabled = (index === questions.length - 1);
+      });
+    }
+    
+    function moveQuestionUp(button) {
+      const card = button.closest('.question-card');
+      const index = parseInt(card.getAttribute('data-question-index'));
+      
+      // 質問1（index=0）とその上への移動を防ぐ
+      if (index <= 1) return;
+      
+      const prev = card.previousElementSibling;
+      if (prev && prev.classList.contains('question-card')) {
+        const prevIndex = parseInt(prev.getAttribute('data-question-index'));
+        if (prevIndex === 0) return; // 質問1を越えて移動させない
+        card.parentNode.insertBefore(card, prev);
+        updateQuestionNumbers();
+      }
+    }
+    
+    function moveQuestionDown(button) {
+      const card = button.closest('.question-card');
+      const index = parseInt(card.getAttribute('data-question-index'));
+      
+      // 質問1（index=0）の移動を防ぐ
+      if (index === 0) return;
+      
+      const next = card.nextElementSibling;
+      if (next && next.classList.contains('question-card')) {
+        card.parentNode.insertBefore(next, card);
+        updateQuestionNumbers();
+      }
+    }
+
+    function updateQuestionType(select) {
+      const questionCard = select.closest('.question-card');
+      const type = select.value;
+      const existingOptionsGroup = questionCard.querySelector('.options-group');
+      
+      if (existingOptionsGroup) {
+        existingOptionsGroup.remove();
+      }
+
+      if (type === 'comment_rating') {
+        const questionIndex = questionCard.getAttribute('data-question-index');
+        const defaultOptions = ['非常に満足', '満足', '普通', 'やや不満', '非常に不満'];
+        const optionsGroup = document.createElement('div');
+        optionsGroup.className = 'form-group options-group';
+        const optionItems = defaultOptions.map(opt => `
+          <div class="option-item">
+            <input type="text" name="questions[${questionIndex}][options][]" value="${opt}" placeholder="選択肢を入力">
+            <button type="button" onclick="removeOption(this)">削除</button>
+          </div>`).join('');
+        optionsGroup.innerHTML = `
+          <label>選択肢（5項目固定）</label>
+          <div class="options-container">${optionItems}
+          </div>
+          <button type="button" class="btn-add" onclick="addOption(this)">+ 選択肢を追加</button>
+        `;
+        select.closest('.form-group').after(optionsGroup);
+      }
+    }
+
+    function addOption(button) {
+      const container = button.previousElementSibling;
+      const questionCard = button.closest('.question-card');
+      const questionIndex = questionCard.getAttribute('data-question-index');
+      
+      const optionItem = document.createElement('div');
+      optionItem.className = 'option-item';
+      optionItem.innerHTML = `
+        <input 
+          type="text" 
+          name="questions[${questionIndex}][options][]" 
+          placeholder="選択肢を入力"
+        >
+        <button type="button" onclick="removeOption(this)">削除</button>
+      `;
+      container.appendChild(optionItem);
+    }
+
+    function removeOption(button) {
+      const container = button.closest('.options-container');
+      if (container.children.length > 1) {
+        button.closest('.option-item').remove();
+      } else {
+        alert('最低1つの選択肢が必要です');
+      }
+    }
+    
+    // ページ読み込み時に上下移動ボタンの状態を更新
+    document.addEventListener('DOMContentLoaded', function() {
+      updateQuestionNumbers();
+      
+      // フォーム送信前に質問のinput nameを更新
+      document.getElementById('surveyForm').addEventListener('submit', function(e) {
+        const questions = document.querySelectorAll('.question-card');
+        questions.forEach((card, index) => {
+          // 質問文
+          const textInput = card.querySelector('input[name^="questions["]');
+          if (textInput) {
+            textInput.name = `questions[${index}][text]`;
+          }
+          
+          // 質問タイプ
+          const typeSelect = card.querySelector('select[name^="questions["]');
+          if (typeSelect) {
+            typeSelect.name = `questions[${index}][type]`;
+          }
+          
+          // 選択肢
+          const optionInputs = card.querySelectorAll('input[name^="questions["][name$="[options][]"]');
+          optionInputs.forEach(input => {
+            input.name = `questions[${index}][options][]`;
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>

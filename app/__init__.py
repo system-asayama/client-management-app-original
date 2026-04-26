@@ -15,6 +15,7 @@ try:
     from . import models_voucher  # noqa: F401
     from . import models_property  # noqa: F401
     from . import models_truck  # noqa: F401
+    from . import models_breeder  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -429,6 +430,44 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ truck blueprint 登録エラー: {e}")
 
+    # ブリーダー管理 blueprint登録
+    try:
+        from .blueprints.breeder import bp as breeder_bp
+        app.register_blueprint(breeder_bp)
+        print("✅ breeder blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ breeder blueprint 登録エラー: {e}")
+    # アンケートシステム blueprint登録
+    try:
+        from .blueprints.survey_app import bp as survey_app_bp
+        app.register_blueprint(survey_app_bp)
+        print("✅ survey_app blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ survey_app blueprint 登録エラー: {e}")
+    # スタンプカード blueprint登録
+    try:
+        from .blueprints.stampcard_app import bp as stampcard_app_bp
+        app.register_blueprint(stampcard_app_bp)
+        print("✅ stampcard_app blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ stampcard_app blueprint 登録エラー: {e}")
+    # 予約管理 blueprint登録
+    try:
+        from .blueprints.reservation_app import bp as reservation_app_bp
+        app.register_blueprint(reservation_app_bp)
+        print("✅ reservation_app blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ reservation_app blueprint 登録エラー: {e}")
+    # カスタムJinja2フィルター
+    import json as _json
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        if not value:
+            return {}
+        try:
+            return _json.loads(value)
+        except Exception:
+            return {}
     # エラーハンドラ
     @app.errorhandler(404)
     def not_found(error):

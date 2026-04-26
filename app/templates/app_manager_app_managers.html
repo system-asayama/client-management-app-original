@@ -185,10 +185,12 @@
         {% endif %}
       {% endif %}
     </div>
-    {% if (is_owner or can_manage_app_managers) and (is_system_admin_view or am.is_owner != 1) %}
+    {% set is_self = current_app_manager and am.id == current_app_manager.id %}
+    {% set can_edit = is_system_admin_view or is_self or ((is_owner or can_manage_app_managers) and am.is_owner != 1) %}
+    {% if can_edit %}
     <div class="admin-actions">
       <a class="btn-edit" href="{{ url_for('app_manager.app_manager_edit', admin_id=am.id) }}">編集</a>
-      {% if am.is_owner != 1 or is_system_admin_view %}
+      {% if is_system_admin_view or (not is_self and am.is_owner != 1 and (is_owner or can_manage_app_managers)) %}
       <form method="post" action="{{ url_for('app_manager.app_manager_toggle', admin_id=am.id) }}" style="display:inline">
         {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
         {% if am.active == 1 %}
@@ -201,6 +203,20 @@
             onsubmit="return confirm('本当に削除しますか？');">
         {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
         <button class="btn-delete" type="submit">削除</button>
+      </form>
+      {% endif %}
+      {% if (is_owner or is_system_admin_view) and am.is_owner != 1 %}
+      <form method="post" action="{{ url_for('app_manager.grant_owner', admin_id=am.id) }}" style="display:inline"
+            onsubmit="return confirm('このユーザーにオーナー権限を付与しますか？オーナーは複数人持てます。')">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button type="submit" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:0.35rem 0.85rem;border-radius:6px;font-size:0.8rem;font-weight:500;cursor:pointer;">★ オーナー付与</button>
+      </form>
+      {% endif %}
+      {% if (is_owner or is_system_admin_view) and am.is_owner == 1 and not is_self %}
+      <form method="post" action="{{ url_for('app_manager.revoke_owner', admin_id=am.id) }}" style="display:inline"
+            onsubmit="return confirm('このユーザーのオーナー権限を解除しますか？')">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button type="submit" style="background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;padding:0.35rem 0.85rem;border-radius:6px;font-size:0.8rem;font-weight:500;cursor:pointer;">オーナー解除</button>
       </form>
       {% endif %}
     </div>

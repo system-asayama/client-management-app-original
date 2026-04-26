@@ -1,0 +1,53 @@
+{% extends 'breeder/base.html' %}
+{% block title %}ワクチン記録{% endblock %}
+{% block topbar_title %}ワクチンを記録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">ワクチンを記録</div>
+  <a href="{{ url_for('breeder.vaccine_records') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">ワクチン名 *</label>
+        <input type="text" name="vaccine_name" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">親犬</label>
+        <select name="dog_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for d in dogs %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">子犬</label>
+        <select name="puppy_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for p in puppies %}<option value="{{ p.id }}">{{ p.name or '（名前なし）' }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">接種日 *</label>
+        <input type="date" name="administered_at" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">次回接種日</label>
+        <input type="date" name="next_due_at" class="form-control">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">病院名</label>
+        <input type="text" name="clinic" class="form-control">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control"></textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">記録する</button>
+      <a href="{{ url_for('breeder.vaccine_records') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

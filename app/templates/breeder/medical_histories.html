@@ -1,0 +1,32 @@
+{% extends 'breeder/base.html' %}
+{% block title %}病歴{% endblock %}
+{% block topbar_title %}病歴管理{% endblock %}
+{% block content %}
+<div class="card">
+  {% if records %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>診断日</th><th>対象</th><th>病名</th><th>病院</th><th>治療内容</th><th>メモ</th></tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td class="text-sm">{{ r.diagnosed_at.strftime('%Y/%m/%d') if r.diagnosed_at else '—' }}</td>
+          <td class="text-sm">
+            {% if r.dog_id and dogs.get(r.dog_id) %}{{ dogs[r.dog_id].name }}
+            {% elif r.puppy_id and puppies.get(r.puppy_id) %}{{ puppies[r.puppy_id].name or '子犬' }}
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-weight:500;">{{ r.disease_name or '—' }}</td>
+          <td class="text-sm text-muted">{{ r.clinic or '—' }}</td>
+          <td class="text-sm">{{ r.treatment or '—' }}</td>
+          <td class="text-sm text-muted">{{ r.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">⊟</div><div class="empty-text">病歴はありません</div></div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'breeder/base.html' %}
+{% block title %}投薬記録{% endblock %}
+{% block topbar_title %}投薬記録{% endblock %}
+{% block content %}
+<div class="card">
+  {% if records %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>薬品名</th><th>対象</th><th>開始日</th><th>終了日</th><th>用量</th><th>メモ</th></tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td style="font-weight:500;">{{ r.medication_name }}</td>
+          <td class="text-sm">
+            {% if r.dog_id and dogs.get(r.dog_id) %}{{ dogs[r.dog_id].name }}
+            {% elif r.puppy_id and puppies.get(r.puppy_id) %}{{ puppies[r.puppy_id].name or '子犬' }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-sm">{{ r.start_date.strftime('%Y/%m/%d') if r.start_date else '—' }}</td>
+          <td class="text-sm">{{ r.end_date.strftime('%Y/%m/%d') if r.end_date else '—' }}</td>
+          <td class="text-sm text-muted">{{ r.dosage or '—' }}</td>
+          <td class="text-sm text-muted">{{ r.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">⊞</div><div class="empty-text">投薬記録はありません</div></div>
+  {% endif %}
+</div>
+{% endblock %}

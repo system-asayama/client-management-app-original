@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}予約設定 - {{ store.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <h1 style="margin: 0;">予約設定</h1>
+    <a href="{{ url_for('admin.available_apps') }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; white-space: nowrap;">🏠 店舗アプリ一覧</a>
+  </div>
+
+  <div class="store-info-card">
+    <h2>{{ store.name }}</h2>
+    <p><strong>店舗ID:</strong> {{ store.id }}</p>
+  </div>
+  
+  <!-- 予約基本設定 -->
+  <div class="settings-section">
+    <h2>基本設定</h2>
+    <form method="POST" action="{{ url_for('reservation_app.settings', store_id=store.id) }}">
+      <div class="form-group">
+        <label>営業開始時刻</label>
+        <input type="time" name="営業開始時刻" value="{{ settings['営業開始時刻'] if settings else '11:00' }}" required>
+      </div>
+      
+      <div class="form-group">
+        <label>営業終了時刻</label>
+        <input type="time" name="営業終了時刻" value="{{ settings['営業終了時刻'] if settings else '22:00' }}" required>
+      </div>
+      
+      <div class="form-group">
+        <label>最終入店時刻</label>
+        <input type="time" name="最終入店時刻" value="{{ settings['最終入店時刻'] if settings else '21:00' }}" required>
+      </div>
+      
+      <div class="form-group">
+        <label>予約時間単位（分）</label>
+        <select name="予約単位_分">
+          <option value="15" {% if settings and settings['予約単位_分'] == 15 %}selected{% endif %}>15分</option>
+          <option value="30" {% if not settings or settings['予約単位_分'] == 30 %}selected{% endif %}>30分</option>
+          <option value="60" {% if settings and settings['予約単位_分'] == 60 %}selected{% endif %}>60分</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>予約受付日数（日先まで）</label>
+        <input type="number" name="予約受付日数" value="{{ settings['予約受付日数'] if settings else 60 }}" min="1" max="365" required>
+      </div>
+      
+      <div class="form-group">
+        <label>定休日（カンマ区切り: 例 月,火）</label>
+        <input type="text" name="定休日" value="{{ settings['定休日'] if settings else '' }}" placeholder="月,火">
+      </div>
+      
+      <div class="form-group">
+        <label>
+          <input type="checkbox" name="予約受付可否" {% if not settings or settings['予約受付可否'] == 1 %}checked{% endif %}>
+          予約受付を有効にする
+        </label>
+      </div>
+      
+      <div class="form-group">
+        <label>特記事項</label>
+        <textarea name="特記事項" rows="3">{{ settings['特記事項'] if settings else '' }}</textarea>
+      </div>
+      
+      <button type="submit" class="btn btn-primary">設定を保存</button>
+    </form>
+  </div>
+  
+  <!-- テーブル設定 -->
+  <div class="settings-section">
+    <h2>テーブル設定</h2>
+    
+    <div class="table-list">
+      {% if tables %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>テーブル名</th>
+              <th>座席数</th>
+              <th>テーブル数</th>
+              <th>表示順序</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for table in tables %}
+            <tr>
+              <td>{{ table['テーブル名'] }}</td>
+              <td>{{ table['座席数'] }}名</td>
+              <td>{{ table['テーブル数'] }}台</td>
+              <td>{{ table['表示順序'] }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('reservation_app.delete_table', store_id=store.id, table_id=table['id']) }}" style="display:inline;" onsubmit="return confirm('本当に削除しますか?');">
+                  <button type="submit" class="btn btn-danger btn-sm">削除</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="no-data">テーブル設定がありません</p>
+      {% endif %}
+    </div>
+    
+    <h3>テーブルを追加</h3>
+    <form method="POST" action="{{ url_for('reservation_app.add_table', store_id=store.id) }}" class="inline-form">
+      <div class="form-row">
+        <input type="text" name="テーブル名" placeholder="例: 2人席" required>
+        <input type="number" name="座席数" placeholder="座席数" min="1" max="20" required>
+        <input type="number" name="テーブル数" placeholder="テーブル数" min="1" max="50" value="1" required>
+        <input type="number" name="表示順序" placeholder="順序" value="0">
+        <button type="submit" class="btn btn-success">追加</button>
+      </div>
+    </form>
+  </div>
+  
+  <div class="back-link">
+    <a href="{{ url_for('reservation_app.reservation_list', store_id=store.id) }}">予約一覧へ</a> |
+    <a href="{{ url_for('admin.available_apps') }}">店舗アプリ一覧に戻る</a>
+  </div>
+</div>
+
+<style>
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .store-info-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+  }
+  
+  .store-info-card h2 {
+    margin: 0 0 10px 0;
+    color: #333;
+  }
+  
+  .settings-section {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .settings-section h2 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+  }
+  
+  .settings-section h3 {
+    margin-top: 24px;
+    color: #666;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="time"],
+  .form-group input[type="number"],
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  
+  .form-group input[type="checkbox"] {
+    margin-right: 8px;
+  }
+  
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  
+  .btn-primary {
+    background: #4CAF50;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #45a049;
+  }
+  
+  .btn-success {
+    background: #8BC34A;
+    color: white;
+  }
+  
+  .btn-success:hover {
+    background: #7CB342;
+  }
+  
+  .btn-danger {
+    background: #f44336;
+    color: white;
+  }
+  
+  .btn-danger:hover {
+    background: #da190b;
+  }
+  
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .data-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .data-table tr:hover {
+    background: #f8f9fa;
+  }
+  
+  .no-data {
+    color: #999;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .inline-form {
+    margin-top: 16px;
+  }
+  
+  .form-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .form-row input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .back-link {
+    margin-top: 30px;
+    text-align: center;
+  }
+  
+  .back-link a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 500;
+    margin: 0 10px;
+  }
+  
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+</style>
+{% endblock %}

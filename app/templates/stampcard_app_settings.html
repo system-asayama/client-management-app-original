@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}スタンプカード設定 - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div>
+      <h1>スタンプカード設定</h1>
+      <p class="store-name">{{ store_name }}</p>
+    </div>
+    <a href="{{ url_for('admin.available_apps') }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; white-space: nowrap;">🏠 店舗アプリ一覧</a>
+  </div>
+  
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  
+  <div class="settings-card">
+    <form method="POST" action="{{ url_for('stampcard_app.settings', store_id=store_id) }}">
+      <div class="form-group">
+        <label for="card_title">カードタイトル</label>
+        <input type="text" id="card_title" name="card_title" 
+               value="{{ settings.card_title }}" required>
+        <small>顧客に表示されるスタンプカードのタイトル</small>
+      </div>
+      
+      <div class="form-group">
+        <label for="required_stamps">必要スタンプ数</label>
+        <input type="number" id="required_stamps" name="required_stamps" 
+               value="{{ settings.required_stamps }}" min="1" max="50" required>
+        <small>特典を獲得するために必要なスタンプの数</small>
+      </div>
+      
+      <div class="form-group">
+        <label for="reward_description">特典内容</label>
+        <textarea id="reward_description" name="reward_description" 
+                  rows="3" required>{{ settings.reward_description }}</textarea>
+        <small>スタンプを集めた顧客が獲得できる特典の説明</small>
+      </div>
+      
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" name="enabled" 
+                 {% if settings.enabled %}checked{% endif %}>
+          スタンプカード機能を有効にする
+        </label>
+        <small>無効にすると、顧客はスタンプカードを利用できなくなります</small>
+      </div>
+      
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">設定を保存</button>
+        <a href="{{ url_for('admin.available_apps') }}" class="btn btn-secondary">キャンセル</a>
+      </div>
+    </form>
+  </div>
+  
+  <div class="info-card">
+    <h3>💡 スタンプカードの使い方</h3>
+    <ol>
+      <li><strong>設定を保存</strong>: 必要スタンプ数と特典内容を設定します</li>
+      <li><strong>QRコードを設置</strong>: 店舗にQRコードを設置します</li>
+      <li><strong>顧客が登録</strong>: 顧客がアカウントを作成します</li>
+      <li><strong>スタンプ付与</strong>: 顧客がQRコードをスキャンしてスタンプを獲得します</li>
+      <li><strong>特典利用</strong>: スタンプが貯まったら特典を利用できます</li>
+    </ol>
+  </div>
+  
+  <div class="back-link">
+    <a href="{{ url_for('admin.available_apps') }}">&larr; アプリ一覧に戻る</a>
+  </div>
+</div>
+
+<style>
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  
+  h1 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 28px;
+  }
+  
+  .store-name {
+    color: #666;
+    font-size: 18px;
+  }
+  
+  .alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+  
+  .alert-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  
+  .alert-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  .settings-card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+  }
+  
+  .form-group {
+    margin-bottom: 24px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  
+  input[type="text"],
+  input[type="number"],
+  textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 15px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  
+  input:focus,
+  textarea:focus {
+    outline: none;
+    border-color: #4CAF50;
+  }
+  
+  textarea {
+    resize: vertical;
+  }
+  
+  small {
+    display: block;
+    margin-top: 6px;
+    color: #666;
+    font-size: 13px;
+  }
+  
+  .checkbox-group label {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+  }
+  
+  .checkbox-group input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-primary {
+    background: #4CAF50;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #45a049;
+  }
+  
+  .btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+  }
+  
+  .btn-secondary:hover {
+    background: #d0d0d0;
+  }
+  
+  .info-card {
+    background: #e3f2fd;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .info-card h3 {
+    color: #1976d2;
+    margin-bottom: 16px;
+    font-size: 18px;
+  }
+  
+  .info-card ol {
+    margin: 0;
+    padding-left: 24px;
+    color: #1976d2;
+  }
+  
+  .info-card li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+  }
+  
+  .back-link {
+    text-align: center;
+  }
+  
+  .back-link a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+  
+  @media (max-width: 768px) {
+    .container {
+      padding: 16px;
+    }
+    
+    .settings-card {
+      padding: 24px;
+    }
+    
+    .form-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock %}

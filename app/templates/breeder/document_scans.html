@@ -1,0 +1,115 @@
+{% extends 'breeder/base.html' %}
+{% block title %}書類スキャン{% endblock %}
+{% block topbar_title %}書類スキャン（OCR取り込み）{% endblock %}
+{% block content %}
+
+<!-- アップロードフォーム -->
+<div class="card mb-4">
+  <div class="card-title">血統書・チップ申請書をスキャン</div>
+  <p class="text-sm text-dim" style="margin-bottom: 1rem;">
+    血統書やマイクロチップ申請書の画像（JPG・PNG）またはPDFをアップロードすると、
+    OCRで自動的に情報を読み取り、犬の登録データに反映できます。
+  </p>
+  <form method="post" action="{{ url_for('breeder.document_scan_upload') }}" enctype="multipart/form-data">
+    <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 200px;">
+        <label class="form-label">ファイル（JPG / PNG / PDF）</label>
+        <input type="file" name="file" accept=".jpg,.jpeg,.png,.pdf" required class="form-control">
+      </div>
+      <div style="min-width: 160px;">
+        <label class="form-label">書類の種類</label>
+        <select name="scan_type" class="form-control">
+          <option value="pedigree">血統書</option>
+          <option value="chip">チップ申請書</option>
+        </select>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary">📄 スキャン・読み取り</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- スキャン履歴 -->
+<div class="card">
+  <div class="card-title">スキャン履歴</div>
+  {% if scans %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>日時</th>
+          <th>ファイル名</th>
+          <th>種類</th>
+          <th>状態</th>
+          <th>読み取り結果</th>
+          <th>犬への適用</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for scan in scans %}
+        <tr>
+          <td class="text-sm">{{ scan.created_at.strftime('%Y/%m/%d %H:%M') if scan.created_at else '—' }}</td>
+          <td class="text-sm">{{ scan.filename }}</td>
+          <td class="text-sm">
+            {% if scan.scan_type == 'pedigree' %}血統書
+            {% elif scan.scan_type == 'chip' %}チップ申請書
+            {% else %}{{ scan.scan_type }}{% endif %}
+          </td>
+          <td>
+            {% if scan.status == 'success' %}<span class="badge badge-green">成功</span>
+            {% elif scan.status == 'failed' %}<span class="badge badge-red">失敗</span>
+            {% else %}<span class="badge badge-orange">処理中</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">
+            {% if scan.result_json %}
+              {% set result = scan.result_json | from_json %}
+              <div>
+                {% if result.pedigree_number %}<div>血統書番号: <strong>{{ result.pedigree_number }}</strong></div>{% endif %}
+                {% if result.microchip_number %}<div>チップ番号: <strong>{{ result.microchip_number }}</strong></div>{% endif %}
+                {% if result.registration_name %}<div>登録名: {{ result.registration_name }}</div>{% endif %}
+                {% if result.breed %}<div>犬種: {{ result.breed }}</div>{% endif %}
+                {% if result.birth_date %}<div>生年月日: {{ result.birth_date }}</div>{% endif %}
+              </div>
+            {% elif scan.error_message %}
+              <span class="text-dim text-xs">{{ scan.error_message[:80] }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if scan.status == 'success' and scan.result_json %}
+            <form method="post" action="{{ url_for('breeder.document_scan_apply', scan_id=scan.id) }}" style="display:flex; gap:0.3rem; flex-wrap:wrap; align-items:center;">
+              <select name="target_type" class="form-control" style="width:auto; font-size:0.78rem; padding:0.2rem 0.4rem;">
+                <option value="dog">親犬</option>
+                <option value="puppy">子犬</option>
+              </select>
+              <select name="target_id" class="form-control" style="width:auto; font-size:0.78rem; padding:0.2rem 0.4rem;">
+                <optgroup label="親犬">
+                  {% for dog_id, dog in dogs.items() %}
+                  <option value="{{ dog_id }}">{{ dog.name }}</option>
+                  {% endfor %}
+                </optgroup>
+                <optgroup label="子犬">
+                  {% for puppy_id, puppy in puppies.items() %}
+                  <option value="{{ puppy_id }}">{{ puppy.name or '子犬#' ~ puppy_id }}</option>
+                  {% endfor %}
+                </optgroup>
+              </select>
+              <button type="submit" class="btn btn-primary btn-xs">適用</button>
+            </form>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📄</div>
+    <div class="empty-text">スキャン履歴はありません</div>
+    <div class="text-sm text-dim mt-2">上のフォームから血統書や申請書をアップロードしてください</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

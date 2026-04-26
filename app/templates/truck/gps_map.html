@@ -62,10 +62,11 @@
 </div>
 <!-- 凡例 -->
 <div class="legend">
-  <div class="legend-item"><span class="legend-dot" style="background:#2563eb;border-radius:2px;width:28px;height:4px;"></span> 移動経路</div>
-  <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> 出勤地点</div>
-  <div class="legend-item"><span class="legend-dot" style="background:#d97706;"></span> 休憩開始</div>
-  <div class="legend-item"><span class="legend-dot" style="background:#7c3aed;"></span> 休憩終了</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#2563eb;border-radius:2px;width:28px;height:7px;"></span> 移動経路</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> 出発地点</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> 荷積み地点</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#7c3aed;"></span> 荷下ろし地点</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> 休憩地点</div>
   <div class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span> 退勤地点</div>
 </div>
 <!-- 地図 -->
@@ -88,17 +89,23 @@ function clearLayers() {
 
 function colorForType(type) {
   if (type === 'clock_in') return '#16a34a';
-  if (type === 'break_start') return '#d97706';
-  if (type === 'break_end') return '#7c3aed';
+  if (type === 'loading') return '#2563eb';
+  if (type === 'unloading') return '#7c3aed';
+  if (type === 'break_start') return '#f59e0b';
+  if (type === 'break_end') return '#f59e0b';
   if (type === 'clock_out') return '#dc2626';
+  if (type === 'speeding') return '#dc2626';
   return '#2563eb';
 }
 
 function labelForType(type) {
   if (type === 'clock_in') return '出勤';
-  if (type === 'break_start') return '休憩開始';
-  if (type === 'break_end') return '休憩終了';
+  if (type === 'loading') return '荷積み地点';
+  if (type === 'unloading') return '荷下ろし地点';
+  if (type === 'break_start') return '休憩地点';
+  if (type === 'break_end') return '休憩地点';
   if (type === 'clock_out') return '退勤';
+  if (type === 'speeding') return '速度超過';
   return '';
 }
 
@@ -118,24 +125,56 @@ function loadMap() {
         var coords = driver.locations.map(function(loc) { return [loc.lat, loc.lng]; });
         allPoints = allPoints.concat(coords);
         // 経路ライン
-        var line = L.polyline(coords, { color: '#2563eb', weight: 3, opacity: 0.7 }).addTo(map);
+        var line = L.polyline(coords, { color: '#2563eb', weight: 6, opacity: 0.85 }).addTo(map);
         layers.push(line);
         // 特殊地点マーカー
         driver.locations.forEach(function(loc) {
           if (loc.type && loc.type !== 'location') {
             var color = colorForType(loc.type);
             var label = labelForType(loc.type);
-            var circle = L.circleMarker([loc.lat, loc.lng], {
-              radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
-            }).addTo(map);
-            circle.bindPopup('<strong>' + driver.name + '</strong><br>' + label + '<br>' + loc.time);
-            layers.push(circle);
+            if (loc.type === 'speeding') {
+              // 速度超過: 赤い三角マーカー
+              var speedText = loc.speed ? loc.speed.toFixed(1) + 'km/h' : '';
+              var triIcon = L.divIcon({
+                className: '',
+                html: '<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:16px solid #dc2626;position:relative;"><span style="position:absolute;top:16px;left:50%;transform:translateX(-50%);font-size:9px;color:#dc2626;font-weight:700;white-space:nowrap;">' + speedText + '</span></div>',
+                iconSize: [18, 28],
+                iconAnchor: [9, 0],
+                popupAnchor: [0, 4]
+              });
+              var marker = L.marker([loc.lat, loc.lng], {icon: triIcon}).addTo(map);
+              marker.bindPopup('<strong>' + (driver.staff_name || driver.name || '') + '</strong><br>⚠️ 速度超過: ' + speedText + '<br>' + loc.time);
+              layers.push(marker);
+            } else {
+              var circle = L.circleMarker([loc.lat, loc.lng], {
+                radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
+              }).addTo(map);
+              var popupSpeed = loc.speed ? '<br>速度: ' + loc.speed.toFixed(1) + 'km/h' : '';
+              circle.bindPopup('<strong>' + (driver.staff_name || driver.name || '') + '</strong><br>' + label + '<br>' + loc.time + popupSpeed);
+              layers.push(circle);
+            }
           }
         });
-        // 最新位置マーカー
+        // 最新位置マーカー（移動中は水色丸印、退勤後はトラックアイコン）
         var last = driver.locations[driver.locations.length - 1];
-        var marker = L.marker([last.lat, last.lng]).addTo(map);
-        marker.bindPopup('<strong>' + driver.name + '</strong><br>最終更新: ' + last.time);
+        var driverName = driver.staff_name || driver.name || '';
+        if (driver.is_finished) {
+          // 退勤済み: トラックアイコン（小さめピン）
+          var truckIcon = L.divIcon({
+            className: '',
+            html: '<div style="background:#1e3a5f;color:#fff;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">🚛 ' + driverName + '</div>',
+            iconAnchor: [20, 14],
+            popupAnchor: [0, -14]
+          });
+          var marker = L.marker([last.lat, last.lng], {icon: truckIcon}).addTo(map);
+          marker.bindPopup('<strong>' + driverName + '</strong><br>退勤済み<br>最終更新: ' + last.time);
+        } else {
+          // 移動中: 水色の丸印（小さめ）
+          var marker = L.circleMarker([last.lat, last.lng], {
+            radius: 10, fillColor: '#06b6d4', color: '#fff', weight: 2.5, fillOpacity: 0.95
+          }).addTo(map);
+          marker.bindPopup('<strong>' + driverName + '</strong><br>移動中<br>最終更新: ' + last.time);
+        }
         layers.push(marker);
       });
       if (allPoints.length > 0) {

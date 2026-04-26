@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}店舗選択 - {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px; margin:40px auto; padding:0 16px;">
+  <div class="card" style="border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.1); padding:32px;">
+    <h2 style="font-size:1.4rem; font-weight:700; margin-bottom:8px; color:#1a1a2e;">
+      🏪 店舗を選択してください
+    </h2>
+    <p style="color:#666; margin-bottom:24px;">{{ app_name }} にアクセスする店舗を選択してください。</p>
+
+    {% if stores %}
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        {% for store in stores %}
+          <a href="{{ url_for(app_url_name, store_id=store.id) }}"
+             style="display:block; padding:16px 20px; background:#f8f9fa; border:1px solid #e0e0e0;
+                    border-radius:8px; text-decoration:none; color:#1a1a2e; font-weight:600;
+                    transition:background 0.2s;"
+             onmouseover="this.style.background='#e8f0fe'"
+             onmouseout="this.style.background='#f8f9fa'">
+            🏬 {{ store.name }}
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="padding:20px; background:#fff3cd; border-radius:8px; color:#856404;">
+        ⚠️ 利用可能な店舗がありません。先に店舗を作成してください。
+      </div>
+    {% endif %}
+
+    <div style="margin-top:24px;">
+      <a href="{{ url_for('tenant_admin.dashboard') }}"
+         style="color:#666; text-decoration:none; font-size:0.9rem;">
+        ← ダッシュボードへ戻る
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}アンケート集計 - テナント全店舗{% endblock %}
+{% block header %}📝 アンケート集計 - 全店舗{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:1200px;margin:0 auto;">
+
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
+    <h2 style="margin:0;font-size:20px;flex:1;">店舗別アンケート集計</h2>
+    <a href="{{ url_for('tenant_admin.tenant_apps') }}" class="btn" style="background:#6b7280;color:white;border:none;">← アプリ一覧に戻る</a>
+  </div>
+
+  {% if not store_stats %}
+  <div class="alert alert-warning">配下の店舗が見つかりません。</div>
+  {% endif %}
+
+  {% for stat in store_stats %}
+  <div style="background:white;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:32px;overflow:hidden;">
+    <!-- 店舗ヘッダー -->
+    <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h3 style="margin:0;color:white;font-size:20px;">🏪 {{ stat.store.name }}</h3>
+        <span style="color:rgba(255,255,255,0.8);font-size:14px;">アンケート集計</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="{{ url_for('survey_app.dashboard', store_id=stat.store.id) }}"
+           style="background:white;color:#1d4ed8;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+          📊 店舗ダッシュボード
+        </a>
+        <a href="{{ url_for('survey_app.responses', store_id=stat.store.id) }}"
+           style="background:rgba(255,255,255,0.2);color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">
+          📋 回答一覧
+        </a>
+        <a href="{{ url_for('survey_app.answer', store_id=stat.store.id) }}" target="_blank"
+           style="background:rgba(255,255,255,0.2);color:white;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:14px;">
+          🔗 回答フォーム
+        </a>
+      </div>
+    </div>
+
+    <div style="padding:24px;">
+      <!-- サマリーカード -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
+        <div style="background:#eff6ff;padding:16px;border-radius:12px;text-align:center;">
+          <div style="font-size:32px;font-weight:bold;color:#3b82f6;">{{ stat.total }}</div>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">総回答数</div>
+        </div>
+        <div style="background:#fefce8;padding:16px;border-radius:12px;text-align:center;">
+          <div style="font-size:32px;font-weight:bold;color:#d97706;">
+            {% if stat.avg_rating > 0 %}{{ stat.avg_rating }}{% else %}--{% endif %}
+          </div>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">平均評価 / 5</div>
+        </div>
+        <div style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:center;">
+          <div style="font-size:32px;font-weight:bold;color:#16a34a;">
+            {{ stat.rating_dist.get('5', 0) }}
+          </div>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">★5 評価数</div>
+        </div>
+      </div>
+
+      <!-- 評価分布 -->
+      {% if stat.total > 0 %}
+      <div style="margin-bottom:24px;">
+        <h4 style="margin:0 0 12px;font-size:15px;color:#374151;">評価分布</h4>
+        {% for star in [5,4,3,2,1] %}
+        {% set count = stat.rating_dist.get(star|string, 0) %}
+        {% set pct = (count / stat.total * 100)|round|int if stat.total > 0 else 0 %}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <span style="width:50px;text-align:right;font-size:14px;color:#374151;">★ {{ star }}</span>
+          <div style="flex:1;background:#f3f4f6;border-radius:4px;height:18px;overflow:hidden;">
+            <div style="background:{% if star >= 4 %}#f59e0b{% elif star == 3 %}#6b7280{% else %}#ef4444{% endif %};height:100%;width:{{ pct }}%;transition:width 0.3s;"></div>
+          </div>
+          <span style="width:60px;font-size:13px;color:#6b7280;">{{ count }}件 ({{ pct }}%)</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- 最新回答 -->
+      {% if stat.recent %}
+      <div>
+        <h4 style="margin:0 0 12px;font-size:15px;color:#374151;">最新の回答</h4>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="background:#f9fafb;">
+                <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">日時</th>
+                <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">評価</th>
+                <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">訪問目的</th>
+                <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">おすすめ度</th>
+                <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;">コメント</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in stat.recent %}
+              <tr style="border-bottom:1px solid #f3f4f6;{% if loop.index is odd %}background:#fafafa;{% endif %}">
+                <td style="padding:10px 12px;color:#6b7280;white-space:nowrap;">{{ r.created_at }}</td>
+                <td style="padding:10px 12px;text-align:center;">
+                  <span style="background:{% if r.rating >= 4 %}#fef3c7{% elif r.rating == 3 %}#f3f4f6{% else %}#fee2e2{% endif %};color:{% if r.rating >= 4 %}#d97706{% elif r.rating == 3 %}#6b7280{% else %}#dc2626{% endif %};padding:3px 10px;border-radius:20px;font-weight:600;font-size:13px;">
+                    ★ {{ r.rating }}
+                  </span>
+                </td>
+                <td style="padding:10px 12px;color:#374151;">{{ r.visit_purpose or '--' }}</td>
+                <td style="padding:10px 12px;color:#374151;">{{ r.recommend or '--' }}</td>
+                <td style="padding:10px 12px;color:#374151;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.comment or '--' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;">
+          <a href="{{ url_for('survey_app.responses', store_id=stat.store.id) }}" style="color:#3b82f6;font-size:14px;text-decoration:none;">
+            全回答を見る →
+          </a>
+        </div>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:24px;color:#9ca3af;font-size:14px;">
+        まだ回答がありません
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

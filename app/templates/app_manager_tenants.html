@@ -149,6 +149,7 @@
       </div>
     </div>
     <div class="tenant-actions">
+      <a class="btn-detail" href="{{ url_for('app_manager.tenant_detail', tenant_id=t.id) }}">詳細</a>
       <a class="btn-edit" href="{{ url_for('app_manager.tenant_edit', tenant_id=t.id) }}">編集</a>
       <form method="post" action="{{ url_for('app_manager.tenant_delete', tenant_id=t.id) }}" style="display:inline"
             onsubmit="return confirm('テナント &quot;{{ t.名称 }}&quot; を無効化しますか？')">

@@ -213,6 +213,22 @@ def can_manage_tenant_admins():
     finally:
         db.close()
 
+def is_app_manager_owns_tenant(tenant_id):
+    """アプリ管理者が自グループのテナントを管理しているか判定"""
+    role = session.get('role')
+    if role != 'app_manager':
+        return False
+    group_id = session.get('app_manager_group_id')
+    if not group_id or not tenant_id:
+        return False
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        return tenant is not None and tenant.app_manager_group_id == group_id
+    finally:
+        db.close()
+
+
 
 @bp.route('/')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
@@ -1028,8 +1044,9 @@ def tenant_admins():
         current_user = db.query(TKanrisha).filter(TKanrisha.id == admin_id).first()
         is_system_admin = current_user and current_user.role == ROLES["SYSTEM_ADMIN"]
         
-        # システム管理者は全権限を持つ
-        if is_system_admin:
+        # システム管理者またはアプリ管理者（自グループのテナント）は全権限を持つ
+        is_app_manager_owner = is_app_manager_owns_tenant(tenant_id)
+        if is_system_admin or is_app_manager_owner:
             is_owner = True
             can_manage_tenant_admins = True
         else:
@@ -1071,8 +1088,9 @@ def tenant_admin_new():
         current_user = db.query(TKanrisha).filter(TKanrisha.id == admin_id).first()
         is_system_admin = current_user and current_user.role == ROLES["SYSTEM_ADMIN"]
         
-        # システム管理者以外は権限チェック
-        if not is_system_admin:
+        # システム管理者またはアプリ管理者（自グループのテナント）以外は権限チェック
+        is_app_manager_owner = is_app_manager_owns_tenant(tenant_id)
+        if not is_system_admin and not is_app_manager_owner:
             # 権限チェック: オーナーまたは管理権限がある場合のみ
             admin_tenant_relation = db.query(TTenantAdminTenant).filter(
                 and_(
@@ -1200,8 +1218,9 @@ def tenant_admin_invite():
         current_user = db.query(TKanrisha).filter(TKanrisha.id == admin_id).first()
         is_system_admin = current_user and current_user.role == ROLES["SYSTEM_ADMIN"]
         
-        # システム管理者以外は権限チェック
-        if not is_system_admin:
+        # システム管理者またはアプリ管理者（自グループのテナント）以外は権限チェック
+        is_app_manager_owner = is_app_manager_owns_tenant(tenant_id)
+        if not is_system_admin and not is_app_manager_owner:
             # 権限チェック: オーナーまたは管理権限がある場合のみ
             admin_tenant_relation = db.query(TTenantAdminTenant).filter(
                 and_(
@@ -2310,6 +2329,38 @@ AVAILABLE_APPS = [
         'description': '法人設立の手続き・書類作成・進捗管理をサポートするアプリ',
         'url': '/apps/teikan',
         'icon': '🏢',
+        'scope': 'store'
+    },
+    {
+        'name': 'breeder-management',
+        'display_name': 'ブリーダー管理アプリ',
+        'description': '犬のブリーダー向け総合管理システム（親犬・子犬・繁殖・健康管理・申請・商談）',
+        'url': '/breeder/dashboard',
+        'icon': '🐕',
+        'scope': 'store'
+    },
+    {
+        'name': 'survey',
+        'display_name': 'アンケートシステム',
+        'description': 'お客様アンケートの作成・回答収集・結果分析を行うアプリ',
+        'url': '/apps/survey',
+        'icon': '📝',
+        'scope': 'store'
+    },
+    {
+        'name': 'stampcard',
+        'display_name': 'スタンプカード',
+        'description': 'デジタルスタンプカードで顧客のリピート来店を促進するアプリ',
+        'url': '/apps/stampcard',
+        'icon': '🎫',
+        'scope': 'store'
+    },
+    {
+        'name': 'reservation',
+        'display_name': '予約管理',
+        'description': 'お客様の予約受付・管理・カレンダー表示を行うアプリ',
+        'url': '/apps/reservation',
+        'icon': '📅',
         'scope': 'store'
     }
 ]

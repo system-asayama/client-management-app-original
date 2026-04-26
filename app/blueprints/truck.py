@@ -126,7 +126,13 @@ def dashboard():
 
         q = db.query(TruckOperation).filter(TruckOperation.operation_date == today)
         if tenant_id:
-            q = q.filter(TruckOperation.tenant_id == tenant_id)
+            from sqlalchemy import or_
+            q = q.filter(
+                or_(
+                    TruckOperation.tenant_id == tenant_id,
+                    TruckOperation.tenant_id == None,
+                )
+            )
         operations = q.order_by(TruckOperation.start_time).all()
 
         status_counts = {}
@@ -926,30 +932,12 @@ def gps_map():
             dq = dq.filter(TruckDriver.tenant_id == tenant_id)
         drivers = dq.all()
 
-        # ドライバーのlogin_idからsamurai-hub DBのstaff_idを取得
-        driver_login_ids = [d.login_id for d in drivers]
-        driver_staff_map = {}
-        if driver_login_ids:
-            placeholders = ','.join([f"'{lid}'" for lid in driver_login_ids])
-            try:
-                rows = db.execute(text(f"""
-                    SELECT id, login_id, name, tenant_id
-                    FROM "T_従業員"
-                    WHERE login_id IN ({placeholders}) AND active = 1
-                """)).fetchall()
-                for row in rows:
-                    driver_staff_map[row[1]] = {'staff_id': row[0], 'name': row[2], 'tenant_id': row[3]}
-            except Exception:
-                pass
-
         driver_list = []
         for d in drivers:
-            info = driver_staff_map.get(d.login_id)
             driver_list.append({
                 'id': d.id,
                 'name': d.name,
                 'login_id': d.login_id,
-                'staff_id': info['staff_id'] if info else None,
             })
 
         if driver_id_param:
@@ -961,43 +949,42 @@ def gps_map():
         else:
             target_drivers = driver_list
 
-        staff_ids = [dl['staff_id'] for dl in target_drivers if dl['staff_id'] is not None]
-        staff_tracks = {}
-        if staff_ids:
-            ids_str = ','.join(str(sid) for sid in staff_ids)
+        driver_ids = [dl['id'] for dl in target_drivers]
+        driver_tracks = {}
+        if driver_ids:
+            ids_str = ','.join(str(did) for did in driver_ids)
             dt_start = datetime.combine(target_date, datetime.min.time())
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
             try:
                 locs = db.execute(text(f"""
-                    SELECT staff_id, latitude, longitude, recorded_at
-                    FROM "T_勤怠位置履歴"
-                    WHERE staff_id IN ({ids_str})
+                    SELECT driver_id, latitude, longitude, recorded_at, speed
+                    FROM "T_トラック運行位置履歴"
+                    WHERE driver_id IN ({ids_str})
                       AND recorded_at >= :dt_start
                       AND recorded_at < :dt_end
-                    ORDER BY staff_id ASC, recorded_at ASC
+                    ORDER BY driver_id ASC, recorded_at ASC
                 """), {'dt_start': dt_start, 'dt_end': dt_end}).fetchall()
                 for loc in locs:
                     key = loc[0]
-                    if key not in staff_tracks:
-                        staff_tracks[key] = []
-                    staff_tracks[key].append({
+                    if key not in driver_tracks:
+                        driver_tracks[key] = []
+                    driver_tracks[key].append({
                         'lat': float(loc[1]),
                         'lng': float(loc[2]),
-                        'time': loc[3].strftime('%H:%M:%S') if loc[3] else ''
+                        'time': loc[3].strftime('%H:%M:%S') if loc[3] else '',
+                        'speed': float(loc[4]) if loc[4] is not None else None,
                     })
             except Exception:
                 pass
 
         tracks = []
         for dl in target_drivers:
-            if dl['staff_id'] is None:
-                continue
-            pts = staff_tracks.get(dl['staff_id'], [])
+            pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
             tracks.append({
                 'driver_id': dl['id'],
-                'staff_id': dl['staff_id'],
+                'staff_id': dl['id'],
                 'staff_name': dl['name'],
                 'points': pts,
             })
@@ -1038,29 +1025,12 @@ def gps_map_realtime_data():
             dq = dq.filter(TruckDriver.tenant_id == tenant_id)
         drivers = dq.all()
 
-        driver_login_ids = [d.login_id for d in drivers]
-        driver_staff_map = {}
-        if driver_login_ids:
-            placeholders = ','.join([f"'{lid}'" for lid in driver_login_ids])
-            try:
-                rows = db.execute(text(f"""
-                    SELECT id, login_id, name, tenant_id
-                    FROM "T_従業員"
-                    WHERE login_id IN ({placeholders}) AND active = 1
-                """)).fetchall()
-                for row in rows:
-                    driver_staff_map[row[1]] = {'staff_id': row[0], 'name': row[2], 'tenant_id': row[3]}
-            except Exception:
-                pass
-
         driver_list = []
         for d in drivers:
-            info = driver_staff_map.get(d.login_id)
             driver_list.append({
                 'id': d.id,
                 'name': d.name,
                 'login_id': d.login_id,
-                'staff_id': info['staff_id'] if info else None,
             })
 
         if driver_id_param:
@@ -1072,26 +1042,26 @@ def gps_map_realtime_data():
         else:
             target_drivers = driver_list
 
-        staff_ids = [dl['staff_id'] for dl in target_drivers if dl['staff_id'] is not None]
-        staff_tracks = {}
-        if staff_ids:
-            ids_str = ','.join(str(sid) for sid in staff_ids)
+        driver_ids = [dl['id'] for dl in target_drivers]
+        driver_tracks = {}
+        if driver_ids:
+            ids_str = ','.join(str(did) for did in driver_ids)
             dt_start = datetime.combine(target_date, datetime.min.time())
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
             try:
                 locs = db.execute(text(f"""
-                    SELECT staff_id, latitude, longitude, recorded_at
-                    FROM "T_勤怠位置履歴"
-                    WHERE staff_id IN ({ids_str})
+                    SELECT driver_id, latitude, longitude, recorded_at
+                    FROM "T_トラック運行位置履歴"
+                    WHERE driver_id IN ({ids_str})
                       AND recorded_at >= :dt_start
                       AND recorded_at < :dt_end
-                    ORDER BY staff_id ASC, recorded_at ASC
+                    ORDER BY driver_id ASC, recorded_at ASC
                 """), {'dt_start': dt_start, 'dt_end': dt_end}).fetchall()
                 for loc in locs:
                     key = loc[0]
-                    if key not in staff_tracks:
-                        staff_tracks[key] = []
-                    staff_tracks[key].append({
+                    if key not in driver_tracks:
+                        driver_tracks[key] = []
+                    driver_tracks[key].append({
                         'lat': float(loc[1]),
                         'lng': float(loc[2]),
                         'time': loc[3].strftime('%H:%M:%S') if loc[3] else ''
@@ -1099,21 +1069,120 @@ def gps_map_realtime_data():
             except Exception:
                 pass
 
-        tracks = []
+        # 各ドライバーの運行情報（運行開始・荷積み・荷下ろし時刻）を取得
+        op_times = {}
+        if driver_ids:
+            ops = db.execute(text(f"""
+                SELECT driver_id, loading_start_time, unloading_start_time, start_time, status, break_start_time, break_end_time
+                FROM truck_operations
+                WHERE driver_id IN ({ids_str})
+                  AND operation_date = :op_date
+                ORDER BY driver_id ASC, start_time ASC
+            """), {'op_date': target_date}).fetchall()
+            for op in ops:
+                did = op[0]
+                if did not in op_times:
+                    op_times[did] = {
+                        'loading': op[1],
+                        'unloading': op[2],
+                        'start_times': [],
+                        'is_finished': False,
+                        'break_start': op[5],
+                        'break_end': op[6],
+                    }
+                # 複数運行の開始時刻をすべて記録
+                if op[3]:
+                    op_times[did]['start_times'].append(op[3])
+                # 荷積み・荷下ろしは最新の値で上書き（最後の運行を優先）
+                if op[1]:
+                    op_times[did]['loading'] = op[1]
+                if op[2]:
+                    op_times[did]['unloading'] = op[2]
+                # 休憩開始・終了は最新の値で上書き
+                if op[5]:
+                    op_times[did]['break_start'] = op[5]
+                if op[6]:
+                    op_times[did]['break_end'] = op[6]
+                # 退勤済みかどうか（最後の運行のstatusで判定）
+                if op[4] == 'finished':
+                    op_times[did]['is_finished'] = True
+        drivers_out = []
         for dl in target_drivers:
-            if dl['staff_id'] is None:
-                continue
-            pts = staff_tracks.get(dl['staff_id'], [])
+            pts = driver_tracks.get(dl['id'], [])
             if not pts:
                 continue
-            tracks.append({
+            # 荷積み・荷下ろし時刻に最も近いGPS点のインデックスを特定
+            op_info = op_times.get(dl['id'], {})
+            loading_time = op_info.get('loading')
+            unloading_time = op_info.get('unloading')
+            def find_nearest_idx(target_time, pts_list):
+                if not target_time:
+                    return None
+                target_str = target_time.strftime('%H:%M:%S')
+                best_idx = None
+                best_diff = None
+                for idx, p in enumerate(pts_list):
+                    try:
+                        from datetime import datetime as dt2
+                        t = dt2.strptime(p['time'], '%H:%M:%S')
+                        tgt = dt2.strptime(target_str, '%H:%M:%S')
+                        diff = abs((t - tgt).total_seconds())
+                        if best_diff is None or diff < best_diff:
+                            best_diff = diff
+                            best_idx = idx
+                    except Exception:
+                        pass
+                return best_idx
+            loading_idx = find_nearest_idx(loading_time, pts)
+            unloading_idx = find_nearest_idx(unloading_time, pts)
+            break_start_time = op_info.get('break_start')
+            break_end_time = op_info.get('break_end')
+            break_start_idx = find_nearest_idx(break_start_time, pts)
+            break_end_idx = find_nearest_idx(break_end_time, pts)
+            # 各運行のstart_timeに最も近いGPS点を出発地点(clock_in)として特定
+            start_times = op_info.get('start_times', [])
+            clock_in_indices = set()
+            for st in start_times:
+                idx = find_nearest_idx(st, pts)
+                if idx is not None:
+                    clock_in_indices.add(idx)
+            # start_timesがない場合は最初の点を出発地点にする
+            if not clock_in_indices:
+                clock_in_indices.add(0)
+            # locationsにtypeフィールドを追加
+            SPEED_LIMIT_KMH = 80  # 速度超過の閾値
+            locations = []
+            for i, p in enumerate(pts):
+                if i in clock_in_indices:
+                    loc_type = 'clock_in'
+                elif i == loading_idx:
+                    loc_type = 'loading'
+                elif i == unloading_idx:
+                    loc_type = 'unloading'
+                elif i == break_start_idx:
+                    loc_type = 'break_start'
+                elif i == break_end_idx:
+                    loc_type = 'break_end'
+                elif p.get('speed') is not None and p['speed'] > SPEED_LIMIT_KMH:
+                    loc_type = 'speeding'
+                else:
+                    loc_type = 'location'
+                locations.append({
+                    'lat': p['lat'],
+                    'lng': p['lng'],
+                    'time': p['time'],
+                    'type': loc_type,
+                    'speed': p.get('speed'),
+                })
+            drivers_out.append({
                 'driver_id': dl['id'],
-                'staff_id': dl['staff_id'],
+                'staff_id': dl['id'],
                 'staff_name': dl['name'],
-                'points': pts,
+                'locations': locations,
+                'is_finished': op_info.get('is_finished', False),
             })
 
-        return jsonify({'ok': True, 'tracks': tracks})
+        return jsonify({'ok': True, 'drivers': drivers_out})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
@@ -1855,13 +1924,20 @@ def apk_settings():
         if request.method == 'POST':
             apk_url = request.form.get('apk_url', '').strip()
             apk_version = request.form.get('apk_version', '').strip()
+            gps_interval_raw = request.form.get('gps_interval_seconds', '30').strip()
+            try:
+                gps_interval_sec = max(1, int(gps_interval_raw))
+            except (ValueError, TypeError):
+                gps_interval_sec = 30
             TruckAppSettings.set(db, 'android_apk_url', apk_url, tenant_id)
             TruckAppSettings.set(db, 'android_apk_version', apk_version, tenant_id)
+            TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_interval_sec), tenant_id)
             flash('APK設定を保存しました', 'success')
             return redirect(url_for('truck.apk_settings'))
         apk_url = TruckAppSettings.get(db, 'android_apk_url', tenant_id, '')
         apk_version = TruckAppSettings.get(db, 'android_apk_version', tenant_id, '')
-        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version)
+        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', tenant_id, '30') or '30')
+        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version, gps_interval_seconds=gps_interval_seconds)
     finally:
         db.close()
 
@@ -1892,6 +1968,7 @@ def mobile_login():
             payload = f"{driver.id}:driver:{tenant_id or 'local'}"
             sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
             token = f"{driver.id}:{sig}"
+            gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', driver.tenant_id, '30') or '30')
             return jsonify({
                 'ok': True,
                 'staff_id': driver.id,
@@ -1899,6 +1976,7 @@ def mobile_login():
                 'tenant_id': driver.tenant_id,
                 'name': driver.name,
                 'staff_token': token,
+                'gps_interval_seconds': gps_interval_seconds,
                 # 後方互換
                 'driver_id': driver.id,
                 'token': token,
@@ -2004,7 +2082,7 @@ def mobile_operation_start():
         return jsonify({'ok': False, 'error': 'driver_idとtruck_idは必須です'}), 400
     db = SessionLocal()
     try:
-        # driver_idからtenant_idを取得
+        # ドライバーのtenant_idを自動取得
         driver = db.query(TruckDriver).get(driver_id)
         tenant_id = driver.tenant_id if driver else None
         op = TruckOperation(
@@ -2021,8 +2099,6 @@ def mobile_operation_start():
         return jsonify({'ok': True, 'operation_id': op.id})
     finally:
         db.close()
-
-
 @bp.route('/api/mobile/operation/today', methods=['GET'])
 def mobile_operation_today():
     api_key = request.headers.get('X-Mobile-API-Key', '')
@@ -2083,15 +2159,116 @@ def mobile_operation_status():
         if not op:
             return jsonify({'ok': False, 'error': '運行記録が見つかりません'}), 404
         op.status = status
+        now = datetime.now()
         if status == 'finished':
-            op.end_time = datetime.now()
+            op.end_time = now
+        elif status == 'loading':
+            op.loading_start_time = now
+        elif status == 'unloading':
+            op.unloading_start_time = now
+        elif status == 'break':
+            op.break_start_time = now
+        elif status == 'driving' and op.status == 'break':
+            # 休憩終了（breakからdrivingに戻る時）
+            op.break_end_time = now
         db.commit()
         return jsonify({'ok': True})
     finally:
         db.close()
 
 
+@bp.route('/api/mobile/location/record', methods=['POST'])
+def mobile_location_record():
+    """GPS位置情報をT_トラック運行位置履歴に記録
+    JSONボディ: { latitude, longitude, accuracy, operation_id, is_background, recorded_at }
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    data = request.get_json(silent=True) or {}
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    if latitude is None or longitude is None:
+        return jsonify({'ok': False, 'error': 'latitude と longitude は必須です'}), 400
+    operation_id = data.get('operation_id')
+    accuracy = data.get('accuracy')
+    speed = data.get('speed')  # km/h
+    recorded_at_str = data.get('recorded_at')
+    if recorded_at_str:
+        try:
+            recorded_at = datetime.strptime(recorded_at_str[:19], '%Y-%m-%dT%H:%M:%S')
+        except Exception:
+            recorded_at = datetime.now()
+    else:
+        recorded_at = datetime.now()
+    # ドライバー情報をX-Staff-Tokenから取得、またはoperation_idから取得
+    staff_token = request.headers.get('X-Staff-Token', '')
+    db = SessionLocal()
+    try:
+        driver_id = None
+        tenant_id = None
+        if operation_id:
+            op = db.query(TruckOperation).get(int(operation_id))
+            if op:
+                driver_id = op.driver_id
+                tenant_id = op.tenant_id
+        db.execute(text("""
+            INSERT INTO "T_トラック運行位置履歴"
+                (operation_id, driver_id, tenant_id, latitude, longitude, accuracy, speed, recorded_at)
+            VALUES
+                (:operation_id, :driver_id, :tenant_id, :latitude, :longitude, :accuracy, :speed, :recorded_at)
+        """), {
+            'operation_id': int(operation_id) if operation_id else None,
+            'driver_id': driver_id,
+            'tenant_id': tenant_id,
+            'latitude': float(latitude),
+            'longitude': float(longitude),
+            'accuracy': float(accuracy) if accuracy is not None else None,
+            'speed': float(speed) if speed is not None else None,
+            'recorded_at': recorded_at,
+        })
+        db.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
 # ─── ドライバーマイページ ──────────────────────────────────
+
+@bp.route('/api/mobile/location/count', methods=['GET'])
+def mobile_location_count():
+    """運行開始時間以降のGPS送信件数を返す
+    クエリパラメータ: operation_id (必須)
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    operation_id = request.args.get('operation_id')
+    if not operation_id:
+        return jsonify({'ok': False, 'error': 'operation_id は必須です'}), 400
+    db = SessionLocal()
+    try:
+        op = db.query(TruckOperation).get(int(operation_id))
+        if not op:
+            return jsonify({'ok': False, 'error': '運行が見つかりません'}), 404
+        # 運行開始時間以降の送信件数をカウント
+        start_time = op.start_time
+        result = db.execute(text("""
+            SELECT COUNT(*) as cnt
+            FROM "T_トラック運行位置履歴"
+            WHERE operation_id = :operation_id
+              AND recorded_at >= :start_time
+        """), {'operation_id': int(operation_id), 'start_time': start_time})
+        row = result.fetchone()
+        count = row[0] if row else 0
+        return jsonify({'ok': True, 'count': count, 'operation_id': int(operation_id)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
 
 @bp.route('/driver/login', methods=['GET', 'POST'])
 def driver_login():
@@ -2169,28 +2346,5 @@ def driver_apk_download():
         )
     except Exception as e:
         return f'ダウンロードエラー: {e}', 500
-    finally:
-        db.close()
-
-
-@bp.route('/api/mobile/debug/driver', methods=['GET'])
-def mobile_debug_driver():
-    login_id = request.args.get('login_id', '')
-    db = SessionLocal()
-    try:
-        driver = db.query(TruckDriver).filter_by(login_id=login_id).first()
-        if not driver:
-            return jsonify({'found': False})
-        from werkzeug.security import check_password_hash
-        test_pw = request.args.get('pw', '')
-        return jsonify({
-            'found': True,
-            'id': driver.id,
-            'login_id': driver.login_id,
-            'active': driver.active,
-            'tenant_id': driver.tenant_id,
-            'hash_prefix': driver.password_hash[:20] if driver.password_hash else None,
-            'pw_check': check_password_hash(driver.password_hash, test_pw) if test_pw else None,
-        })
     finally:
         db.close()

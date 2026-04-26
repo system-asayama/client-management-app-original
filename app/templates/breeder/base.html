@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}BreederOS{% endblock %} | BreederOS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ─── CSS変数・リセット ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #0f0f13;
+      --bg-card:     #16161e;
+      --bg-hover:    #1e1e2a;
+      --border:      #2a2a38;
+      --border-light:#333344;
+      --text:        #e8e8f0;
+      --text-muted:  #8888a8;
+      --text-dim:    #5a5a78;
+      --accent:      #c9a96e;
+      --accent-light:#e0c48a;
+      --accent-dim:  #8a6a3a;
+      --green:       #4caf7d;
+      --red:         #e05c5c;
+      --blue:        #5b8dee;
+      --purple:      #9b6dff;
+      --orange:      #f0934a;
+      --sidebar-w:   240px;
+      --header-h:    56px;
+      --radius:      10px;
+      --radius-sm:   6px;
+      --shadow:      0 4px 24px rgba(0,0,0,0.4);
+      --shadow-sm:   0 2px 8px rgba(0,0,0,0.3);
+      --font-serif:  'Cormorant Garamond', Georgia, serif;
+      --font-sans:   'Noto Sans JP', system-ui, sans-serif;
+      --transition:  0.18s ease;
+    }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
+    a:hover { color: var(--accent-light); }
+
+    /* ─── レイアウト ─── */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* ─── サイドバー ─── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 1.25rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .brand {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+    .sidebar-logo .brand-sub {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    .sidebar-section {
+      padding: 0.75rem 0.75rem 0;
+    }
+    .sidebar-section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 0.5rem 0.5rem 0.25rem;
+    }
+    .sidebar-nav { list-style: none; }
+    .sidebar-nav li a {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 400;
+      transition: all var(--transition);
+    }
+    .sidebar-nav li a:hover,
+    .sidebar-nav li a.active {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+    .sidebar-nav li a.active {
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .sidebar-nav li a .nav-icon {
+      width: 16px;
+      text-align: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .sidebar-user .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-light);
+      flex-shrink: 0;
+    }
+    .sidebar-user .user-info { min-width: 0; }
+    .sidebar-user .user-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-user .user-role {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+
+    /* ─── メインコンテンツ ─── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .topbar {
+      height: var(--header-h);
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .content {
+      padding: 1.5rem;
+      flex: 1;
+    }
+
+    /* ─── カード ─── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ─── ボタン ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #1a1208;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent-light); color: #1a1208; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: var(--border-light);
+    }
+    .btn-secondary:hover { background: var(--bg-hover); color: var(--text); border-color: var(--text-dim); }
+    .btn-danger {
+      background: transparent;
+      color: var(--red);
+      border-color: var(--red);
+    }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.75rem; }
+
+    /* ─── テーブル ─── */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+    }
+    thead th {
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+    }
+    tbody tr:hover { background: var(--bg-hover); }
+    tbody td {
+      padding: 0.65rem 0.75rem;
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    /* ─── バッジ ─── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .badge-green  { background: rgba(76,175,125,0.15); color: var(--green); }
+    .badge-red    { background: rgba(224,92,92,0.15);  color: var(--red); }
+    .badge-blue   { background: rgba(91,141,238,0.15); color: var(--blue); }
+    .badge-orange { background: rgba(240,147,74,0.15); color: var(--orange); }
+    .badge-purple { background: rgba(155,109,255,0.15);color: var(--purple); }
+    .badge-gold   { background: rgba(201,169,110,0.15);color: var(--accent); }
+    .badge-gray   { background: rgba(136,136,168,0.12);color: var(--text-muted); }
+
+    /* ─── フォーム ─── */
+    .form-group { margin-bottom: 1rem; }
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.04em;
+    }
+    .form-control {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      transition: border-color var(--transition);
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent-dim);
+    }
+    .form-control::placeholder { color: var(--text-dim); }
+    select.form-control option { background: var(--bg-card); }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    .form-grid { display: grid; gap: 1rem; }
+    .form-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .form-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    /* ─── アラート ─── */
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+      font-size: 0.83rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .alert-success { background: rgba(76,175,125,0.12); border: 1px solid rgba(76,175,125,0.3); color: var(--green); }
+    .alert-warning { background: rgba(240,147,74,0.12); border: 1px solid rgba(240,147,74,0.3); color: var(--orange); }
+    .alert-error   { background: rgba(224,92,92,0.12);  border: 1px solid rgba(224,92,92,0.3);  color: var(--red); }
+
+    /* ─── ページヘッダー ─── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .page-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .page-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 0.15rem;
+    }
+
+    /* ─── 統計カード ─── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+    .stat-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+    .stat-unit {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-left: 0.2rem;
+    }
+    .stat-accent .stat-value { color: var(--accent); }
+    .stat-green  .stat-value { color: var(--green); }
+    .stat-blue   .stat-value { color: var(--blue); }
+    .stat-orange .stat-value { color: var(--orange); }
+    .stat-purple .stat-value { color: var(--purple); }
+
+    /* ─── フィルターバー ─── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .filter-bar .form-control { width: auto; }
+    .search-input { min-width: 200px; }
+
+    /* ─── 空状態 ─── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-dim);
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .empty-state .empty-text { font-size: 0.9rem; }
+
+    /* ─── ユーティリティ ─── */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-1 { gap: 0.25rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-3 { margin-top: 0.75rem; }
+    .mt-4 { margin-top: 1rem; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .text-muted { color: var(--text-muted); }
+    .text-dim { color: var(--text-dim); }
+    .text-accent { color: var(--accent); }
+    .text-green { color: var(--green); }
+    .text-red { color: var(--red); }
+    .text-sm { font-size: 0.8rem; }
+    .text-xs { font-size: 0.72rem; }
+    .font-bold { font-weight: 700; }
+    .font-medium { font-weight: 500; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+    /* ─── スクロールバー ─── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* ─── ハンバーガーボタン ─── */
+    .hamburger {
+      display: none;
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 1100;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: #1a1208;
+      border-radius: 2px;
+    }
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 900;
+    }
+    .sidebar-overlay.open { display: block; }
+    /* ─── レスポンシブ ─── */
+    @media (max-width: 768px) {
+      .hamburger { display: flex; }
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.28s ease;
+        z-index: 1000;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; padding-top: 56px; }
+      .topbar { padding-left: 60px; }
+      .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="メニューを開く">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<div class="layout">
+  <!-- サイドバー -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand">BreederOS</div>
+      <div class="brand-sub">Breeder Management</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">メイン</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.dashboard') }}" class="{{ 'active' if request.endpoint == 'breeder.dashboard' }}">
+          <span class="nav-icon">⬛</span>ダッシュボード
+        </a></li>
+        <li><a href="{{ url_for('breeder.todos_list') }}" class="{{ 'active' if 'todo' in request.endpoint }}">
+          <span class="nav-icon">✓</span>Todoリスト
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">繁殖管理</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.heats_list') }}" class="{{ 'active' if 'heat' in request.endpoint }}">
+          <span class="nav-icon">♥</span>ヒート管理
+        </a></li>
+        <li><a href="{{ url_for('breeder.matings_list') }}" class="{{ 'active' if 'mating' in request.endpoint }}">
+          <span class="nav-icon">⟳</span>交配管理
+        </a></li>
+        <li><a href="{{ url_for('breeder.births_list') }}" class="{{ 'active' if 'birth' in request.endpoint }}">
+          <span class="nav-icon">★</span>出産管理
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">生体管理</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.dogs_list') }}" class="{{ 'active' if request.endpoint == 'breeder.dogs_list' or request.endpoint == 'breeder.dog_detail' }}">
+          <span class="nav-icon">◆</span>親犬一覧
+        </a></li>
+        <li><a href="{{ url_for('breeder.puppies_list') }}" class="{{ 'active' if 'pupp' in request.endpoint }}">
+          <span class="nav-icon">◇</span>子犬一覧
+        </a></li>
+        <li><a href="{{ url_for('breeder.dogs_list') }}?type=external" class="{{ 'active' if request.args.get('type') == 'external' }}">
+          <span class="nav-icon">○</span>外部犬一覧
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">販売管理</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.negotiations_list') }}" class="{{ 'active' if 'negotiation' in request.endpoint }}">
+          <span class="nav-icon">¥</span>商談管理
+        </a></li>
+        <li><a href="{{ url_for('breeder.contacts_list') }}" class="{{ 'active' if 'contact' in request.endpoint }}">
+          <span class="nav-icon">人</span>コンタクト
+        </a></li>
+        <li><a href="{{ url_for('breeder.life_logs_list') }}" class="{{ 'active' if 'life_log' in request.endpoint }}">
+          <span class="nav-icon">≡</span>ライフログ
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">申請管理</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.pedigree_applications') }}" class="{{ 'active' if 'pedigree' in request.endpoint }}">
+          <span class="nav-icon">□</span>血統書申請
+        </a></li>
+        <li><a href="{{ url_for('breeder.chip_applications') }}" class="{{ 'active' if 'chip' in request.endpoint }}">
+          <span class="nav-icon">⊕</span>チップ申請
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">健康管理</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.weight_records') }}" class="{{ 'active' if 'weight' in request.endpoint }}">
+          <span class="nav-icon">▲</span>体重
+        </a></li>
+        <li><a href="{{ url_for('breeder.vaccine_records') }}" class="{{ 'active' if 'vaccine' in request.endpoint }}">
+          <span class="nav-icon">+</span>ワクチン
+        </a></li>
+        <li><a href="{{ url_for('breeder.health_checkups') }}" class="{{ 'active' if 'checkup' in request.endpoint }}">
+          <span class="nav-icon">✦</span>健診
+        </a></li>
+        <li><a href="{{ url_for('breeder.medication_records') }}" class="{{ 'active' if 'medication' in request.endpoint }}">
+          <span class="nav-icon">⊞</span>投薬
+        </a></li>
+        <li><a href="{{ url_for('breeder.medical_histories') }}" class="{{ 'active' if 'medical_hist' in request.endpoint }}">
+          <span class="nav-icon">⊟</span>病歴
+        </a></li>
+        <li><a href="{{ url_for('breeder.food_records') }}" class="{{ 'active' if 'food' in request.endpoint }}">
+          <span class="nav-icon">◉</span>フード
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">法規制対応</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.ledger') }}" class="{{ 'active' if 'ledger' in request.endpoint }}">
+          <span class="nav-icon">≣</span>台帳管理
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">設定</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.settings') }}" class="{{ 'active' if 'setting' in request.endpoint }}">
+          <span class="nav-icon">⚙</span>設定
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar">{{ (session.get('user_name', 'U') or 'U')[0] }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ session.get('user_name', 'ユーザー') }}</div>
+          <div class="user-role">
+            {% if session.get('role') == 'system_admin' %}システム管理者
+            {% elif session.get('role') == 'tenant_admin' %}テナント管理者
+            {% elif session.get('role') == 'admin' %}管理者
+            {% else %}スタッフ{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- メインコンテンツ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+      <div class="topbar-actions">
+        {% block topbar_actions %}{% endblock %}
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">ログアウト</a>
+      </div>
+    </header>
+
+    <main class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% block scripts %}{% endblock %}
+<script>
+function toggleSidebar() {
+  var sidebar = document.querySelector('.sidebar');
+  var overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+// サイドバーのリンクをクリックしたらモバイルでは閉じる
+document.addEventListener('DOMContentLoaded', function() {
+  var links = document.querySelectorAll('.sidebar-nav a');
+  links.forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('open');
+      }
+    });
+  });
+});
+</script>
+</body>
+</html>

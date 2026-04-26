@@ -14,6 +14,11 @@
       <label for="apk_version">バージョン</label>
       <input type="text" id="apk_version" name="apk_version" value="{{ apk_version }}" placeholder="例: v1.0.0">
     </div>
+    <div class="form-field">
+      <label for="gps_interval_seconds">GPS送信間隔（秒）</label>
+      <input type="number" id="gps_interval_seconds" name="gps_interval_seconds" value="{{ gps_interval_seconds }}" min="1" max="3600" step="1" placeholder="例: 30">
+      <div style="font-size:12px; color:#6b7280; margin-top:4px;">ドライバーアプリがGPS位置情報を送信する間隔を秒単位で設定します。最小1秒、デフォルト30秒。長いほどバッテリーの消費が抑えられます。</div>
+    </div>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">保存</button>
     </div>

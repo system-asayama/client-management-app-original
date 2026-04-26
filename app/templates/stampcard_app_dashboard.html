@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}スタンプカード - {{ store_name }}{% endblock %}
+{% block header %}🎫 スタンプカード - {{ store_name }}{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:1000px;margin:0 auto;">
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+    <a href="{{ url_for('stampcard_app.settings', store_id=store_id) }}" class="btn" style="background:#3b82f6;color:white;border:none;">⚙️ スタンプカード設定</a>
+    <a href="{{ url_for('stampcard_app.customers', store_id=store_id) }}" class="btn" style="background:#10b981;color:white;border:none;">👥 顧客一覧</a>
+    <a href="{{ url_for('stampcard_app.stats', store_id=store_id) }}" class="btn" style="background:#6b7280;color:white;border:none;">📊 統計</a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+    <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);text-align:center;">
+      <div style="font-size:36px;font-weight:bold;color:#3b82f6;">{{ total_customers }}</div>
+      <div style="color:#6b7280;margin-top:4px;">登録顧客数</div>
+    </div>
+    <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);text-align:center;">
+      <div style="font-size:36px;font-weight:bold;color:#10b981;">{{ total_stamps }}</div>
+      <div style="color:#6b7280;margin-top:4px;">総スタンプ数</div>
+    </div>
+    <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);text-align:center;">
+      <div style="font-size:36px;font-weight:bold;color:#f59e0b;">{{ total_rewards }}</div>
+      <div style="color:#6b7280;margin-top:4px;">特典利用数</div>
+    </div>
+  </div>
+
+  <div style="background:white;padding:24px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <h2 style="font-size:18px;margin:0 0 16px;">最近の顧客</h2>
+    {% if recent_customers %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid #e5e7eb;">
+          <th style="padding:8px;text-align:left;">顧客名</th>
+          <th style="padding:8px;text-align:center;">スタンプ数</th>
+          <th style="padding:8px;text-align:left;">最終来店</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in recent_customers %}
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:8px;">{{ c.name }}</td>
+          <td style="padding:8px;text-align:center;">{{ c.stamp_count }}</td>
+          <td style="padding:8px;font-size:13px;color:#6b7280;">{{ c.last_visit[:10] if c.last_visit else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#6b7280;text-align:center;">まだ顧客が登録されていません</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -148,6 +148,10 @@ class TruckOperation(Base):
     status = Column(String(20), default="off")
     start_time = Column(DateTime)
     end_time = Column(DateTime)
+    loading_start_time = Column(DateTime)
+    unloading_start_time = Column(DateTime)
+    break_start_time = Column(DateTime)
+    break_end_time = Column(DateTime)
     operation_date = Column(Date, default=date.today)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
@@ -315,10 +319,15 @@ class TruckAppSettings(Base):
 
     @classmethod
     def get(cls, db_session, key, tenant_id=None, default=None):
-        q = db_session.query(cls).filter_by(key=key)
         if tenant_id is not None:
-            q = q.filter_by(tenant_id=tenant_id)
-        row = q.first()
+            # まずtenant_id指定で検索
+            row = db_session.query(cls).filter_by(key=key, tenant_id=tenant_id).first()
+            if row:
+                return row.value
+            # 見つからない場合はtenant_id=Noneのグローバル設定にフォールバック
+            row = db_session.query(cls).filter_by(key=key, tenant_id=None).first()
+            return row.value if row else default
+        row = db_session.query(cls).filter_by(key=key).first()
         return row.value if row else default
 
     @classmethod

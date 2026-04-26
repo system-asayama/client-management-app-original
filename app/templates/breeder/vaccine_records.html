@@ -1,0 +1,35 @@
+{% extends 'breeder/base.html' %}
+{% block title %}ワクチン記録{% endblock %}
+{% block topbar_title %}ワクチン記録{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.vaccine_record_new') }}" class="btn btn-primary btn-sm">+ 記録追加</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  {% if records %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ワクチン名</th><th>対象</th><th>接種日</th><th>次回接種日</th><th>病院</th><th>メモ</th></tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td style="font-weight:500;">{{ r.vaccine_name }}</td>
+          <td class="text-sm">
+            {% if r.dog_id and dogs.get(r.dog_id) %}{{ dogs[r.dog_id].name }}
+            {% elif r.puppy_id and puppies.get(r.puppy_id) %}{{ puppies[r.puppy_id].name or '子犬' }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-sm">{{ r.administered_at.strftime('%Y/%m/%d') if r.administered_at else '—' }}</td>
+          <td class="text-sm text-accent">{{ r.next_due_at.strftime('%Y/%m/%d') if r.next_due_at else '—' }}</td>
+          <td class="text-sm text-muted">{{ r.clinic or '—' }}</td>
+          <td class="text-sm text-muted">{{ r.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">+</div><div class="empty-text">ワクチン記録はありません</div></div>
+  {% endif %}
+</div>
+{% endblock %}

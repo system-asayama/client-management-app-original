@@ -136,45 +136,69 @@ def available_apps():
     tenant = None
     store = None
     
-    if store_id:
-        db = SessionLocal()
-        
-        try:
-            # テナント情報を取得
+    # store_id がセッションにない場合はURLパラメータから取得を試みる
+    if not store_id:
+        store_id = request.args.get('store_id', type=int)
+
+    db = SessionLocal()
+    try:
+        # テナント情報を取得
+        if tenant_id:
             tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-            
-            # 店舗情報を取得
+
+        # 店舗情報を取得
+        if store_id:
             store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
 
-            # テナントへの配布設定を取得（app_manager/distributeで設定されたもの）
+        # テナントへの配布設定を取得（app_manager/distributeで設定されたもの）
+        if tenant_id:
             tenant_app_settings_rows = db.query(TTenantAppSetting).filter(
                 TTenantAppSetting.tenant_id == tenant_id,
                 TTenantAppSetting.enabled == 1
             ).all()
             tenant_distributed_app_ids = {s.app_id for s in tenant_app_settings_rows}
-            # 配布設定が1件もない場合はデフォルト動作（全アプリ表示）を維持
-            has_distribution_settings = len(tenant_distributed_app_ids) > 0
+        else:
+            tenant_distributed_app_ids = set()
+        # 配布設定が1件もない場合はデフォルト動作（全アプリ表示）を維持
+        has_distribution_settings = len(tenant_distributed_app_ids) > 0
 
-            user_role_inner = session.get('role')
-            for app in TENANT_AVAILABLE_APPS:
-                # テナントへの配布設定がある場合は、配布されたアプリのみ表示
-                if has_distribution_settings and app['name'] not in tenant_distributed_app_ids:
-                    continue
-
-                # ロール別にURLを動的に設定
-                app_copy = dict(app)
-                if app_copy['name'] == 'client-management-tenant':
-                    if user_role_inner in (ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"]):
-                        app_copy['url'] = '/tenant_admin/jimusho'
-                    else:
-                        app_copy['url'] = f'/store/{store_id}/dashboard'
-                elif app_copy['name'] == 'voucher-digitization':
-                    app_copy['url'] = f'/voucher?store_id={store_id}'
-                elif app_copy['name'] == 'truck-operation':
-                    app_copy['url'] = '/truck/'
-                enabled_apps.append(app_copy)
-        finally:
-            db.close()
+        user_role_inner = session.get('role')
+        # store_idがある場合の店舗向けURL、ない場合のテナント向けURL
+        STORE_URLS = {
+            'client-management-tenant': lambda sid: f'/store/{sid}/dashboard',
+            'survey':                   lambda sid: f'/apps/survey/store/{sid}/',
+            'stampcard':                lambda sid: f'/apps/stampcard/store/{sid}/settings',
+            'reservation':              lambda sid: f'/apps/reservation/store/{sid}/settings',
+            'breeder-management':       lambda sid: '/breeder/dashboard',
+            'voucher-digitization':     lambda sid: f'/voucher?store_id={sid}',
+            'homepage-builder':         lambda sid: '/homepage',
+            'e-contract':               lambda sid: '/e-contract',
+            'real-estate':              lambda sid: '/apps/property',
+            'company-incorporation':    lambda sid: '/apps/teikan',
+            'truck-operation':          lambda sid: f'/truck/store/{sid}/',
+        }
+        TENANT_URLS = {
+            'client-management-tenant': '/tenant_admin/jimusho',
+            'survey':                   '/apps/survey/tenant_summary',
+            'stampcard':                '/apps/stampcard/tenant_summary',
+            'reservation':              '/apps/reservation/tenant_summary',
+            'breeder-management':       '/breeder/tenant_summary',
+        }
+        for app in TENANT_AVAILABLE_APPS:
+            # テナントへの配布設定がある場合は、配布されたアプリのみ表示
+            if has_distribution_settings and app['name'] not in tenant_distributed_app_ids:
+                continue
+            app_copy = dict(app)
+            app_name = app_copy['name']
+            if store_id and app_name in STORE_URLS:
+                # 店舗アプリから飛んだ場合は店舗向けURLを優先
+                app_copy['url'] = STORE_URLS[app_name](store_id)
+            elif not store_id and user_role_inner in (ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"]) and app_name in TENANT_URLS:
+                # テナント管理者・システム管理者はテナント集計ページへ
+                app_copy['url'] = TENANT_URLS[app_name]
+            enabled_apps.append(app_copy)
+    finally:
+        db.close()
     
     # マイペーURLを取得
     user_role = session.get('role')

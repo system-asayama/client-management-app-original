@@ -39,6 +39,8 @@
             システム管理者
           {% elif session.get('role') == 'tenant_admin' %}
             テナント管理者
+          {% elif session.get('role') == 'app_manager' %}
+            アプリ管理者
           {% elif session.get('role') == 'admin' %}
             店舗管理者
           {% elif session.get('is_employee') %}

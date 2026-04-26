@@ -1,0 +1,87 @@
+{% extends 'breeder/base.html' %}
+{% block title %}{{ '子犬を編集' if puppy else '子犬を登録' }}{% endblock %}
+{% block topbar_title %}{{ '子犬を編集' if puppy else '子犬を新規登録' }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '子犬を編集' if puppy else '子犬を新規登録' }}</div>
+  <a href="{{ url_for('breeder.puppies_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width: 700px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">名前</label>
+        <input type="text" name="name" class="form-control" value="{{ puppy.name if puppy else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">犬種 *</label>
+        <input type="text" name="breed" class="form-control" value="{{ puppy.breed if puppy else '' }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">性別 *</label>
+        <select name="gender" class="form-control" required>
+          <option value="female" {{ 'selected' if puppy and puppy.gender == 'female' }}>♀ メス</option>
+          <option value="male" {{ 'selected' if puppy and puppy.gender == 'male' }}>♂ オス</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">生年月日</label>
+        <input type="date" name="birth_date" class="form-control" value="{{ puppy.birth_date.strftime('%Y-%m-%d') if puppy and puppy.birth_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">毛色</label>
+        <input type="text" name="color" class="form-control" value="{{ puppy.color if puppy else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">価格（円）</label>
+        <input type="number" name="price" class="form-control" value="{{ puppy.price if puppy else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">母犬</label>
+        <select name="mother_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for dog in dogs %}
+            {% if dog.gender == 'female' %}
+            <option value="{{ dog.id }}" {{ 'selected' if puppy and puppy.mother_id == dog.id }}>{{ dog.name }} ({{ dog.breed }})</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">父犬</label>
+        <select name="father_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for dog in dogs %}
+            {% if dog.gender == 'male' %}
+            <option value="{{ dog.id }}" {{ 'selected' if puppy and puppy.father_id == dog.id }}>{{ dog.name }} ({{ dog.breed }})</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ステータス</label>
+        <select name="status" class="form-control">
+          <option value="available" {{ 'selected' if not puppy or puppy.status == 'available' }}>販売可</option>
+          <option value="reserved" {{ 'selected' if puppy and puppy.status == 'reserved' }}>予約済</option>
+          <option value="sold" {{ 'selected' if puppy and puppy.status == 'sold' }}>販売済</option>
+          <option value="transferred" {{ 'selected' if puppy and puppy.status == 'transferred' }}>譲渡済</option>
+          <option value="deceased" {{ 'selected' if puppy and puppy.status == 'deceased' }}>死亡</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">チップ番号</label>
+        <input type="text" name="microchip_number" class="form-control" value="{{ puppy.microchip_number if puppy else '' }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control">{{ puppy.notes if puppy else '' }}</textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">{{ '更新する' if puppy else '登録する' }}</button>
+      <a href="{{ url_for('breeder.puppies_list') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

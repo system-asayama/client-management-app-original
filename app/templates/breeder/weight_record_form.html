@@ -1,0 +1,45 @@
+{% extends 'breeder/base.html' %}
+{% block title %}体重記録{% endblock %}
+{% block topbar_title %}体重を記録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">体重を記録</div>
+  <a href="{{ url_for('breeder.weight_records') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:500px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">親犬</label>
+        <select name="dog_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for d in dogs %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">子犬</label>
+        <select name="puppy_id" class="form-control">
+          <option value="">選択してください</option>
+          {% for p in puppies %}<option value="{{ p.id }}">{{ p.name or '（名前なし）' }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">体重 (kg) *</label>
+        <input type="number" step="0.01" name="weight" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">記録日 *</label>
+        <input type="date" name="recorded_at" class="form-control" required>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control"></textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">記録する</button>
+      <a href="{{ url_for('breeder.weight_records') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

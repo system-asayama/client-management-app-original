@@ -1,0 +1,48 @@
+{% extends 'breeder/base.html' %}
+{% block title %}交配登録{% endblock %}
+{% block topbar_title %}交配登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">交配を登録</div>
+  <a href="{{ url_for('breeder.matings_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+<div class="card" style="max-width:600px;">
+  <form method="post">
+    <div class="form-grid form-grid-2">
+      <div class="form-group">
+        <label class="form-label">母犬 *</label>
+        <select name="mother_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for dog in mothers %}<option value="{{ dog.id }}">{{ dog.name }} ({{ dog.breed }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">父犬 *</label>
+        <select name="father_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for dog in fathers %}<option value="{{ dog.id }}">{{ dog.name }} ({{ dog.breed }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">交配日</label>
+        <input type="date" name="mating_date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">交配方法</label>
+        <select name="method" class="form-control">
+          <option value="natural">自然交配</option>
+          <option value="ai">人工授精</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control"></textarea>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('breeder.matings_list') }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

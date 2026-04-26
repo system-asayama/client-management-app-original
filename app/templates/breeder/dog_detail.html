@@ -1,0 +1,132 @@
+{% extends 'breeder/base.html' %}
+{% block title %}{{ dog.name }}{% endblock %}
+{% block topbar_title %}{{ dog.name }} の詳細{% endblock %}
+{% block topbar_actions %}
+  <a href="{{ url_for('breeder.dog_edit', dog_id=dog.id) }}" class="btn btn-primary btn-sm">編集</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ dog.name }}</div>
+    <div class="page-subtitle">{{ dog.breed }} ／ {{ '♀ メス' if dog.gender == 'female' else '♂ オス' }}</div>
+  </div>
+  <a href="{{ url_for('breeder.dogs_list') }}" class="btn btn-secondary btn-sm">← 一覧に戻る</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+  <!-- 基本情報 -->
+  <div class="card">
+    <div class="card-title">基本情報</div>
+    <table style="width:100%;">
+      <tbody>
+        <tr><td class="text-dim text-sm" style="width:40%; padding:0.4rem 0;">登録名</td><td>{{ dog.registration_name or '—' }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">犬種</td><td>{{ dog.breed }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">性別</td><td>{{ '♀ メス' if dog.gender == 'female' else '♂ オス' }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">生年月日</td><td>{{ dog.birth_date.strftime('%Y/%m/%d') if dog.birth_date else '—' }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">毛色</td><td>{{ dog.color or '—' }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">チップ番号</td><td class="text-sm">{{ dog.microchip_number or '—' }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">血統書番号</td><td class="text-sm">{{ dog.pedigree_number or '—' }}</td></tr>
+        <tr><td class="text-dim text-sm" style="padding:0.4rem 0;">ステータス</td><td>
+          {% if dog.status == 'active' %}<span class="badge badge-green">在舎</span>
+          {% elif dog.status == 'retired' %}<span class="badge badge-gray">引退</span>
+          {% elif dog.status == 'transferred' %}<span class="badge badge-orange">譲渡済</span>
+          {% elif dog.status == 'deceased' %}<span class="badge badge-red">死亡</span>
+          {% endif %}
+        </td></tr>
+      </tbody>
+    </table>
+    {% if dog.notes %}
+    <div class="mt-3">
+      <div class="text-dim text-xs mb-1">メモ</div>
+      <div class="text-sm" style="white-space: pre-wrap;">{{ dog.notes }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ヒート履歴 -->
+  <div class="card">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      ヒート履歴
+      <a href="{{ url_for('breeder.heat_new') }}" class="btn btn-secondary btn-sm">+ 追加</a>
+    </div>
+    {% if heats %}
+      {% for heat in heats %}
+      <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border);">
+        <div class="flex items-center justify-between">
+          <div class="text-sm">{{ heat.start_date.strftime('%Y/%m/%d') if heat.start_date else '—' }}</div>
+          {% if heat.status == 'active' %}<span class="badge badge-purple">発情中</span>
+          {% elif heat.status == 'completed' %}<span class="badge badge-gray">完了</span>
+          {% elif heat.status == 'imminent' %}<span class="badge badge-orange">間近</span>
+          {% else %}<span class="badge badge-gray">{{ heat.status }}</span>
+          {% endif %}
+        </div>
+        {% if heat.next_predicted_date %}
+        <div class="text-xs text-dim mt-1">次回予定: {{ heat.next_predicted_date.strftime('%Y/%m/%d') }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding: 1.5rem 0;">
+        <div class="empty-text">ヒート記録なし</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 体重記録 -->
+  <div class="card">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      体重記録
+      <a href="{{ url_for('breeder.weight_record_new') }}" class="btn btn-secondary btn-sm">+ 追加</a>
+    </div>
+    {% if weights %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>体重</th><th>メモ</th></tr></thead>
+          <tbody>
+            {% for w in weights %}
+            <tr>
+              <td class="text-sm">{{ w.recorded_at.strftime('%Y/%m/%d') }}</td>
+              <td><strong>{{ w.weight }}</strong> <span class="text-dim text-xs">kg</span></td>
+              <td class="text-sm text-muted">{{ w.notes or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state" style="padding: 1.5rem 0;">
+        <div class="empty-text">体重記録なし</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ワクチン記録 -->
+  <div class="card">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+      ワクチン記録
+      <a href="{{ url_for('breeder.vaccine_record_new') }}" class="btn btn-secondary btn-sm">+ 追加</a>
+    </div>
+    {% if vaccines %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ワクチン名</th><th>接種日</th><th>次回</th></tr></thead>
+          <tbody>
+            {% for v in vaccines %}
+            <tr>
+              <td class="text-sm">{{ v.vaccine_name }}</td>
+              <td class="text-sm">{{ v.administered_at.strftime('%Y/%m/%d') }}</td>
+              <td class="text-sm text-muted">{{ v.next_due_at.strftime('%Y/%m/%d') if v.next_due_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state" style="padding: 1.5rem 0;">
+        <div class="empty-text">ワクチン記録なし</div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

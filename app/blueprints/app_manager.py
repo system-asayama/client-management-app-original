@@ -219,8 +219,12 @@ def mypage():
             'updated_at': app_manager.updated_at
         }
         
-        # テナント・店舗リストを取得（アプリ管理者は全テナント・店舗にアクセス可能）
-        tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        # テナント・店舗リストを取得（自分のグループが作成したテナントのみ）
+        _group_id = app_manager.app_manager_group_id
+        if _group_id:
+            tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1, TTenant.app_manager_group_id == _group_id).order_by(TTenant.id).all()]
+        else:
+            tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         store_list = []
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
@@ -436,10 +440,14 @@ def api_keys():
 @require_roles('app_manager', 'system_admin')
 def mypage_select_tenant():
     """マイページ用テナント選択ページ（GET）"""
+    group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
         from app.models_login import TTenant
-        tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        if group_id:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1, TTenant.app_manager_group_id == group_id).order_by(TTenant.id).all()]
+        else:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         return render_template('app_manager_mypage_select_tenant.html', tenants=tenants)
     finally:
         db.close()
@@ -449,10 +457,14 @@ def mypage_select_tenant():
 @require_roles('app_manager', 'system_admin')
 def mypage_select_store():
     """マイページ用店舗選択ページ（GET）"""
+    group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
         from app.models_login import TTenant, TTenpo
-        tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
+        if group_id:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1, TTenant.app_manager_group_id == group_id).order_by(TTenant.id).all()]
+        else:
+            tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         stores = []
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
@@ -466,7 +478,7 @@ def mypage_select_store():
 def select_tenant_from_mypage():
     """マイページからテナント選択してテナント管理者ダッシュボードへ遷移"""
     # 権限チェック
-    if session.get('role') != 'app_manager':
+    if session.get('role') not in ('app_manager', 'system_admin'):
         flash('権限がありません。', 'warning')
         return redirect(url_for('auth.select_login'))
     
@@ -501,7 +513,7 @@ def select_tenant_from_mypage():
 def select_store_from_mypage():
     """マイページから店舗選択して店舗管理者ダッシュボードへ遷移"""
     # 権限チェック
-    if session.get('role') != 'app_manager':
+    if session.get('role') not in ('app_manager', 'system_admin'):
         flash('権限がありません。', 'warning')
         return redirect(url_for('auth.select_login'))
     
@@ -670,9 +682,10 @@ def app_manager_new():
 @bp.route('/app_managers/<int:admin_id>/edit', methods=['GET', 'POST'])
 @require_roles('app_manager', 'system_admin')
 def app_manager_edit(admin_id):
-    """アプリ管理者編集（アプリ管理者管理権限が必要）"""
-    # アプリ管理者管理権限チェック
-    if not can_manage_app_managers():
+    """アプリ管理者編集（自分自身または管理権限が必要）"""
+    # 自分自身の編集は常に許可、それ以外は管理権限が必要
+    current_user_id = session.get('user_id')
+    if admin_id != current_user_id and not can_manage_app_managers():
         flash('アプリ管理者を編集する権限がありません', 'error')
         return redirect(url_for('app_manager.app_managers'))
     
@@ -984,18 +997,84 @@ def transfer_ownership(admin_id):
         db.close()
 
 
+@bp.route('/app_managers/<int:admin_id>/grant_owner', methods=['POST'])
+@require_roles('app_manager', 'system_admin')
+def grant_owner(admin_id):
+    """オーナー権限を付与（オーナーまたはシステム管理者のみ）"""
+    if not is_owner():
+        flash('オーナーまたはシステム管理者のみがオーナー権限を付与できます', 'error')
+        return redirect(url_for('app_manager.app_managers'))
+    group_id = session.get('app_manager_group_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            TKanrisha.id == admin_id,
+            TKanrisha.role == 'app_manager',
+            TKanrisha.app_manager_group_id == group_id
+        ).first()
+        if not admin:
+            flash('管理者が見つかりません', 'error')
+        else:
+            admin.is_owner = 1
+            admin.can_manage_admins = 1
+            admin.can_distribute_apps = 1
+            db.commit()
+            flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('app_manager.app_managers'))
+
+
+@bp.route('/app_managers/<int:admin_id>/revoke_owner', methods=['POST'])
+@require_roles('app_manager', 'system_admin')
+def revoke_owner(admin_id):
+    """オーナー権限を解除（オーナーまたはシステム管理者のみ）"""
+    if not is_owner():
+        flash('オーナーまたはシステム管理者のみがオーナー権限を解除できます', 'error')
+        return redirect(url_for('app_manager.app_managers'))
+    user_id = session.get('user_id')
+    if admin_id == user_id:
+        flash('自分自身のオーナー権限は解除できません', 'error')
+        return redirect(url_for('app_manager.app_managers'))
+    group_id = session.get('app_manager_group_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            TKanrisha.id == admin_id,
+            TKanrisha.role == 'app_manager',
+            TKanrisha.app_manager_group_id == group_id
+        ).first()
+        if not admin:
+            flash('管理者が見つかりません', 'error')
+        else:
+            admin.is_owner = 0
+            db.commit()
+            flash(f'「{admin.name}」のオーナー権限を解除しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('app_manager.app_managers'))
+
+
 @bp.route('/tenants')
 @require_roles('app_manager', 'system_admin')
 def tenants():
     """テナント管理（担当テナントの一覧）"""
+    role = session.get('role')
+    group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
         from app.models_login import TTenant
         
-        # アプリ管理者は全テナントにアクセス可能
-        tenants_list = db.query(TTenant).filter(
-            TTenant.有効 == 1
-        ).order_by(TTenant.id).all()
+        # アプリ管理者は自分のグループが作成したテナントのみ表示（system_adminは全件）
+        if role == 'system_admin' or not group_id:
+            tenants_list = db.query(TTenant).filter(
+                TTenant.有効 == 1
+            ).order_by(TTenant.id).all()
+        else:
+            tenants_list = db.query(TTenant).filter(
+                TTenant.有効 == 1,
+                TTenant.app_manager_group_id == group_id
+            ).order_by(TTenant.id).all()
         
         return render_template(
             'app_manager_tenants.html',
@@ -1044,6 +1123,7 @@ def tenant_new():
                 return render_template('app_manager_tenant_new.html', name=name, slug=slug)
             
             # テナント作成
+            group_id = session.get('app_manager_group_id')
             new_tenant = TTenant(
                 名称=name,
                 slug=slug,
@@ -1057,7 +1137,8 @@ def tenant_new():
                 google_vision_api_key=google_vision_api_key or None,
                 azure_document_intelligence_endpoint=azure_endpoint or None,
                 azure_document_intelligence_key=azure_key or None,
-                有効=1
+                有効=1,
+                app_manager_group_id=group_id or None
             )
             db.add(new_tenant)
             db.commit()
@@ -1259,19 +1340,26 @@ def distribute():
             flash('グループが見つかりません', 'error')
             return redirect(url_for('app_manager.dashboard'))
 
-        # グループが選択した利用可能アプリを取得
-        enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
-        try:
-            enabled_app_ids = json.loads(enabled_apps_raw)
-        except Exception:
-            enabled_app_ids = []
+        # グループのプランを取得
+        group_plan = getattr(group, 'plan', 'individual') or 'individual'
 
-        # 利用可能アプリの詳細情報
-        enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
+        # 無制限プランはAVAILABLE_APPS全件を配布可能、それ以外はDBのenabled_appsでフィルタ
+        if group_plan == 'unlimited':
+            enabled_app_ids = [app['name'] for app in AVAILABLE_APPS]
+            enabled_apps = list(AVAILABLE_APPS)
+        else:
+            enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+            try:
+                enabled_app_ids = json.loads(enabled_apps_raw)
+            except Exception:
+                enabled_app_ids = []
+            # 利用可能アプリの詳細情報
+            enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
 
-        # テナント一覧（全テナント）
+        # テナント一覧（自分のグループが作成したテナントのみ）
         tenants = db.query(TTenant).filter(
-            TTenant.有効 == 1
+            TTenant.有効 == 1,
+            TTenant.app_manager_group_id == group_id
         ).order_by(TTenant.id).all()
 
         if request.method == 'POST':

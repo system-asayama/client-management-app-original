@@ -1,0 +1,403 @@
+{% extends "breeder/base.html" %}
+{% block title %}テナント集計 - ブリーダー管理{% endblock %}
+{% block content %}
+<style>
+:root {
+  --accent: #7c3aed;
+  --accent-dim: #a78bfa;
+  --red: #ef4444;
+  --green: #22c55e;
+  --yellow: #f59e0b;
+  --blue: #3b82f6;
+  --card-bg: #1e1b2e;
+  --card-border: #2d2a3e;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.badge-admin {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+/* アラートバナー */
+.alert-banner {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid var(--red);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--red);
+  font-size: 0.9rem;
+}
+/* 全体サマリー */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+}
+.summary-card .s-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.summary-card .s-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent-dim);
+}
+.summary-card .s-unit {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+/* セクションタイトル */
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 28px 0 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--card-border);
+}
+/* 店舗カード */
+.store-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.store-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.store-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.store-tenant-badge {
+  font-size: 0.72rem;
+  background: rgba(124,58,237,0.2);
+  color: var(--accent-dim);
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+.store-alert-badge {
+  font-size: 0.72rem;
+  background: rgba(239,68,68,0.15);
+  color: var(--red);
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(239,68,68,0.3);
+}
+.store-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.metric-item {
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.metric-item .m-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.metric-item .m-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-dim);
+}
+/* 商談テーブル */
+.neg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 10px;
+}
+.neg-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--card-border);
+}
+.neg-table td {
+  padding: 6px 8px;
+  color: var(--text);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.neg-table tr:last-child td { border-bottom: none; }
+.status-badge {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.status-inquiry { background: rgba(59,130,246,0.2); color: #93c5fd; }
+.status-negotiating { background: rgba(245,158,11,0.2); color: #fcd34d; }
+.status-reserved { background: rgba(124,58,237,0.2); color: #c4b5fd; }
+.status-contracted { background: rgba(34,197,94,0.2); color: #86efac; }
+.status-completed { background: rgba(100,116,139,0.2); color: #94a3b8; }
+.status-cancelled { background: rgba(239,68,68,0.2); color: #fca5a5; }
+/* 店舗アクションボタン */
+.store-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+}
+.store-actions a {
+  font-size: 0.78rem;
+  padding: 5px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  background: rgba(124,58,237,0.15);
+  color: var(--accent-dim);
+  border: 1px solid rgba(124,58,237,0.3);
+  transition: background 0.2s;
+}
+.store-actions a:hover { background: rgba(124,58,237,0.3); }
+.store-actions a.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.store-actions a.primary:hover { background: #6d28d9; }
+/* 月別グラフ */
+.birth-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 80px;
+  margin-top: 10px;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.bar-fill {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.3s;
+}
+.bar-label {
+  font-size: 0.62rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.bar-count {
+  font-size: 0.7rem;
+  color: var(--accent-dim);
+  font-weight: 600;
+}
+</style>
+
+<div class="page-header">
+  <h1>🐾 ブリーダー管理 集計</h1>
+  {% if is_system_admin %}
+    <span class="badge-admin">システム管理者</span>
+  {% else %}
+    <span class="badge-admin">テナント管理者</span>
+  {% endif %}
+</div>
+
+{% if unregistered_alert_count > 0 %}
+<div class="alert-banner">
+  ⚠️ 血統書申請未提出の子犬が <strong>{{ unregistered_alert_count }}頭</strong> います
+  <a href="{{ url_for('breeder.pedigree_applications') }}" style="margin-left:auto;font-size:0.8rem;color:var(--red);border:1px solid var(--red);padding:3px 10px;border-radius:5px;text-decoration:none;">確認する →</a>
+</div>
+{% endif %}
+
+<!-- 全体サマリー -->
+<div class="section-title">全体サマリー（全店舗合計）</div>
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="s-label">在舎親犬</div>
+    <div class="s-value">{{ total_parents }}</div>
+    <div class="s-unit">頭</div>
+  </div>
+  <div class="summary-card">
+    <div class="s-label">在舎子犬</div>
+    <div class="s-value">{{ total_puppies }}</div>
+    <div class="s-unit">頭</div>
+  </div>
+  <div class="summary-card">
+    <div class="s-label">商談中</div>
+    <div class="s-value">{{ total_negotiations }}</div>
+    <div class="s-unit">件</div>
+  </div>
+  <div class="summary-card">
+    <div class="s-label">妊娠中</div>
+    <div class="s-value">{{ total_pregnant }}</div>
+    <div class="s-unit">頭</div>
+  </div>
+  <div class="summary-card">
+    <div class="s-label">今月出産</div>
+    <div class="s-value">{{ total_births_month }}</div>
+    <div class="s-unit">件</div>
+  </div>
+  <div class="summary-card">
+    <div class="s-label">ヒート中</div>
+    <div class="s-value">{{ total_heat_active }}</div>
+    <div class="s-unit">頭</div>
+  </div>
+</div>
+
+<!-- 月別出産統計 -->
+{% if birth_stats %}
+<div class="section-title">月別出産件数（過去6ヶ月）</div>
+{% set max_cnt = birth_stats | map(attribute='count') | max %}
+<div class="birth-chart">
+  {% for stat in birth_stats %}
+  <div class="bar-col">
+    <div class="bar-count">{{ stat.count }}</div>
+    <div class="bar-fill" style="height:{{ [stat.count * 50 / [max_cnt,1]|max, 4]|max }}px;"></div>
+    <div class="bar-label">{{ stat.month[5:] }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- 店舗別集計 -->
+<div class="section-title">店舗別集計</div>
+
+{% if store_stats %}
+  {% for s in store_stats %}
+  <div class="store-card">
+    <div class="store-card-header">
+      <div class="store-name">🏠 {{ s.store.名称 }}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        {% if is_system_admin and tenants|length > 1 %}
+          {% for t in tenants %}
+            {% if t.id == s.store.tenant_id %}
+              <span class="store-tenant-badge">{{ t.名称 }}</span>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {% if s.alert_count > 0 %}
+          <span class="store-alert-badge">⚠️ 血統書未申請 {{ s.alert_count }}頭</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="store-metrics">
+      <div class="metric-item">
+        <div class="m-label">在舎親犬</div>
+        <div class="m-value">{{ s.parents }}</div>
+      </div>
+      <div class="metric-item">
+        <div class="m-label">在舎子犬</div>
+        <div class="m-value">{{ s.puppies }}</div>
+      </div>
+      <div class="metric-item">
+        <div class="m-label">商談中</div>
+        <div class="m-value">{{ s.negotiations }}</div>
+      </div>
+      <div class="metric-item">
+        <div class="m-label">妊娠中</div>
+        <div class="m-value">{{ s.pregnant }}</div>
+      </div>
+      <div class="metric-item">
+        <div class="m-label">ヒート中</div>
+        <div class="m-value">{{ s.heat_active }}</div>
+      </div>
+      <div class="metric-item">
+        <div class="m-label">今月出産</div>
+        <div class="m-value">{{ s.births_month }}</div>
+      </div>
+    </div>
+
+    {% if s.recent_negotiations %}
+    <div style="font-size:0.78rem;color:var(--muted);margin-bottom:6px;">最近の商談</div>
+    <table class="neg-table">
+      <thead>
+        <tr>
+          <th>顧客名</th>
+          <th>犬種</th>
+          <th>ステータス</th>
+          <th>日時</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for neg in s.recent_negotiations %}
+        <tr>
+          <td>{{ neg.customer_name or (neg.contact.name if neg.contact else '—') }}</td>
+          <td>{{ neg.breed or (neg.puppy.breed if neg.puppy else '—') }}</td>
+          <td>
+            <span class="status-badge status-{{ neg.status }}">
+              {% if neg.status == 'inquiry' %}問合せ
+              {% elif neg.status == 'negotiating' %}商談中
+              {% elif neg.status == 'reserved' %}予約済
+              {% elif neg.status == 'contracted' %}契約済
+              {% elif neg.status == 'completed' %}完了
+              {% elif neg.status == 'cancelled' %}キャンセル
+              {% else %}{{ neg.status }}{% endif %}
+            </span>
+          </td>
+          <td style="color:var(--muted);">{{ neg.created_at.strftime('%m/%d') if neg.created_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <div class="store-actions">
+      <a href="{{ url_for('breeder.dashboard') }}" class="primary">ダッシュボード</a>
+      <a href="{{ url_for('breeder.dogs_list') }}">親犬一覧</a>
+      <a href="{{ url_for('breeder.puppies_list') }}">子犬一覧</a>
+      <a href="{{ url_for('breeder.births_list') }}">出産記録</a>
+      <a href="{{ url_for('breeder.negotiations_list') }}">商談一覧</a>
+      <a href="{{ url_for('breeder.heats_list') }}">ヒート管理</a>
+      <a href="{{ url_for('breeder.pedigree_applications') }}">血統書申請</a>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div style="color:var(--muted);text-align:center;padding:40px;">登録されている店舗がありません</div>
+{% endif %}
+
+{% endblock %}

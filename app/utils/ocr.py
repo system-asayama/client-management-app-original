@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-血統書・チップ申請書のOCR処理ユーティリティ
+血統書・チップ申請書・遺伝疾患検査・股関節評価のOCR処理ユーティリティ
 Google Cloud Vision API（設定済みの場合）またはOpenAI Vision APIを使用して
 PDFや画像から情報を抽出する。
+
+対応スキャンタイプ:
+  - pedigree  : 血統書
+  - chip      : マイクロチップ申請書
+  - genetic   : 遺伝疾患検査結果書
+  - hip       : 股関節評価書
 """
 from __future__ import annotations
 import os
@@ -19,24 +25,19 @@ def _encode_image(filepath: str) -> str:
 
 def extract_pedigree_info(filepath: str, scan_type: str = 'pedigree') -> dict:
     """
-    血統書またはチップ申請書の画像/PDFからOCRで情報を抽出する。
+    各種書類の画像/PDFからOCRで情報を抽出する。
 
     優先順位:
     1. Google Cloud Vision API（GOOGLE_CLOUD_VISION_API_KEY が設定されている場合）
     2. OpenAI Vision API（OPENAI_API_KEY が設定されている場合）
     3. どちらも未設定の場合はエラーを発生させる
 
+    Args:
+        filepath: 画像またはPDFのパス
+        scan_type: 'pedigree' | 'chip' | 'genetic' | 'hip'
+
     Returns:
-        dict: 抽出された情報
-            - pedigree_number: 血統書番号
-            - microchip_number: マイクロチップ番号
-            - registration_name: 登録名
-            - breed: 犬種
-            - gender: 性別
-            - birth_date: 生年月日
-            - father_name: 父犬名
-            - mother_name: 母犬名
-            - raw_text: OCRで読み取ったテキスト全文
+        dict: 抽出された情報（scan_typeによって異なる）
     """
     filepath = str(filepath)
     ext = Path(filepath).suffix.lower()
@@ -67,6 +68,49 @@ def extract_pedigree_info(filepath: str, scan_type: str = 'pedigree') -> dict:
         'OCR APIキーが設定されていません。'
         'アプリ設定でGoogle Cloud Vision APIキーまたはOpenAI APIキーを設定してください。'
     )
+
+
+def _build_prompt(scan_type: str) -> str:
+    """スキャンタイプに応じたプロンプトを返す"""
+    if scan_type == 'pedigree':
+        return (
+            '以下の血統書画像から情報を抽出してください。'
+            'JSON形式で返してください（値が不明な場合はnullにしてください）: '
+            '{"pedigree_number": "血統書番号", "registration_name": "登録名", '
+            '"breed": "犬種", "gender": "male/female/null", "birth_date": "YYYY-MM-DD or null", '
+            '"father_name": "父犬名", "mother_name": "母犬名", '
+            '"microchip_number": "マイクロチップ番号", '
+            '"kennel_name": "犬舎名", "breeder_name": "ブリーダー名", '
+            '"raw_text": "読み取ったテキスト全文"}'
+        )
+    elif scan_type == 'genetic':
+        return (
+            '以下の遺伝疾患検査結果書類の画像から情報を抽出してください。'
+            'JSON形式で返してください（値が不明な場合はnullにしてください）: '
+            '{"registration_name": "登録名または犬名", "breed": "犬種", '
+            '"test_date": "検査日YYYY-MM-DD or null", "lab_name": "検査機関名", '
+            '"results": [{"disease_name": "疾患名", "result": "clear/carrier/affected/null"}], '
+            '"raw_text": "読み取ったテキスト全文"}'
+        )
+    elif scan_type == 'hip':
+        return (
+            '以下の股関節評価書類の画像から情報を抽出してください。'
+            'JSON形式で返してください（値が不明な場合はnullにしてください）: '
+            '{"registration_name": "登録名または犬名", "breed": "犬種", '
+            '"evaluation_date": "評価日YYYY-MM-DD or null", "evaluator": "評価機関名", '
+            '"left_score": "左股関節スコア", "right_score": "右股関節スコア", '
+            '"overall_grade": "総合評価（A/B/C/D/E等）", '
+            '"raw_text": "読み取ったテキスト全文"}'
+        )
+    else:
+        # chip / その他
+        return (
+            '以下のマイクロチップ申請書画像から情報を抽出してください。'
+            'JSON形式で返してください（値が不明な場合はnullにしてください）: '
+            '{"microchip_number": "マイクロチップ番号", "registration_name": "登録名", '
+            '"breed": "犬種", "gender": "male/female/null", "birth_date": "YYYY-MM-DD or null", '
+            '"raw_text": "読み取ったテキスト全文"}'
+        )
 
 
 def _extract_with_google_vision(filepath: str, scan_type: str, api_key: str) -> dict:
@@ -101,24 +145,7 @@ def _extract_with_openai_vision(filepath: str, scan_type: str, api_key: str) -> 
     image_b64 = _encode_image(filepath)
     ext = Path(filepath).suffix.lower()
     mime = 'image/jpeg' if ext in ('.jpg', '.jpeg') else 'image/png'
-
-    if scan_type == 'pedigree':
-        prompt = (
-            '以下の血統書画像から情報を抽出してください。'
-            'JSON形式で返してください: '
-            '{"pedigree_number": "血統書番号", "registration_name": "登録名", '
-            '"breed": "犬種", "gender": "male/female", "birth_date": "YYYY-MM-DD", '
-            '"father_name": "父犬名", "mother_name": "母犬名", "microchip_number": "マイクロチップ番号", '
-            '"raw_text": "読み取ったテキスト全文"}'
-        )
-    else:
-        prompt = (
-            '以下のマイクロチップ申請書画像から情報を抽出してください。'
-            'JSON形式で返してください: '
-            '{"microchip_number": "マイクロチップ番号", "registration_name": "登録名", '
-            '"breed": "犬種", "gender": "male/female", "birth_date": "YYYY-MM-DD", '
-            '"raw_text": "読み取ったテキスト全文"}'
-        )
+    prompt = _build_prompt(scan_type)
 
     headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
     payload = {
@@ -130,7 +157,7 @@ def _extract_with_openai_vision(filepath: str, scan_type: str, api_key: str) -> 
                 {'type': 'image_url', 'image_url': {'url': f'data:{mime};base64,{image_b64}'}}
             ]
         }],
-        'max_tokens': 1000,
+        'max_tokens': 1500,
     }
     resp = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, json=payload, timeout=60)
     resp.raise_for_status()
@@ -150,11 +177,42 @@ def _extract_with_openai_vision(filepath: str, scan_type: str, api_key: str) -> 
 
 def _parse_pedigree_text(text: str, scan_type: str) -> dict:
     """
-    OCRで読み取ったテキストから血統書情報を正規表現で抽出する。
+    OCRで読み取ったテキストから書類情報を正規表現で抽出する。
     Google Vision APIのテキスト結果をパースする際に使用。
     """
     import re
 
+    if scan_type == 'genetic':
+        return {
+            'registration_name': None,
+            'breed': None,
+            'test_date': None,
+            'lab_name': None,
+            'results': [],
+            'raw_text': text,
+        }
+
+    if scan_type == 'hip':
+        result = {
+            'registration_name': None,
+            'breed': None,
+            'evaluation_date': None,
+            'evaluator': None,
+            'left_score': None,
+            'right_score': None,
+            'overall_grade': None,
+            'raw_text': text,
+        }
+        m = re.search(r'(\d{4})[年/\-](\d{1,2})[月/\-](\d{1,2})日?', text)
+        if m:
+            result['evaluation_date'] = f'{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+        for grade in ['A', 'B', 'C', 'D', 'E']:
+            if f'総合{grade}' in text or f'評価{grade}' in text:
+                result['overall_grade'] = grade
+                break
+        return result
+
+    # pedigree / chip 共通
     result = {
         'pedigree_number': None,
         'microchip_number': None,
@@ -164,6 +222,8 @@ def _parse_pedigree_text(text: str, scan_type: str) -> dict:
         'birth_date': None,
         'father_name': None,
         'mother_name': None,
+        'kennel_name': None,
+        'breeder_name': None,
         'raw_text': text,
     }
 
@@ -189,3 +249,37 @@ def _parse_pedigree_text(text: str, scan_type: str) -> dict:
         result['gender'] = 'female'
 
     return result
+
+
+def apply_scan_result_to_dog(dog, result: dict, scan_type: str) -> list[str]:
+    """
+    OCR結果をDogオブジェクトに適用する。
+    変更されたフィールド名のリストを返す。
+    """
+    changed = []
+    if scan_type == 'pedigree':
+        if result.get('pedigree_number') and not dog.pedigree_number:
+            dog.pedigree_number = result['pedigree_number']
+            changed.append('血統書番号')
+        if result.get('microchip_number') and not dog.microchip_number:
+            dog.microchip_number = result['microchip_number']
+            changed.append('マイクロチップ番号')
+        if result.get('registration_name') and not dog.registration_name:
+            dog.registration_name = result['registration_name']
+            changed.append('登録名')
+        if result.get('birth_date') and not dog.birth_date:
+            from datetime import date
+            try:
+                y, mo, d = result['birth_date'].split('-')
+                dog.birth_date = date(int(y), int(mo), int(d))
+                changed.append('生年月日')
+            except Exception:
+                pass
+        if result.get('gender') and not dog.gender:
+            dog.gender = result['gender']
+            changed.append('性別')
+    elif scan_type == 'chip':
+        if result.get('microchip_number') and not dog.microchip_number:
+            dog.microchip_number = result['microchip_number']
+            changed.append('マイクロチップ番号')
+    return changed

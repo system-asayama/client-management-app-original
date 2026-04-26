@@ -509,24 +509,43 @@ def heats_list():
 @bp.route('/heats/new', methods=['GET', 'POST'])
 @require_roles(*BREEDER_ROLES)
 def heat_new():
-    from app.models_breeder import Heat, Dog
+    from app.models_breeder import Heat, Dog, AppSetting
+    from datetime import timedelta
     db = _get_db()
     try:
         if request.method == 'POST':
             tenant_id, store_id = _get_tenant_store()
+            start_date = _parse_date(request.form.get('start_date'))
+            # 次回予測日: フォームに入力があればそれを使い、なければ開始日 + ヒートサイクル日数で自動計算
+            next_predicted_date = _parse_date(request.form.get('next_predicted_date'))
+            if not next_predicted_date and start_date:
+                # AppSettingからデフォルトヒートサイクル日数を取得（デフォルト180日）
+                cycle_days = 180
+                try:
+                    setting_q = db.query(AppSetting)
+                    if tenant_id:
+                        setting_q = setting_q.filter(AppSetting.tenant_id == tenant_id)
+                    setting = setting_q.first()
+                    if setting and getattr(setting, 'default_heat_cycle_days', None):
+                        cycle_days = int(setting.default_heat_cycle_days)
+                except Exception:
+                    pass
+                next_predicted_date = start_date + timedelta(days=cycle_days)
             heat = Heat(
                 tenant_id=tenant_id,
                 store_id=store_id,
                 dog_id=int(request.form['dog_id']),
-                start_date=_parse_date(request.form.get('start_date')),
+                start_date=start_date,
                 last_confirmed_date=_parse_date(request.form.get('last_confirmed_date')),
-                next_predicted_date=_parse_date(request.form.get('next_predicted_date')),
+                next_predicted_date=next_predicted_date,
                 status=request.form.get('status', 'active'),
                 notes=request.form.get('notes'),
             )
             db.add(heat)
             db.commit()
-            flash('ヒートを登録しました', 'success')
+            flash('ヒートを登録しました（次回予測日: {}）'.format(
+                next_predicted_date.strftime('%Y/%m/%d') if next_predicted_date else '未設定'
+            ), 'success')
             return redirect(url_for('breeder.heats_list'))
         dogs = db.query(Dog).filter(Dog.dog_type == 'parent', Dog.gender == 'female', Dog.status == 'active').all()
         return render_template('breeder/heat_form.html', heat=None, dogs=dogs)
@@ -1042,29 +1061,85 @@ def document_scan_upload():
 @bp.route('/applications/scans/<int:scan_id>/apply', methods=['POST'])
 @require_roles(*BREEDER_ROLES)
 def document_scan_apply(scan_id):
-    """OCR結果を元に犬の情報を更新する"""
-    from app.models_breeder import DocumentScan, Dog, Puppy
+    """
+    OCR結果を元に犬の情報を更新する。
+    血統書 / チップ / 遺伝疾患検査 / 股関節評価 の4種に対応。
+    """
+    from app.models_breeder import DocumentScan, Dog, Puppy, GeneticTestResult
     db = _get_db()
     try:
         scan = db.query(DocumentScan).get(scan_id)
         if not scan or not scan.result_json:
             flash('スキャンデータが見つかりません', 'error')
             return redirect(url_for('breeder.document_scans'))
+
         result = json.loads(scan.result_json)
-        target_id = _int_or_none(request.form.get('target_id'))
+        target_id   = _int_or_none(request.form.get('target_id'))
         target_type = request.form.get('target_type', 'dog')
+        scan_type   = scan.scan_type or 'pedigree'
+
         if target_type == 'dog' and target_id:
             dog = db.query(Dog).get(target_id)
             if dog:
-                if result.get('pedigree_number'):
-                    dog.pedigree_number = result['pedigree_number']
-                if result.get('microchip_number'):
-                    dog.microchip_number = result['microchip_number']
-                if result.get('registration_name'):
-                    dog.registration_name = result['registration_name']
+                if scan_type == 'pedigree':
+                    if result.get('pedigree_number'):
+                        dog.pedigree_number = result['pedigree_number']
+                    if result.get('microchip_number'):
+                        dog.microchip_number = result['microchip_number']
+                    if result.get('registration_name'):
+                        dog.registration_name = result['registration_name']
+                    if result.get('birth_date') and not dog.birth_date:
+                        try:
+                            from datetime import date as _date
+                            y, mo, d = result['birth_date'].split('-')
+                            dog.birth_date = _date(int(y), int(mo), int(d))
+                        except Exception:
+                            pass
+                    if result.get('gender') and not dog.gender:
+                        dog.gender = result['gender']
+                elif scan_type == 'chip':
+                    if result.get('microchip_number'):
+                        dog.microchip_number = result['microchip_number']
+                elif scan_type == 'genetic':
+                    # 遺伝疾患検査結果を GeneticTestResult テーブルに登録（重複時は上書き）
+                    for item in result.get('results', []):
+                        disease = item.get('disease_name')
+                        res_val = item.get('result')
+                        if not disease or not res_val:
+                            continue
+                        existing = db.query(GeneticTestResult).filter(
+                            GeneticTestResult.dog_id == dog.id,
+                            GeneticTestResult.disease_name == disease
+                        ).first()
+                        if existing:
+                            existing.result = res_val
+                            if result.get('test_date'):
+                                existing.tested_at = result['test_date']
+                            if result.get('lab_name'):
+                                existing.lab_name = result['lab_name']
+                        else:
+                            db.add(GeneticTestResult(
+                                dog_id=dog.id,
+                                disease_name=disease,
+                                result=res_val,
+                                tested_at=result.get('test_date'),
+                                lab_name=result.get('lab_name'),
+                            ))
+                elif scan_type == 'hip':
+                    # 股関節評価結果を notes に追記
+                    hip_note = (
+                        f"股関節評価: "
+                        f"左={result.get('left_score','不明')} "
+                        f"右={result.get('right_score','不明')} "
+                        f"総合={result.get('overall_grade','不明')} "
+                        f"評価機関={result.get('evaluator','不明')} "
+                        f"評価日={result.get('evaluation_date','不明')}"
+                    )
+                    dog.notes = ((dog.notes or '') + '\n' + hip_note).strip()
                 scan.dog_id = dog.id
                 db.commit()
                 flash(f'「{dog.name}」にデータを適用しました', 'success')
+
         elif target_type == 'puppy' and target_id:
             puppy = db.query(Puppy).get(target_id)
             if puppy:
@@ -1075,6 +1150,34 @@ def document_scan_apply(scan_id):
                 scan.puppy_id = puppy.id
                 db.commit()
                 flash(f'子犬「{puppy.name or puppy.id}」にデータを適用しました', 'success')
+        elif target_type == 'new_dog' and scan_type == 'pedigree':
+            # 血統書スキャンから新規親犬を自動登録
+            tenant_id, store_id = _get_tenant_store()
+            new_name = result.get('registration_name') or '血統書取込犬'
+            new_dog = Dog(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                name=new_name,
+                dog_type='parent',
+                breed=result.get('breed') or None,
+                gender=result.get('gender') or None,
+                pedigree_number=result.get('pedigree_number') or None,
+                microchip_number=result.get('microchip_number') or None,
+                registration_name=result.get('registration_name') or None,
+                status='active',
+            )
+            if result.get('birth_date'):
+                try:
+                    from datetime import date as _date
+                    y, mo, d = result['birth_date'].split('-')
+                    new_dog.birth_date = _date(int(y), int(mo), int(d))
+                except Exception:
+                    pass
+            db.add(new_dog)
+            db.flush()  # IDを確定
+            scan.dog_id = new_dog.id
+            db.commit()
+            flash(f'新規親犬「{new_name}」を血統書から登録しました', 'success')
         return redirect(url_for('breeder.document_scans'))
     except Exception as e:
         db.rollback()

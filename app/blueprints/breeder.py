@@ -167,6 +167,7 @@ def dashboard():
                             })
         except Exception:
             pass
+        role = _get_role()
         # テナント管理者・システム管理者の場合は店舗別集計も渡す
         store_stats = []
         if role in ('tenant_admin', 'system_admin'):

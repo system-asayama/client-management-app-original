@@ -2,6 +2,7 @@
 {% block title %}{{ '外部犬' if dog_type == 'external' else '親犬' }}一覧{% endblock %}
 {% block topbar_title %}{{ '外部犬' if dog_type == 'external' else '親犬' }}一覧{% endblock %}
 {% block topbar_actions %}
+  <a href="{{ url_for('breeder.document_scans') }}" class="btn btn-secondary btn-sm">📄 血統書スキャンで登録</a>
   <a href="{{ url_for('breeder.dog_new') }}" class="btn btn-primary btn-sm">+ 新規登録</a>
 {% endblock %}
 

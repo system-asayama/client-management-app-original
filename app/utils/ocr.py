@@ -85,6 +85,8 @@ def _resolve_api_keys() -> tuple:
     Returns:
         (google_vision_api_key, openai_api_key) のタプル。未設定の場合は None
     """
+    import logging
+    _log = logging.getLogger(__name__)
     google_key = None
     openai_key = None
 
@@ -97,6 +99,7 @@ def _resolve_api_keys() -> tuple:
             tenant_id = flask_session.get('tenant_id')
             store_id = flask_session.get('store_id')
             user_id = flask_session.get('user_id')
+            _log.info(f'[OCR] _resolve_api_keys: tenant_id={tenant_id}, store_id={store_id}, user_id={user_id}')
 
             # ── 1. アプリ設定 (app_settings key-value) ──────────────────────────
             from app.models_breeder import AppSetting
@@ -136,15 +139,16 @@ def _resolve_api_keys() -> tuple:
             # ── 4. アプリ管理者グループ設定 (T_アプリ管理者グループ) ──────────────
             try:
                 from app.models_login import TAppManagerGroup, TKanrisha
-                # 全アプリ管理者グループを検索（APIキーが設定されているもの優先）
                 groups = db.query(TAppManagerGroup).all()
+                _log.info(f'[OCR] アプリ管理者グループ数: {len(groups)}')
                 for group in groups:
                     gk = getattr(group, 'google_vision_api_key', None) or None
                     ok = getattr(group, 'openai_api_key', None) or None
+                    _log.info(f'[OCR] グループid={group.id}: gvision={bool(gk)}, openai={bool(ok)}')
                     if gk or ok:
                         return gk, ok
-            except Exception:
-                pass
+            except Exception as e:
+                _log.error(f'[OCR] アプリ管理者グループ取得エラー: {e}')
 
             # ── 5. システム管理者設定 (T_管理者 role='system_admin') ───────────────
             try:
@@ -152,18 +156,21 @@ def _resolve_api_keys() -> tuple:
                 sys_admins = db.query(TKanrisha).filter(
                     TKanrisha.role == 'system_admin'
                 ).all()
+                _log.info(f'[OCR] システム管理者数: {len(sys_admins)}')
                 for sa in sys_admins:
                     gk = getattr(sa, 'google_vision_api_key', None) or None
                     ok = getattr(sa, 'openai_api_key', None) or None
+                    _log.info(f'[OCR] システム管理者id={sa.id}: gvision={bool(gk)}, openai={bool(ok)}')
                     if gk or ok:
+                        _log.info(f'[OCR] システム管理者id={sa.id}のAPIキーを使用')
                         return gk, ok
-            except Exception:
-                pass
+            except Exception as e:
+                _log.error(f'[OCR] システム管理者取得エラー: {e}')
 
         finally:
             db.close()
-    except Exception:
-        pass
+    except Exception as e:
+        _log.error(f'[OCR] _resolve_api_keys 全体エラー: {e}')
 
     # ── 6. 環境変数 ──────────────────────────────────────────────────────────
     google_key = os.environ.get('GOOGLE_CLOUD_VISION_API_KEY') or os.environ.get('GOOGLE_API_KEY') or None

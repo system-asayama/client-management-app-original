@@ -659,11 +659,7 @@
     <div class="sidebar-section">
       <div class="sidebar-section-label">店舗・テナント</div>
       <ul class="sidebar-nav">
-        {% if session.get('role') in ('system_admin', 'tenant_admin') %}
-        <li><a href="{{ url_for('breeder.tenant_summary') }}" class="{{ 'active' if 'tenant_summary' in request.endpoint }}">
-          <span class="nav-icon">📊</span>全店舗集計
-        </a></li>
-        {% endif %}
+
         <li><a href="{{ url_for('breeder.select_store') }}" class="{{ 'active' if 'select_store' in request.endpoint }}">
           <span class="nav-icon">🏪</span>店舗切り替え
           {% if session.get('store_id') %}

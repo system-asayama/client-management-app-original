@@ -167,6 +167,39 @@ def dashboard():
                             })
         except Exception:
             pass
+        # テナント管理者・システム管理者の場合は店舗別集計も渡す
+        store_stats = []
+        if role in ('tenant_admin', 'system_admin'):
+            from app.models_login import TTenpo
+            sq = db.query(TTenpo)
+            if tenant_id:
+                sq = sq.filter(TTenpo.tenant_id == tenant_id)
+            stores = sq.order_by(TTenpo.id).all()
+            for store in stores:
+                sid = store.id
+                s_parents = db.query(func.count(Dog.id)).filter(
+                    Dog.store_id == sid, Dog.status == 'active', Dog.dog_type == 'parent').scalar() or 0
+                s_puppies = db.query(func.count(Puppy.id)).filter(
+                    Puppy.store_id == sid, Puppy.status.in_(['available', 'reserved'])).scalar() or 0
+                s_heats = db.query(func.count(Heat.id)).filter(
+                    Heat.store_id == sid, Heat.status.in_(['active', 'imminent'])).scalar() or 0
+                s_pregnant = db.query(func.count(Mating.id)).filter(
+                    Mating.store_id == sid, Mating.status == 'pregnant').scalar() or 0
+                s_todos = db.query(func.count(Todo.id)).filter(
+                    Todo.store_id == sid, Todo.status == 'pending').scalar() or 0
+                s_negotiations = db.query(func.count(Negotiation.id)).filter(
+                    Negotiation.store_id == sid,
+                    Negotiation.status.in_(['inquiry', 'negotiating', 'reserved'])).scalar() or 0
+                store_stats.append({
+                    'store': store,
+                    'parents': s_parents,
+                    'puppies': s_puppies,
+                    'heats': s_heats,
+                    'pregnant': s_pregnant,
+                    'todos': s_todos,
+                    'negotiations': s_negotiations,
+                })
+
         return render_template('breeder/dashboard.html',
             parent_count=parent_count,
             puppy_count=puppy_count,
@@ -181,6 +214,7 @@ def dashboard():
             upcoming_heats=upcoming_heats,
             unregistered_alert_count=unregistered_alert_count,
             unregistered_alert_puppies=unregistered_alert_puppies,
+            store_stats=store_stats,
         )
     finally:
         db.close()

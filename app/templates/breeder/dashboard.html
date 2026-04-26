@@ -141,6 +141,53 @@
   </div>
 </div>
 
+<!-- 店舗別集計テーブル（テナント管理者・システム管理者のみ） -->
+{% if session.get('role') in ('tenant_admin', 'system_admin') and store_stats %}
+<div class="card mt-4">
+  <div class="card-title">店舗別集計</div>
+  <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">店舗名</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">親犬</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">子犬</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">ヒート中</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">妊娠中</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">TODO未完了</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">商談中</th>
+        <th style="text-align:center; padding:0.6rem 0.8rem; color:var(--text-muted); font-weight:600;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in store_stats %}
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:0.6rem 0.8rem; font-weight:500;">{{ s.store.店舗名 }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">{{ s.parents }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">{{ s.puppies }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">{{ s.heats }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">{{ s.pregnant }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">{{ s.todos }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">{{ s.negotiations }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem;">
+          <a href="{{ url_for('breeder.select_store') }}" onclick="this.closest('form') || (function(){var f=document.createElement('form');f.method='POST';f.action='{{ url_for('breeder.select_store') }}';var i=document.createElement('input');i.type='hidden';i.name='store_id';i.value='{{ s.store.id }}';var n=document.createElement('input');n.type='hidden';n.name='next';n.value='{{ url_for('breeder.dashboard') }}';f.appendChild(i);f.appendChild(n);document.body.appendChild(f);f.submit();})(); return false;" class="btn btn-secondary btn-sm">この店舗を表示</a>
+        </td>
+      </tr>
+      {% endfor %}
+      <tr style="border-top:2px solid var(--border); font-weight:700; background:var(--surface);">
+        <td style="padding:0.6rem 0.8rem;">合計（{{ store_stats|length }}店舗）</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem; color:var(--accent);">{{ store_stats|sum(attribute='parents') }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem; color:var(--accent);">{{ store_stats|sum(attribute='puppies') }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem; color:var(--accent);">{{ store_stats|sum(attribute='heats') }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem; color:var(--accent);">{{ store_stats|sum(attribute='pregnant') }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem; color:var(--accent);">{{ store_stats|sum(attribute='todos') }}</td>
+        <td style="text-align:center; padding:0.6rem 0.8rem; color:var(--accent);">{{ store_stats|sum(attribute='negotiations') }}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <!-- 出産統計チャート -->
 <div class="card mt-4">
   <div class="card-title">出産数推移（過去6ヶ月）</div>

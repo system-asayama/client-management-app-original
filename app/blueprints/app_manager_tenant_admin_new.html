@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}テナント管理者新規作成 - {{ tenant.名称 }}{% endblock %}
+{% block extra_head %}
+<style>
+.page-header{background:linear-gradient(135deg,#1e3a5f 0%,#2563a8 100%);color:#fff;padding:20px 24px;margin:-16px -16px 24px;border-radius:0}
+.page-header h1{margin:0 0 4px;font-size:1.3rem;font-weight:700}
+.page-header-sub{font-size:0.85rem;opacity:0.8;margin:0}
+.page-header-actions{margin-top:12px}
+.header-btn{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:8px 16px;border-radius:6px;font-size:0.85rem;font-weight:600;text-decoration:none}
+.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:24px;max-width:560px}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151;font-size:0.9rem}
+.form-group input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95rem;box-sizing:border-box}
+.form-group input:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
+.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.82rem}
+.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.95rem}
+.btn-primary:hover{background:#1a4f8a}
+.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:10px 20px;border-radius:6px;font-weight:600;text-decoration:none;display:inline-block;font-size:0.95rem}
+.alert{padding:12px 16px;border-radius:6px;margin-bottom:16px;font-size:0.9rem}
+.alert-error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👤 テナント管理者 新規作成</h1>
+    <p class="page-header-sub">{{ tenant.名称 }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('app_manager.tenant_detail', tenant_id=tenant.id) }}" class="header-btn">← テナント詳細に戻る</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}{% for category, message in messages %}
+<div class="alert alert-{{ category }}">{{ message }}</div>
+{% endfor %}{% endif %}
+{% endwith %}
+
+<div class="form-card">
+  <form method="post">
+    {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+    <div class="form-group">
+      <label>ログインID <span style="color:#dc2626">*</span></label>
+      <input type="text" name="login_id" required placeholder="例: tanaka_admin" value="{{ request.form.get('login_id', '') }}">
+      <small>半角英数字・アンダースコア推奨。ログイン時に使用します。</small>
+    </div>
+    <div class="form-group">
+      <label>氏名 <span style="color:#dc2626">*</span></label>
+      <input type="text" name="name" required placeholder="例: 田中 太郎" value="{{ request.form.get('name', '') }}">
+    </div>
+    <div class="form-group">
+      <label>メールアドレス <span style="color:#dc2626">*</span></label>
+      <input type="email" name="email" required placeholder="例: tanaka@example.com" value="{{ request.form.get('email', '') }}">
+    </div>
+    <div class="form-group">
+      <label>パスワード <span style="color:#dc2626">*</span></label>
+      <input type="password" name="password" required placeholder="8文字以上推奨">
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">作成する</button>
+      <a href="{{ url_for('app_manager.tenant_detail', tenant_id=tenant.id) }}" class="btn-secondary">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

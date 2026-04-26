@@ -2348,3 +2348,125 @@ def driver_apk_download():
         return f'ダウンロードエラー: {e}', 500
     finally:
         db.close()
+
+
+# ─── テナント集計 ────────────────────────────────────────
+@bp.route("/tenant_summary")
+@login_required_truck
+def tenant_summary():
+    """テナント集計ページ（テナント管理者・システム管理者用）"""
+    from app.models_login import TTenpo, TTenant
+    db = SessionLocal()
+    try:
+        user_role = session.get("user_role", "")
+        tenant_id = session.get("tenant_id")
+        today = date.today()
+        today_str = today.strftime("%Y年%m月%d日")
+
+        # 対象テナントの店舗一覧を取得
+        sq = db.query(TTenpo)
+        if tenant_id:
+            sq = sq.filter(TTenpo.tenant_id == tenant_id)
+        stores = sq.order_by(TTenpo.id).all()
+
+        total_status_counts = {}
+        total_trucks = 0
+        total_drivers = 0
+        store_summaries = []
+
+        for store in stores:
+            ops = db.query(TruckOperation).filter(
+                TruckOperation.operation_date == today,
+                TruckOperation.store_id == store.id,
+            ).all()
+            sc = {}
+            for op in ops:
+                sc[op.status] = sc.get(op.status, 0) + 1
+                total_status_counts[op.status] = total_status_counts.get(op.status, 0) + 1
+            t_count = db.query(Truck).filter(Truck.store_id == store.id, Truck.active == True).count()
+            d_count = db.query(TruckDriver).filter(TruckDriver.store_id == store.id, TruckDriver.active == True).count()
+            total_trucks += t_count
+            total_drivers += d_count
+            store_summaries.append({
+                "store": store,
+                "status_counts": sc,
+                "truck_count": t_count,
+                "driver_count": d_count,
+            })
+
+        return render_template(
+            "truck/tenant_summary.html",
+            today_str=today_str,
+            store_summaries=store_summaries,
+            total_status_counts=total_status_counts,
+            total_trucks=total_trucks,
+            total_drivers=total_drivers,
+            error=None,
+        )
+    except Exception as e:
+        return render_template("truck/tenant_summary.html",
+                               today_str=date.today().strftime("%Y年%m月%d日"),
+                               store_summaries=[], total_status_counts={},
+                               total_trucks=0, total_drivers=0, error=str(e))
+    finally:
+        db.close()
+
+
+# ─── 店舗別ダッシュボード ────────────────────────────────
+@bp.route("/store/<int:store_id>/")
+@login_required_truck
+def store_dashboard(store_id):
+    """店舗別ダッシュボード"""
+    from app.models_login import TTenpo
+    db = SessionLocal()
+    try:
+        tenant_id = session.get("tenant_id")
+        today = date.today()
+        today_str = today.strftime("%Y年%m月%d日")
+
+        store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+        if not store:
+            return render_template("truck/store_dashboard.html",
+                                   store=None, today_str=today_str,
+                                   operations=[], status_counts={},
+                                   trucks=[], drivers=[], error="店舗が見つかりません")
+
+        ops = db.query(TruckOperation).filter(
+            TruckOperation.operation_date == today,
+            TruckOperation.store_id == store_id,
+        ).order_by(TruckOperation.start_time).all()
+
+        status_counts = {}
+        ops_data = []
+        for op in ops:
+            status_counts[op.status] = status_counts.get(op.status, 0) + 1
+            ops_data.append({
+                "status": op.status,
+                "driver_name": op.driver.name if op.driver else "-",
+                "truck_name": op.truck.name if op.truck else "-",
+                "truck_number": op.truck.number if op.truck else "-",
+                "route_name": op.route.name if op.route else "-",
+                "start_time": op.start_time,
+                "end_time": op.end_time,
+            })
+
+        trucks = db.query(Truck).filter(Truck.store_id == store_id, Truck.active == True).all()
+        drivers = db.query(TruckDriver).filter(TruckDriver.store_id == store_id, TruckDriver.active == True).all()
+
+        return render_template(
+            "truck/store_dashboard.html",
+            store=store,
+            today_str=today_str,
+            operations=ops_data,
+            status_counts=status_counts,
+            trucks=trucks,
+            drivers=drivers,
+            error=None,
+        )
+    except Exception as e:
+        return render_template("truck/store_dashboard.html",
+                               store=None, today_str=date.today().strftime("%Y年%m月%d日"),
+                               operations=[], status_counts={},
+                               trucks=[], drivers=[], error=str(e))
+    finally:
+        db.close()

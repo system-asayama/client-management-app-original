@@ -20,6 +20,8 @@ class Dog(Base):
     __tablename__ = 'dogs'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     name = Column(String(100), nullable=False, comment='犬名（通称）')
     registration_name = Column(String(200), nullable=True, comment='登録名')
     breed = Column(String(100), nullable=False, comment='犬種')
@@ -44,6 +46,8 @@ class Puppy(Base):
     __tablename__ = 'puppies'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     name = Column(String(100), nullable=True, comment='子犬名')
     breed = Column(String(100), nullable=False)
     gender = Column(SAEnum('male', 'female', name='puppy_gender'), nullable=False)
@@ -70,6 +74,8 @@ class Heat(Base):
     __tablename__ = 'heats'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=False)
     start_date = Column(Date, nullable=True)
     last_confirmed_date = Column(Date, nullable=True)
@@ -88,6 +94,8 @@ class Mating(Base):
     __tablename__ = 'matings'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     mother_id = Column(Integer, ForeignKey('dogs.id'), nullable=False)
     father_id = Column(Integer, ForeignKey('dogs.id'), nullable=False)
     heat_id = Column(Integer, ForeignKey('heats.id'), nullable=True)
@@ -108,6 +116,8 @@ class Birth(Base):
     __tablename__ = 'births'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     mating_id = Column(Integer, ForeignKey('matings.id'), nullable=True)
     mother_id = Column(Integer, ForeignKey('dogs.id'), nullable=False)
     father_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
@@ -129,6 +139,8 @@ class Todo(Base):
     __tablename__ = 'todos'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     due_date = Column(Date, nullable=True)
@@ -148,6 +160,8 @@ class Contact(Base):
     __tablename__ = 'contacts'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     name = Column(String(100), nullable=False)
     email = Column(String(320), nullable=True)
     phone = Column(String(20), nullable=True)
@@ -165,6 +179,8 @@ class Negotiation(Base):
     __tablename__ = 'negotiations'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     contact_id = Column(Integer, ForeignKey('contacts.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     status = Column(SAEnum('inquiry', 'negotiating', 'reserved', 'contracted', 'completed', 'cancelled', name='negotiation_status'), nullable=False, default='inquiry')
@@ -182,6 +198,8 @@ class LifeLog(Base):
     __tablename__ = 'life_logs'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     contact_id = Column(Integer, ForeignKey('contacts.id'), nullable=True)
@@ -200,6 +218,8 @@ class PedigreeApplication(Base):
     __tablename__ = 'pedigree_applications'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     application_date = Column(Date, nullable=True)
@@ -215,6 +235,8 @@ class ChipApplication(Base):
     __tablename__ = 'chip_applications'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     application_date = Column(Date, nullable=True)
@@ -233,6 +255,8 @@ class WeightRecord(Base):
     __tablename__ = 'weight_records'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     weight = Column(Numeric(6, 2), nullable=False)
@@ -246,6 +270,8 @@ class VaccineRecord(Base):
     __tablename__ = 'vaccine_records'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     vaccine_name = Column(String(100), nullable=False)
@@ -261,6 +287,8 @@ class HealthCheckRecord(Base):
     __tablename__ = 'health_check_records'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     checked_at = Column(Date, nullable=False)
@@ -276,6 +304,8 @@ class MedicationRecord(Base):
     __tablename__ = 'medication_records'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     medication_name = Column(String(100), nullable=False)
@@ -291,6 +321,8 @@ class MedicalHistory(Base):
     __tablename__ = 'medical_histories'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     diagnosed_at = Column(Date, nullable=False)
@@ -306,6 +338,8 @@ class FoodRecord(Base):
     __tablename__ = 'food_records'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     puppy_id = Column(Integer, ForeignKey('puppies.id'), nullable=True)
     food_name = Column(String(200), nullable=False)
@@ -325,6 +359,8 @@ class LedgerEntry(Base):
     __tablename__ = 'ledger_entries'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     entry_date = Column(Date, nullable=False)
     entry_type = Column(SAEnum('acquisition', 'birth', 'sale', 'transfer', 'death', name='ledger_type'), nullable=False)
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
@@ -342,6 +378,8 @@ class AppSetting(Base):
     __tablename__ = 'app_settings'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     key = Column(String(100), nullable=False, unique=True)
     value = Column(Text, nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -352,6 +390,8 @@ class EventPreset(Base):
     __tablename__ = 'event_presets'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     name = Column(String(100), nullable=False)
     category = Column(String(50), nullable=True)
     description = Column(Text, nullable=True)
@@ -366,6 +406,8 @@ class DocumentScan(Base):
     __tablename__ = 'document_scans'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment="テナントID")
+    store_id = Column(Integer, nullable=True, index=True, comment="店舗ID")
     filename = Column(String(255), nullable=False)
     scan_type = Column(String(50), nullable=False, default='pedigree')  # pedigree / chip
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)

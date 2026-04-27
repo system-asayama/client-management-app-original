@@ -336,9 +336,19 @@
   <div class="sidebar-footer">
     <div class="user-info">
       <div class="user-avatar">{{ session.get('user_name', '管')[:1] }}</div>
-      <div>
+      <div style="min-width:0; flex:1;">
         <div class="user-name">{{ session.get('user_name', '管理者') }}</div>
-        <div class="user-role">管理者</div>
+        <div class="user-role">
+          {% set role = session.get('role', '') %}
+          {% if role == 'system_admin' %}システム管理者
+          {% elif role == 'tenant_admin' %}テナント管理者
+          {% elif role == 'admin' %}管理者
+          {% elif role == 'employee' %}スタッフ
+          {% else %}管理者{% endif %}
+        </div>
+        {% if current_tenant_name %}
+        <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ current_tenant_name }}</div>
+        {% endif %}
       </div>
     </div>
     <a href="{{ url_for('auth.logout') }}">

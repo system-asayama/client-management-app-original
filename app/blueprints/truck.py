@@ -1920,7 +1920,7 @@ def api_settings():
 def apk_settings():
     db = SessionLocal()
     try:
-        tenant_id = session.get('tenant_id')
+        # APK設定はテナント共通（tenant_id=None）
         if request.method == 'POST':
             apk_url = request.form.get('apk_url', '').strip()
             apk_version = request.form.get('apk_version', '').strip()
@@ -1929,14 +1929,14 @@ def apk_settings():
                 gps_interval_sec = max(1, int(gps_interval_raw))
             except (ValueError, TypeError):
                 gps_interval_sec = 30
-            TruckAppSettings.set(db, 'android_apk_url', apk_url, tenant_id)
-            TruckAppSettings.set(db, 'android_apk_version', apk_version, tenant_id)
-            TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_interval_sec), tenant_id)
+            TruckAppSettings.set(db, 'android_apk_url', apk_url, None)
+            TruckAppSettings.set(db, 'android_apk_version', apk_version, None)
+            TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_interval_sec), None)
             flash('APK設定を保存しました', 'success')
             return redirect(url_for('truck.apk_settings'))
-        apk_url = TruckAppSettings.get(db, 'android_apk_url', tenant_id, '')
-        apk_version = TruckAppSettings.get(db, 'android_apk_version', tenant_id, '')
-        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', tenant_id, '30') or '30')
+        apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
+        apk_version = TruckAppSettings.get(db, 'android_apk_version', None, '')
+        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', None, '30') or '30')
         return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version, gps_interval_seconds=gps_interval_seconds)
     finally:
         db.close()
@@ -2311,8 +2311,9 @@ def driver_dashboard():
             operation_date=today,
         ).order_by(TruckOperation.start_time).all()
         # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
-        apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
-        apk_version = TruckAppSettings.get(db, 'android_apk_version', driver.tenant_id if driver else None, '')
+        # APK設定はテナント共通（tenant_id=None）
+        apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
+        apk_version = TruckAppSettings.get(db, 'android_apk_version', None, '')
         return render_template(
             'truck/driver_dashboard.html',
             driver=driver,
@@ -2332,7 +2333,8 @@ def driver_apk_download():
     db = SessionLocal()
     try:
         driver = db.query(TruckDriver).get(driver_id)
-        apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
+        # APK設定はテナント共通（tenant_id=None）
+        apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
         if not apk_url:
             return 'APKが設定されていません', 404
         resp = http_requests.get(apk_url, stream=True, timeout=30)

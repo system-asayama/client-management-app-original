@@ -1046,6 +1046,8 @@ def document_scans():
                     scan_results[scan.id] = {}
             else:
                 scan_results[scan.id] = {}
+            # 画像URLをscan_resultsに追加
+            scan_results[scan.id]['_image_url'] = url_for('breeder.document_scan_image', scan_id=scan.id)
         return render_template('breeder/document_scans.html', scans=scans, dogs=dogs, puppies=puppies, scan_results=scan_results)
     finally:
         db.close()
@@ -1270,6 +1272,24 @@ def document_scan_delete(scan_id):
         return redirect(url_for('breeder.document_scans'))
     finally:
         db.close()
+@bp.route('/applications/scans/<int:scan_id>/image')
+@require_roles(*BREEDER_ROLES)
+def document_scan_image(scan_id):
+    """スキャン画像を配信する"""
+    import os
+    from flask import send_file, abort
+    from app.models_breeder import DocumentScan
+    db = _get_db()
+    try:
+        scan = db.query(DocumentScan).get(scan_id)
+        if not scan or not scan.file_path:
+            abort(404)
+        if not os.path.exists(scan.file_path):
+            abort(404)
+        return send_file(scan.file_path)
+    finally:
+        db.close()
+
 # ─── 健康管理 ────────────────────────────────────────────────
 @bp.route('/health/weight')
 @require_roles(*BREEDER_ROLES)

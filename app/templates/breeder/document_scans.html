@@ -220,6 +220,13 @@
   <div style="background:#1e2130; border-radius:8px; max-width:600px; margin:3rem auto; padding:2rem; position:relative; color:#e0e0e0;">
     <button onclick="closePreview()" style="position:absolute; top:1rem; right:1rem; background:none; border:none; color:#aaa; font-size:1.5rem; cursor:pointer;">&#x2715;</button>
     <h3 style="margin-top:0; margin-bottom:1.2rem; font-size:1.1rem; color:#fff;">&#x1F4CB; OCR読み取り結果プレビュー</h3>
+    <!-- スキャン画像プレビュー -->
+    <div id="previewImageArea" style="text-align:center; margin-bottom:1rem; display:none;">
+      <img id="previewImage" src="" alt="スキャン画像"
+        style="max-width:100%; max-height:350px; border-radius:6px; border:1px solid #333; cursor:zoom-in;"
+        onclick="toggleImageZoom(this)">
+      <div style="font-size:0.75rem; color:#aaa; margin-top:0.3rem;">クリックで拡大/縮小</div>
+    </div>
     <div id="previewContent" style="font-size:0.9rem; line-height:1.8;"></div>
     <div style="margin-top:1.5rem; text-align:right;">
       <button onclick="closePreview()" class="btn btn-secondary btn-xs" style="margin-right:0.5rem;">閉じる</button>
@@ -250,8 +257,30 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+function toggleImageZoom(img) {
+  if (img.style.maxHeight === 'none') {
+    img.style.maxHeight = '350px';
+    img.style.cursor = 'zoom-in';
+  } else {
+    img.style.maxHeight = 'none';
+    img.style.cursor = 'zoom-out';
+  }
+}
 function showPreview(scanId, resultJson, scanType) {
   _previewScanId = scanId;
+  // 画像プレビュー表示
+  var imgArea = document.getElementById('previewImageArea');
+  var imgEl = document.getElementById('previewImage');
+  var imageUrl = resultJson && resultJson._image_url ? resultJson._image_url : null;
+  if (imageUrl) {
+    imgEl.src = imageUrl;
+    imgEl.style.maxHeight = '350px';
+    imgEl.style.cursor = 'zoom-in';
+    imgArea.style.display = 'block';
+  } else {
+    imgArea.style.display = 'none';
+    imgEl.src = '';
+  }
   var html = '';
   var r = resultJson || {};
 

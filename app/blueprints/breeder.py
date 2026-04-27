@@ -1249,6 +1249,59 @@ def document_scan_apply(scan_id):
                     pass
             db.add(new_dog)
             db.flush()  # IDを確定
+            # 父・母（sire/dam）を外部犬として登録し、father_id/mother_idをリンク
+            try:
+                ancestors = result.get('ancestors', []) or []
+                def _get_or_create_ancestor_dog(anc_name, anc_reg, anc_breed, anc_color, anc_gender, t_id, s_id):
+                    """血統書番号またはname一致で既存犬を探し、なければ外部犬として作成"""
+                    existing = None
+                    if anc_reg:
+                        existing = db.query(Dog).filter(
+                            Dog.pedigree_number == anc_reg,
+                            Dog.tenant_id == t_id
+                        ).first()
+                    if not existing and anc_name:
+                        existing = db.query(Dog).filter(
+                            Dog.name == anc_name,
+                            Dog.tenant_id == t_id
+                        ).first()
+                    if not existing:
+                        existing = Dog(
+                            tenant_id=t_id,
+                            store_id=s_id,
+                            name=anc_name,
+                            dog_type='external',
+                            breed=anc_breed or None,
+                            gender=anc_gender or None,
+                            pedigree_number=anc_reg or None,
+                            registration_name=anc_name,
+                            color=anc_color or None,
+                            status='active',
+                        )
+                        db.add(existing)
+                        db.flush()
+                    return existing
+                for anc in ancestors:
+                    if not anc.get('name'):
+                        continue
+                    pos = anc.get('position', '')
+                    if pos == 'sire':
+                        sire_dog = _get_or_create_ancestor_dog(
+                            anc['name'], anc.get('registration_number'),
+                            anc.get('breed'), anc.get('color'), 'male',
+                            tenant_id, store_id
+                        )
+                        new_dog.father_id = sire_dog.id
+                    elif pos == 'dam':
+                        dam_dog = _get_or_create_ancestor_dog(
+                            anc['name'], anc.get('registration_number'),
+                            anc.get('breed'), anc.get('color'), 'female',
+                            tenant_id, store_id
+                        )
+                        new_dog.mother_id = dam_dog.id
+            except Exception as parent_e:
+                import logging
+                logging.getLogger(__name__).warning(f'父母リンクエラー: {parent_e}')
             # 4代分の祖先情報を保存
             try:
                 from app.models_breeder import PedigreeAncestor
@@ -1271,7 +1324,7 @@ def document_scan_apply(scan_id):
                 logging.getLogger(__name__).warning(f'祖先情報保存エラー: {anc_e}')
             scan.dog_id = new_dog.id
             db.commit()
-            flash(f'新規親犬「{new_name}」を血統書から登録しました（4代分の祖先情報も取込み）', 'success')
+            flash(f'新規親犬「{new_name}」を血統書から登録しました（父・母・4代分の祖先情報も取込み）', 'success')
         return redirect(url_for('breeder.document_scans'))
     except Exception as e:
         db.rollback()

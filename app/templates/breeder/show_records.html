@@ -1,15 +1,21 @@
 {% extends "breeder/base.html" %}
-{% block topbar_title %}ショー記録 - {{ dog.name }}{% endblock %}
+{% block topbar_title %}ショー記録{% if dog %} - {{ dog.name }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:1rem;">
+    {% if dog %}
     <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">← 戻る</a>
     <h1 class="page-title">🏆 ショー記録 - {{ dog.name }}</h1>
+    {% else %}
+    <a href="{{ url_for('breeder.dashboard') }}" class="btn btn-secondary btn-sm">← ダッシュボードへ</a>
+    <h1 class="page-title">🏆 ショー記録 一覧</h1>
+    {% endif %}
   </div>
 </div>
 
 <!-- 登録フォーム -->
+{% if dog %}
 <div class="card" style="margin-bottom:1.5rem;">
   <div class="card-header"><h2 class="card-title">新規登録</h2></div>
   <div class="card-body">
@@ -49,7 +55,7 @@
     </form>
   </div>
 </div>
-
+{% endif %}
 <!-- 一覧 -->
 <div class="card">
   <div class="card-header"><h2 class="card-title">ショー記録一覧</h2></div>

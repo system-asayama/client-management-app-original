@@ -34,7 +34,12 @@
 
 <div class="office-header">
   <div>
-    <div class="office-title">{{ store['名称'] if store else '' }}</div>
+    {% if tenant %}
+    <div style="font-size:0.8rem;opacity:0.8;line-height:1.4;margin-bottom:4px;">
+      <span style="font-weight:600;">{{ tenant.name }}</span>
+      {% if store %}<span style="opacity:0.85;"> / {{ store['名称'] }}</span>{% endif %}
+    </div>
+    {% endif %}
     <h1>🏪 店舗詳細情報</h1>
   </div>
   <div class="header-actions">

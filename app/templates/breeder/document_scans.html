@@ -189,10 +189,10 @@
               <button type="button" class="btn btn-secondary btn-xs preview-btn"
                 data-scan-id="{{ scan.id }}"
                 data-scan-type="{{ scan.scan_type }}"
-                data-result="{{ scan.result_json | tojson | e }}"
                 style="font-size:0.75rem; padding:0.2rem 0.5rem;">
                 &#x1F441; プレビュー
               </button>
+              <script>window._scanData = window._scanData||{}; window._scanData[{{ scan.id }}] = {{ scan.result_json | tojson }};</script>
               <button type="submit" class="btn btn-primary btn-xs">適用</button>
             </form>
             {% else %}—{% endif %}
@@ -237,14 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', function() {
       var scanId = parseInt(this.getAttribute('data-scan-id'));
       var scanType = this.getAttribute('data-scan-type');
-      var rawData = this.getAttribute('data-result');
-      var resultJson = null;
-      try {
-        // HTMLエンティティをデコードしてからJSONパース
-        var txt = document.createElement('textarea');
-        txt.innerHTML = rawData;
-        resultJson = JSON.parse(txt.value);
-      } catch(e) { resultJson = {}; }
+      var resultJson = (window._scanData && window._scanData[scanId]) ? window._scanData[scanId] : {};
       showPreview(scanId, resultJson, scanType);
     });
   });

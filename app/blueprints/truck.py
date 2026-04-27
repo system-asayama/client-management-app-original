@@ -2473,3 +2473,24 @@ def store_dashboard(store_id):
                                trucks=[], drivers=[], error=str(e))
     finally:
         db.close()
+
+# ─── 財務管理 ──────────────────────────────────────
+@bp.route('/finance/accounting')
+@login_required_truck
+def finance_accounting():
+    return render_template('truck/finance_accounting.html')
+
+@bp.route('/finance/payroll')
+@login_required_truck
+def finance_payroll():
+    return render_template('truck/finance_payroll.html')
+
+@bp.route('/finance/attendance')
+@login_required_truck
+def finance_attendance():
+    return render_template('truck/finance_attendance.html')
+
+@bp.route('/finance/invoice')
+@login_required_truck
+def finance_invoice():
+    return render_template('truck/finance_invoice.html')

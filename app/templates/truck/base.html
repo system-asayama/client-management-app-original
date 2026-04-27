@@ -286,11 +286,28 @@
 
     <!-- 財務管理 -->
     <div class="nav-group" id="group-finance">
-      <div class="nav-group-header" onclick="toggleGroup('group-finance')" style="opacity:0.6; cursor:default;">
+      <div class="nav-group-header" onclick="toggleGroup('group-finance')">
         <span class="group-icon">💰</span>
         <span class="group-label">財務管理</span>
-        <span class="group-badge">準備中</span>
         <span class="arrow">▶</span>
+      </div>
+      <div class="nav-group-items">
+        <a href="{{ url_for('truck.finance_accounting') }}"
+           class="nav-item {% if request.endpoint == 'truck.finance_accounting' %}active{% endif %}">
+          <span class="nav-icon">📊</span> 会計
+        </a>
+        <a href="{{ url_for('truck.finance_payroll') }}"
+           class="nav-item {% if request.endpoint == 'truck.finance_payroll' %}active{% endif %}">
+          <span class="nav-icon">💴</span> 給与計算
+        </a>
+        <a href="{{ url_for('truck.finance_attendance') }}"
+           class="nav-item {% if request.endpoint == 'truck.finance_attendance' %}active{% endif %}">
+          <span class="nav-icon">🕐</span> 勤怠管理
+        </a>
+        <a href="{{ url_for('truck.finance_invoice') }}"
+           class="nav-item {% if request.endpoint == 'truck.finance_invoice' %}active{% endif %}">
+          <span class="nav-icon">🧾</span> 請求書
+        </a>
       </div>
     </div>
 
@@ -357,8 +374,7 @@
   function toggleGroup(groupId) {
     const group = document.getElementById(groupId);
     if (!group) return;
-    // 財務管理は準備中なので無効
-    if (groupId === 'group-finance') return;
+    // 財務管理は有効
     group.classList.toggle('open');
   }
 

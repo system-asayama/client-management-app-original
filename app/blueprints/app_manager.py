@@ -1223,32 +1223,18 @@ def tenant_delete(tenant_id):
 @bp.route('/tenants/<int:tenant_id>')
 @require_roles('app_manager', 'system_admin')
 def tenant_detail(tenant_id):
-    """テナント詳細"""
-    from app.models_login import TTenant, TKanrisha, TTenantAppSetting
+    """テナント詳細（tenant_admin/tenant_detailへリダイレクト）"""
+    from app.models_login import TTenant
     db = SessionLocal()
     try:
         tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
         if not tenant:
             flash('テナントが見つかりません', 'error')
             return redirect(url_for('app_manager.tenants'))
-        # テナント管理者一覧
-        admins = db.query(TKanrisha).filter(
-            TKanrisha.tenant_id == tenant_id,
-            TKanrisha.role == 'tenant_admin',
-            TKanrisha.active == 1
-        ).order_by(TKanrisha.id).all()
-        # 配布済みアプリ
-        app_settings = db.query(TTenantAppSetting).filter(
-            TTenantAppSetting.tenant_id == tenant_id,
-            TTenantAppSetting.enabled == 1
-        ).all()
-        distributed_app_ids = [s.app_id for s in app_settings]
-        return render_template(
-            'app_manager_tenant_detail.html',
-            tenant=tenant,
-            admins=admins,
-            distributed_app_ids=distributed_app_ids
-        )
+        # セッションにテナントIDをセットしてtenant_admin/tenant_detailへリダイレクト
+        session['tenant_id'] = tenant.id
+        session.modified = True
+        return redirect(url_for('tenant_admin.tenant_detail'))
     finally:
         db.close()
 

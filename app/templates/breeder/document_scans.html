@@ -186,6 +186,11 @@
                 </optgroup>
                 {% endif %}
               </select>
+              <button type="button" class="btn btn-secondary btn-xs"
+                onclick="showPreview({{ scan.id }}, {{ scan.result_json | tojson }}, '{{ scan.scan_type }}')"
+                style="font-size:0.75rem; padding:0.2rem 0.5rem;">
+                &#x1F441; プレビュー
+              </button>
               <button type="submit" class="btn btn-primary btn-xs">適用</button>
             </form>
             {% else %}—{% endif %}
@@ -208,5 +213,115 @@
     <div class="text-sm text-dim mt-2">上のフォームから血統書や申請書をアップロードしてください</div>
   </div>
   {% endif %}
+<!-- プレビューモーダル -->
+<div id="previewModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow-y:auto;">
+  <div style="background:#1e2130; border-radius:8px; max-width:600px; margin:3rem auto; padding:2rem; position:relative; color:#e0e0e0;">
+    <button onclick="closePreview()" style="position:absolute; top:1rem; right:1rem; background:none; border:none; color:#aaa; font-size:1.5rem; cursor:pointer;">&#x2715;</button>
+    <h3 style="margin-top:0; margin-bottom:1.2rem; font-size:1.1rem; color:#fff;">&#x1F4CB; OCR読み取り結果プレビュー</h3>
+    <div id="previewContent" style="font-size:0.9rem; line-height:1.8;"></div>
+    <div style="margin-top:1.5rem; text-align:right;">
+      <button onclick="closePreview()" class="btn btn-secondary btn-xs" style="margin-right:0.5rem;">閉じる</button>
+      <button id="previewApplyBtn" class="btn btn-primary btn-xs">&#x2705; このまま適用する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _previewScanId = null;
+
+function showPreview(scanId, resultJson, scanType) {
+  _previewScanId = scanId;
+  var html = '';
+  var r = resultJson || {};
+
+  if (scanType === 'pedigree') {
+    var rows = [
+      ['血統書番号', r.pedigree_number],
+      ['登録名', r.registration_name],
+      ['犬種', r.breed],
+      ['性別', r.gender === 'male' ? 'オス' : r.gender === 'female' ? 'メス' : r.gender],
+      ['生年月日', r.birth_date],
+      ['毛色', r.color],
+      ['マイクロチップ番号', r.microchip_number],
+    ];
+    html += '<table style="width:100%; border-collapse:collapse;">';
+    rows.forEach(function(row) {
+      if (row[1]) {
+        html += '<tr><td style="padding:0.4rem 0.8rem; border:1px solid #333; color:#aaa; width:40%;">' + row[0] + '</td>';
+        html += '<td style="padding:0.4rem 0.8rem; border:1px solid #333; font-weight:bold;">' + row[1] + '</td></tr>';
+      }
+    });
+    html += '</table>';
+    if (r.ancestors && r.ancestors.length > 0) {
+      html += '<div style="margin-top:1rem; font-size:0.85rem; color:#aaa; border-top:1px solid #333; padding-top:0.8rem;">祖先情報: ' + r.ancestors.length + '頭分取得済み</div>';
+    }
+  } else if (scanType === 'chip') {
+    html += '<table style="width:100%; border-collapse:collapse;">';
+    if (r.microchip_number) {
+      html += '<tr><td style="padding:0.4rem 0.8rem; border:1px solid #333; color:#aaa; width:40%;">チップ番号</td>';
+      html += '<td style="padding:0.4rem 0.8rem; border:1px solid #333; font-weight:bold;">' + r.microchip_number + '</td></tr>';
+    }
+    html += '</table>';
+  } else if (scanType === 'genetic') {
+    html += '<div style="margin-bottom:0.5rem; color:#aaa;">検査機関: ' + (r.lab_name || '—') + ' / 検査日: ' + (r.test_date || '—') + '</div>';
+    if (r.results && r.results.length > 0) {
+      html += '<table style="width:100%; border-collapse:collapse;">';
+      html += '<tr><th style="padding:0.4rem 0.8rem; border:1px solid #333; background:#2a2d3e;">疾患名</th><th style="padding:0.4rem 0.8rem; border:1px solid #333; background:#2a2d3e;">結果</th></tr>';
+      r.results.forEach(function(item) {
+        var color = item.result === 'clear' ? '#4caf50' : item.result === 'carrier' ? '#ff9800' : '#f44336';
+        html += '<tr><td style="padding:0.4rem 0.8rem; border:1px solid #333;">' + item.disease_name + '</td>';
+        html += '<td style="padding:0.4rem 0.8rem; border:1px solid #333; color:' + color + '; font-weight:bold;">' + item.result + '</td></tr>';
+      });
+      html += '</table>';
+    }
+  } else if (scanType === 'hip') {
+    html += '<table style="width:100%; border-collapse:collapse;">';
+    var rows2 = [
+      ['評価機関', r.evaluator],
+      ['評価日', r.evaluation_date],
+      ['左スコア', r.left_score],
+      ['右スコア', r.right_score],
+      ['総合評価', r.overall_grade],
+    ];
+    rows2.forEach(function(row) {
+      if (row[1]) {
+        html += '<tr><td style="padding:0.4rem 0.8rem; border:1px solid #333; color:#aaa; width:40%;">' + row[0] + '</td>';
+        html += '<td style="padding:0.4rem 0.8rem; border:1px solid #333; font-weight:bold;">' + row[1] + '</td></tr>';
+      }
+    });
+    html += '</table>';
+  } else {
+    html += '<pre style="font-size:0.8rem; color:#ccc; white-space:pre-wrap;">' + JSON.stringify(r, null, 2) + '</pre>';
+  }
+
+  if (!html || html === '<table style="width:100%; border-collapse:collapse;"></table>') {
+    html = '<div style="color:#aaa; text-align:center; padding:2rem;">読み取り結果がありません</div>';
+  }
+
+  document.getElementById('previewContent').innerHTML = html;
+
+  document.getElementById('previewApplyBtn').onclick = function() {
+    var form = document.querySelector('form[action*="/scans/' + scanId + '/apply"]');
+    if (form) { form.submit(); }
+    closePreview();
+  };
+
+  document.getElementById('previewModal').style.display = 'block';
+}
+
+function closePreview() {
+  document.getElementById('previewModal').style.display = 'none';
+  _previewScanId = null;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var modal = document.getElementById('previewModal');
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === this) closePreview();
+    });
+  }
+});
+</script>
 </div>
 {% endblock %}

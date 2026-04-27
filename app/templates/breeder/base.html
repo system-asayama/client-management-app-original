@@ -37,13 +37,15 @@
       --font-sans:   'Noto Sans JP', system-ui, sans-serif;
       --transition:  0.18s ease;
     }
-    html { font-size: 14px; }
+    html { font-size: 14px; max-width: 100%; overflow-x: hidden; }
     body {
       font-family: var(--font-sans);
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       line-height: 1.6;
+      overflow-x: hidden;
+      max-width: 100%;
     }
     a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
     a:hover { color: var(--accent-light); }

@@ -1118,6 +1118,15 @@ def document_scan_apply(scan_id):
             return redirect(url_for('breeder.document_scans'))
 
         result = json.loads(scan.result_json)
+        # genderを小文字に正規化（MALE→male, FEMALE→female, DISSE MALE→male等）
+        if result.get('gender'):
+            _g = result['gender'].lower().strip()
+            if 'female' in _g:
+                result['gender'] = 'female'
+            elif 'male' in _g:
+                result['gender'] = 'male'
+            else:
+                result['gender'] = _g
         target_id   = _int_or_none(request.form.get('target_id'))
         target_type = request.form.get('target_type', 'dog')
         scan_type   = scan.scan_type or 'pedigree'

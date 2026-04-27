@@ -92,7 +92,7 @@ def _resolve_api_keys() -> tuple:
 
     try:
         from flask import session as flask_session
-        from app.database import SessionLocal
+        from app.db import SessionLocal
 
         db = SessionLocal()
         try:

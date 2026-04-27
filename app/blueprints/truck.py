@@ -2354,17 +2354,11 @@ def driver_apk_download():
         driver = db.query(TruckDriver).get(driver_id)
         apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
         if not apk_url:
+            apk_url, _ = get_github_latest_apk()
+        if not apk_url:
             return 'APKが設定されていません', 404
-        resp = http_requests.get(apk_url, stream=True, timeout=30)
-        def generate():
-            for chunk in resp.iter_content(chunk_size=8192):
-                yield chunk
-        filename = 'truck-operation-app.apk'
-        return Response(
-            stream_with_context(generate()),
-            content_type='application/vnd.android.package-archive',
-            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-        )
+        # GitHubのprivateリポジトリのアセットはリダイレクトされるため直接リダイレクト
+        return redirect(apk_url)
     except Exception as e:
         return f'ダウンロードエラー: {e}', 500
     finally:

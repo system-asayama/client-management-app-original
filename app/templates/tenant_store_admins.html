@@ -26,17 +26,6 @@
 .badge-yes{background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:12px;font-size:0.8em;font-weight:600;display:inline-block}
 .badge-no{background:#f1f5f9;color:#64748b;padding:3px 10px;border-radius:12px;font-size:0.8em;font-weight:600;display:inline-block}
 .store-tag{background:#eff6ff;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:0.8em;font-weight:600;display:inline-block;margin:2px 2px 2px 0}
-.actions-cell{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
-.table-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
-.table-wrapper{width:100%;overflow-x:auto}
-.data-table{width:100%;border-collapse:collapse;min-width:900px}
-.data-table thead{background:#f8fafc;border-bottom:2px solid #e2e8f0}
-.data-table th{padding:14px 16px;text-align:left;font-weight:700;color:#374151;font-size:0.88em;white-space:nowrap}
-.data-table tbody tr{border-bottom:1px solid #f0f0f0;transition:background 0.15s}
-.data-table tbody tr:hover{background:#f8fafc}
-.data-table tbody tr.owner-row{background:#fffbf0}
-.data-table tbody tr.owner-row:hover{background:#fff9e6}
-.data-table td{padding:12px 16px;font-size:0.9em;color:#1f2937;vertical-align:middle}
 .toolbar{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
 .toolbar-left{display:flex;gap:10px;flex-wrap:wrap}
 .toolbar-right{display:flex;align-items:center;gap:12px;flex:1;max-width:500px}
@@ -45,6 +34,25 @@
 .search-box input:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
 .search-result{color:#6b7280;font-size:0.9em;font-weight:600;white-space:nowrap}
 .empty-state{text-align:center;padding:60px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db;margin:0}
+
+/* カード型レイアウト */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.admin-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:box-shadow 0.2s,transform 0.15s;position:relative}
+.admin-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.10);transform:translateY(-2px)}
+.admin-card.owner-card{border-left:4px solid #f59e0b;background:#fffbf0}
+.admin-card.inactive-card{opacity:0.7}
+.card-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.card-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2563a8,#1a3a5c);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.2em;font-weight:700;flex-shrink:0}
+.card-avatar.owner-avatar{background:linear-gradient(135deg,#fbbf24,#f59e0b)}
+.card-name{font-size:1em;font-weight:700;color:#1f2937;margin:0 0 4px}
+.card-login-id{font-size:0.82em;color:#6b7280;margin:0}
+.card-badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:2px}
+.card-body{font-size:0.88em;color:#374151;margin-bottom:14px}
+.card-body .info-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.card-body .info-label{color:#9ca3af;font-size:0.82em;min-width:70px;flex-shrink:0;padding-top:1px}
+.card-body .info-value{flex:1;word-break:break-all}
+.card-actions{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid #f0f0f0;padding-top:14px}
+.card-actions .btn{font-size:0.82em;padding:5px 12px;border-radius:7px}
 </style>
 
 <div class="office-header">
@@ -71,101 +79,102 @@
 </div>
 
 {% if admins %}
-<div class="table-card">
-<div class="table-wrapper">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>ログインID</th>
-        <th>氏名</th>
-        <th>メールアドレス</th>
-        <th>所属店舗</th>
-        <th>管理権限</th>
-        <th>有効</th>
-        <th>作成日時</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in admins %}
-      <tr class="admin-row {% if a.is_owner == 1 %}owner-row{% endif %}"
-          data-login-id="{{ a.login_id }}"
-          data-name="{{ a.name }}">
-        <td>{{ a.id }}</td>
-        <td><strong>{{ a.login_id }}</strong></td>
-        <td>
+<div class="cards-grid" id="cardsGrid">
+  {% for a in admins %}
+  <div class="admin-card {% if a.is_owner == 1 %}owner-card{% endif %} {% if a.active != 1 and a.is_owner != 1 %}inactive-card{% endif %} admin-card-item"
+       data-login-id="{{ a.login_id }}"
+       data-name="{{ a.name }}">
+    <div class="card-header">
+      <div class="card-avatar {% if a.is_owner == 1 %}owner-avatar{% endif %}">
+        {{ a.name[0] if a.name else '?' }}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="card-name">
           {{ a.name }}
+        </div>
+        <div class="card-login-id">ID: {{ a.login_id }}</div>
+        <div class="card-badges" style="margin-top:4px">
           {% if a.is_owner == 1 %}<span class="badge-owner">⭐ オーナー</span>{% endif %}
-        </td>
-        <td>{{ a.email if a.email else '—' }}</td>
-        <td>
+          {% if a.is_owner == 1 %}<span class="badge-active">✓ 有効</span>
+          {% elif a.active == 1 %}<span class="badge-active">✓ 有効</span>
+          {% else %}<span class="badge-inactive">無効</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="info-row">
+        <span class="info-label">メール</span>
+        <span class="info-value">{{ a.email if a.email else '—' }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">所属店舗</span>
+        <span class="info-value">
           {% if a.stores %}
             {% for store in a.stores %}<span class="store-tag">{{ store.name }}</span>{% endfor %}
           {% else %}
-            <span style="color:#9ca3af;font-size:0.85em">未設定</span>
+            <span style="color:#9ca3af">未設定</span>
           {% endif %}
-        </td>
-        <td>
+        </span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">管理権限</span>
+        <span class="info-value">
           {% if a.is_owner == 1 %}<span class="badge-yes">✓ 有（常に有）</span>
           {% elif a.can_manage_admins == 1 %}<span class="badge-yes">✓ 有</span>
           {% else %}<span class="badge-no">無</span>{% endif %}
-        </td>
-        <td>
-          {% if a.is_owner == 1 %}<span class="badge-active">✓ 有効（常に有効）</span>
-          {% elif a.active == 1 %}<span class="badge-active">✓ 有効</span>
-          {% else %}<span class="badge-inactive">無効</span>{% endif %}
-        </td>
-        <td style="font-size:0.85em;color:#6b7280">{{ a.created_at.strftime('%Y-%m-%d %H:%M') if a.created_at else '—' }}</td>
-        <td>
-          <div class="actions-cell">
-            {% if is_system_admin or is_tenant_admin %}
-              <a class="btn btn-sm btn-outline-sm" href="{{ url_for('tenant_admin.store_admin_edit', admin_id=a.id) }}">編集</a>
-              {% if a.is_owner != 1 %}
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_delete', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
-                <button class="btn btn-sm btn-danger-sm" type="submit">削除</button>
-              </form>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_active', admin_id=a.id) }}" style="display:inline">
-                {% if a.active == 1 %}<button class="btn btn-sm btn-warning-sm" type="submit">無効化</button>
-                {% else %}<button class="btn btn-sm btn-success" type="submit">有効化</button>{% endif %}
-              </form>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_permission', admin_id=a.id) }}" style="display:inline">
-                {% if a.can_manage_admins == 1 %}<button class="btn btn-sm btn-outline-sm" type="submit">権限剥奪</button>
-                {% else %}<button class="btn btn-sm btn-success" type="submit">権限付与</button>{% endif %}
-              </form>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_transfer_owner', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('オーナー権限を移譲しますか？')">
-                <button class="btn btn-sm btn-orange-sm" type="submit">オーナー移譲</button>
-              </form>
-              {% endif %}
-            {% elif a.is_owner != 1 %}
-              <a class="btn btn-sm btn-outline-sm" href="{{ url_for('tenant_admin.store_admin_edit', admin_id=a.id) }}">編集</a>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_delete', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
-                <button class="btn btn-sm btn-danger-sm" type="submit">削除</button>
-              </form>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_active', admin_id=a.id) }}" style="display:inline">
-                {% if a.active == 1 %}<button class="btn btn-sm btn-warning-sm" type="submit">無効化</button>
-                {% else %}<button class="btn btn-sm btn-success" type="submit">有効化</button>{% endif %}
-              </form>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_permission', admin_id=a.id) }}" style="display:inline">
-                {% if a.can_manage_admins == 1 %}<button class="btn btn-sm btn-outline-sm" type="submit">権限剥奪</button>
-                {% else %}<button class="btn btn-sm btn-success" type="submit">権限付与</button>{% endif %}
-              </form>
-              <form method="post" action="{{ url_for('tenant_admin.store_admin_transfer_owner', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('オーナー権限を移譲しますか？')">
-                <button class="btn btn-sm btn-orange-sm" type="submit">オーナー移譲</button>
-              </form>
-            {% else %}
-              <a class="btn btn-sm btn-outline-sm" href="{{ url_for('tenant_admin.store_admin_edit', admin_id=a.id) }}">編集</a>
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+        </span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">作成日時</span>
+        <span class="info-value" style="color:#9ca3af;font-size:0.9em">{{ a.created_at.strftime('%Y-%m-%d') if a.created_at else '—' }}</span>
+      </div>
+    </div>
+
+    <div class="card-actions">
+      {% if is_system_admin or is_tenant_admin %}
+        <a class="btn btn-sm btn-outline-sm" href="{{ url_for('tenant_admin.store_admin_edit', admin_id=a.id) }}">編集</a>
+        {% if a.is_owner != 1 %}
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_delete', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
+          <button class="btn btn-sm btn-danger-sm" type="submit">削除</button>
+        </form>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_active', admin_id=a.id) }}" style="display:inline">
+          {% if a.active == 1 %}<button class="btn btn-sm btn-warning-sm" type="submit">無効化</button>
+          {% else %}<button class="btn btn-sm btn-success" type="submit">有効化</button>{% endif %}
+        </form>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_permission', admin_id=a.id) }}" style="display:inline">
+          {% if a.can_manage_admins == 1 %}<button class="btn btn-sm btn-outline-sm" type="submit">権限剥奪</button>
+          {% else %}<button class="btn btn-sm btn-success" type="submit">権限付与</button>{% endif %}
+        </form>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_transfer_owner', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('オーナー権限を移譲しますか？')">
+          <button class="btn btn-sm btn-orange-sm" type="submit">オーナー移譲</button>
+        </form>
+        {% endif %}
+      {% elif a.is_owner != 1 %}
+        <a class="btn btn-sm btn-outline-sm" href="{{ url_for('tenant_admin.store_admin_edit', admin_id=a.id) }}">編集</a>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_delete', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('本当に削除しますか？')">
+          <button class="btn btn-sm btn-danger-sm" type="submit">削除</button>
+        </form>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_active', admin_id=a.id) }}" style="display:inline">
+          {% if a.active == 1 %}<button class="btn btn-sm btn-warning-sm" type="submit">無効化</button>
+          {% else %}<button class="btn btn-sm btn-success" type="submit">有効化</button>{% endif %}
+        </form>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_toggle_permission', admin_id=a.id) }}" style="display:inline">
+          {% if a.can_manage_admins == 1 %}<button class="btn btn-sm btn-outline-sm" type="submit">権限剥奪</button>
+          {% else %}<button class="btn btn-sm btn-success" type="submit">権限付与</button>{% endif %}
+        </form>
+        <form method="post" action="{{ url_for('tenant_admin.store_admin_transfer_owner', admin_id=a.id) }}" style="display:inline" onsubmit="return confirm('オーナー権限を移譲しますか？')">
+          <button class="btn btn-sm btn-orange-sm" type="submit">オーナー移譲</button>
+        </form>
+      {% else %}
+        <a class="btn btn-sm btn-outline-sm" href="{{ url_for('tenant_admin.store_admin_edit', admin_id=a.id) }}">編集</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
 {% else %}
-<div class="table-card">
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:0">
   <div class="empty-state">
     <div style="font-size:3em;margin-bottom:16px">🏢</div>
     <div style="font-size:1.1em;font-weight:600;margin-bottom:8px;color:#6b7280">店舗管理者が登録されていません</div>
@@ -179,35 +188,31 @@
 document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('searchInput');
   const searchResult = document.getElementById('searchResult');
-  const adminRows = document.querySelectorAll('.admin-row');
-  
+  const adminCards = document.querySelectorAll('.admin-card-item');
+
   function performSearch() {
     const query = searchInput.value.toLowerCase().trim();
     let visibleCount = 0;
-    
-    // 行を検索
-    adminRows.forEach(function(row) {
-      const loginId = row.dataset.loginId.toLowerCase();
-      const name = row.dataset.name.toLowerCase();
-      
+
+    adminCards.forEach(function(card) {
+      const loginId = card.dataset.loginId.toLowerCase();
+      const name = card.dataset.name.toLowerCase();
+
       if (query === '' || loginId.includes(query) || name.includes(query)) {
-        row.style.display = '';
+        card.style.display = '';
         visibleCount++;
       } else {
-        row.style.display = 'none';
+        card.style.display = 'none';
       }
     });
-    
-    // 検索結果を表示
+
     if (query === '') {
       searchResult.textContent = '';
     } else {
-      const totalCount = adminRows.length;
-      searchResult.textContent = visibleCount + ' / ' + totalCount + ' 件表示中';
+      searchResult.textContent = visibleCount + ' / ' + adminCards.length + ' 件表示中';
     }
   }
-  
-  // 入力イベントをリスン
+
   searchInput.addEventListener('input', performSearch);
   searchInput.addEventListener('keyup', performSearch);
 });

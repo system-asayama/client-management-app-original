@@ -194,16 +194,11 @@
       gap: 0.35rem;
       white-space: nowrap;
       font-size: 0.78rem;
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 1100;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 6px 12px;
-      height: 44px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      padding: 4px 10px;
+      height: 36px;
     }
     .store-badge .store-name {
       font-weight: 600;
@@ -527,7 +522,18 @@
       }
       .sidebar.open { transform: translateX(0); }
       .main { margin-left: 0; padding-top: 56px; }
-      .topbar { padding-left: 60px; }
+      .topbar {
+        padding-left: 60px;
+        padding-right: 0.75rem;
+        overflow: hidden;
+      }
+      .topbar-title {
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+      }
       .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
     }
   </style>
@@ -725,19 +731,19 @@
       <div class="topbar-actions">
         {% block topbar_actions %}{% endblock %}
         <div class="topbar-right">
+          {% if current_store_name or current_tenant_name %}
+          <div class="store-badge">
+            {% if current_tenant_name %}<span class="tenant-name">{{ current_tenant_name }}</span>{% endif %}
+            {% if current_store_name and current_tenant_name %}<span class="badge-sep">|</span>{% endif %}
+            {% if current_store_name %}<span class="store-name">{{ current_store_name }}</span>{% endif %}
+          </div>
+          {% endif %}
           <div class="topbar-buttons">
             <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">ログアウト</a>
           </div>
         </div>
       </div>
     </header>
-    {% if current_store_name or current_tenant_name %}
-    <div class="store-badge">
-      {% if current_tenant_name %}<span class="tenant-name">{{ current_tenant_name }}</span>{% endif %}
-      {% if current_store_name and current_tenant_name %}<span class="badge-sep">|</span>{% endif %}
-      {% if current_store_name %}<span class="store-name">{{ current_store_name }}</span>{% endif %}
-    </div>
-    {% endif %}
 
     <main class="content">
       {% with messages = get_flashed_messages(with_categories=true) %}

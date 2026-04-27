@@ -417,7 +417,28 @@ def dog_detail(dog_id):
         heats = db.query(Heat).filter(Heat.dog_id == dog_id).order_by(desc(Heat.created_at)).limit(5).all()
         weights = db.query(WeightRecord).filter(WeightRecord.dog_id == dog_id).order_by(desc(WeightRecord.recorded_at)).limit(10).all()
         vaccines = db.query(VaccineRecord).filter(VaccineRecord.dog_id == dog_id).order_by(desc(VaccineRecord.administered_at)).all()
-        return render_template('breeder/dog_detail.html', dog=dog, heats=heats, weights=weights, vaccines=vaccines)
+        # 家系図データ構築（3世代）
+        def build_tree(did, depth=3):
+            if did is None or depth == 0:
+                return None
+            d = db.query(Dog).filter(Dog.id == did).first()
+            if not d:
+                return None
+            return {
+                'id': d.id,
+                'name': d.name,
+                'breed': d.breed or '',
+                'gender': d.gender or '',
+                'reg_no': d.registration_name or d.pedigree_number or '',
+                'sire': build_tree(d.father_id, depth - 1),
+                'dam':  build_tree(d.mother_id, depth - 1),
+            }
+        tree = build_tree(dog_id)
+        try:
+            coi = _calc_coi(dog_id, db)
+        except Exception:
+            coi = 0.0
+        return render_template('breeder/dog_detail.html', dog=dog, heats=heats, weights=weights, vaccines=vaccines, tree=tree, coi=coi)
     finally:
         db.close()
 

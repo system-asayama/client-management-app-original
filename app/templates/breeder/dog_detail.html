@@ -129,4 +129,135 @@
     {% endif %}
   </div>
 </div>
+
+<!-- 家系図 -->
+{% macro render_node(node) %}
+{% if node %}
+<div class="pedigree-node-wrap">
+  <div class="pedigree-node {% if node.gender == 'male' %}node-male{% elif node.gender == 'female' %}node-female{% endif %}">
+    <a href="{{ url_for('breeder.dog_detail', dog_id=node.id) }}" style="text-decoration:none;color:inherit;">
+      <div class="node-name">{{ node.name }}</div>
+    </a>
+    {% if node.breed %}<div class="node-breed">{{ node.breed }}</div>{% endif %}
+    {% if node.reg_no %}<div class="node-reg">{{ node.reg_no }}</div>{% endif %}
+  </div>
+  {% if node.sire or node.dam %}
+  <div class="pedigree-children">
+    <div class="pedigree-child">
+      {% if node.sire %}{{ render_node(node.sire) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
+    </div>
+    <div class="pedigree-child">
+      {% if node.dam %}{{ render_node(node.dam) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+<div class="card" style="margin-top:1rem;">
+  <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+    🌳 家系図（3世代）
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <span style="font-size:0.8rem;color:var(--text-dim);">
+        COI: <strong style="color:{% if coi < 6.25 %}#065f46{% elif coi < 12.5 %}#92400e{% else %}#991b1b{% endif %};">{{ coi }}%</strong>
+      </span>
+      <a href="{{ url_for('breeder.pedigree_tree', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">別ページで見る</a>
+    </div>
+  </div>
+  <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;">
+    <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;margin-right:6px;">♂ オス</span>
+    <span style="background:#fce7f3;color:#9d174d;padding:2px 8px;border-radius:4px;">♀ メス</span>
+  </div>
+  {% if tree and (tree.sire or tree.dam) %}
+  <div style="overflow-x:auto;">
+    <div class="pedigree-tree">
+      {{ render_node(tree) }}
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:1.5rem 0;">
+    <div class="empty-text">親の情報が登録されていません</div>
+    <div style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem;">編集ページから「父」「母」を登録すると家系図が表示されます</div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.pedigree-tree {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  min-width: 600px;
+}
+.pedigree-node-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.pedigree-node {
+  min-width: 130px;
+  max-width: 150px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.pedigree-node.node-male {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e3a5f;
+}
+.pedigree-node.node-female {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+  color: #6b1a3a;
+}
+.node-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+  word-break: break-all;
+}
+.node-breed {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+.node-reg {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+.pedigree-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-left: 0;
+  padding-left: 1.5rem;
+  border-left: 2px solid var(--border);
+}
+.pedigree-child {
+  position: relative;
+}
+.pedigree-child::before {
+  content: '';
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  width: 1.5rem;
+  height: 2px;
+  background: var(--border);
+}
+.pedigree-empty {
+  min-width: 130px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  border: 2px dashed var(--border);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  text-align: center;
+}
+</style>
 {% endblock %}

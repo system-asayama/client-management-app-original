@@ -15,14 +15,14 @@ bp = Blueprint('employee', __name__, url_prefix='/employee')
 
 
 @bp.route('/dashboard')
-@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dashboard():
     """従業員ダッシュボード"""
     return render_template('employee_dashboard.html')
 
 
 @bp.route('/mypage', methods=['GET', 'POST'])
-@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def mypage():
     """従業員マイページ"""
     user_id = session.get('user_id')
@@ -151,7 +151,7 @@ def mypage():
 
 
 @bp.route('/profile')
-@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def profile():
     """従業員プロフィール表示"""
     user_id = session.get('user_id')

@@ -15,7 +15,7 @@ import os
 
 bp = Blueprint('internal_chat', __name__, url_prefix='/internal_chat')
 
-STAFF_ROLES = (ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+STAFF_ROLES = (ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 
 
 def _get_current_staff(db):

@@ -1449,6 +1449,17 @@ def tenant_admin_edit(admin_id):
         
         # テナント情報を取得
         tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        
+        # 現在のテナントでの管理者管理権限を取得
+        can_manage_admins = 0
+        if tenant_id and relation:
+            can_manage_admins = relation.can_manage_tenant_admins if relation.can_manage_tenant_admins else 0
+        # オーナーは常に管理権限あり
+        if is_owner_in_current_tenant:
+            can_manage_admins = 1
+        # adminオブジェクトに動的にセット
+        admin.can_manage_admins = can_manage_admins
+        
         return render_template('tenant_tenant_admin_edit.html', admin=admin, tenants=tenants, admin_tenant_ids=admin_tenant_ids, owner_tenant_ids=owner_tenant_ids, is_owner_in_current_tenant=is_owner_in_current_tenant, tenant=tenant)
     
     finally:

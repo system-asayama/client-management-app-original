@@ -2215,7 +2215,7 @@ def pedigree_tree(dog_id):
             'name': d.name,
             'breed': d.breed or '',
             'gender': d.gender or '',
-            'reg_no': d.registration_number or '',
+            'reg_no': d.pedigree_number or '',
             'sire': build_tree(d.father_id, depth - 1),
             'dam':  build_tree(d.mother_id, depth - 1),
         }
@@ -2389,7 +2389,7 @@ def export_download():
                 query = query.filter(Dog.tenant_id == tenant_id)
             for d in query.all():
                 writer.writerow([d.id, d.name, d.breed or '', d.gender or '', d.birth_date or '',
-                                  d.color or '', d.registration_number or '', d.status or '', d.notes or ''])
+                                  d.color or '', d.pedigree_number or '', d.status or '', d.notes or ''])
 
         elif target == 'puppies':
             writer.writerow(['ID', '子犬名', '犬種', '性別', '生年月日', '毛色', 'ステータス', '販売価格'])

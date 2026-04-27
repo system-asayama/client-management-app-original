@@ -2297,24 +2297,6 @@ def driver_logout():
     return redirect(url_for('truck.driver_login'))
 
 
-GITHUB_APK_REPO = 'system-asayama/truck-operation-app'
-
-def get_github_latest_apk():
-    """GitHubのlatestリリースからAPKのダウンロードURLとバージョンを取得する"""
-    try:
-        api_url = f'https://api.github.com/repos/{GITHUB_APK_REPO}/releases/latest'
-        resp = http_requests.get(api_url, timeout=5, headers={'Accept': 'application/vnd.github+json'})
-        if resp.status_code != 200:
-            return '', ''
-        data = resp.json()
-        version = data.get('tag_name', '')
-        for asset in data.get('assets', []):
-            if asset.get('name', '').endswith('.apk'):
-                return asset['browser_download_url'], version
-        return '', version
-    except Exception:
-        return '', ''
-
 @bp.route('/driver/dashboard')
 @driver_login_required
 def driver_dashboard():
@@ -2328,17 +2310,22 @@ def driver_dashboard():
             driver_id=driver_id,
             operation_date=today,
         ).order_by(TruckOperation.start_time).all()
-        # まずDBの手動設定を確認、なければGitHubリリースから自動取得
-        apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
-        apk_version = TruckAppSettings.get(db, 'android_apk_version', driver.tenant_id if driver else None, '')
-        if not apk_url:
-            apk_url, apk_version = get_github_latest_apk()
+        # TTenantのtruck_apk_url/versionを使用（テナント管理者GPS設定画面で設定）
+        tenant = db.query(TTenant).filter_by(id=driver.tenant_id).first() if driver else None
+        apk_url = getattr(tenant, 'truck_apk_url', None) or ''
+        apk_version = getattr(tenant, 'truck_apk_version', None) or ''
+        tenant_slug = getattr(tenant, 'slug', '') if tenant else ''
+        # ダウンロードURLはプロキシエンドポイントを使用
+        if apk_url and tenant_slug:
+            apk_download_url = url_for('mobile_api.truck_apk_download', api_key=MOBILE_API_KEY, tenant_slug=tenant_slug, _external=False)
+        else:
+            apk_download_url = ''
         return render_template(
             'truck/driver_dashboard.html',
             driver=driver,
             today_str=today_str,
             operations=operations,
-            apk_url=apk_url,
+            apk_url=apk_download_url,
             apk_version=apk_version,
         )
     finally:
@@ -2352,13 +2339,12 @@ def driver_apk_download():
     db = SessionLocal()
     try:
         driver = db.query(TruckDriver).get(driver_id)
-        apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
-        if not apk_url:
-            apk_url, _ = get_github_latest_apk()
-        if not apk_url:
+        tenant = db.query(TTenant).filter_by(id=driver.tenant_id).first() if driver else None
+        apk_url = getattr(tenant, 'truck_apk_url', None) or ''
+        tenant_slug = getattr(tenant, 'slug', '') if tenant else ''
+        if not apk_url or not tenant_slug:
             return 'APKが設定されていません', 404
-        # GitHubのprivateリポジトリのアセットはリダイレクトされるため直接リダイレクト
-        return redirect(apk_url)
+        return redirect(url_for('mobile_api.truck_apk_download', api_key=MOBILE_API_KEY, tenant_slug=tenant_slug))
     except Exception as e:
         return f'ダウンロードエラー: {e}', 500
     finally:

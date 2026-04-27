@@ -1175,9 +1175,29 @@ def document_scan_apply(scan_id):
                     pass
             db.add(new_dog)
             db.flush()  # IDを確定
+            # 4代分の祖先情報を保存
+            try:
+                from app.models_breeder import PedigreeAncestor
+                ancestors = result.get('ancestors', []) or []
+                for anc in ancestors:
+                    if not anc.get('name'):
+                        continue
+                    pa = PedigreeAncestor(
+                        dog_id=new_dog.id,
+                        generation=anc.get('generation', 1),
+                        position=anc.get('position', ''),
+                        name=anc.get('name'),
+                        registration_number=anc.get('registration_number'),
+                        breed=anc.get('breed'),
+                        color=anc.get('color'),
+                    )
+                    db.add(pa)
+            except Exception as anc_e:
+                import logging
+                logging.getLogger(__name__).warning(f'祖先情報保存エラー: {anc_e}')
             scan.dog_id = new_dog.id
             db.commit()
-            flash(f'新規親犬「{new_name}」を血統書から登録しました', 'success')
+            flash(f'新規親犬「{new_name}」を血統書から登録しました（4代分の祖先情報も取込み）', 'success')
         return redirect(url_for('breeder.document_scans'))
     except Exception as e:
         db.rollback()
@@ -1729,12 +1749,34 @@ def _calc_coi(dog_id, db, depth=4):
     return round(coi * 100, 2)
 
 
+def _get_ancestors_from_pedigree_table(dog_id, db):
+    """
+    pedigree_ancestorsテーブルから祖先情報を取得し、
+    {generation: [{name, registration_number}]} 形式で返す。
+    """
+    try:
+        from app.models_breeder import PedigreeAncestor
+        rows = db.query(PedigreeAncestor).filter(PedigreeAncestor.dog_id == dog_id).all()
+        result = {}
+        for row in rows:
+            gen = row.generation
+            if gen not in result:
+                result[gen] = []
+            result[gen].append({
+                'name': (row.name or '').strip().upper(),
+                'registration_number': (row.registration_number or '').strip().upper(),
+            })
+        return result
+    except Exception:
+        return {}
+
+
 def _calc_coi_pair(sire_id, dam_id, db, depth=4):
     """
     仮想子犬のCOIを計算する（シミュレーション用）。
+    pedigree_ancestorsテーブルが利用可能な場合は名前ベースの共通祖先照合を併用。
     """
     from app.models_breeder import Dog
-
     def get_ancestors(did, gen, memo=None):
         if memo is None:
             memo = {}
@@ -1749,16 +1791,48 @@ def _calc_coi_pair(sire_id, dam_id, db, depth=4):
             get_ancestors(d.mother_id, gen - 1, memo)
             get_ancestors(d.father_id, gen - 1, memo)
         return memo
-
     sire_anc = get_ancestors(sire_id, depth)
     dam_anc  = get_ancestors(dam_id, depth)
-
     common = set(sire_anc.keys()) & set(dam_anc.keys())
     coi = 0.0
     for anc_id in common:
         for n1 in sire_anc[anc_id]:
             for n2 in dam_anc[anc_id]:
                 coi += (0.5 ** (n1 + n2 + 1))
+    # pedigree_ancestorsテーブルを使った名前ベースCOI補完
+    try:
+        sire_ped = _get_ancestors_from_pedigree_table(sire_id, db)
+        dam_ped  = _get_ancestors_from_pedigree_table(dam_id, db)
+        if sire_ped and dam_ped:
+            # 全世代の祖先名セットを作成（名前 or 登録番号で照合）
+            def _anc_keys(ped_dict):
+                """世代 -> [(key, gen_weight)] のリストを返す"""
+                result = []
+                for gen, ancs in ped_dict.items():
+                    for a in ancs:
+                        key = a['registration_number'] if a['registration_number'] else a['name']
+                        if key:
+                            result.append((key, gen + 1))  # gen+1: pedigree_ancestorsのgenerationは1始まり
+                return result
+            sire_keys = _anc_keys(sire_ped)
+            dam_keys  = _anc_keys(dam_ped)
+            sire_key_map = {}
+            for key, gen in sire_keys:
+                if key not in sire_key_map:
+                    sire_key_map[key] = []
+                sire_key_map[key].append(gen)
+            dam_key_map = {}
+            for key, gen in dam_keys:
+                if key not in dam_key_map:
+                    dam_key_map[key] = []
+                dam_key_map[key].append(gen)
+            common_keys = set(sire_key_map.keys()) & set(dam_key_map.keys())
+            for key in common_keys:
+                for n1 in sire_key_map[key]:
+                    for n2 in dam_key_map[key]:
+                        coi += (0.5 ** (n1 + n2 + 1))
+    except Exception:
+        pass
     return round(coi * 100, 2)
 
 

@@ -523,3 +523,24 @@ class KennelProfile(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+
+# ─────────────────────────────────────────────
+# 血統書祖先情報
+# ─────────────────────────────────────────────
+class PedigreeAncestor(Base):
+    """血統書4代分の祖先情報テーブル
+    血統書スキャンから取得した最大4世代の祖先情報を保存する。
+    generation: 1=父母, 2=祖父母, 3=曾祖父母, 4=高祖父母
+    position: sire/dam/sire_sire/sire_dam/dam_sire/dam_dam/... の位置コード
+    """
+    __tablename__ = 'pedigree_ancestors'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
+    generation = Column(Integer, nullable=False, comment='世代（1=父母, 2=祖父母, 3=曾祖父母, 4=高祖父母）')
+    position = Column(String(30), nullable=False, comment='位置コード（sire/dam/sire_sire等）')
+    name = Column(String(300), nullable=True, comment='犬名')
+    registration_number = Column(String(100), nullable=True, comment='登録番号')
+    breed = Column(String(100), nullable=True, comment='犬種')
+    color = Column(String(100), nullable=True, comment='毛色')
+    country_prefix = Column(String(20), nullable=True, comment='国プレフィックス')
+    created_at = Column(DateTime, server_default=func.now())

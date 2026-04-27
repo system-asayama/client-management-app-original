@@ -21,13 +21,15 @@ try:
     
     # ログインシステムの自動マイグレーション実行
     try:
-        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations
+        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration
         run_auto_migrations()
         print("✅ ログインシステム自動マイグレーション完了")
         run_truck_doc_migrations()
         print("✅ トラック書類カラムマイグレーション完了")
         run_breeder_new_table_migrations()
         print("✅ ブリーダー新テーブルマイグレーション完了")
+        run_pedigree_ancestor_migration()
+        print("✅ 血統書祖先テーブルマイグレーション完了")
     except Exception as e:
         print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
 except Exception as e:

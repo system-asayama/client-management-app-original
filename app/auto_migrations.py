@@ -1093,3 +1093,71 @@ def run_breeder_new_table_migrations():
         logger.error(traceback.format_exc())
     finally:
         session.close()
+
+
+def run_pedigree_ancestor_migration():
+    """pedigree_ancestorsテーブルを作成するマイグレーション"""
+    from sqlalchemy import create_engine, text
+    from app.db import get_db_url
+    import logging
+    logger = logging.getLogger(__name__)
+
+    engine = create_engine(get_db_url())
+    session = engine.connect()
+    try:
+        is_pg = 'postgresql' in str(engine.url)
+
+        def table_exists(conn, name):
+            if is_pg:
+                r = conn.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema='public' AND table_name=:n"), {'n': name})
+            else:
+                r = conn.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema=DATABASE() AND table_name=:n"), {'n': name})
+            return r.scalar() > 0
+
+        if not table_exists(session, 'pedigree_ancestors'):
+            if is_pg:
+                session.execute(text("""
+                    CREATE TABLE pedigree_ancestors (
+                        id SERIAL PRIMARY KEY,
+                        dog_id INTEGER NOT NULL REFERENCES dogs(id) ON DELETE CASCADE,
+                        generation INTEGER NOT NULL COMMENT_PG,
+                        position VARCHAR(20) NOT NULL,
+                        name VARCHAR(300),
+                        registration_number VARCHAR(100),
+                        breed VARCHAR(100),
+                        color VARCHAR(100),
+                        country_prefix VARCHAR(20),
+                        created_at TIMESTAMP DEFAULT NOW()
+                    )
+                """.replace('COMMENT_PG', '')))
+            else:
+                session.execute(text("""
+                    CREATE TABLE `pedigree_ancestors` (
+                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                        `dog_id` INT NOT NULL,
+                        `generation` INT NOT NULL COMMENT '世代（1=父母, 2=祖父母, 3=曾祖父母, 4=高祖父母）',
+                        `position` VARCHAR(20) NOT NULL COMMENT '位置コード（例: sire, dam, sire_sire等）',
+                        `name` VARCHAR(300) COMMENT '犬名',
+                        `registration_number` VARCHAR(100) COMMENT '登録番号',
+                        `breed` VARCHAR(100) COMMENT '犬種',
+                        `color` VARCHAR(100) COMMENT '毛色',
+                        `country_prefix` VARCHAR(20) COMMENT '国プレフィックス',
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (`dog_id`) REFERENCES `dogs`(`id`) ON DELETE CASCADE
+                    )
+                """))
+            session.commit()
+            logger.info("✓ pedigree_ancestors テーブルを作成しました")
+        else:
+            logger.info("- pedigree_ancestors テーブルは既に存在します（スキップ）")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"✗ run_pedigree_ancestor_migration エラー: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+    finally:
+        session.close()

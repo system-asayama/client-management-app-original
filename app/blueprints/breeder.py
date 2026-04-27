@@ -1281,24 +1281,74 @@ def document_scan_apply(scan_id):
                         db.add(existing)
                         db.flush()
                     return existing
+                # positionをキーにした辞書を作成
+                anc_map = {}
                 for anc in ancestors:
-                    if not anc.get('name'):
-                        continue
                     pos = anc.get('position', '')
-                    if pos == 'sire':
-                        sire_dog = _get_or_create_ancestor_dog(
-                            anc['name'], anc.get('registration_number'),
-                            anc.get('breed'), anc.get('color'), 'male',
-                            tenant_id, store_id
-                        )
-                        new_dog.father_id = sire_dog.id
-                    elif pos == 'dam':
-                        dam_dog = _get_or_create_ancestor_dog(
-                            anc['name'], anc.get('registration_number'),
-                            anc.get('breed'), anc.get('color'), 'female',
-                            tenant_id, store_id
-                        )
-                        new_dog.mother_id = dam_dog.id
+                    if pos and anc.get('name'):
+                        anc_map[pos] = anc
+
+                # 父（sire）
+                sire_dog = None
+                if 'sire' in anc_map:
+                    a = anc_map['sire']
+                    sire_dog = _get_or_create_ancestor_dog(
+                        a['name'], a.get('registration_number'),
+                        a.get('breed'), a.get('color'), 'male',
+                        tenant_id, store_id
+                    )
+                    new_dog.father_id = sire_dog.id
+
+                # 母（dam）
+                dam_dog = None
+                if 'dam' in anc_map:
+                    a = anc_map['dam']
+                    dam_dog = _get_or_create_ancestor_dog(
+                        a['name'], a.get('registration_number'),
+                        a.get('breed'), a.get('color'), 'female',
+                        tenant_id, store_id
+                    )
+                    new_dog.mother_id = dam_dog.id
+
+                # 父方祖父（sire_sire）
+                if 'sire_sire' in anc_map and sire_dog:
+                    a = anc_map['sire_sire']
+                    g = _get_or_create_ancestor_dog(
+                        a['name'], a.get('registration_number'),
+                        a.get('breed'), a.get('color'), 'male',
+                        tenant_id, store_id
+                    )
+                    sire_dog.father_id = g.id
+
+                # 父方祖母（sire_dam）
+                if 'sire_dam' in anc_map and sire_dog:
+                    a = anc_map['sire_dam']
+                    g = _get_or_create_ancestor_dog(
+                        a['name'], a.get('registration_number'),
+                        a.get('breed'), a.get('color'), 'female',
+                        tenant_id, store_id
+                    )
+                    sire_dog.mother_id = g.id
+
+                # 母方祖父（dam_sire）
+                if 'dam_sire' in anc_map and dam_dog:
+                    a = anc_map['dam_sire']
+                    g = _get_or_create_ancestor_dog(
+                        a['name'], a.get('registration_number'),
+                        a.get('breed'), a.get('color'), 'male',
+                        tenant_id, store_id
+                    )
+                    dam_dog.father_id = g.id
+
+                # 母方祖母（dam_dam）
+                if 'dam_dam' in anc_map and dam_dog:
+                    a = anc_map['dam_dam']
+                    g = _get_or_create_ancestor_dog(
+                        a['name'], a.get('registration_number'),
+                        a.get('breed'), a.get('color'), 'female',
+                        tenant_id, store_id
+                    )
+                    dam_dog.mother_id = g.id
             except Exception as parent_e:
                 import logging
                 logging.getLogger(__name__).warning(f'父母リンクエラー: {parent_e}')

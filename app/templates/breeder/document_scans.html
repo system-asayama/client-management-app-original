@@ -315,8 +315,15 @@ function showPreview(scanId, resultJson, scanType) {
     html += '<pre style="font-size:0.8rem; color:#ccc; white-space:pre-wrap;">' + JSON.stringify(r, null, 2) + '</pre>';
   }
 
-  if (!html || html === '<table style="width:100%; border-collapse:collapse;"></table>') {
-    html = '<div style="color:#aaa; text-align:center; padding:2rem;">読み取り結果がありません</div>';
+  // テーブルが空の場合はraw_textを表示、それもなければ「結果なし」
+  var emptyTable = '<table style="width:100%; border-collapse:collapse;"></table>';
+  if (!html || html === emptyTable) {
+    if (r.raw_text) {
+      html = '<div style="margin-bottom:0.5rem; color:#aaa; font-size:0.8rem;">※ 構造化データの抽出に失敗しました。OCR生テキストを表示します。</div>';
+      html += '<pre style="font-size:0.78rem; color:#ccc; white-space:pre-wrap; max-height:300px; overflow-y:auto; background:#1a1d2e; padding:0.8rem; border-radius:4px;">' + r.raw_text.substring(0, 2000) + '</pre>';
+    } else {
+      html = '<div style="color:#aaa; text-align:center; padding:2rem;">読み取り結果がありません</div>';
+    }
   }
 
   document.getElementById('previewContent').innerHTML = html;

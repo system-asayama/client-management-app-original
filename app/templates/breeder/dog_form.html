@@ -69,10 +69,20 @@
       <label class="form-label">メモ</label>
       <textarea name="notes" class="form-control">{{ dog.notes if dog else '' }}</textarea>
     </div>
-    <div class="flex gap-2 mt-4">
+    <div class="flex gap-2 mt-4" style="align-items:center;">
       <button type="submit" class="btn btn-primary">{{ '更新する' if dog else '登録する' }}</button>
       <a href="{{ url_for('breeder.dogs_list') }}" class="btn btn-secondary">キャンセル</a>
+      {% if dog %}
+      <button type="button" class="btn btn-danger" style="margin-left:auto; background:#dc3545; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer;"
+        onclick="if(confirm('この犬を削除しますか？\n関連する健康記録なども全て削除されます。')) { document.getElementById('delete-form').submit(); }">
+        🗑 削除
+      </button>
+      {% endif %}
     </div>
   </form>
+
+  {% if dog %}
+  <form id="delete-form" method="post" action="{{ url_for('breeder.dog_delete', dog_id=dog.id) }}" style="display:none;"></form>
+  {% endif %}
 </div>
 {% endblock %}

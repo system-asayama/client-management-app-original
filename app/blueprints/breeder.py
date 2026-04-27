@@ -372,6 +372,38 @@ def dog_edit(dog_id):
     finally:
         db.close()
 
+@bp.route('/dogs/<int:dog_id>/delete', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def dog_delete(dog_id):
+    from app.models_breeder import Dog, PedigreeAncestor
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        q = db.query(Dog).filter(Dog.id == dog_id)
+        if tenant_id:
+            q = q.filter(Dog.tenant_id == tenant_id)
+        dog = q.first()
+        if not dog:
+            flash('犬が見つかりません', 'error')
+            return redirect(url_for('breeder.dogs_list'))
+        dog_name = dog.name
+        # 祖先情報も削除
+        try:
+            db.query(PedigreeAncestor).filter(PedigreeAncestor.dog_id == dog_id).delete()
+        except Exception:
+            pass
+        db.delete(dog)
+        db.commit()
+        flash(f'「{dog_name}」を削除しました', 'success')
+        return redirect(url_for('breeder.dogs_list'))
+    except Exception as e:
+        db.rollback()
+        flash(f'削除エラー: {e}', 'error')
+        return redirect(url_for('breeder.dog_edit', dog_id=dog_id))
+    finally:
+        db.close()
+
+
 @bp.route('/dogs/<int:dog_id>')
 @require_roles(*BREEDER_ROLES)
 def dog_detail(dog_id):

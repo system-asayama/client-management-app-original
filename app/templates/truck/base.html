@@ -20,7 +20,9 @@
     }
     .topbar-brand { display: flex; align-items: center; gap: 8px; }
     .topbar-brand-icon { font-size: 22px; }
-    .topbar-brand-title { font-size: 15px; font-weight: 700; color: #fff; }
+    .topbar-brand-text { display: flex; flex-direction: column; }
+    .topbar-brand-title { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
+    .topbar-brand-sub { font-size: 11px; color: rgba(255,255,255,0.75); line-height: 1.2; }
     .hamburger-btn {
       background: none; border: none; cursor: pointer;
       padding: 8px; display: flex; flex-direction: column; gap: 5px;
@@ -174,7 +176,7 @@
     .form-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
     .form-field { margin-bottom: 16px; }
     .form-field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-    .form-field input[type=text], .form-field input[type=password], .form-field input[type=number], .form-field textarea, .form-field select { width: 100%; padding: 10px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; font-family: inherit; }
+    .form-field input[type=text], .form-field input[type=password], .form-field input[type=number], .form-field input[type=email], .form-field textarea, .form-field select { width: 100%; padding: 10px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; font-family: inherit; }
     .form-field textarea { resize: vertical; min-height: 80px; }
     .form-field input:focus, .form-field textarea:focus, .form-field select:focus { outline: none; border-color: #1a3a5c; }
     .form-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
@@ -199,7 +201,12 @@
 <header class="topbar">
   <div class="topbar-brand">
     <span class="topbar-brand-icon">🚛</span>
-    <span class="topbar-brand-title">トラック運行管理</span>
+    <div class="topbar-brand-text">
+      <span class="topbar-brand-title">トラック運行管理</span>
+      {% if current_tenant_name %}
+      <span class="topbar-brand-sub">{{ current_tenant_name }}{% if current_store_name %} / {{ current_store_name }}{% endif %}</span>
+      {% endif %}
+    </div>
   </div>
   <button class="hamburger-btn" id="hamburgerBtn" aria-label="メニューを開く">
     <span></span><span></span><span></span>

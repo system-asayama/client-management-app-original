@@ -20,7 +20,7 @@
     </div>
     <div class="form-field">
       <label>メールアドレス {% if action == 'new' %}<span class="required">*</span>{% endif %}</label>
-      <input type="email" name="email" value="{{ driver.email if driver else '' }}" placeholder="taro.yamada@example.com" {% if action == 'new' %}required{% endif %}>
+      <input type="email" name="email" value="{{ driver.email if driver else '' }}" placeholder="例：taro.yamada@example.com" {% if action == 'new' %}required{% endif %}>
       {% if action == 'new' %}<div class="form-hint">従業員登録にも使用されます</div>{% endif %}
     </div>
     <div class="form-field">

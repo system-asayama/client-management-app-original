@@ -22,7 +22,9 @@
     <div style="font-weight:600; font-size:0.95rem;">📅 カレンダー</div>
     <div class="jkc-loading" id="jkc-status">🔄 JKCショー予定を読み込み中...</div>
   </div>
-  <div id="calendar"></div>
+  <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+    <div id="calendar" style="min-width:320px;"></div>
+  </div>
   <div class="calendar-legend">
     <span><span class="legend-dot" style="background:#1976d2;"></span>Todoタスク</span>
     <span><span class="legend-dot" style="background:#2e7d32;"></span>JKCドッグショー</span>
@@ -97,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
     locale: 'ja',
-    initialView: 'dayGridMonth',
+    initialView: window.innerWidth < 768 ? 'listMonth' : 'dayGridMonth',
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',

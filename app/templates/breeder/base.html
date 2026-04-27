@@ -127,6 +127,19 @@
       padding: 1rem;
       border-top: 1px solid var(--border);
     }
+    .sidebar-logout {
+      display: block;
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      text-align: center;
+      text-decoration: none;
+    }
+    .sidebar-logout:hover { background: var(--border); color: var(--text); }
     .sidebar-user {
       display: flex;
       align-items: center;
@@ -182,7 +195,13 @@
       font-weight: 600;
       color: var(--text);
     }
-    .topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      min-width: 0;
+    }
     .topbar-right {
       display: flex;
       flex-direction: row;
@@ -554,6 +573,8 @@
         padding: 0.25rem 0.5rem;
       }
       .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+      .topbar-actions .btn { display: none; }
+      .topbar-actions .store-badge { display: flex; }
     }
   </style>
   {% block head %}{% endblock %}
@@ -740,6 +761,7 @@
           </div>
         </div>
       </div>
+      <a href="{{ url_for('auth.logout') }}" class="sidebar-logout">ログアウト</a>
     </div>
   </aside>
 
@@ -749,18 +771,13 @@
       <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
       <div class="topbar-actions">
         {% block topbar_actions %}{% endblock %}
-        <div class="topbar-right">
-          {% if current_store_name or current_tenant_name %}
-          <div class="store-badge">
-            {% if current_tenant_name %}<span class="tenant-name">{{ current_tenant_name }}</span>{% endif %}
-            {% if current_store_name and current_tenant_name %}<span class="badge-sep">|</span>{% endif %}
-            {% if current_store_name %}<span class="store-name">{{ current_store_name }}</span>{% endif %}
-          </div>
-          {% endif %}
-          <div class="topbar-buttons">
-            <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm">ログアウト</a>
-          </div>
+        {% if current_store_name or current_tenant_name %}
+        <div class="store-badge">
+          {% if current_tenant_name %}<span class="tenant-name">{{ current_tenant_name }}</span>{% endif %}
+          {% if current_store_name and current_tenant_name %}<span class="badge-sep">|</span>{% endif %}
+          {% if current_store_name %}<span class="store-name">{{ current_store_name }}</span>{% endif %}
         </div>
+        {% endif %}
       </div>
     </header>
 

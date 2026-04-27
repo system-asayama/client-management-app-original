@@ -12,6 +12,9 @@
     <h1 class="page-title">🏆 ショー記録 一覧</h1>
     {% endif %}
   </div>
+  {% if not dog %}
+  <a href="{{ url_for('breeder.dogs_list') }}" class="btn btn-primary btn-sm">+ 新規登録（犬を選ぶ）</a>
+  {% endif %}
 </div>
 
 <!-- 登録フォーム -->

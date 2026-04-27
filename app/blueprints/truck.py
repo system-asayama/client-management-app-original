@@ -16,7 +16,7 @@ from sqlalchemy import text
 
 from app.db import SessionLocal
 from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem
-from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup, TJugyoin
+from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup, TJugyoin, TJugyoinTenpo
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -859,8 +859,38 @@ def driver_new():
                 tenant_id=tenant_id,
             )
             db.add(driver)
+            db.flush()  # driver.idを取得
+            # 従業員テーブルに自動登録
+            emp_login_id = login_id
+            emp_email = f'{login_id}@truck.local'
+            # login_id / email 重複チェック
+            existing_emp = db.query(TJugyoin).filter(
+                (TJugyoin.login_id == emp_login_id) | (TJugyoin.email == emp_email)
+            ).first()
+            if not existing_emp:
+                employee = TJugyoin(
+                    login_id=emp_login_id,
+                    email=emp_email,
+                    name=name,
+                    phone=phone,
+                    password_hash=generate_password_hash(password),
+                    tenant_id=tenant_id,
+                    role='employee',
+                    active=1,
+                    position='ドライバー',
+                )
+                db.add(employee)
+                db.flush()  # employee.idを取得
+                # 店舗に紐付け（セッションのstore_id、なければテナントの最初の店舗）
+                store_id = session.get('store_id')
+                if not store_id and tenant_id:
+                    first_store = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).first()
+                    if first_store:
+                        store_id = first_store.id
+                if store_id:
+                    db.add(TJugyoinTenpo(employee_id=employee.id, store_id=store_id))
             db.commit()
-            flash(f'ドライバー「{name}」を登録しました', 'success')
+            flash(f'ドライバー「{name}」を登録しました（従業員にも自動登録しました）', 'success')
             return redirect(url_for('truck.drivers'))
         return render_template('truck/driver_form.html', driver=None, action='new')
     finally:
@@ -958,6 +988,8 @@ def driver_from_employee():
                 tenant_id=tenant_id,
             )
             db.add(driver)
+            # 従業員から登録の場合、従業員は既存。ドライバー用パスワードで従業員パスワードを更新する
+            employee.password_hash = generate_password_hash(password)
             db.commit()
             flash(f'従業員「{employee.name}」をドライバーとして登録しました', 'success')
             return redirect(url_for('truck.drivers'))

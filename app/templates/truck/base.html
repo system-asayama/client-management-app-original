@@ -215,7 +215,11 @@
     <span class="sidebar-logo-icon">🚛</span>
     <div>
       <div class="sidebar-logo-title">トラック運行管理</div>
+      {% if current_tenant_name %}
+      <div class="sidebar-logo-sub">{{ current_tenant_name }}{% if current_store_name %} / {{ current_store_name }}{% endif %}</div>
+      {% else %}
       <div class="sidebar-logo-sub">運送会社運営プラットフォーム</div>
+      {% endif %}
     </div>
   </div>
 

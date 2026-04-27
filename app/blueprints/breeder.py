@@ -1036,7 +1036,17 @@ def document_scans():
         scans = db.query(DocumentScan).order_by(desc(DocumentScan.created_at)).limit(50).all()
         dogs = {d.id: d for d in db.query(Dog).all()}
         puppies = {p.id: p for p in db.query(Puppy).all()}
-        return render_template('breeder/document_scans.html', scans=scans, dogs=dogs, puppies=puppies)
+        # result_jsonを辞書に変換してテンプレートに渡す
+        scan_results = {}
+        for scan in scans:
+            if scan.result_json:
+                try:
+                    scan_results[scan.id] = json.loads(scan.result_json)
+                except Exception:
+                    scan_results[scan.id] = {}
+            else:
+                scan_results[scan.id] = {}
+        return render_template('breeder/document_scans.html', scans=scans, dogs=dogs, puppies=puppies, scan_results=scan_results)
     finally:
         db.close()
 

@@ -192,7 +192,7 @@
                 style="font-size:0.75rem; padding:0.2rem 0.5rem;">
                 &#x1F441; プレビュー
               </button>
-              <script>window._scanData = window._scanData||{}; window._scanData[{{ scan.id }}] = {{ scan.result_json | tojson }};</script>
+              <script>window._scanData = window._scanData||{}; window._scanData[{{ scan.id }}] = {{ scan_results[scan.id] | tojson }};</script>
               <button type="submit" class="btn btn-primary btn-xs">適用</button>
             </form>
             {% else %}—{% endif %}

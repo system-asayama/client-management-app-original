@@ -34,6 +34,8 @@ class Dog(Base):
     status = Column(SAEnum('active', 'retired', 'transferred', 'deceased', name='dog_status'), nullable=False, default='active')
     photo_url = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    father_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
+    mother_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

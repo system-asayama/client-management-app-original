@@ -1239,6 +1239,27 @@ def document_scan_apply(scan_id):
         db.close()
 
 
+@bp.route('/applications/scans/<int:scan_id>/delete', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def document_scan_delete(scan_id):
+    """書類スキャン履歴を削除する"""
+    from app.models_breeder import DocumentScan
+    db = _get_db()
+    try:
+        scan = db.query(DocumentScan).get(scan_id)
+        if not scan:
+            flash('スキャン履歴が見つかりません', 'error')
+            return redirect(url_for('breeder.document_scans'))
+        db.delete(scan)
+        db.commit()
+        flash('スキャン履歴を削除しました', 'success')
+        return redirect(url_for('breeder.document_scans'))
+    except Exception as e:
+        db.rollback()
+        flash(f'削除エラー: {e}', 'error')
+        return redirect(url_for('breeder.document_scans'))
+    finally:
+        db.close()
 # ─── 健康管理 ────────────────────────────────────────────────
 @bp.route('/health/weight')
 @require_roles(*BREEDER_ROLES)

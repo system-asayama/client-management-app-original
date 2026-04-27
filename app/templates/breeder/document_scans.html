@@ -69,6 +69,7 @@
           <th>読み取り結果</th>
           <th>適用状況</th>
           <th>犬への適用</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -188,6 +189,12 @@
               <button type="submit" class="btn btn-primary btn-xs">適用</button>
             </form>
             {% else %}—{% endif %}
+          </td>
+          <td class="text-center">
+            <form method="post" action="{{ url_for('breeder.document_scan_delete', scan_id=scan.id) }}"
+              onsubmit="return confirm('このスキャン履歴を削除しますか？');">
+              <button type="submit" class="btn btn-danger btn-xs" style="font-size:0.75rem; padding:0.2rem 0.5rem;">🗑 削除</button>
+            </form>
           </td>
         </tr>
         {% endfor %}

@@ -1,0 +1,189 @@
+{% extends 'truck/base.html' %}
+{% block title %}請求書新規作成 - トラック運行管理{% endblock %}
+{% block extra_style %}
+<style>
+  .mode-tabs { display:flex; gap:8px; margin-bottom:20px; }
+  .mode-tab { padding:10px 20px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600; border:2px solid #d1d5db; background:#fff; color:#6b7280; }
+  .mode-tab.active { border-color:#1a3a5c; background:#1a3a5c; color:#fff; }
+  .mode-section { display:none; }
+  .mode-section.active { display:block; }
+  .item-row { display:grid; grid-template-columns:1fr 80px 120px 120px 36px; gap:8px; align-items:center; margin-bottom:8px; }
+  .item-row input { padding:8px 10px; border:1.5px solid #d1d5db; border-radius:6px; font-size:13px; width:100%; }
+  .remove-btn { background:#fef2f2; color:#dc2626; border:none; border-radius:6px; cursor:pointer; padding:6px 10px; font-size:16px; }
+  .total-box { background:#f9fafb; border-radius:8px; padding:16px; margin-top:16px; }
+  .total-row { display:flex; justify-content:space-between; padding:4px 0; font-size:14px; }
+  .total-row.grand { font-size:16px; font-weight:700; border-top:2px solid #e5e7eb; padding-top:10px; margin-top:6px; }
+</style>
+{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.finance_invoice') }}" class="back-link">← 請求書一覧</a>
+<div class="page-title">🧾 請求書 新規作成</div>
+<div class="page-subtitle">手動作成または運行履歴から自動集計</div>
+
+<form method="POST">
+  <input type="hidden" name="mode" id="modeInput" value="manual">
+
+  <!-- 作成モード選択 -->
+  <div class="mode-tabs">
+    <button type="button" class="mode-tab active" onclick="setMode('manual')">✏️ 手動作成</button>
+    <button type="button" class="mode-tab" onclick="setMode('auto')">📊 運行履歴から自動集計</button>
+  </div>
+
+  <!-- 基本情報 -->
+  <div class="form-card" style="margin-bottom:16px;">
+    <div style="font-size:14px; font-weight:700; color:#0f2744; margin-bottom:14px;">📋 基本情報</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-field">
+        <label>発行日 <span class="required">*</span></label>
+        <input type="date" name="issue_date" value="{{ today.strftime('%Y-%m-%d') }}" required>
+      </div>
+      <div class="form-field">
+        <label>支払期限</label>
+        <input type="date" name="due_date">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>請求先（取引先から選択）</label>
+      <select name="client_id" id="clientSelect" onchange="fillClientInfo(this)">
+        <option value="">-- 選択または手入力 --</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}" data-name="{{ c.name }}" data-address="{{ c.address or '' }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-field">
+        <label>請求先名</label>
+        <input type="text" name="client_name" id="clientName" placeholder="株式会社〇〇">
+      </div>
+      <div class="form-field">
+        <label>請求先住所</label>
+        <input type="text" name="client_address" id="clientAddress" placeholder="東京都〇〇区...">
+      </div>
+    </div>
+    <div class="form-field">
+      <label>消費税率</label>
+      <select name="tax_rate">
+        <option value="0.10" selected>10%</option>
+        <option value="0.08">8%（軽減税率）</option>
+        <option value="0.00">0%（非課税）</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>備考</label>
+      <textarea name="note" rows="2" placeholder="振込先、備考など"></textarea>
+    </div>
+  </div>
+
+  <!-- 手動明細 -->
+  <div class="form-card mode-section active" id="section-manual" style="margin-bottom:16px;">
+    <div style="font-size:14px; font-weight:700; color:#0f2744; margin-bottom:14px;">📝 明細</div>
+    <div style="display:grid; grid-template-columns:1fr 80px 120px 120px 36px; gap:8px; margin-bottom:8px;">
+      <div style="font-size:12px; color:#6b7280; font-weight:600;">品目・摘要</div>
+      <div style="font-size:12px; color:#6b7280; font-weight:600;">数量</div>
+      <div style="font-size:12px; color:#6b7280; font-weight:600;">単価（円）</div>
+      <div style="font-size:12px; color:#6b7280; font-weight:600;">金額（円）</div>
+      <div></div>
+    </div>
+    <div id="itemsContainer">
+      <div class="item-row">
+        <input type="text" name="item_description[]" placeholder="運送料" oninput="calcRow(this)">
+        <input type="number" name="item_quantity[]" value="1" min="1" oninput="calcRow(this)">
+        <input type="number" name="item_unit_price[]" value="0" min="0" oninput="calcRow(this)">
+        <input type="number" name="item_amount[]" value="0" readonly style="background:#f9fafb;">
+        <button type="button" class="remove-btn" onclick="removeRow(this)">×</button>
+      </div>
+    </div>
+    <button type="button" onclick="addRow()" class="btn btn-secondary btn-sm" style="margin-top:8px;">＋ 明細追加</button>
+    <div class="total-box" id="totalBox">
+      <div class="total-row"><span>小計</span><span id="subtotalDisp">¥0</span></div>
+      <div class="total-row"><span>消費税</span><span id="taxDisp">¥0</span></div>
+      <div class="total-row grand"><span>合計</span><span id="totalDisp">¥0</span></div>
+    </div>
+  </div>
+
+  <!-- 自動集計 -->
+  <div class="form-card mode-section" id="section-auto" style="margin-bottom:16px;">
+    <div style="font-size:14px; font-weight:700; color:#0f2744; margin-bottom:14px;">📊 自動集計期間</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-field">
+        <label>期間（開始）</label>
+        <input type="date" name="period_from" value="{{ default_period_from.strftime('%Y-%m-%d') }}">
+      </div>
+      <div class="form-field">
+        <label>期間（終了）</label>
+        <input type="date" name="period_to" value="{{ default_period_to.strftime('%Y-%m-%d') }}">
+      </div>
+    </div>
+    <div class="empty" style="padding:20px;">
+      指定期間内の完了済み運行履歴（ステータス：完了）からルートの請負金額を自動集計します。<br>
+      取引先を選択すると、その取引先のルートのみ集計します。
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">請求書を作成</button>
+    <a href="{{ url_for('truck.finance_invoice') }}" class="btn btn-secondary">キャンセル</a>
+  </div>
+</form>
+
+<script>
+function setMode(mode) {
+  document.getElementById('modeInput').value = mode;
+  document.querySelectorAll('.mode-tab').forEach((t,i) => {
+    t.classList.toggle('active', (mode==='manual' && i===0) || (mode==='auto' && i===1));
+  });
+  document.querySelectorAll('.mode-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + mode).classList.add('active');
+}
+
+function fillClientInfo(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('clientName').value = opt.dataset.name || '';
+  document.getElementById('clientAddress').value = opt.dataset.address || '';
+}
+
+function calcRow(el) {
+  const row = el.closest('.item-row');
+  const qty = parseInt(row.querySelector('[name="item_quantity[]"]').value) || 0;
+  const up = parseInt(row.querySelector('[name="item_unit_price[]"]').value) || 0;
+  row.querySelector('[name="item_amount[]"]').value = qty * up;
+  updateTotal();
+}
+
+function updateTotal() {
+  let subtotal = 0;
+  document.querySelectorAll('[name="item_amount[]"]').forEach(el => {
+    subtotal += parseInt(el.value) || 0;
+  });
+  const taxRate = parseFloat(document.querySelector('[name="tax_rate"]').value) || 0;
+  const tax = Math.floor(subtotal * taxRate);
+  document.getElementById('subtotalDisp').textContent = '¥' + subtotal.toLocaleString();
+  document.getElementById('taxDisp').textContent = '¥' + tax.toLocaleString();
+  document.getElementById('totalDisp').textContent = '¥' + (subtotal + tax).toLocaleString();
+}
+
+function addRow() {
+  const container = document.getElementById('itemsContainer');
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.innerHTML = `
+    <input type="text" name="item_description[]" placeholder="品目" oninput="calcRow(this)">
+    <input type="number" name="item_quantity[]" value="1" min="1" oninput="calcRow(this)">
+    <input type="number" name="item_unit_price[]" value="0" min="0" oninput="calcRow(this)">
+    <input type="number" name="item_amount[]" value="0" readonly style="background:#f9fafb;">
+    <button type="button" class="remove-btn" onclick="removeRow(this)">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll('.item-row');
+  if (rows.length <= 1) return;
+  btn.closest('.item-row').remove();
+  updateTotal();
+}
+
+document.querySelector('[name="tax_rate"]').addEventListener('change', updateTotal);
+</script>
+{% endblock %}

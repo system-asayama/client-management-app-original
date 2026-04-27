@@ -15,7 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem
 from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup
 from app.utils.decorators import require_roles, ROLES
 
@@ -2490,7 +2490,189 @@ def finance_payroll():
 def finance_attendance():
     return render_template('truck/finance_attendance.html')
 
+# ─── 請求書管理 ──────────────────────────────────────
 @bp.route('/finance/invoice')
 @login_required_truck
 def finance_invoice():
-    return render_template('truck/finance_invoice.html')
+    db = SessionLocal()
+    try:
+        invoices = db.query(TruckInvoice).order_by(TruckInvoice.issue_date.desc()).all()
+        return render_template('truck/finance_invoice.html', invoices=invoices)
+    finally:
+        db.close()
+
+
+@bp.route('/finance/invoice/new', methods=['GET', 'POST'])
+@login_required_truck
+def finance_invoice_new():
+    db = SessionLocal()
+    try:
+        clients = db.query(TruckClient).filter_by(active=True).order_by(TruckClient.name).all()
+        if request.method == 'POST':
+            mode = request.form.get('mode', 'manual')
+            # 請求書番号の自動生成
+            today = date.today()
+            count = db.query(TruckInvoice).filter(
+                TruckInvoice.issue_date >= date(today.year, today.month, 1)
+            ).count()
+            invoice_number = f"INV-{today.strftime('%Y%m')}-{count+1:03d}"
+
+            client_id = request.form.get('client_id') or None
+            if client_id:
+                client_id = int(client_id)
+                c = db.query(TruckClient).get(client_id)
+                client_name = c.name if c else ''
+                client_address = c.address if c else ''
+            else:
+                client_name = request.form.get('client_name', '')
+                client_address = request.form.get('client_address', '')
+
+            issue_date = datetime.strptime(request.form['issue_date'], '%Y-%m-%d').date()
+            due_date_str = request.form.get('due_date')
+            due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date() if due_date_str else None
+            period_from_str = request.form.get('period_from')
+            period_to_str = request.form.get('period_to')
+            period_from = datetime.strptime(period_from_str, '%Y-%m-%d').date() if period_from_str else None
+            period_to = datetime.strptime(period_to_str, '%Y-%m-%d').date() if period_to_str else None
+            tax_rate = float(request.form.get('tax_rate', 0.10))
+            note = request.form.get('note', '')
+
+            invoice = TruckInvoice(
+                invoice_number=invoice_number,
+                client_id=client_id,
+                client_name=client_name,
+                client_address=client_address,
+                issue_date=issue_date,
+                due_date=due_date,
+                period_from=period_from,
+                period_to=period_to,
+                tax_rate=tax_rate,
+                note=note,
+                status='draft',
+            )
+            db.add(invoice)
+            db.flush()
+
+            items = []
+            if mode == 'auto' and period_from and period_to:
+                # 運行履歴から自動集計
+                ops = db.query(TruckOperation).filter(
+                    TruckOperation.operation_date >= period_from,
+                    TruckOperation.operation_date <= period_to,
+                    TruckOperation.status == 'done',
+                ).order_by(TruckOperation.operation_date).all()
+                if client_id:
+                    ops = [o for o in ops if o.route and o.route.client_id == client_id]
+                for op in ops:
+                    route = op.route
+                    unit_price = route.contract_amount if route and route.contract_amount else 0
+                    desc = f"{op.operation_date.strftime('%m/%d')} {route.name if route else '運行'}"
+                    item = TruckInvoiceItem(
+                        invoice_id=invoice.id,
+                        description=desc,
+                        operation_date=op.operation_date,
+                        route_name=route.name if route else '',
+                        quantity=1,
+                        unit_price=unit_price,
+                        amount=unit_price,
+                    )
+                    db.add(item)
+                    items.append(item)
+            else:
+                # 手動明細
+                descriptions = request.form.getlist('item_description[]')
+                quantities = request.form.getlist('item_quantity[]')
+                unit_prices = request.form.getlist('item_unit_price[]')
+                for i, desc in enumerate(descriptions):
+                    if not desc.strip():
+                        continue
+                    qty = int(quantities[i]) if i < len(quantities) else 1
+                    up = int(unit_prices[i]) if i < len(unit_prices) else 0
+                    item = TruckInvoiceItem(
+                        invoice_id=invoice.id,
+                        description=desc,
+                        quantity=qty,
+                        unit_price=up,
+                        amount=qty * up,
+                    )
+                    db.add(item)
+                    items.append(item)
+
+            # 合計計算
+            subtotal = sum(it.amount for it in items)
+            tax_amount = int(subtotal * tax_rate)
+            invoice.subtotal = subtotal
+            invoice.tax_amount = tax_amount
+            invoice.total_amount = subtotal + tax_amount
+            db.commit()
+            flash('請求書を作成しました', 'success')
+            return redirect(url_for('truck.finance_invoice_detail', invoice_id=invoice.id))
+
+        # GET
+        today = date.today()
+        default_period_from = date(today.year, today.month, 1)
+        default_period_to = today
+        return render_template('truck/finance_invoice_new.html',
+                               clients=clients,
+                               today=today,
+                               default_period_from=default_period_from,
+                               default_period_to=default_period_to)
+    finally:
+        db.close()
+
+
+@bp.route('/finance/invoice/<int:invoice_id>')
+@login_required_truck
+def finance_invoice_detail(invoice_id):
+    db = SessionLocal()
+    try:
+        invoice = db.query(TruckInvoice).get(invoice_id)
+        if not invoice:
+            flash('請求書が見つかりません', 'error')
+            return redirect(url_for('truck.finance_invoice'))
+        return render_template('truck/finance_invoice_detail.html', invoice=invoice)
+    finally:
+        db.close()
+
+
+@bp.route('/finance/invoice/<int:invoice_id>/print')
+@login_required_truck
+def finance_invoice_print(invoice_id):
+    db = SessionLocal()
+    try:
+        invoice = db.query(TruckInvoice).get(invoice_id)
+        if not invoice:
+            return '請求書が見つかりません', 404
+        return render_template('truck/finance_invoice_print.html', invoice=invoice)
+    finally:
+        db.close()
+
+
+@bp.route('/finance/invoice/<int:invoice_id>/status', methods=['POST'])
+@login_required_truck
+def finance_invoice_status(invoice_id):
+    db = SessionLocal()
+    try:
+        invoice = db.query(TruckInvoice).get(invoice_id)
+        if invoice:
+            invoice.status = request.form.get('status', invoice.status)
+            db.commit()
+            flash('ステータスを更新しました', 'success')
+        return redirect(url_for('truck.finance_invoice_detail', invoice_id=invoice_id))
+    finally:
+        db.close()
+
+
+@bp.route('/finance/invoice/<int:invoice_id>/delete', methods=['POST'])
+@login_required_truck
+def finance_invoice_delete(invoice_id):
+    db = SessionLocal()
+    try:
+        invoice = db.query(TruckInvoice).get(invoice_id)
+        if invoice:
+            db.delete(invoice)
+            db.commit()
+            flash('請求書を削除しました', 'success')
+        return redirect(url_for('truck.finance_invoice'))
+    finally:
+        db.close()

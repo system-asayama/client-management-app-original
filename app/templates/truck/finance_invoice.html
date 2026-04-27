@@ -1,9 +1,58 @@
 {% extends 'truck/base.html' %}
 {% block title %}請求書 - トラック運行管理{% endblock %}
 {% block content %}
-<div class="page-title">🧾 請求書</div>
-<div class="page-subtitle">請求書の作成・管理</div>
-<div class="card">
-  <div class="empty">請求書機能は準備中です。</div>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+  <div>
+    <div class="page-title">🧾 請求書</div>
+    <div class="page-subtitle">請求書の作成・管理</div>
+  </div>
+  <a href="{{ url_for('truck.finance_invoice_new') }}" class="btn btn-primary">＋ 新規作成</a>
 </div>
+
+{% if invoices %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>請求書番号</th>
+          <th>請求先</th>
+          <th>発行日</th>
+          <th>支払期限</th>
+          <th>合計金額</th>
+          <th>ステータス</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="{{ url_for('truck.finance_invoice_detail', invoice_id=inv.id) }}" style="color:#1a3a5c; font-weight:600;">{{ inv.invoice_number }}</a></td>
+          <td>{{ inv.client_name or '-' }}</td>
+          <td>{{ inv.issue_date.strftime('%Y/%m/%d') if inv.issue_date else '-' }}</td>
+          <td>{{ inv.due_date.strftime('%Y/%m/%d') if inv.due_date else '-' }}</td>
+          <td style="text-align:right; font-weight:600;">¥{{ '{:,}'.format(inv.total_amount) }}</td>
+          <td>
+            {% if inv.status == 'paid' %}
+              <span class="badge" style="background:#16a34a;">入金済</span>
+            {% elif inv.status == 'sent' %}
+              <span class="badge" style="background:#2563eb;">送付済</span>
+            {% else %}
+              <span class="badge" style="background:#9ca3af;">下書き</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('truck.finance_invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary btn-sm">詳細</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty">請求書がありません。「新規作成」から作成してください。</div>
+</div>
+{% endif %}
 {% endblock %}

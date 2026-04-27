@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>請求書 {{ invoice.invoice_number }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif; color: #1a1a1a; background: #fff; padding: 40px; font-size: 14px; }
+    .print-btn { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #1a3a5c; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    @media print { .print-btn { display: none; } body { padding: 20px; } }
+    .invoice-title { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 30px; letter-spacing: 0.1em; }
+    .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
+    .to-block { flex: 1; }
+    .to-name { font-size: 20px; font-weight: 700; border-bottom: 2px solid #1a1a1a; padding-bottom: 4px; margin-bottom: 8px; }
+    .to-address { font-size: 13px; color: #555; }
+    .meta-block { text-align: right; min-width: 200px; }
+    .meta-row { display: flex; justify-content: flex-end; gap: 16px; margin-bottom: 4px; font-size: 13px; }
+    .meta-label { color: #666; }
+    .total-highlight { background: #0f2744; color: #fff; padding: 12px 20px; border-radius: 8px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+    .total-highlight .label { font-size: 15px; }
+    .total-highlight .amount { font-size: 24px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #f3f4f6; padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 700; color: #555; border: 1px solid #e5e7eb; }
+    td { padding: 10px 12px; border: 1px solid #e5e7eb; font-size: 13px; }
+    .text-right { text-align: right; }
+    .summary { display: flex; justify-content: flex-end; }
+    .summary-table { min-width: 260px; }
+    .summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #e5e7eb; }
+    .summary-row.grand { font-size: 16px; font-weight: 700; border-bottom: none; padding-top: 10px; }
+    .note-box { margin-top: 30px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .note-label { font-size: 12px; color: #666; margin-bottom: 6px; }
+    .period-box { font-size: 13px; color: #555; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨️ 印刷</button>
+
+<div class="invoice-title">請　求　書</div>
+
+<div class="header">
+  <div class="to-block">
+    <div class="to-name">{{ invoice.client_name or '　' }} 御中</div>
+    {% if invoice.client_address %}
+    <div class="to-address">{{ invoice.client_address }}</div>
+    {% endif %}
+  </div>
+  <div class="meta-block">
+    <div class="meta-row"><span class="meta-label">請求書番号：</span><span>{{ invoice.invoice_number }}</span></div>
+    <div class="meta-row"><span class="meta-label">発行日：</span><span>{{ invoice.issue_date.strftime('%Y年%m月%d日') if invoice.issue_date else '-' }}</span></div>
+    {% if invoice.due_date %}
+    <div class="meta-row"><span class="meta-label">支払期限：</span><span>{{ invoice.due_date.strftime('%Y年%m月%d日') }}</span></div>
+    {% endif %}
+  </div>
+</div>
+
+{% if invoice.period_from %}
+<div class="period-box">請求対象期間：{{ invoice.period_from.strftime('%Y年%m月%d日') }} ～ {{ invoice.period_to.strftime('%Y年%m月%d日') if invoice.period_to else '' }}</div>
+{% endif %}
+
+<div class="total-highlight">
+  <span class="label">ご請求金額（税込）</span>
+  <span class="amount">¥{{ '{:,}'.format(invoice.total_amount) }}</span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>品目・摘要</th>
+      <th class="text-right" style="width:70px;">数量</th>
+      <th class="text-right" style="width:120px;">単価（円）</th>
+      <th class="text-right" style="width:120px;">金額（円）</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in invoice.items %}
+    <tr>
+      <td>{{ item.description }}</td>
+      <td class="text-right">{{ item.quantity }}</td>
+      <td class="text-right">{{ '{:,}'.format(item.unit_price) }}</td>
+      <td class="text-right">{{ '{:,}'.format(item.amount) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="summary">
+  <div class="summary-table">
+    <div class="summary-row"><span>小計</span><span>¥{{ '{:,}'.format(invoice.subtotal) }}</span></div>
+    <div class="summary-row"><span>消費税（{{ (invoice.tax_rate * 100)|int }}%）</span><span>¥{{ '{:,}'.format(invoice.tax_amount) }}</span></div>
+    <div class="summary-row grand"><span>合計</span><span>¥{{ '{:,}'.format(invoice.total_amount) }}</span></div>
+  </div>
+</div>
+
+{% if invoice.note %}
+<div class="note-box">
+  <div class="note-label">備考</div>
+  <div style="white-space:pre-wrap; font-size:13px;">{{ invoice.note }}</div>
+</div>
+{% endif %}
+</body>
+</html>

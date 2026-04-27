@@ -1,0 +1,111 @@
+{% extends 'truck/base.html' %}
+{% block title %}{{ invoice.invoice_number }} - 請求書{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.finance_invoice') }}" class="back-link">← 請求書一覧</a>
+
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+  <div>
+    <div class="page-title">🧾 {{ invoice.invoice_number }}</div>
+    <div class="page-subtitle">
+      {% if invoice.status == 'paid' %}
+        <span class="badge" style="background:#16a34a;">入金済</span>
+      {% elif invoice.status == 'sent' %}
+        <span class="badge" style="background:#2563eb;">送付済</span>
+      {% else %}
+        <span class="badge" style="background:#9ca3af;">下書き</span>
+      {% endif %}
+    </div>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="{{ url_for('truck.finance_invoice_print', invoice_id=invoice.id) }}" target="_blank" class="btn btn-secondary">🖨️ 印刷</a>
+    <form method="POST" action="{{ url_for('truck.finance_invoice_status', invoice_id=invoice.id) }}" style="display:inline;">
+      {% if invoice.status == 'draft' %}
+        <input type="hidden" name="status" value="sent">
+        <button type="submit" class="btn btn-primary">送付済にする</button>
+      {% elif invoice.status == 'sent' %}
+        <input type="hidden" name="status" value="paid">
+        <button type="submit" class="btn btn-primary" style="background:#16a34a;">入金済にする</button>
+      {% endif %}
+    </form>
+    <form method="POST" action="{{ url_for('truck.finance_invoice_delete', invoice_id=invoice.id) }}" onsubmit="return confirm('削除しますか？')" style="display:inline;">
+      <button type="submit" class="btn btn-danger btn-sm">削除</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+    <div>
+      <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">請求先</div>
+      <div style="font-size:15px; font-weight:700;">{{ invoice.client_name or '-' }}</div>
+      {% if invoice.client_address %}
+      <div style="font-size:13px; color:#6b7280;">{{ invoice.client_address }}</div>
+      {% endif %}
+    </div>
+    <div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div>
+          <div style="font-size:12px; color:#6b7280;">発行日</div>
+          <div style="font-size:14px; font-weight:600;">{{ invoice.issue_date.strftime('%Y年%m月%d日') if invoice.issue_date else '-' }}</div>
+        </div>
+        <div>
+          <div style="font-size:12px; color:#6b7280;">支払期限</div>
+          <div style="font-size:14px; font-weight:600;">{{ invoice.due_date.strftime('%Y年%m月%d日') if invoice.due_date else '-' }}</div>
+        </div>
+        {% if invoice.period_from %}
+        <div style="grid-column:1/-1;">
+          <div style="font-size:12px; color:#6b7280;">請求対象期間</div>
+          <div style="font-size:14px;">{{ invoice.period_from.strftime('%Y/%m/%d') }} ～ {{ invoice.period_to.strftime('%Y/%m/%d') if invoice.period_to else '' }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 明細テーブル -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>品目・摘要</th>
+          <th style="text-align:right;">数量</th>
+          <th style="text-align:right;">単価</th>
+          <th style="text-align:right;">金額</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in invoice.items %}
+        <tr>
+          <td>{{ item.description }}</td>
+          <td style="text-align:right;">{{ item.quantity }}</td>
+          <td style="text-align:right;">¥{{ '{:,}'.format(item.unit_price) }}</td>
+          <td style="text-align:right; font-weight:600;">¥{{ '{:,}'.format(item.amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 合計 -->
+  <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+    <div style="min-width:240px;">
+      <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:14px; border-bottom:1px solid #e5e7eb;">
+        <span>小計</span><span>¥{{ '{:,}'.format(invoice.subtotal) }}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:14px; border-bottom:1px solid #e5e7eb;">
+        <span>消費税（{{ (invoice.tax_rate * 100)|int }}%）</span><span>¥{{ '{:,}'.format(invoice.tax_amount) }}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:10px 0; font-size:18px; font-weight:700; color:#0f2744;">
+        <span>合計</span><span>¥{{ '{:,}'.format(invoice.total_amount) }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% if invoice.note %}
+  <div style="margin-top:16px; padding:12px; background:#f9fafb; border-radius:8px;">
+    <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">備考</div>
+    <div style="font-size:13px; white-space:pre-wrap;">{{ invoice.note }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -31,32 +31,26 @@ class Truck(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # ── 詳細情報 ──
-    owner_name = Column(String(100))          # 所有者
-    user_name = Column(String(100))           # 使用者
-    base_location = Column(String(200))       # 所属（営業所・拠点）
-    vehicle_type = Column(String(100))        # 車種・型式
-    year = Column(Integer)                    # 年式
-    color = Column(String(50))                # 車体色
-    vin = Column(String(100))                 # 車台番号
-    engine_number = Column(String(100))       # エンジン番号
-    # 車検情報
-    shaken_expiry = Column(Date)              # 車検満了日
-    shaken_number = Column(String(100))       # 車検証番号
-    # 保険情報（簡易）
-    insurance_company = Column(String(200))   # 保険会社名
-    insurance_policy = Column(String(100))    # 証券番号
-    insurance_expiry = Column(Date)           # 保険満了日
-    # 写真
-    photo_path = Column(String(500))          # 車両写真パス
-    photo_name = Column(String(200))          # 元ファイル名
-    # 車検証ファイル
-    shaken_doc_path = Column(String(500))     # 車検証ファイルパス
-    shaken_doc_name = Column(String(200))     # 車検証元ファイル名
-    # 保険証ファイル
-    insurance_doc_path = Column(String(500))  # 保険証ファイルパス
-    insurance_doc_name = Column(String(200))  # 保険証元ファイル名
+    owner_name = Column(String(100))
+    user_name = Column(String(100))
+    base_location = Column(String(200))
+    vehicle_type = Column(String(100))
+    year = Column(Integer)
+    color = Column(String(50))
+    vin = Column(String(100))
+    engine_number = Column(String(100))
+    shaken_expiry = Column(Date)
+    shaken_number = Column(String(100))
+    insurance_company = Column(String(200))
+    insurance_policy = Column(String(100))
+    insurance_expiry = Column(Date)
+    photo_path = Column(String(500))
+    photo_name = Column(String(200))
+    shaken_doc_path = Column(String(500))
+    shaken_doc_name = Column(String(200))
+    insurance_doc_path = Column(String(500))
+    insurance_doc_name = Column(String(200))
 
-    # リレーション
     accident_records = relationship("TruckAccidentRecord", back_populates="truck", cascade="all, delete-orphan")
     inspection_records = relationship("TruckInspectionRecord", back_populates="truck", cascade="all, delete-orphan")
 
@@ -90,8 +84,8 @@ class TruckRoute(Base):
     origin = Column(String(200))
     destination = Column(String(200))
     distance_km = Column(Float)
-    client_id = Column(Integer, ForeignKey("truck_clients.id"), nullable=True)  # 取引先・荷主
-    contract_amount = Column(Integer)  # 請負金額（円）
+    client_id = Column(Integer, ForeignKey("truck_clients.id"), nullable=True)
+    contract_amount = Column(Integer)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)
@@ -182,13 +176,13 @@ class TruckOperation(Base):
 class TruckClient(Base):
     __tablename__ = "truck_clients"
     id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)          # 会社名
-    kana = Column(String(100))                           # フリガナ
-    contact_name = Column(String(100))                   # 担当者名
+    name = Column(String(100), nullable=False)
+    kana = Column(String(100))
+    contact_name = Column(String(100))
     phone = Column(String(20))
     email = Column(String(200))
     address = Column(String(300))
-    client_type = Column(String(20), default='both')     # shipper/consignee/both
+    client_type = Column(String(20), default='both')
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)
@@ -213,23 +207,22 @@ class TruckContract(Base):
     """契約書管理"""
     __tablename__ = "truck_contracts"
     id = Column(Integer, primary_key=True)
-    title = Column(String(200), nullable=False)          # 契約書タイトル
-    contract_type = Column(String(50))                   # lease/maintenance/other
-    counterparty = Column(String(200))                   # 相手方
+    title = Column(String(200), nullable=False)
+    contract_type = Column(String(50))
+    counterparty = Column(String(200))
     start_date = Column(Date)
     end_date = Column(Date)
-    amount = Column(Float)                               # 契約金額
-    file_path = Column(String(500))                      # アップロードファイルパス
-    file_name = Column(String(200))                      # 元のファイル名
-    # OCR読み取り結果
+    amount = Column(Float)
+    file_path = Column(String(500))
+    file_name = Column(String(200))
     ocr_title = Column(String(200))
     ocr_counterparty = Column(String(200))
     ocr_start_date = Column(String(50))
     ocr_end_date = Column(String(50))
     ocr_amount = Column(String(100))
     ocr_summary = Column(Text)
-    ocr_raw = Column(Text)                               # OCR生JSON
-    ocr_status = Column(String(20), default='none')      # none/processing/done/error
+    ocr_raw = Column(Text)
+    ocr_status = Column(String(20), default='none')
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)
@@ -240,18 +233,17 @@ class TruckInsurance(Base):
     """保険情報管理"""
     __tablename__ = "truck_insurances"
     id = Column(Integer, primary_key=True)
-    insurance_type = Column(String(50))                  # 自賠責/任意/貨物/その他
-    insurer = Column(String(200))                        # 保険会社名
-    policy_number = Column(String(100))                  # 証券番号
-    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)  # 対象車両
-    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)  # 対象ドライバー
+    insurance_type = Column(String(50))
+    insurer = Column(String(200))
+    policy_number = Column(String(100))
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)
     start_date = Column(Date)
     end_date = Column(Date)
-    premium = Column(Float)                              # 保険料
-    coverage_amount = Column(Float)                      # 保険金額
+    premium = Column(Float)
+    coverage_amount = Column(Float)
     file_path = Column(String(500))
     file_name = Column(String(200))
-    # OCR読み取り結果
     ocr_insurer = Column(String(200))
     ocr_policy_number = Column(String(100))
     ocr_start_date = Column(String(50))
@@ -274,14 +266,14 @@ class TruckAccidentRecord(Base):
     __tablename__ = "truck_accident_records"
     id = Column(Integer, primary_key=True)
     truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=False)
-    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)  # 担当ドライバー
-    accident_date = Column(Date, nullable=False)   # 事故日
-    location = Column(String(300))                 # 発生場所
-    description = Column(Text)                     # 事故内容
-    damage_level = Column(String(20))              # 軽微/中程度/重大
-    fault_ratio = Column(Integer, nullable=True)   # 過失割合（0-100）
-    repair_cost = Column(Float)                    # 修理費用
-    repair_completed = Column(Boolean, default=False)  # 修理完了
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)
+    accident_date = Column(Date, nullable=False)
+    location = Column(String(300))
+    description = Column(Text)
+    damage_level = Column(String(20))
+    fault_ratio = Column(Integer, nullable=True)
+    repair_cost = Column(Float)
+    repair_completed = Column(Boolean, default=False)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -295,14 +287,14 @@ class TruckInspectionRecord(Base):
     __tablename__ = "truck_inspection_records"
     id = Column(Integer, primary_key=True)
     truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=False)
-    inspection_date = Column(Date, nullable=False)  # 点検日
-    inspection_type = Column(String(50))            # 定期点検/車検/日常点検/その他
-    inspector = Column(String(100))                 # 点検者・業者名
-    result = Column(String(20))                     # 合格/要注意/不合格
-    next_inspection_date = Column(Date)             # 次回点検予定日
-    mileage = Column(Integer)                       # 走行距離（km）
-    description = Column(Text)                      # 点検内容・所見
-    cost = Column(Float)                            # 費用
+    inspection_date = Column(Date, nullable=False)
+    inspection_type = Column(String(50))
+    inspector = Column(String(100))
+    result = Column(String(20))
+    next_inspection_date = Column(Date)
+    mileage = Column(Integer)
+    description = Column(Text)
+    cost = Column(Float)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -320,11 +312,9 @@ class TruckAppSettings(Base):
     @classmethod
     def get(cls, db_session, key, tenant_id=None, default=None):
         if tenant_id is not None:
-            # まずtenant_id指定で検索
             row = db_session.query(cls).filter_by(key=key, tenant_id=tenant_id).first()
             if row:
                 return row.value
-            # 見つからない場合はtenant_id=Noneのグローバル設定にフォールバック
             row = db_session.query(cls).filter_by(key=key, tenant_id=None).first()
             return row.value if row else default
         row = db_session.query(cls).filter_by(key=key).first()
@@ -342,3 +332,42 @@ class TruckAppSettings(Base):
             row = cls(key=key, value=value, tenant_id=tenant_id)
             db_session.add(row)
         db_session.commit()
+
+
+class TruckInvoice(Base):
+    """請求書"""
+    __tablename__ = "truck_invoices"
+    id = Column(Integer, primary_key=True)
+    invoice_number = Column(String(50), nullable=False)   # 請求書番号
+    client_id = Column(Integer, ForeignKey("truck_clients.id"), nullable=True)
+    client_name = Column(String(200))                      # 請求先名（手入力用）
+    client_address = Column(String(300))                   # 請求先住所
+    issue_date = Column(Date, nullable=False)              # 発行日
+    due_date = Column(Date)                                # 支払期限
+    period_from = Column(Date)                             # 請求対象期間（開始）
+    period_to = Column(Date)                               # 請求対象期間（終了）
+    subtotal = Column(Integer, default=0)                  # 小計
+    tax_amount = Column(Integer, default=0)                # 消費税
+    total_amount = Column(Integer, default=0)              # 合計
+    tax_rate = Column(Float, default=0.10)                 # 税率
+    note = Column(Text)                                    # 備考
+    status = Column(String(20), default='draft')           # draft/sent/paid
+    tenant_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    client = relationship("TruckClient", backref="invoices")
+    items = relationship("TruckInvoiceItem", backref="invoice", cascade="all, delete-orphan", order_by="TruckInvoiceItem.id")
+
+
+class TruckInvoiceItem(Base):
+    """請求書明細"""
+    __tablename__ = "truck_invoice_items"
+    id = Column(Integer, primary_key=True)
+    invoice_id = Column(Integer, ForeignKey("truck_invoices.id"), nullable=False)
+    description = Column(String(300), nullable=False)      # 品目・摘要
+    operation_date = Column(Date)                          # 運行日（自動集計時）
+    route_name = Column(String(200))                       # ルート名（自動集計時）
+    quantity = Column(Integer, default=1)                  # 数量
+    unit_price = Column(Integer, default=0)                # 単価
+    amount = Column(Integer, default=0)                    # 金額

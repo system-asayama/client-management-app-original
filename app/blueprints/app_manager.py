@@ -1220,6 +1220,108 @@ def tenant_delete(tenant_id):
         db.close()
 
 
+@bp.route('/tenants/<int:tenant_id>')
+@require_roles('app_manager', 'system_admin')
+def tenant_detail(tenant_id):
+    """テナント詳細"""
+    from app.models_login import TTenant, TKanrisha, TTenantAppSetting
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if not tenant:
+            flash('テナントが見つかりません', 'error')
+            return redirect(url_for('app_manager.tenants'))
+        # テナント管理者一覧
+        admins = db.query(TKanrisha).filter(
+            TKanrisha.tenant_id == tenant_id,
+            TKanrisha.role == 'tenant_admin',
+            TKanrisha.active == 1
+        ).order_by(TKanrisha.id).all()
+        # 配布済みアプリ
+        app_settings = db.query(TTenantAppSetting).filter(
+            TTenantAppSetting.tenant_id == tenant_id,
+            TTenantAppSetting.enabled == 1
+        ).all()
+        distributed_app_ids = [s.app_id for s in app_settings]
+        return render_template(
+            'app_manager_tenant_detail.html',
+            tenant=tenant,
+            admins=admins,
+            distributed_app_ids=distributed_app_ids
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/tenants/<int:tenant_id>/admin/new', methods=['GET', 'POST'])
+@require_roles('app_manager', 'system_admin')
+def tenant_admin_new(tenant_id):
+    """テナント管理者新規作成"""
+    from app.models_login import TTenant, TKanrisha
+    import hashlib
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if not tenant:
+            flash('テナントが見つかりません', 'error')
+            return redirect(url_for('app_manager.tenants'))
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            login_id = request.form.get('login_id', '').strip()
+            email = request.form.get('email', '').strip()
+            password = request.form.get('password', '').strip()
+            if not name or not login_id or not password:
+                flash('名前・ログインID・パスワードは必須です', 'error')
+                return render_template('app_manager_tenant_admin_new.html', tenant=tenant)
+            existing = db.query(TKanrisha).filter(TKanrisha.login_id == login_id).first()
+            if existing:
+                flash('そのログインIDは既に使用されています', 'error')
+                return render_template('app_manager_tenant_admin_new.html', tenant=tenant)
+            try:
+                import bcrypt
+                password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            except Exception:
+                password_hash = generate_password_hash(password)
+            new_admin = TKanrisha(
+                login_id=login_id,
+                name=name,
+                email=email or '',
+                password_hash=password_hash,
+                role='tenant_admin',
+                tenant_id=tenant_id,
+                active=1
+            )
+            db.add(new_admin)
+            db.commit()
+            flash(f'テナント管理者 "{name}" を作成しました', 'success')
+            return redirect(url_for('app_manager.tenant_detail', tenant_id=tenant_id))
+        return render_template('app_manager_tenant_admin_new.html', tenant=tenant)
+    finally:
+        db.close()
+
+
+@bp.route('/tenants/<int:tenant_id>/admin/<int:admin_id>/delete', methods=['POST'])
+@require_roles('app_manager', 'system_admin')
+def tenant_admin_delete(tenant_id, admin_id):
+    """テナント管理者削除（無効化）"""
+    from app.models_login import TKanrisha
+    db = SessionLocal()
+    try:
+        admin = db.query(TKanrisha).filter(
+            TKanrisha.id == admin_id,
+            TKanrisha.tenant_id == tenant_id
+        ).first()
+        if admin:
+            admin.active = 0
+            db.commit()
+            flash(f'"{admin.name}" を無効化しました', 'success')
+        else:
+            flash('管理者が見つかりません', 'error')
+        return redirect(url_for('app_manager.tenant_detail', tenant_id=tenant_id))
+    finally:
+        db.close()
+
+
 @bp.route('/app_management')
 @require_roles('app_manager', 'system_admin')
 def app_management():

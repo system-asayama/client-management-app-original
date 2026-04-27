@@ -21,6 +21,7 @@ class TKanrisha(Base):
     active = Column(Integer, default=1)
     is_owner = Column(Integer, default=0)
     can_manage_admins = Column(Integer, default=0)
+    can_distribute_apps = Column(Integer, default=0, comment='アプリ配布権限（1=テナントへのアプリ配布設定が可能）')
     can_manage_all_tenants = Column(Integer, default=0, comment='全テナント管理権限（1=全テナントにアクセス可能、0=作成/招待されたテナントのみ）')
     openai_api_key = Column(Text, nullable=True)
     google_vision_api_key = Column(Text, nullable=True, comment='Google Cloud Vision APIキー（OCR用）')

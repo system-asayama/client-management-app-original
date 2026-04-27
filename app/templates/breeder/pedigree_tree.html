@@ -2,6 +2,30 @@
 {% block topbar_title %}家系図 - {{ dog.name }}{% endblock %}
 
 {% block content %}
+
+{% macro render_node(node) %}
+{% if node %}
+<div class="pedigree-node-wrap">
+  <div class="pedigree-node {% if node.gender == 'male' %}node-male{% elif node.gender == 'female' %}node-female{% endif %}"
+       {% if node.id %}onclick="location.href='{{ url_for('breeder.dog_detail', dog_id=node.id) }}'" style="cursor:pointer;"{% endif %}>
+    <div class="node-name">{{ node.name }}</div>
+    {% if node.breed %}<div class="node-breed">{{ node.breed }}</div>{% endif %}
+    {% if node.reg_no %}<div class="node-reg">{{ node.reg_no }}</div>{% endif %}
+  </div>
+  {% if node.sire or node.dam %}
+  <div class="pedigree-children">
+    <div class="pedigree-child">
+      {% if node.sire %}{{ render_node(node.sire) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
+    </div>
+    <div class="pedigree-child">
+      {% if node.dam %}{{ render_node(node.dam) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:1rem;">
     <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">← 戻る</a>
@@ -22,39 +46,21 @@
   </div>
   <div class="card-body" style="overflow-x:auto;">
     <div class="pedigree-tree" id="pedigreeTree">
-      {{ render_node(tree) }}
+      {% if tree %}
+        {{ render_node(tree) }}
+      {% else %}
+        <p style="color:var(--text-dim);text-align:center;padding:2rem;">家系図データがありません</p>
+      {% endif %}
     </div>
   </div>
 </div>
-
-{% macro render_node(node) %}
-{% if node %}
-<div class="pedigree-node-wrap">
-  <div class="pedigree-node {% if node.gender == 'male' %}node-male{% elif node.gender == 'female' %}node-female{% endif %}">
-    <div class="node-name">{{ node.name }}</div>
-    {% if node.breed %}<div class="node-breed">{{ node.breed }}</div>{% endif %}
-    {% if node.reg_no %}<div class="node-reg">{{ node.reg_no }}</div>{% endif %}
-  </div>
-  {% if node.sire or node.dam %}
-  <div class="pedigree-children">
-    <div class="pedigree-child">
-      {% if node.sire %}{{ render_node(node.sire) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
-    </div>
-    <div class="pedigree-child">
-      {% if node.dam %}{{ render_node(node.dam) }}{% else %}<div class="pedigree-empty">—</div>{% endif %}
-    </div>
-  </div>
-  {% endif %}
-</div>
-{% endif %}
-{% endmacro %}
 
 <style>
 .pedigree-tree {
   display: flex;
   align-items: flex-start;
   padding: 1rem;
-  min-width: 900px;
+  min-width: 600px;
   overflow-x: auto;
 }
 .pedigree-node-wrap {
@@ -72,14 +78,20 @@
   font-size: 0.82rem;
   position: relative;
   flex-shrink: 0;
+  transition: box-shadow 0.15s;
+}
+.pedigree-node:hover {
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.3);
 }
 .pedigree-node.node-male {
   background: #dbeafe;
   border-color: #93c5fd;
+  color: #1e3a5f;
 }
 .pedigree-node.node-female {
   background: #fce7f3;
   border-color: #f9a8d4;
+  color: #5b1a3a;
 }
 .node-name {
   font-weight: 700;

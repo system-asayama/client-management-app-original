@@ -64,7 +64,12 @@
       top: 0; left: 0;
       height: 100vh;
       z-index: 100;
+      overflow-y: hidden;
+    }
+    .sidebar-nav-wrap {
+      flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
     }
     .sidebar-logo {
       padding: 1.25rem 1.25rem 1rem;
@@ -596,6 +601,7 @@
       <div class="brand-sub">Breeder Management</div>
     </div>
 
+    <div class="sidebar-nav-wrap">
     <div class="sidebar-section">
       <div class="sidebar-section-label">メイン</div>
       <ul class="sidebar-nav">
@@ -751,6 +757,7 @@
         {% endif %}
       </ul>
     </div>
+    </div><!-- /.sidebar-nav-wrap -->
 
     <div class="sidebar-footer">
       <div class="sidebar-user">

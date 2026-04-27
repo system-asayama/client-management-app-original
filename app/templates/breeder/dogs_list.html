@@ -66,7 +66,8 @@
             {% elif dog.status == 'deceased' %}<span class="badge badge-red">死亡</span>
             {% endif %}
           </td>
-          <td>
+          <td style="white-space: nowrap;">
+            <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-primary btn-sm" style="margin-right:0.3rem;">詳細</a>
             <a href="{{ url_for('breeder.dog_edit', dog_id=dog.id) }}" class="btn btn-secondary btn-sm">編集</a>
           </td>
         </tr>

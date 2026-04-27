@@ -67,6 +67,7 @@
           <th>種類</th>
           <th>状態</th>
           <th>読み取り結果</th>
+          <th>適用状況</th>
           <th>犬への適用</th>
         </tr>
       </thead>
@@ -140,6 +141,18 @@
             {% elif scan.error_message %}
               <span class="text-dim text-xs">{{ scan.error_message[:80] }}</span>
             {% else %}—{% endif %}
+          </td>
+          <td class="text-center">
+            {% if scan.dog_id or scan.puppy_id %}
+              <span class="badge badge-green" style="font-size:0.8rem; padding:0.3rem 0.6rem;">✅ 適用済</span>
+              {% if scan.dog_id and dogs.get(scan.dog_id) %}
+                <div class="text-xs text-dim" style="margin-top:0.2rem;">{{ dogs[scan.dog_id].name }}</div>
+              {% elif scan.puppy_id and puppies.get(scan.puppy_id) %}
+                <div class="text-xs text-dim" style="margin-top:0.2rem;">{{ puppies[scan.puppy_id].name or '子犬#' ~ scan.puppy_id }}</div>
+              {% endif %}
+            {% else %}
+              <span class="badge badge-orange" style="font-size:0.8rem; padding:0.3rem 0.6rem;">⏳ 適用前</span>
+            {% endif %}
           </td>
           <td>
             {% if scan.status == 'success' and scan.result_json %}

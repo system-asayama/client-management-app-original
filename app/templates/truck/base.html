@@ -370,16 +370,7 @@
 </div>
 
 <script>
-  // アクティブなメニューのグループを自動展開
-  document.addEventListener('DOMContentLoaded', function() {
-    const activeItem = document.querySelector('.nav-item.active');
-    if (activeItem) {
-      const group = activeItem.closest('.nav-group');
-      if (group && !group.classList.contains('open')) {
-        group.classList.add('open');
-      }
-    }
-  });
+
 
   function toggleGroup(groupId) {
     const group = document.getElementById(groupId);

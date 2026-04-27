@@ -2310,22 +2310,15 @@ def driver_dashboard():
             driver_id=driver_id,
             operation_date=today,
         ).order_by(TruckOperation.start_time).all()
-        # TTenantのtruck_apk_url/versionを使用（テナント管理者GPS設定画面で設定）
-        tenant = db.query(TTenant).filter_by(id=driver.tenant_id).first() if driver else None
-        apk_url = getattr(tenant, 'truck_apk_url', None) or ''
-        apk_version = getattr(tenant, 'truck_apk_version', None) or ''
-        tenant_slug = getattr(tenant, 'slug', '') if tenant else ''
-        # ダウンロードURLはプロキシエンドポイントを使用
-        if apk_url and tenant_slug:
-            apk_download_url = url_for('mobile_api.truck_apk_download', api_key=MOBILE_API_KEY, tenant_slug=tenant_slug, _external=False)
-        else:
-            apk_download_url = ''
+        # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
+        apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
+        apk_version = TruckAppSettings.get(db, 'android_apk_version', driver.tenant_id if driver else None, '')
         return render_template(
             'truck/driver_dashboard.html',
             driver=driver,
             today_str=today_str,
             operations=operations,
-            apk_url=apk_download_url,
+            apk_url=apk_url,
             apk_version=apk_version,
         )
     finally:
@@ -2339,12 +2332,19 @@ def driver_apk_download():
     db = SessionLocal()
     try:
         driver = db.query(TruckDriver).get(driver_id)
-        tenant = db.query(TTenant).filter_by(id=driver.tenant_id).first() if driver else None
-        apk_url = getattr(tenant, 'truck_apk_url', None) or ''
-        tenant_slug = getattr(tenant, 'slug', '') if tenant else ''
-        if not apk_url or not tenant_slug:
+        apk_url = TruckAppSettings.get(db, 'android_apk_url', driver.tenant_id if driver else None, '')
+        if not apk_url:
             return 'APKが設定されていません', 404
-        return redirect(url_for('mobile_api.truck_apk_download', api_key=MOBILE_API_KEY, tenant_slug=tenant_slug))
+        resp = http_requests.get(apk_url, stream=True, timeout=30)
+        def generate():
+            for chunk in resp.iter_content(chunk_size=8192):
+                yield chunk
+        filename = 'truck-operation-app.apk'
+        return Response(
+            generate(),
+            content_type='application/vnd.android.package-archive',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+        )
     except Exception as e:
         return f'ダウンロードエラー: {e}', 500
     finally:

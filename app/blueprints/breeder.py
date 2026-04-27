@@ -15,7 +15,7 @@ from ..utils.decorators import require_roles, ROLES
 bp = Blueprint('breeder', __name__, url_prefix='/breeder')
 
 # ─── 認証ヘルパー ────────────────────────────────────────────
-BREEDER_ROLES = (ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+BREEDER_ROLES = (ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 
 def _get_db():
     return SessionLocal()

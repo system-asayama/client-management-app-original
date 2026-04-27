@@ -16,7 +16,7 @@ from sqlalchemy import text
 
 from app.db import SessionLocal
 from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem
-from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup
+from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup, TJugyoin
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -908,6 +908,68 @@ def driver_delete(driver_id):
             db.commit()
             flash(f'ドライバー「{driver.name}」を無効化しました', 'success')
         return redirect(url_for('truck.drivers'))
+    finally:
+        db.close()
+
+
+@bp.route('/drivers/from_employee', methods=['GET', 'POST'])
+@login_required_truck
+def driver_from_employee():
+    """従業員をドライバーとして登録する"""
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        if request.method == 'POST':
+            employee_id = request.form.get('employee_id', '').strip()
+            login_id = request.form.get('login_id', '').strip()
+            password = request.form.get('password', '').strip()
+            license_number = request.form.get('license_number', '').strip()
+            note = request.form.get('note', '').strip()
+            if not employee_id or not login_id or not password:
+                flash('従業員・ログインID・パスワードは必須です', 'error')
+                registered_login_ids = [d.login_id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id).all()]
+                employees = db.query(TJugyoin).filter(
+                    TJugyoin.tenant_id == tenant_id,
+                    TJugyoin.active == 1,
+                    ~TJugyoin.login_id.in_(registered_login_ids)
+                ).order_by(TJugyoin.name).all() if tenant_id else []
+                return render_template('truck/driver_from_employee.html', employees=employees)
+            employee = db.query(TJugyoin).get(int(employee_id))
+            if not employee:
+                flash('従業員が見つかりません', 'error')
+                return redirect(url_for('truck.drivers'))
+            existing = db.query(TruckDriver).filter_by(login_id=login_id).first()
+            if existing:
+                flash('そのログインIDはすでに登録されています', 'error')
+                registered_login_ids = [d.login_id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id).all()]
+                employees = db.query(TJugyoin).filter(
+                    TJugyoin.tenant_id == tenant_id,
+                    TJugyoin.active == 1,
+                    ~TJugyoin.login_id.in_(registered_login_ids)
+                ).order_by(TJugyoin.name).all() if tenant_id else []
+                return render_template('truck/driver_from_employee.html', employees=employees)
+            driver = TruckDriver(
+                login_id=login_id,
+                password_hash=generate_password_hash(password),
+                name=employee.name,
+                phone=employee.phone or '',
+                license_number=license_number,
+                note=note,
+                tenant_id=tenant_id,
+            )
+            db.add(driver)
+            db.commit()
+            flash(f'従業員「{employee.name}」をドライバーとして登録しました', 'success')
+            return redirect(url_for('truck.drivers'))
+        registered_login_ids = [d.login_id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id).all()]
+        employees = db.query(TJugyoin).filter(
+            TJugyoin.tenant_id == tenant_id,
+            TJugyoin.active == 1,
+        ).order_by(TJugyoin.name).all() if tenant_id else []
+        registered_names = set(d.name for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id, active=True).all())
+        return render_template('truck/driver_from_employee.html',
+                               employees=employees,
+                               registered_names=registered_names)
     finally:
         db.close()
 

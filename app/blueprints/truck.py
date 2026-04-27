@@ -839,15 +839,24 @@ def driver_new():
             login_id = request.form.get('login_id', '').strip()
             password = request.form.get('password', '').strip()
             name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip()
             phone = request.form.get('phone', '').strip()
+            position = request.form.get('position', 'ドライバー').strip()
             license_number = request.form.get('license_number', '').strip()
             note = request.form.get('note', '').strip()
-            if not login_id or not password or not name:
-                flash('ログインID・パスワード・氏名は必須です', 'error')
+            if not login_id or not password or not name or not email:
+                flash('ログインID・パスワード・氏名・メールアドレスは必須です', 'error')
                 return render_template('truck/driver_form.html', driver=None, action='new')
             existing = db.query(TruckDriver).filter_by(login_id=login_id).first()
             if existing:
                 flash('そのログインIDはすでに登録されています', 'error')
+                return render_template('truck/driver_form.html', driver=None, action='new')
+            # 従業員テーブルのlogin_id / email 重複チェック
+            existing_emp = db.query(TJugyoin).filter(
+                (TJugyoin.login_id == login_id) | (TJugyoin.email == email)
+            ).first()
+            if existing_emp:
+                flash('そのログインIDまたはメールアドレスは従業員としてすでに登録されています', 'error')
                 return render_template('truck/driver_form.html', driver=None, action='new')
             driver = TruckDriver(
                 login_id=login_id,
@@ -859,36 +868,29 @@ def driver_new():
                 tenant_id=tenant_id,
             )
             db.add(driver)
-            db.flush()  # driver.idを取得
+            db.flush()
             # 従業員テーブルに自動登録
-            emp_login_id = login_id
-            emp_email = f'{login_id}@truck.local'
-            # login_id / email 重複チェック
-            existing_emp = db.query(TJugyoin).filter(
-                (TJugyoin.login_id == emp_login_id) | (TJugyoin.email == emp_email)
-            ).first()
-            if not existing_emp:
-                employee = TJugyoin(
-                    login_id=emp_login_id,
-                    email=emp_email,
-                    name=name,
-                    phone=phone,
-                    password_hash=generate_password_hash(password),
-                    tenant_id=tenant_id,
-                    role='employee',
-                    active=1,
-                    position='ドライバー',
-                )
-                db.add(employee)
-                db.flush()  # employee.idを取得
-                # 店舗に紐付け（セッションのstore_id、なければテナントの最初の店舗）
-                store_id = session.get('store_id')
-                if not store_id and tenant_id:
-                    first_store = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).first()
-                    if first_store:
-                        store_id = first_store.id
-                if store_id:
-                    db.add(TJugyoinTenpo(employee_id=employee.id, store_id=store_id))
+            employee = TJugyoin(
+                login_id=login_id,
+                email=email,
+                name=name,
+                phone=phone,
+                password_hash=generate_password_hash(password),
+                tenant_id=tenant_id,
+                role='employee',
+                active=1,
+                position=position,
+            )
+            db.add(employee)
+            db.flush()
+            # 店舗に紐付け（セッションのstore_id、なければテナントの最初の店舗）
+            store_id = session.get('store_id')
+            if not store_id and tenant_id:
+                first_store = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).first()
+                if first_store:
+                    store_id = first_store.id
+            if store_id:
+                db.add(TJugyoinTenpo(employee_id=employee.id, store_id=store_id))
             db.commit()
             flash(f'ドライバー「{name}」を登録しました（従業員にも自動登録しました）', 'success')
             return redirect(url_for('truck.drivers'))

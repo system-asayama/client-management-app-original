@@ -3,7 +3,7 @@
 {% block content %}
 <a href="{{ url_for('truck.drivers') }}" class="back-link">← ドライバー一覧へ戻る</a>
 <div class="page-title">{% if action == 'new' %}👤 ドライバー登録{% else %}👤 ドライバー編集{% endif %}</div>
-<div class="page-subtitle">{% if action == 'new' %}新しいドライバーを登録します{% else %}ドライバー情報を編集します{% endif %}</div>
+<div class="page-subtitle">{% if action == 'new' %}新しいドライバーを登録します（従業員にも自動登録されます）{% else %}ドライバー情報を編集します{% endif %}</div>
 <div class="form-card">
   <form method="POST">
     <div class="form-field">
@@ -19,8 +19,17 @@
       <input type="text" name="name" value="{{ driver.name if driver else '' }}" placeholder="例：山田 太郎" required>
     </div>
     <div class="form-field">
+      <label>メールアドレス {% if action == 'new' %}<span class="required">*</span>{% endif %}</label>
+      <input type="email" name="email" value="{{ driver.email if driver else '' }}" placeholder="例：yamada@example.com" {% if action == 'new' %}required{% endif %}>
+      {% if action == 'new' %}<div class="form-hint">従業員登録にも使用されます</div>{% endif %}
+    </div>
+    <div class="form-field">
       <label>電話番号</label>
       <input type="text" name="phone" value="{{ driver.phone if driver else '' }}" placeholder="例：090-1234-5678">
+    </div>
+    <div class="form-field">
+      <label>役職</label>
+      <input type="text" name="position" value="{{ driver.position if driver else 'ドライバー' }}" placeholder="例：ドライバー">
     </div>
     <div class="form-field">
       <label>免許番号</label>
@@ -45,4 +54,7 @@
     </div>
   </form>
 </div>
+<style>
+.form-hint { font-size:.8rem; color:#64748b; margin-top:4px; }
+</style>
 {% endblock %}

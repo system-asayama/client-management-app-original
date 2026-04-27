@@ -1985,6 +1985,14 @@ def employees():
                             db.add(TJugyoinTenpo(employee_id=existing.id, store_id=row.store_id))
         db.commit()
 
+        # 店舗管理者のlogin_idリストを取得（従業員一覧から除外するため）
+        store_admin_login_ids = set()
+        if store_admin_ids:
+            store_admins_objs = db.query(TKanrisha).filter(
+                TKanrisha.id.in_(store_admin_ids)
+            ).all()
+            store_admin_login_ids = set(a.login_id for a in store_admins_objs)
+
         # 店舗が選択されている場合はその店舗に所属する従業員のみを表示
         if store_id:
             employee_list = db.query(TJugyoin).join(
@@ -2000,6 +2008,10 @@ def employees():
             employee_list = db.query(TJugyoin).filter(
                 TJugyoin.tenant_id == tenant_id
             ).order_by(TJugyoin.id).all()
+
+        # 店舗管理者は従業員一覧から除外
+        if store_admin_login_ids:
+            employee_list = [e for e in employee_list if e.login_id not in store_admin_login_ids]
         
         employees_data = []
         seen_ids = set()

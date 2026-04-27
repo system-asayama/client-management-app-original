@@ -6,13 +6,25 @@
 from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 from sqlalchemy import func, and_, or_, desc, asc
 from app.db import SessionLocal
 from app.models_login import TKanrisha
 from ..utils.decorators import require_roles, ROLES
 
 bp = Blueprint('breeder', __name__, url_prefix='/breeder')
+
+@bp.before_request
+def load_bg_color():
+    """全ページで背景色設定をgオブジェクトに読み込む"""
+    try:
+        from app.models_breeder import AppSetting
+        db = SessionLocal()
+        setting = db.query(AppSetting).filter(AppSetting.key == 'bg_color').first()
+        g.bg_color = setting.value if setting and setting.value else '#0f0f13'
+        db.close()
+    except Exception:
+        g.bg_color = '#0f0f13'
 
 # ─── 認証ヘルパー ────────────────────────────────────────────
 BREEDER_ROLES = (ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])

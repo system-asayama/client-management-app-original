@@ -27,6 +27,22 @@
         <label class="form-label">メールアドレス</label>
         <input type="email" name="email" class="form-control" value="{{ settings.get('email', '') }}">
       </div>
+      <!-- 背景色設定 -->
+      <div class="form-group">
+        <label class="form-label">背景色</label>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <input type="color" name="bg_color" id="bgColorPicker"
+            value="{{ settings.get('bg_color', '#0f0f13') }}"
+            style="width:48px; height:36px; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:none; padding:2px;">
+          <input type="text" id="bgColorText"
+            value="{{ settings.get('bg_color', '#0f0f13') }}"
+            class="form-control" style="width:110px; font-family:monospace;"
+            oninput="syncColor(this.value)">
+          <button type="button" class="btn btn-secondary btn-sm"
+            onclick="syncColor('#0f0f13')">リセット</button>
+        </div>
+        <p style="font-size:0.72rem; color:var(--text-dim); margin-top:0.35rem;">デフォルト: #0f0f13（ダーク）</p>
+      </div>
       <button type="submit" class="btn btn-primary mt-3">保存する</button>
     </form>
   </div>
@@ -69,4 +85,15 @@
     <a href="{{ url_for('breeder.ledger') }}" class="btn btn-secondary btn-sm">台帳データ</a>
   </div>
 </div>
+
+<script>
+function syncColor(val) {
+  document.getElementById('bgColorPicker').value = val;
+  document.getElementById('bgColorText').value = val;
+  document.querySelector('[name=bg_color]').value = val;
+}
+document.getElementById('bgColorPicker').addEventListener('input', function() {
+  document.getElementById('bgColorText').value = this.value;
+});
+</script>
 {% endblock %}

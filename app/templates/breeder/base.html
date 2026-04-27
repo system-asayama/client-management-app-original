@@ -11,7 +11,7 @@
     /* ─── CSS変数・リセット ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:          #0f0f13;
+      --bg:          {{ g.bg_color | default("#0f0f13") }};
       --bg-card:     #16161e;
       --bg-hover:    #1e1e2a;
       --border:      #2a2a38;

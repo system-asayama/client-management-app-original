@@ -186,8 +186,10 @@
                 </optgroup>
                 {% endif %}
               </select>
-              <button type="button" class="btn btn-secondary btn-xs"
-                onclick="showPreview({{ scan.id }}, {{ scan.result_json | tojson }}, '{{ scan.scan_type }}')"
+              <button type="button" class="btn btn-secondary btn-xs preview-btn"
+                data-scan-id="{{ scan.id }}"
+                data-scan-type="{{ scan.scan_type }}"
+                data-result='{{ scan.result_json | tojson | forceescape }}'
                 style="font-size:0.75rem; padding:0.2rem 0.5rem;">
                 &#x1F441; プレビュー
               </button>
@@ -228,6 +230,27 @@
 
 <script>
 var _previewScanId = null;
+
+// data属性からプレビューを起動するイベントリスナー
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.preview-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var scanId = parseInt(this.getAttribute('data-scan-id'));
+      var scanType = this.getAttribute('data-scan-type');
+      var rawData = this.getAttribute('data-result');
+      var resultJson = null;
+      try { resultJson = JSON.parse(rawData); } catch(e) { resultJson = {}; }
+      showPreview(scanId, resultJson, scanType);
+    });
+  });
+  // モーダル外クリックで閉じる
+  var modal = document.getElementById('previewModal');
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === this) closePreview();
+    });
+  }
+});
 
 function showPreview(scanId, resultJson, scanType) {
   _previewScanId = scanId;
@@ -314,14 +337,7 @@ function closePreview() {
   _previewScanId = null;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  var modal = document.getElementById('previewModal');
-  if (modal) {
-    modal.addEventListener('click', function(e) {
-      if (e.target === this) closePreview();
-    });
-  }
-});
+
 </script>
 </div>
 {% endblock %}

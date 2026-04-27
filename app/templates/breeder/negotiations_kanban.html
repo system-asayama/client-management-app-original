@@ -109,6 +109,22 @@
   background: var(--surface-2, #f8fafc);
 }
 .card-actions a:hover { background: var(--border); }
+@media (max-width: 768px) {
+  .kanban-board {
+    flex-direction: column;
+    overflow-x: hidden;
+    min-height: unset;
+  }
+  .kanban-col {
+    min-width: unset;
+    max-width: 100%;
+    width: 100%;
+    flex-shrink: 1;
+  }
+  .kanban-cards {
+    overflow-y: visible;
+  }
+}
 </style>
 
 <div class="kanban-board" id="kanbanBoard">

@@ -1211,6 +1211,70 @@ def select_store_from_mypage():
     return redirect(url_for('admin.dashboard'))
 
 
+@bp.route('/mypage/api_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def api_settings():
+    """APIキー設定ページ"""
+    store_id = session.get('store_id')
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
+                if store_id:
+                    store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+                    if store_obj:
+                        store_obj.openai_api_key = openai_api_key
+                        if hasattr(store_obj, 'google_vision_api_key'):
+                            store_obj.google_vision_api_key = google_vision_api_key
+                        if hasattr(store_obj, 'google_api_key'):
+                            store_obj.google_api_key = google_api_key
+                        if hasattr(store_obj, 'anthropic_api_key'):
+                            store_obj.anthropic_api_key = anthropic_api_key
+                        if hasattr(store_obj, 'azure_document_intelligence_endpoint'):
+                            store_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                        if hasattr(store_obj, 'azure_document_intelligence_key'):
+                            store_obj.azure_document_intelligence_key = azure_document_intelligence_key
+                        db.commit()
+                        flash('APIキー設定を更新しました', 'success')
+                    else:
+                        flash('店舗情報が見つかりません。まず店舗を選択してください', 'error')
+                else:
+                    flash('店舗が選択されていません。まず店舗を選択してください', 'error')
+                return redirect(url_for('admin.api_settings'))
+        # GET: APIキーを取得して表示
+        store_api = {
+            'openai_api_key': '',
+            'google_vision_api_key': '',
+            'google_api_key': '',
+            'anthropic_api_key': '',
+            'azure_document_intelligence_endpoint': '',
+            'azure_document_intelligence_key': '',
+        }
+        store_name = None
+        if store_id:
+            store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+            if store_obj:
+                store_name = store_obj.名称
+                store_api = {
+                    'openai_api_key': getattr(store_obj, 'openai_api_key', None) or '',
+                    'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None) or '',
+                    'google_api_key': getattr(store_obj, 'google_api_key', None) or '',
+                    'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None) or '',
+                    'azure_document_intelligence_endpoint': getattr(store_obj, 'azure_document_intelligence_endpoint', None) or '',
+                    'azure_document_intelligence_key': getattr(store_obj, 'azure_document_intelligence_key', None) or '',
+                }
+        return render_template('admin_api_settings.html', store_id=store_id, store_name=store_name, store_api=store_api)
+    finally:
+        db.close()
+
+
 @bp.route('/admins/<int:admin_id>/edit', methods=['GET', 'POST'])
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def admin_edit(admin_id):

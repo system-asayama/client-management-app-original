@@ -186,7 +186,7 @@
 
 <!-- 設定ナビゲーション -->
 <div class="settings-nav">
-  <a href="#profile-section" class="settings-nav-btn">
+  <a href="{{ url_for('employee.mypage_profile') }}" class="settings-nav-btn">
     <div class="nav-icon">👤</div>
     <div class="nav-text">
       <div class="nav-title">プロフィール設定</div>
@@ -195,63 +195,7 @@
   </a>
 </div>
 
-<!-- プロフィール編集フォーム -->
-<div class="section-card" id="profile-section">
-  <p class="section-title">プロフィール編集</p>
-  <form method="POST">
-    <input type="hidden" name="action" value="update_profile">
-    <div style="display:flex;flex-direction:column;gap:1rem;">
-      <div>
-        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">ログインID <span style="color:#ef4444">*</span></label>
-        <input type="text" name="login_id" value="{{ user.login_id }}" required
-          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
-      </div>
-      <div>
-        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">氏名 <span style="color:#ef4444">*</span></label>
-        <input type="text" name="name" value="{{ user.name }}" required
-          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
-      </div>
-      <div>
-        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">メールアドレス</label>
-        <input type="email" name="email" value="{{ user.email or '' }}"
-          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
-      </div>
-      <button type="submit"
-        style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;border:none;padding:0.7rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;align-self:flex-start;">
-        プロフィールを更新
-      </button>
-    </div>
-  </form>
-</div>
 
-<!-- パスワード変更フォーム -->
-<div class="section-card">
-  <p class="section-title">パスワード変更</p>
-  <form method="POST">
-    <input type="hidden" name="action" value="change_password">
-    <div style="display:flex;flex-direction:column;gap:1rem;">
-      <div>
-        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">現在のパスワード <span style="color:#ef4444">*</span></label>
-        <input type="password" name="current_password" required
-          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
-      </div>
-      <div>
-        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">新しいパスワード <span style="color:#ef4444">*</span></label>
-        <input type="password" name="new_password" required minlength="8"
-          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
-      </div>
-      <div>
-        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">新しいパスワード（確認） <span style="color:#ef4444">*</span></label>
-        <input type="password" name="confirm_password" required minlength="8"
-          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
-      </div>
-      <button type="submit"
-        style="background:#fff;color:#1a3a5c;border:1.5px solid #2563a8;padding:0.7rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;align-self:flex-start;">
-        パスワードを変更
-      </button>
-    </div>
-  </form>
-</div>
 
 {% if store_list and store_list | length > 1 %}
 <!-- 店舗選択（複数店舗所属の場合のみ表示） -->

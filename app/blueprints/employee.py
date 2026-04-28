@@ -193,3 +193,70 @@ def profile():
         return render_template('employee_profile.html', user=user, tenant_name=tenant_name, stores=stores)
     finally:
         db.close()
+
+
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def mypage_profile():
+    """従業員プロフィール設定ページ"""
+    from sqlalchemy import func as sqlfunc
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        employee = db.query(TJugyoin).filter(TJugyoin.id == user_id).first()
+        if not employee:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('employee.mypage'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip() or None
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                else:
+                    # ログインID重複チェック（自分以外）
+                    from sqlalchemy import and_
+                    existing = db.query(TJugyoin).filter(
+                        and_(TJugyoin.login_id == login_id, TJugyoin.id != user_id)
+                    ).first()
+                    if existing:
+                        flash('このログインIDは既に使用されています', 'error')
+                    else:
+                        employee.login_id = login_id
+                        employee.name = name
+                        employee.email = email
+                        if hasattr(employee, 'updated_at'):
+                            employee.updated_at = sqlfunc.now()
+                        db.commit()
+                        flash('プロフィール情報を更新しました', 'success')
+                        return redirect(url_for('employee.mypage_profile'))
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if new_password != new_password_confirm:
+                    flash('パスワードが一致しません', 'error')
+                elif not employee.password_hash or not check_password_hash(employee.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                elif len(new_password) < 8:
+                    flash('パスワードは8文字以上にしてください', 'error')
+                else:
+                    employee.password_hash = generate_password_hash(new_password)
+                    if hasattr(employee, 'updated_at'):
+                        employee.updated_at = sqlfunc.now()
+                    db.commit()
+                    flash('パスワードを変更しました', 'success')
+                    return redirect(url_for('employee.mypage_profile'))
+
+        user = {
+            'id': employee.id,
+            'login_id': employee.login_id,
+            'name': employee.name,
+            'email': getattr(employee, 'email', None),
+        }
+        return render_template('employee_mypage_profile.html', user=user)
+    finally:
+        db.close()

@@ -51,6 +51,9 @@
       <form method="POST" action="{{ url_for('truck.driver_delete', driver_id=driver.id) }}" style="display:inline;" onsubmit="return confirm('このドライバーを無効化しますか？')">
         <button type="submit" class="btn btn-danger btn-sm">無効化</button>
       </form>
+      <form method="POST" action="{{ url_for('truck.driver_destroy', driver_id=driver.id) }}" style="display:inline;" onsubmit="return confirm('「{{ driver.name }}」を完全に削除します。この操作は元に戻せません。本当に削除しますか？')">
+        <button type="submit" class="btn btn-sm" style="background:#7f1d1d;color:#fff;border:none;">削除</button>
+      </form>
     </div>
   </div>
   {% endfor %}

@@ -944,6 +944,22 @@ def driver_delete(driver_id):
         db.close()
 
 
+@bp.route('/drivers/<int:driver_id>/destroy', methods=['POST'])
+@login_required_truck
+def driver_destroy(driver_id):
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        if driver:
+            name = driver.name
+            db.delete(driver)
+            db.commit()
+            flash(f'ドライバー「{name}」を削除しました', 'success')
+        return redirect(url_for('truck.drivers'))
+    finally:
+        db.close()
+
+
 @bp.route('/drivers/from_employee', methods=['GET', 'POST'])
 @login_required_truck
 def driver_from_employee():

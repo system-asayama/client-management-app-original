@@ -71,14 +71,33 @@ AVAILABLE_APPS = [
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def dashboard():
     """管理者ダッシュボード"""
-    # 店舗で有効なアプリを取得
     store_id = session.get('store_id')
     tenant_id = session.get('tenant_id')
+    user_id = session.get('user_id')
+    role = session.get('role', '')
     enabled_apps = []
-    
+
     tenant = None
     store = None
-    
+
+    # 店舗管理者（admin）で店舗未選択の場合、所属店舗を自動選択
+    if not store_id and role == ROLES["ADMIN"] and user_id and tenant_id:
+        db_auto = SessionLocal()
+        try:
+            store_rels = db_auto.query(TKanrishaTenpo).filter(
+                TKanrishaTenpo.admin_id == user_id
+            ).all()
+            store_ids = [r.store_id for r in store_rels]
+            if len(store_ids) == 1:
+                # 所属店舗が1件のみ → 自動選択
+                session['store_id'] = store_ids[0]
+                store_id = store_ids[0]
+            elif len(store_ids) > 1:
+                # 複数店舗 → 選択画面へリダイレクト
+                return redirect(url_for('admin.mypage_select_store'))
+        finally:
+            db_auto.close()
+
     if store_id:
         db = SessionLocal()
         
@@ -105,7 +124,6 @@ def dashboard():
             db.close()
     
     # ロール別マイページURL・ラベル
-    role = session.get('role', '')
     if role == 'system_admin':
         mypage_url = url_for('system_admin.mypage')
         mypage_label = 'システム管理者マイページ'

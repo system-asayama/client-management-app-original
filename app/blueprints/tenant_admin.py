@@ -3451,6 +3451,118 @@ def employee_delete(employee_id):
         db.close()
 
 
+
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_profile():
+    """テナント管理者プロフィール設定ページ"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        user_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not user_obj:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('tenant_admin.mypage'))
+        user = {
+            'id': user_obj.id,
+            'login_id': user_obj.login_id,
+            'name': user_obj.name,
+            'email': user_obj.email or '',
+        }
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip()
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                existing = db.query(TKanrisha).filter(
+                    and_(TKanrisha.login_id == login_id, TKanrisha.id != user_id)
+                ).first()
+                if existing:
+                    flash('このログインIDは既に使用されています', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                user_obj.login_id = login_id
+                user_obj.name = name
+                user_obj.email = email
+                if hasattr(user_obj, 'updated_at'):
+                    user_obj.updated_at = func.now()
+                db.commit()
+                session['login_id'] = login_id
+                session['user_name'] = name
+                flash('プロフィール情報を更新しました', 'success')
+                return redirect(url_for('tenant_admin.mypage_profile'))
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if not current_password or not new_password or not new_password_confirm:
+                    flash('全ての項目を入力してください', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                if new_password != new_password_confirm:
+                    flash('新しいパスワードが一致しません', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                if len(new_password) < 8:
+                    flash('パスワードは8文字以上で入力してください', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                if not check_password_hash(user_obj.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                user_obj.password_hash = generate_password_hash(new_password)
+                if hasattr(user_obj, 'updated_at'):
+                    user_obj.updated_at = func.now()
+                db.commit()
+                flash('パスワードを変更しました', 'success')
+                return redirect(url_for('tenant_admin.mypage_profile'))
+        return render_template('tenant_mypage_profile.html', user=user)
+    finally:
+        db.close()
+
+@bp.route('/mypage/select_tenant', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_select_tenant():
+    """テナント選択ページ（GET）"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        tenant_objs = db.query(TTenant).join(
+            TKanrisha, TKanrisha.tenant_id == TTenant.id
+        ).filter(
+            TKanrisha.id == user_id
+        ).distinct().order_by(TTenant.名称).all()
+        tenant_list = [{'id': t.id, 'name': t.名称} for t in tenant_objs]
+        return render_template('tenant_mypage_select_tenant.html', tenant_list=tenant_list)
+    finally:
+        db.close()
+
+@bp.route('/mypage/select_store', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_select_store():
+    """店舗選択ページ（GET）"""
+    user_id = session.get('user_id')
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        if tenant_id:
+            store_objs = db.query(TTenpo).filter(
+                TTenpo.tenant_id == tenant_id
+            ).order_by(TTenpo.名称).all()
+        else:
+            # テナント未選択の場合は管理者が所属するテナントの全店舗
+            tenant_objs = db.query(TTenant).join(
+                TKanrisha, TKanrisha.tenant_id == TTenant.id
+            ).filter(TKanrisha.id == user_id).distinct().all()
+            tenant_ids = [t.id for t in tenant_objs]
+            store_objs = db.query(TTenpo).filter(
+                TTenpo.tenant_id.in_(tenant_ids)
+            ).order_by(TTenpo.名称).all() if tenant_ids else []
+        store_list = [{'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id} for s in store_objs]
+        return render_template('tenant_mypage_select_store.html', store_list=store_list)
+    finally:
+        db.close()
+
 @bp.route('/mypage/select_tenant', methods=['POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def select_tenant_from_mypage():

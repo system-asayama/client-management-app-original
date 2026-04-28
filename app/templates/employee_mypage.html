@@ -185,6 +185,13 @@
 
 <!-- 設定ナビゲーション -->
 <div class="settings-nav">
+  <a href="{{ url_for('employee.dashboard') }}" class="settings-nav-btn" style="border-color:#2563a8;">
+    <div class="nav-icon">📱</div>
+    <div class="nav-text">
+      <div class="nav-title">ダッシュボード</div>
+      <div class="nav-desc">利用可能なアプリ一覧を確認</div>
+    </div>
+  </a>
   <a href="{{ url_for('employee.mypage_profile') }}" class="settings-nav-btn">
     <div class="nav-icon">👤</div>
     <div class="nav-text">

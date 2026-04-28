@@ -140,7 +140,6 @@
     <h1>従業員マイページ</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('employee.dashboard') }}">ダッシュボード</a>
     <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
@@ -205,30 +204,5 @@
 </div>
 
 
-
-<!-- 店舗選択 -->
-<div class="section-card">
-  <p class="section-title">アクセス先を選択</p>
-  {% if store_list %}
-  <div style="display:flex;flex-direction:column;gap:0.75rem">
-    {% for store in store_list %}
-    <form method="POST" style="margin:0;">
-      <input type="hidden" name="action" value="select_store">
-      <input type="hidden" name="store_id" value="{{ store.id }}">
-      <button type="submit" class="access-nav-btn">
-        <span class="access-nav-icon">🏪</span>
-        <div class="access-nav-text">
-          <div class="access-nav-title">{{ store.name }}</div>
-          <div class="access-nav-desc">店舗を選択してダッシュボードへ</div>
-        </div>
-        <span class="access-nav-arrow">›</span>
-      </button>
-    </form>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p style="color:#6b7280;font-size:0.9rem;margin:0;">所属店舗がありません。テナント管理者にお問い合わせください。</p>
-  {% endif %}
-</div>
 
 {% endblock %}

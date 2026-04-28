@@ -2713,7 +2713,7 @@ def finance_invoice_new():
                 ops = db.query(TruckOperation).filter(
                     TruckOperation.operation_date >= period_from,
                     TruckOperation.operation_date <= period_to,
-                    TruckOperation.status == 'done',
+                    TruckOperation.status == 'finished',
                 ).order_by(TruckOperation.operation_date).all()
                 if client_id:
                     ops = [o for o in ops if o.route and o.route.client_id == client_id]

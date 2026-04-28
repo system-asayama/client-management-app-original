@@ -120,7 +120,7 @@
     <h1>📱 利用可能アプリ一覧</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ mypage_url }}">👤 マイページ</a>
+    <a href="{{ url_for('employee.mypage') }}">👤 マイページ</a>
     <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
@@ -184,7 +184,7 @@
 {% endif %}
 
 <div class="footer-actions">
-  <a class="btn-secondary" href="{{ mypage_url }}">👤 マイページ</a>
+  <a class="btn-secondary" href="{{ url_for('employee.mypage') }}">👤 マイページ</a>
   <a class="btn-danger-outline" href="{{ url_for('auth.logout') }}">ログアウト</a>
 </div>
 

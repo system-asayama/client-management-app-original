@@ -18,8 +18,61 @@ bp = Blueprint('employee', __name__, url_prefix='/employee')
 @bp.route('/dashboard')
 @require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dashboard():
-    """従業員ダッシュボード → マイページにリダイレクト"""
-    return redirect(url_for('employee.mypage'))
+    """従業員ダッシュボード（利用可能アプリ一覧）"""
+    from app.blueprints.tenant_admin import AVAILABLE_APPS as TENANT_AVAILABLE_APPS
+    tenant_id = session.get('tenant_id')
+    store_id = session.get('store_id')
+    user_name = session.get('user_name', '')
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
+        store = db.query(TTenpo).filter(TTenpo.id == store_id).first() if store_id else None
+
+        # テナントへの配布設定を取得
+        if tenant_id:
+            tenant_app_settings = db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant_id,
+                TTenantAppSetting.enabled == 1
+            ).all()
+            distributed_app_ids = {s.app_id for s in tenant_app_settings}
+        else:
+            distributed_app_ids = set()
+
+        has_distribution = len(distributed_app_ids) > 0
+
+        # 店舗別URLマッピング
+        STORE_URLS = {
+            'client-management-tenant': lambda sid: f'/store/{sid}/dashboard',
+            'survey':                   lambda sid: f'/apps/survey/store/{sid}/',
+            'stampcard':                lambda sid: f'/apps/stampcard/store/{sid}/settings',
+            'reservation':              lambda sid: f'/apps/reservation/store/{sid}/settings',
+            'breeder-management':       lambda sid: '/breeder/dashboard',
+            'voucher-digitization':     lambda sid: f'/voucher?store_id={sid}',
+            'homepage-builder':         lambda sid: '/homepage',
+            'e-contract':               lambda sid: '/e-contract',
+            'real-estate':              lambda sid: '/apps/property',
+            'company-incorporation':    lambda sid: '/apps/teikan',
+            'truck-operation':          lambda sid: f'/truck/store/{sid}/',
+        }
+
+        enabled_apps = []
+        for app in TENANT_AVAILABLE_APPS:
+            if has_distribution and app['name'] not in distributed_app_ids:
+                continue
+            app_copy = dict(app)
+            if store_id and app_copy['name'] in STORE_URLS:
+                app_copy['url'] = STORE_URLS[app_copy['name']](store_id)
+            enabled_apps.append(app_copy)
+    finally:
+        db.close()
+
+    return render_template(
+        'employee_dashboard.html',
+        apps=enabled_apps,
+        tenant=tenant,
+        store=store,
+        user_name=user_name,
+    )
 
 
 @bp.route('/driver_mypage')

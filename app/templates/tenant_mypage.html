@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block head %}
+{% block title %}テナント管理者マイページ{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
 <style>
   .page-header {
     background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
@@ -31,11 +33,12 @@
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 14px;
-    padding: 1.5rem;
-    margin-bottom: 1.25rem;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
     gap: 1.25rem;
+    flex-wrap: wrap;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
   .profile-avatar {
@@ -73,6 +76,7 @@
     margin-bottom: 1.5rem;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
+  /* 設定ナビゲーションボタン */
   .settings-nav {
     display: grid;
     grid-template-columns: 1fr;
@@ -96,9 +100,52 @@
     box-shadow: 0 4px 12px rgba(37,99,168,0.12);
     transform: translateY(-1px);
   }
-  .settings-nav-btn .nav-icon { font-size: 1.75rem; flex-shrink: 0; }
-  .settings-nav-btn .nav-text .nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.2rem; }
-  .settings-nav-btn .nav-text .nav-desc { font-size: 0.8rem; color: #6b7280; }
+  .settings-nav-btn .nav-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+  }
+  .settings-nav-btn .nav-text .nav-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 0.2rem;
+  }
+  .settings-nav-btn .nav-text .nav-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+  .btn-action {
+    background: #f9fafb; color: #374151; border: 1px solid #e5e7eb;
+    padding: 0.55rem 1.25rem; border-radius: 8px;
+    text-decoration: none; font-size: 0.875rem; font-weight: 500;
+    transition: all 0.15s; cursor: pointer; display: inline-block;
+  }
+  .btn-action:hover { background: #f3f4f6; border-color: #d1d5db; }
+  .btn-action.primary { background: #2563a8; color: #fff; border-color: #2563a8; }
+  .btn-action.primary:hover { background: #1d4ed8; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.4rem; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 0.55rem 0.75rem;
+    border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.9rem; color: #1f2937;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none; border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .access-section {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .access-section h3 { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.5rem; }
+  .access-section p { font-size: 0.85rem; color: #6b7280; margin: 0 0 1rem; }
+  /* アクセス先選択ボタン（横並びリスト形式） */
   .access-nav-btn {
     display: flex;
     align-items: center;
@@ -116,11 +163,35 @@
     background: #eff6ff;
     box-shadow: 0 2px 8px rgba(37,99,168,0.1);
   }
-  .access-nav-icon { font-size: 1.75rem; flex-shrink: 0; width: 2.25rem; text-align: center; }
-  .access-nav-text { flex: 1; min-width: 0; }
-  .access-nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; }
-  .access-nav-desc { font-size: 0.8rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .access-nav-arrow { color: #9ca3af; font-size: 1.25rem; flex-shrink: 0; margin-left: 0.25rem; }
+  .access-nav-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+    width: 2.25rem;
+    text-align: center;
+  }
+  .access-nav-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .access-nav-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 0.15rem;
+  }
+  .access-nav-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .access-nav-arrow {
+    color: #9ca3af;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    margin-left: 0.25rem;
+  }
   @media (max-width: 640px) {
     .page-header { padding: 1.5rem 1.25rem 1.25rem; }
     .page-header h1 { font-size: 1.4rem; }
@@ -129,9 +200,7 @@
     .access-nav-desc { white-space: normal; }
   }
 </style>
-{% endblock %}
-{% block title %}テナント管理者マイページ{% endblock %}
-{% block content %}
+
 <div class="page-header">
   <div>
     <div class="page-subtitle">TENANT ADMIN</div>
@@ -142,6 +211,7 @@
     <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
+
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
     {% for category, message in messages %}
@@ -222,4 +292,5 @@
     </a>
   </div>
 </div>
+
 {% endblock %}

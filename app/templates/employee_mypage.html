@@ -193,14 +193,23 @@
       <div class="nav-desc">名前・ログインID・メール・パスワード変更</div>
     </div>
   </a>
+  {% if is_driver %}
+  <a href="{{ url_for('employee.driver_mypage') }}" class="settings-nav-btn" style="border-color:#1a3a5c;">
+    <div class="nav-icon">🚛</div>
+    <div class="nav-text">
+      <div class="nav-title">ドライバーマイページ</div>
+      <div class="nav-desc">運行管理・今日の運行状況を確認</div>
+    </div>
+  </a>
+  {% endif %}
 </div>
 
 
 
-{% if store_list and store_list | length > 1 %}
-<!-- 店舗選択（複数店舗所属の場合のみ表示） -->
+<!-- 店舗選択 -->
 <div class="section-card">
   <p class="section-title">アクセス先を選択</p>
+  {% if store_list %}
   <div style="display:flex;flex-direction:column;gap:0.75rem">
     {% for store in store_list %}
     <form method="POST" style="margin:0;">
@@ -210,14 +219,16 @@
         <span class="access-nav-icon">🏪</span>
         <div class="access-nav-text">
           <div class="access-nav-title">{{ store.name }}</div>
-          <div class="access-nav-desc">この店舗のダッシュボードへ</div>
+          <div class="access-nav-desc">店舗を選択してダッシュボードへ</div>
         </div>
         <span class="access-nav-arrow">›</span>
       </button>
     </form>
     {% endfor %}
   </div>
+  {% else %}
+  <p style="color:#6b7280;font-size:0.9rem;margin:0;">所属店舗がありません。テナント管理者にお問い合わせください。</p>
+  {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}

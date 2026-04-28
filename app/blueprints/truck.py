@@ -2753,7 +2753,7 @@ def finance_invoice_new():
                     items.append(item)
 
             # 合計計算
-            subtotal = sum(it.amount for it in items)
+            subtotal = sum(int(it.amount) for it in items)
             tax_amount = int(subtotal * tax_rate)
             invoice.subtotal = subtotal
             invoice.tax_amount = tax_amount

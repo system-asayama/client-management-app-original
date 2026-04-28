@@ -403,52 +403,8 @@ def mypage():
                 flash('パスワードを変更しました', 'success')
                 return redirect(url_for('tenant_admin.mypage'))
             
-            elif action == 'update_api_keys':
-                # APIキー更新（テナント単位）
-                openai_api_key = request.form.get('openai_api_key', '').strip() or None
-                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
-                google_api_key = request.form.get('google_api_key', '').strip() or None
-                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
-                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
-                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
-                
-                if tenant_id:
-                    tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-                    if tenant_obj:
-                        tenant_obj.openai_api_key = openai_api_key
-                        if hasattr(tenant_obj, 'google_vision_api_key'):
-                            tenant_obj.google_vision_api_key = google_vision_api_key
-                        if hasattr(tenant_obj, 'google_api_key'):
-                            tenant_obj.google_api_key = google_api_key
-                        if hasattr(tenant_obj, 'anthropic_api_key'):
-                            tenant_obj.anthropic_api_key = anthropic_api_key
-                        if hasattr(tenant_obj, 'azure_document_intelligence_endpoint'):
-                            tenant_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
-                        if hasattr(tenant_obj, 'azure_document_intelligence_key'):
-                            tenant_obj.azure_document_intelligence_key = azure_document_intelligence_key
-                        db.commit()
-                        flash('APIキー設定を更新しました', 'success')
-                    else:
-                        flash('テナント情報が見つかりません。まずテナントを選択してください', 'error')
-                else:
-                    flash('テナントが選択されていません。まずテナントを選択してください', 'error')
-                return redirect(url_for('tenant_admin.mypage'))
         
-        # テナントのAPIキーを取得
-        tenant_api = None
-        if tenant_id:
-            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-            if tenant_obj:
-                tenant_api = {
-                    'openai_api_key': getattr(tenant_obj, 'openai_api_key', None) or '',
-                    'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
-                    'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
-                    'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
-                    'azure_document_intelligence_endpoint': getattr(tenant_obj, 'azure_document_intelligence_endpoint', None) or '',
-                    'azure_document_intelligence_key': getattr(tenant_obj, 'azure_document_intelligence_key', None) or '',
-                }
-        
-        return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list, tenant_api=tenant_api)
+        return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list)
     finally:
         db.close()
 
@@ -3451,6 +3407,67 @@ def employee_delete(employee_id):
         db.close()
 
 
+
+@bp.route('/mypage/api_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def api_settings():
+    """APIキー設定ページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
+                if tenant_id:
+                    tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+                    if tenant_obj:
+                        tenant_obj.openai_api_key = openai_api_key
+                        if hasattr(tenant_obj, 'google_vision_api_key'):
+                            tenant_obj.google_vision_api_key = google_vision_api_key
+                        if hasattr(tenant_obj, 'google_api_key'):
+                            tenant_obj.google_api_key = google_api_key
+                        if hasattr(tenant_obj, 'anthropic_api_key'):
+                            tenant_obj.anthropic_api_key = anthropic_api_key
+                        if hasattr(tenant_obj, 'azure_document_intelligence_endpoint'):
+                            tenant_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                        if hasattr(tenant_obj, 'azure_document_intelligence_key'):
+                            tenant_obj.azure_document_intelligence_key = azure_document_intelligence_key
+                        db.commit()
+                        flash('APIキー設定を更新しました', 'success')
+                    else:
+                        flash('テナント情報が見つかりません', 'error')
+                else:
+                    flash('テナントが選択されていません', 'error')
+                return redirect(url_for('tenant_admin.api_settings'))
+        # GET: APIキーを取得して表示
+        tenant_api = {
+            'openai_api_key': '',
+            'google_vision_api_key': '',
+            'google_api_key': '',
+            'anthropic_api_key': '',
+            'azure_document_intelligence_endpoint': '',
+            'azure_document_intelligence_key': '',
+        }
+        if tenant_id:
+            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+            if tenant_obj:
+                tenant_api = {
+                    'openai_api_key': getattr(tenant_obj, 'openai_api_key', None) or '',
+                    'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
+                    'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
+                    'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
+                    'azure_document_intelligence_endpoint': getattr(tenant_obj, 'azure_document_intelligence_endpoint', None) or '',
+                    'azure_document_intelligence_key': getattr(tenant_obj, 'azure_document_intelligence_key', None) or '',
+                }
+        return render_template('tenant_api_settings.html', tenant_id=tenant_id, tenant_api=tenant_api)
+    finally:
+        db.close()
 
 @bp.route('/mypage/profile', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])

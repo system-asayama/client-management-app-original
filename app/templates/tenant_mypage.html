@@ -4,99 +4,101 @@
   .page-header {
     background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
     color: #fff;
-    padding: 2rem 2rem 1.75rem;
-    margin: -1.5rem -1.5rem 2rem;
-    border-radius: 0;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
-  .page-header h1 { margin: 0; font-size: 1.6rem; font-weight: 700; }
-  .page-subtitle { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; opacity: 0.7; text-transform: uppercase; margin-bottom: 0.35rem; }
-  .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
-  .header-actions a {
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
     background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
     color: #fff;
-    padding: 0.4rem 1rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
     text-decoration: none;
+    font-size: 0.875rem;
     transition: background 0.15s;
   }
-  .header-actions a:hover { background: rgba(255,255,255,0.25); }
-  /* プロフィールカード */
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
   .profile-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
     display: flex;
     align-items: center;
     gap: 1.25rem;
-    background: #fff;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
   .profile-avatar {
-    width: 3.5rem;
-    height: 3.5rem;
+    width: 56px; height: 56px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #2563a8, #1a3a5c);
+    background: linear-gradient(135deg, #1a3a5c, #2563a8);
     color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    font-weight: 700;
-    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700; flex-shrink: 0;
   }
-  .profile-info h2 { margin: 0 0 0.3rem; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .profile-info p { margin: 0; font-size: 0.85rem; color: #6b7280; }
-  .badge { padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.72rem; font-weight: 700; }
-  .badge-role { background: #dbeafe; color: #1d4ed8; }
-  .badge-owner { background: #fef3c7; color: #92400e; }
-  /* info-grid */
+  .profile-info h2 { font-size: 1.2rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.25rem; }
+  .profile-info p { font-size: 0.85rem; color: #6b7280; margin: 0; }
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
+  .badge-owner { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-role  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
   .info-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 0.75rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
   }
-  .info-item {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
+  .info-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.75rem 1rem; }
+  .info-item .info-label { font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem; }
+  .info-item .info-value { font-size: 0.95rem; font-weight: 600; color: #1a3a5c; word-break: break-all; }
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 0 0 1rem;
   }
-  .info-label { font-size: 0.75rem; color: #6b7280; font-weight: 600; margin-bottom: 0.25rem; }
-  .info-value { font-size: 0.95rem; color: #111827; font-weight: 500; }
-  /* セクションカード */
   .section-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .settings-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .settings-nav-btn {
     background: #fff;
     border: 1.5px solid #e5e7eb;
     border-radius: 14px;
     padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  }
-  .section-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; color: #9ca3af; text-transform: uppercase; margin: 0 0 0.85rem; }
-  /* 設定ナビ */
-  .settings-nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
-  .settings-nav-btn {
+    text-decoration: none;
     display: flex;
     align-items: center;
-    gap: 0.85rem;
-    background: #f9fafb;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    text-decoration: none;
-    color: inherit;
+    gap: 1rem;
     transition: all 0.15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
-  .settings-nav-btn:hover { border-color: #2563a8; background: #eff6ff; box-shadow: 0 2px 8px rgba(37,99,168,0.1); }
-  .settings-nav-btn .nav-icon { font-size: 1.5rem; flex-shrink: 0; }
-  .settings-nav-btn .nav-text .nav-title { font-size: 0.95rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.1rem; }
+  .settings-nav-btn:hover {
+    border-color: #2563a8;
+    box-shadow: 0 4px 12px rgba(37,99,168,0.12);
+    transform: translateY(-1px);
+  }
+  .settings-nav-btn .nav-icon { font-size: 1.75rem; flex-shrink: 0; }
+  .settings-nav-btn .nav-text .nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.2rem; }
   .settings-nav-btn .nav-text .nav-desc { font-size: 0.8rem; color: #6b7280; }
-  /* アクセス先選択ボタン */
   .access-nav-btn {
     display: flex;
     align-items: center;
@@ -109,7 +111,11 @@
     color: inherit;
     transition: all 0.15s;
   }
-  .access-nav-btn:hover { border-color: #2563a8; background: #eff6ff; box-shadow: 0 2px 8px rgba(37,99,168,0.1); }
+  .access-nav-btn:hover {
+    border-color: #2563a8;
+    background: #eff6ff;
+    box-shadow: 0 2px 8px rgba(37,99,168,0.1);
+  }
   .access-nav-icon { font-size: 1.75rem; flex-shrink: 0; width: 2.25rem; text-align: center; }
   .access-nav-text { flex: 1; min-width: 0; }
   .access-nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; }
@@ -136,7 +142,6 @@
     <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
-
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
     {% for category, message in messages %}
@@ -153,7 +158,7 @@
       {{ user.name }}
       <span class="badge badge-role">テナント管理者</span>
     </h2>
-    <p>{{ user.login_id }} ／ {{ user.email or 'メール未設定' }}{% if tenant_name and tenant_name != '未選択' %} ／ {{ tenant_name }}{% endif %}</p>
+    <p>{{ user.login_id }} ／ {{ user.email or 'メール未設定' }}</p>
   </div>
 </div>
 
@@ -167,12 +172,12 @@
     <div class="info-value">{{ user.login_id }}</div>
   </div>
   <div class="info-item">
-    <div class="info-label">テナント名</div>
-    <div class="info-value">{{ tenant_name or '未選択' }}</div>
+    <div class="info-label">現在のテナント</div>
+    <div class="info-value">{{ tenant_name }}</div>
   </div>
   <div class="info-item">
-    <div class="info-label">管理者管理権限</div>
-    <div class="info-value" style="color:{{ '#059669' if user.can_manage_admins else '#9ca3af' }}">{{ 'あり' if user.can_manage_admins else 'なし' }}</div>
+    <div class="info-label">管理テナント数</div>
+    <div class="info-value">{{ tenant_list | length }}</div>
   </div>
   <div class="info-item">
     <div class="info-label">作成日時</div>
@@ -199,26 +204,18 @@
 <div class="section-card">
   <p class="section-title">アクセス先を選択</p>
   <div style="display:flex; flex-direction:column; gap:0.75rem">
-    <a href="{{ url_for('tenant_admin.dashboard') }}" class="access-nav-btn">
-      <span class="access-nav-icon">🖥️</span>
-      <div class="access-nav-text">
-        <div class="access-nav-title">テナント管理者ダッシュボード</div>
-        <div class="access-nav-desc">店舗・従業員・設定管理</div>
-      </div>
-      <span class="access-nav-arrow">›</span>
-    </a>
     <a href="{{ url_for('tenant_admin.mypage_select_tenant') }}" class="access-nav-btn">
       <span class="access-nav-icon">🏬</span>
       <div class="access-nav-text">
-        <div class="access-nav-title">テナントを切り替え</div>
-        <div class="access-nav-desc">管理するテナントを選択して切り替え</div>
+        <div class="access-nav-title">テナント</div>
+        <div class="access-nav-desc">テナントを選択してテナント管理者ダッシュボードへ</div>
       </div>
       <span class="access-nav-arrow">›</span>
     </a>
     <a href="{{ url_for('tenant_admin.mypage_select_store') }}" class="access-nav-btn">
       <span class="access-nav-icon">🏪</span>
       <div class="access-nav-text">
-        <div class="access-nav-title">店舗管理者として操作</div>
+        <div class="access-nav-title">店舗</div>
         <div class="access-nav-desc">店舗を選択して店舗管理者ダッシュボードへ</div>
       </div>
       <span class="access-nav-arrow">›</span>

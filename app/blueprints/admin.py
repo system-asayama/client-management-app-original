@@ -1184,11 +1184,15 @@ def mypage_select_store():
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        tenant_list = db.query(TTenant).order_by(TTenant.名称).all()
-        store_list = db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.名称).all()
-        stores_data = [{'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id} for s in store_list]
-        tenants_data = [{"id": t.id, "name": t.名称} for t in tenant_list]
-        return render_template('admin_mypage_select_store.html', store_list=stores_data, tenant_list=tenants_data)
+        # 店舗管理者は所属店舗のみ表示（テナント選択は不要）
+        store_rels = db.query(TTenpo, TKanrishaTenpo).join(
+            TKanrishaTenpo, TKanrishaTenpo.store_id == TTenpo.id
+        ).filter(
+            TKanrishaTenpo.admin_id == user_id,
+            TTenpo.有効 == 1
+        ).order_by(TTenpo.名称).all()
+        stores_data = [{'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id} for s, rel in store_rels]
+        return render_template('admin_mypage_select_store.html', store_list=stores_data)
     finally:
         db.close()
 

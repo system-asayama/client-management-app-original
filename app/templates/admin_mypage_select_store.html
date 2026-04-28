@@ -86,87 +86,41 @@
 {% endwith %}
 
 <div class="form-card">
-  <p class="section-title">🏪 店舗を選択してダッシュボードへ</p>
+  <p class="section-title">🏦 店舗を選択してダッシュボードへ</p>
+  {% if store_list %}
   <form method="POST" action="{{ url_for('admin.select_store_from_mypage') }}">
     <div class="form-group">
-      <label for="store_tenant_search">テナントを検索</label>
-      <input type="text" id="store_tenant_search" placeholder="テナント名で検索..." oninput="filterStoreTenants()">
-    </div>
-    <div class="form-group">
-      <label for="store_tenant_id">テナントを選択</label>
-      <select id="store_tenant_id" onchange="filterStoresByTenant()">
-        <option value="">-- テナントを選択してください --</option>
-        {% for tenant in tenant_list %}
-          <option value="{{ tenant.id }}" data-name="{{ tenant.name }}">{{ tenant.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-group">
       <label for="store_search">店舗を検索</label>
-      <input type="text" id="store_search" placeholder="店舗名で検索..." oninput="filterStoresBySearch()">
+      <input type="text" id="store_search" placeholder="店舗名で検索..." oninput="filterStores()">
     </div>
     <div class="form-group">
       <label for="store_id">店舗を選択 <span style="color:#ef4444">*</span></label>
       <select id="store_id" name="store_id" required>
-        <option value="">-- まずテナントを選択してください --</option>
+        <option value="">-- 店舗を選択してください --</option>
         {% for store in store_list %}
-          <option value="{{ store.id }}" data-name="{{ store.name }}" data-tenant-id="{{ store.tenant_id }}" style="display:none">{{ store.name }}</option>
+          <option value="{{ store.id }}" data-name="{{ store.name }}">{{ store.name }}</option>
         {% endfor %}
       </select>
     </div>
     <button type="submit" class="btn-primary">ダッシュボードへ進む</button>
   </form>
+  {% else %}
+  <div style="text-align:center; color:#6b7280; padding:2rem 0; font-size:0.95rem;">
+    <p>所属している店舗がありません。<br>テナント管理者にお問い合わせください。</p>
+  </div>
+  {% endif %}
 </div>
 
 <script>
-function filterStoreTenants() {
-  const searchText = document.getElementById('store_tenant_search').value.toLowerCase();
-  const tenantSelect = document.getElementById('store_tenant_id');
-  const options = tenantSelect.querySelectorAll('option');
-  let visibleCount = 0;
-  for (let i = 1; i < options.length; i++) {
-    const option = options[i];
-    const tenantName = option.dataset.name.toLowerCase();
-    if (tenantName.includes(searchText)) { option.style.display = ''; visibleCount++; }
-    else { option.style.display = 'none'; }
-  }
-  options[0].textContent = visibleCount === 0 && searchText ? '-- 検索結果がありません --' : '-- テナントを選択してください --';
-}
-
-function filterStoresByTenant() {
-  const tenantId = document.getElementById('store_tenant_id').value;
+function filterStores() {
+  const searchText = document.getElementById('store_search').value.toLowerCase();
   const storeSelect = document.getElementById('store_id');
   const options = storeSelect.querySelectorAll('option');
   storeSelect.value = '';
-  document.getElementById('store_search').value = '';
-  if (!tenantId) {
-    options[0].textContent = '-- まずテナントを選択してください --';
-    for (let i = 1; i < options.length; i++) options[i].style.display = 'none';
-  } else {
-    let hasStores = false;
-    for (let i = 1; i < options.length; i++) {
-      const option = options[i];
-      if (option.dataset.tenantId === tenantId) { option.style.display = ''; hasStores = true; }
-      else { option.style.display = 'none'; }
-    }
-    options[0].textContent = hasStores ? '-- 店舗を選択してください --' : '-- 選択したテナントに店舗がありません --';
-  }
-}
-
-function filterStoresBySearch() {
-  const searchText = document.getElementById('store_search').value.toLowerCase();
-  const tenantId = document.getElementById('store_tenant_id').value;
-  if (!tenantId) return;
-  const storeSelect = document.getElementById('store_id');
-  const options = storeSelect.querySelectorAll('option');
-  let visibleCount = 0;
   for (let i = 1; i < options.length; i++) {
     const option = options[i];
-    if (option.dataset.tenantId === tenantId && option.dataset.name.toLowerCase().includes(searchText)) {
-      option.style.display = ''; visibleCount++;
-    } else { option.style.display = 'none'; }
+    option.style.display = option.dataset.name.toLowerCase().includes(searchText) ? '' : 'none';
   }
-  options[0].textContent = visibleCount === 0 ? (searchText ? '-- 検索結果がありません --' : '-- 選択したテナントに店舗がありません --') : '-- 店舗を選択してください --';
 }
 </script>
 

@@ -7,11 +7,13 @@ import hmac
 import hashlib
 import json
 import os
+import uuid
 import requests as http_requests
 from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, Response, stream_with_context
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from sqlalchemy import text
 
 from app.db import SessionLocal
@@ -2423,6 +2425,116 @@ def mobile_location_count():
         return jsonify({'ok': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+@bp.route('/api/mobile/photo/upload', methods=['POST'])
+def mobile_photo_upload():
+    """運行写真アップロードAPI
+    multipart/form-data: file=<画像>, operation_id=<int>, comment=<str>
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    operation_id = request.form.get('operation_id')
+    comment = request.form.get('comment', '').strip()
+    file = request.files.get('file')
+
+    if not operation_id:
+        return jsonify({'ok': False, 'error': 'operation_id は必須です'}), 400
+    if not file:
+        return jsonify({'ok': False, 'error': '画像ファイルは必須です'}), 400
+
+    # 保存先ディレクトリ
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              'static', 'uploads', 'operation_photos')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # ファイル名をUUIDで生成
+    ext = os.path.splitext(secure_filename(file.filename))[1].lower() or '.jpg'
+    filename = f"{uuid.uuid4().hex}{ext}"
+    save_path = os.path.join(upload_dir, filename)
+    file.save(save_path)
+
+    # 相対URLパス
+    photo_url = f"/truck/static/operation_photos/{filename}"
+
+    # DBに記録
+    db = SessionLocal()
+    try:
+        op = db.query(TruckOperation).get(int(operation_id))
+        tenant_id = op.tenant_id if op else None
+        driver_id = op.driver_id if op else None
+        db.execute(text("""
+            INSERT INTO truck_operation_photos
+                (operation_id, driver_id, tenant_id, photo_path, comment, taken_at)
+            VALUES
+                (:operation_id, :driver_id, :tenant_id, :photo_path, :comment, :taken_at)
+        """), {
+            'operation_id': int(operation_id),
+            'driver_id': driver_id,
+            'tenant_id': tenant_id,
+            'photo_path': photo_url,
+            'comment': comment if comment else None,
+            'taken_at': datetime.now(),
+        })
+        db.commit()
+        return jsonify({'ok': True, 'photo_url': photo_url})
+    except Exception as e:
+        db.rollback()
+        # DBエラー時はファイルも削除
+        try:
+            os.remove(save_path)
+        except Exception:
+            pass
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/api/mobile/photo/list', methods=['GET'])
+def mobile_photo_list():
+    """運行写真一覧取得API
+    クエリパラメータ: operation_id (必須)
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    operation_id = request.args.get('operation_id')
+    if not operation_id:
+        return jsonify({'ok': False, 'error': 'operation_id は必須です'}), 400
+
+    db = SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT id, photo_path, comment, taken_at
+            FROM truck_operation_photos
+            WHERE operation_id = :operation_id
+            ORDER BY taken_at ASC
+        """), {'operation_id': int(operation_id)}).fetchall()
+        photos = []
+        for row in rows:
+            photos.append({
+                'id': row[0],
+                'photo_url': row[1],
+                'comment': row[2],
+                'taken_at': row[3].isoformat() if row[3] else None,
+            })
+        return jsonify({'ok': True, 'photos': photos})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/static/operation_photos/<path:filename>')
+def serve_operation_photo(filename):
+    """運行写真の静的ファイル配信"""
+    from flask import send_from_directory
+    photo_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             'static', 'uploads', 'operation_photos')
+    return send_from_directory(photo_dir, filename)
+
 
 @bp.route('/driver/login', methods=['GET', 'POST'])
 def driver_login():

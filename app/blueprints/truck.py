@@ -108,6 +108,16 @@ def driver_login_required(f):
     return decorated
 
 
+def office_login_required(f):
+    """内勤スタッフログイン確認デコレーター"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('truck_office_id'):
+            return redirect(url_for('truck.office_login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
 # ─── テンプレートフィルター ──────────────────────────────
 bp.add_app_template_global(format_status, 'truck_format_status')
 bp.add_app_template_global(status_color, 'truck_status_color')
@@ -2615,6 +2625,69 @@ def driver_apk_download():
         )
     except Exception as e:
         return f'ダウンロードエラー: {e}', 500
+    finally:
+        db.close()
+
+
+# ─── 内勤スタッフ（TruckAdmin）マイページ ────────────────────────────────────────
+
+@bp.route('/office/login', methods=['GET', 'POST'])
+def office_login():
+    error = None
+    if request.method == 'POST':
+        login_id = request.form.get('login_id', '').strip()
+        password = request.form.get('password', '')
+        db = SessionLocal()
+        try:
+            from app.models_truck import TruckAdmin
+            admin = db.query(TruckAdmin).filter_by(login_id=login_id, active=True).first()
+            if admin and check_password_hash(admin.password_hash, password):
+                session['truck_office_id'] = admin.id
+                session['truck_office_name'] = admin.name
+                session['truck_office_tenant_id'] = admin.tenant_id
+                return redirect(url_for('truck.office_dashboard'))
+            else:
+                error = 'ログインIDまたはパスワードが正しくありません'
+        finally:
+            db.close()
+    return render_template('truck/office_login.html', error=error)
+
+
+@bp.route('/office/logout')
+def office_logout():
+    session.pop('truck_office_id', None)
+    session.pop('truck_office_name', None)
+    session.pop('truck_office_tenant_id', None)
+    return redirect(url_for('truck.office_login'))
+
+
+@bp.route('/office/dashboard')
+@office_login_required
+def office_dashboard():
+    from app.models_truck import TruckAdmin
+    admin_id = session['truck_office_id']
+    tenant_id = session.get('truck_office_tenant_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TruckAdmin).get(admin_id)
+        today = date.today()
+        today_str = today.strftime('%Y年%m月%d日')
+        q = db.query(TruckOperation).filter_by(operation_date=today)
+        if tenant_id:
+            driver_ids = [d.id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id, active=True).all()]
+            if driver_ids:
+                q = q.filter(TruckOperation.driver_id.in_(driver_ids))
+        operations = q.order_by(TruckOperation.start_time.desc()).all()
+        status_counts = {}
+        for op in operations:
+            status_counts[op.status] = status_counts.get(op.status, 0) + 1
+        return render_template(
+            'truck/office_dashboard.html',
+            admin=admin,
+            today_str=today_str,
+            operations=operations,
+            status_counts=status_counts,
+        )
     finally:
         db.close()
 

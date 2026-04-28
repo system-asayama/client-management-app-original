@@ -325,6 +325,8 @@ class TruckAppSettings(Base):
         q = db_session.query(cls).filter_by(key=key)
         if tenant_id is not None:
             q = q.filter_by(tenant_id=tenant_id)
+        else:
+            q = q.filter(cls.tenant_id == None)  # noqa: E711
         row = q.first()
         if row:
             row.value = value

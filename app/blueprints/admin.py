@@ -1120,6 +1120,78 @@ def store_delete(store_id):
         db.close()
 
 
+
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_profile():
+    """プロフィール設定ページ"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        user_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not user_obj:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('admin.mypage'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip() or None
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                else:
+                    user_obj.login_id = login_id
+                    user_obj.name = name
+                    user_obj.email = email
+                    if hasattr(user_obj, 'updated_at'):
+                        user_obj.updated_at = func.now()
+                    db.commit()
+                    flash('プロフィール情報を更新しました', 'success')
+                    return redirect(url_for('admin.mypage_profile'))
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if new_password != new_password_confirm:
+                    flash('パスワードが一致しません', 'error')
+                elif not check_password_hash(user_obj.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                else:
+                    user_obj.password_hash = generate_password_hash(new_password)
+                    if hasattr(user_obj, 'updated_at'):
+                        user_obj.updated_at = func.now()
+                    db.commit()
+                    flash('パスワードを変更しました', 'success')
+                    return redirect(url_for('admin.mypage_profile'))
+
+        user = {
+            'id': user_obj.id,
+            'login_id': user_obj.login_id,
+            'name': user_obj.name,
+            'email': getattr(user_obj, 'email', None),
+        }
+        return render_template('admin_mypage_profile.html', user=user)
+    finally:
+        db.close()
+
+@bp.route('/mypage/select_store_page', methods=['GET'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_select_store():
+    """店舗選択ページ（GET）"""
+    user_id = session.get('user_id')
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        tenant_list = db.query(TTenant).order_by(TTenant.name).all()
+        store_list = db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.名称).all()
+        stores_data = [{'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id} for s in store_list]
+        tenants_data = [{'id': t.id, 'name': t.name} for t in tenant_list]
+        return render_template('admin_mypage_select_store.html', store_list=stores_data, tenant_list=tenants_data)
+    finally:
+        db.close()
+
 @bp.route('/mypage/select_store', methods=['POST'])
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def select_store_from_mypage():

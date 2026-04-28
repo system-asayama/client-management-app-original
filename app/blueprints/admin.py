@@ -1613,17 +1613,13 @@ def admin_new():
                 else:
                     stores_list = [store]
                 return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
+            # 従業員テーブルの同一login_idチェック（既存の場合は同一人物として扱い、上書き登録しない）
             existing_employee = db.query(TJugyoin).filter(TJugyoin.login_id == login_id).first()
-            if existing_employee:
-                flash(f'ログインID "{login_id}" は既に従業員として登録されています。店舗管理者として登録できません。', 'error')
-                tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-                store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
-                if role == ROLES["SYSTEM_ADMIN"] or role == ROLES["TENANT_ADMIN"]:
-                    stores_list = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id).order_by(TTenpo.id).all()
-                else:
-                    stores_list = [store]
-                return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
             
+            # テナント管理者の場合：フォームから従業員登録先店舗を取得
+            employee_store_id_str = request.form.get('employee_store_id', '').strip()
+            employee_store_id = int(employee_store_id_str) if employee_store_id_str else None
+
             # 管理者作成
             hashed_password = generate_password_hash(password)
             new_admin = TKanrisha(
@@ -1651,9 +1647,41 @@ def admin_new():
                     can_manage_admins=1 if can_manage_for_this_store else 0
                 )
                 db.add(admin_store_rel)
+
+            # ─── 従業員テーブルへの自動登録 ───
+            # 従業員登録先の店舗を決定
+            # テナント管理者: フォームで選択した employee_store_id
+            # 店舗管理者: 作成元の store_id
+            target_store_id = employee_store_id if (role in [ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"]] and employee_store_id) else store_id
+
+            if not existing_employee:
+                # 新規従業員として登録
+                new_employee = TJugyoin(
+                    login_id=login_id,
+                    name=name,
+                    email=email if email else f'{login_id}@admin.local',
+                    password_hash=hashed_password,
+                    tenant_id=tenant_id,
+                    role='admin',
+                    position='店舗管理者',
+                    active=1
+                )
+                db.add(new_employee)
+                db.flush()
+                if target_store_id:
+                    db.add(TJugyoinTenpo(employee_id=new_employee.id, store_id=target_store_id))
+            else:
+                # 既存従業員に店舗紐付けのみ追加（重複チェック）
+                if target_store_id:
+                    already = db.query(TJugyoinTenpo).filter_by(
+                        employee_id=existing_employee.id, store_id=target_store_id
+                    ).first()
+                    if not already:
+                        db.add(TJugyoinTenpo(employee_id=existing_employee.id, store_id=target_store_id))
+
             db.commit()
             
-            flash(f'店舗管理者 "{name}" を作成しました', 'success')
+            flash(f'店舗管理者 "{name}" を作成しました（従業員にも登録されました）', 'success')
             return redirect(url_for('admin.admins'))
         
         # GET: フォーム表示
@@ -1671,7 +1699,10 @@ def admin_new():
             # 店舗管理者は作成元の店舗のみを表示
             stores_list = [store]
         
-        return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
+        is_tenant_admin = role in [ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"]]
+        return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list,
+                               from_store_id=store_id, back_url=url_for('admin.admins'),
+                               is_tenant_admin=is_tenant_admin)
     finally:
         db.close()
 

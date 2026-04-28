@@ -104,7 +104,27 @@
         <p style="color:#999">店舗が登録されていません。先に店舗を作成してください。</p>
       {% endif %}
     </div>
-    
+
+    {# テナント管理者の場合のみ：従業員登録先店舗選択 #}
+    {% if is_tenant_admin %}
+    <div class="row" style="margin-top:16px">
+      <label style="font-weight:bold">従業員として登録する店舗</label>
+      {% if stores %}
+        <select name="employee_store_id" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em">
+          <option value="">従業員登録なし</option>
+          {% for s in stores %}
+          <option value="{{ s.id }}">{{ s.名称 }}</option>
+          {% endfor %}
+        </select>
+        <small style="color:#6b7280;margin-top:4px;display:block">選んだ店舗の従業員として同時に登録されます。不要な場合は「従業員登録なし」を選んでください。</small>
+      {% else %}
+        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:12px;color:#856404;font-size:0.9em">
+          ⚠️ 店舗がまだ登録されていないため、従業員登録は店舗作成後に行ってください。
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="actions" style="margin-top:20px; display:flex; gap:10px">
       <button class="btn" type="submit" {% if not stores %}disabled{% endif %}>作成</button>
       <a class="btn sub" href="{{ back_url }}">キャンセル</a>

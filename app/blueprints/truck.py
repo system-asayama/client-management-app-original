@@ -2108,6 +2108,38 @@ def mobile_login():
         db.close()
 
 
+@bp.route('/api/mobile/config', methods=['GET'])
+def mobile_config():
+    """モバイルアプリ向け設定取得API（GPS間隔など）"""
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    # X-Staff-Tokenからtenant_idを取得
+    staff_token = request.headers.get('X-Staff-Token', '')
+    tenant_id = None
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id_str = staff_token.split(':')[0]
+            db_tmp = SessionLocal()
+            try:
+                d = db_tmp.query(TruckDriver).filter_by(id=int(driver_id_str), active=True).first()
+                if d:
+                    tenant_id = d.tenant_id
+            finally:
+                db_tmp.close()
+        except Exception:
+            pass
+    db = SessionLocal()
+    try:
+        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', tenant_id, '30') or '30')
+        return jsonify({
+            'ok': True,
+            'gps_interval_seconds': gps_interval_seconds,
+        })
+    finally:
+        db.close()
+
+
 @bp.route('/api/mobile/trucks', methods=['GET'])
 def mobile_trucks():
     api_key = request.headers.get('X-Mobile-API-Key', '')

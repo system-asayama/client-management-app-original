@@ -18,14 +18,15 @@
       padding: 0 16px; z-index: 200;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
-    .topbar-brand { display: flex; align-items: center; gap: 8px; }
-    .topbar-brand-icon { font-size: 22px; }
-    .topbar-brand-text { display: flex; flex-direction: column; }
-    .topbar-brand-title { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
-    .topbar-brand-sub { font-size: 11px; color: rgba(255,255,255,0.75); line-height: 1.2; }
+    .topbar-brand { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden; }
+    .topbar-brand-icon { font-size: 22px; flex-shrink: 0; }
+    .topbar-brand-text { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+    .topbar-brand-title { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .topbar-brand-sub { font-size: 11px; color: rgba(255,255,255,0.75); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hamburger-btn {
       background: none; border: none; cursor: pointer;
       padding: 8px; display: flex; flex-direction: column; gap: 5px;
+      flex-shrink: 0;
     }
     .hamburger-btn span {
       display: block; width: 24px; height: 2px;

@@ -1,142 +1,279 @@
 {% extends "base.html" %}
-{% block head %}
-<style>
-.page-header{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%);color:#fff;padding:24px 32px;margin:-24px -24px 32px}
-.page-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.page-header-title{margin:0;font-size:1.6em;font-weight:700}
-.page-header-sub{margin:4px 0 0;font-size:0.95em;opacity:0.85}
-.page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.header-btn{background:#fff;color:#1a3a5c;border:none;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn:hover{background:#e8f0fe}
-.header-btn-outline{background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;font-size:0.9em;display:inline-block}
-.header-btn-outline:hover{background:rgba(255,255,255,0.15)}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;margin-top:16px}
-.info-label{font-weight:600;color:#555;padding:6px 0;border-bottom:1px solid #f0f0f0}
-.info-value{padding:6px 0;border-bottom:1px solid #f0f0f0;color:#222}
-.data-table{width:100%;border-collapse:collapse;margin-top:8px}
-.data-table th{background:#f1f5f9;padding:10px 12px;text-align:left;font-weight:600;color:#374151;border-bottom:2px solid #e2e8f0;font-size:0.9em}
-.data-table td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:0.9em}
-.data-table tr:hover td{background:#f8fafc}
-.badge-active{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.badge-inactive{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.8em;font-weight:600}
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:28px;max-width:700px;margin-bottom:24px}
-.form-group{margin-bottom:20px}
-.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#374151}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em;box-sizing:border-box}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#2563a8;box-shadow:0 0 0 3px rgba(37,99,168,0.1)}
-.form-group small{display:block;margin-top:4px;color:#6b7280;font-size:0.85em}
-.form-actions{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
-.btn-primary{background:#2563a8;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-primary:hover{background:#1a4f8a}
-.btn-secondary{background:#f1f5f9;color:#374151;border:1px solid #d1d5db;padding:9px 20px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-secondary:hover{background:#e2e8f0}
-.btn-danger{background:#ef4444;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:0.95em}
-.btn-danger:hover{background:#dc2626}
-.btn-sm{padding:6px 12px!important;font-size:0.82em!important;border-radius:5px!important}
-.empty-state{text-align:center;padding:48px 24px;color:#9ca3af;background:#f9fafb;border-radius:10px;border:1px dashed #d1d5db}
-.search-bar{margin-bottom:20px}
-.search-bar input{width:100%;max-width:400px;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:0.95em}
-@media(max-width:768px){.page-header{padding:16px 20px;margin:-16px -16px 24px}.info-grid{grid-template-columns:1fr}.data-table{font-size:0.82em}.data-table th,.data-table td{padding:8px}}
-</style>
-{% endblock %}
 {% block title %}従業員マイページ{% endblock %}
+{% block header %}{% endblock %}
 {% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .profile-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .profile-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1a3a5c, #2563a8);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700; flex-shrink: 0;
+  }
+  .profile-info h2 { font-size: 1.2rem; font-weight: 700; color: #1a3a5c; margin: 0 0 0.25rem; }
+  .profile-info p { font-size: 0.85rem; color: #6b7280; margin: 0; }
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
+  .badge-role { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .info-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.75rem 1rem; }
+  .info-item .info-label { font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.25rem; }
+  .info-item .info-value { font-size: 0.95rem; font-weight: 600; color: #1a3a5c; word-break: break-all; }
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 0 0 1rem;
+  }
+  .section-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .settings-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .settings-nav-btn {
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .settings-nav-btn:hover {
+    border-color: #2563a8;
+    box-shadow: 0 4px 12px rgba(37,99,168,0.12);
+    transform: translateY(-1px);
+  }
+  .settings-nav-btn .nav-icon { font-size: 1.75rem; flex-shrink: 0; }
+  .settings-nav-btn .nav-text .nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.2rem; }
+  .settings-nav-btn .nav-text .nav-desc { font-size: 0.8rem; color: #6b7280; }
+  .access-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s;
+    width: 100%;
+    cursor: pointer;
+  }
+  .access-nav-btn:hover {
+    border-color: #2563a8;
+    background: #eff6ff;
+    box-shadow: 0 2px 8px rgba(37,99,168,0.1);
+  }
+  .access-nav-icon { font-size: 1.75rem; flex-shrink: 0; width: 2.25rem; text-align: center; }
+  .access-nav-text { flex: 1; min-width: 0; }
+  .access-nav-title { font-size: 1rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; }
+  .access-nav-desc { font-size: 0.8rem; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .access-nav-arrow { color: #9ca3af; font-size: 1.25rem; flex-shrink: 0; margin-left: 0.25rem; }
+  @media (max-width: 640px) {
+    .page-header { padding: 1.5rem 1.25rem 1.25rem; }
+    .page-header h1 { font-size: 1.4rem; }
+    .info-grid { grid-template-columns: 1fr 1fr; }
+    .settings-nav { grid-template-columns: 1fr; }
+    .access-nav-desc { white-space: normal; }
+  }
+</style>
+
 <div class="page-header">
-  <div class="page-header-inner">
-    <div><h1 class="page-header-title">従業員マイページ</h1></div>
+  <div>
+    <div class="page-subtitle">EMPLOYEE</div>
+    <h1>従業員マイページ</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('employee.dashboard') }}">ダッシュボード</a>
+    <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
 
-
-<div class="card">
-  <h2>ようこそ、{{ session.user_name }}さん</h2>
-  <p>従業員としてログインしています。</p>
-  
-  <div style="margin-top:20px">
-    <h3>基本情報</h3>
-    <ul>
-      <li><strong>ユーザーID:</strong> {{ user.id }}</li>
-      <li><strong>ログインID:</strong> {{ user.login_id }}</li>
-      <li><strong>氏名:</strong> {{ user.name }}</li>
-      <li><strong>メールアドレス:</strong> {{ user.email or '未設定' }}</li>
-      <li><strong>テナント:</strong> {{ tenant_name }}</li>
-      <li><strong>所属店舗:</strong> {{ stores|join(', ') if stores else '未設定' }}</li>
-    </ul>
+<!-- プロフィールサマリーカード -->
+<div class="profile-card">
+  <div class="profile-avatar">{{ user.name[0] if user.name else 'E' }}</div>
+  <div class="profile-info">
+    <h2>
+      {{ user.name }}
+      <span class="badge badge-role">従業員</span>
+    </h2>
+    <p>{{ user.login_id }} ／ {{ user.email or 'メール未設定' }}</p>
   </div>
 </div>
 
-<!-- プロフィール編集 -->
-<div class="card" style="margin-top:20px">
-  <h3>プロフィール編集</h3>
-  <form method="post" autocomplete="off">
+<div class="info-grid">
+  <div class="info-item">
+    <div class="info-label">ユーザーID</div>
+    <div class="info-value">{{ user.id }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">ログインID</div>
+    <div class="info-value">{{ user.login_id }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">テナント名</div>
+    <div class="info-value">{{ tenant_name }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">所属店舗</div>
+    <div class="info-value">{{ stores | join('、') if stores else '未設定' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">作成日時</div>
+    <div class="info-value" style="font-size:0.85rem">{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at and user.created_at.__class__.__name__ != 'str' else (user.created_at or '-') }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">更新日時</div>
+    <div class="info-value" style="font-size:0.85rem">{{ user.updated_at.strftime('%Y-%m-%d %H:%M') if user.updated_at and user.updated_at.__class__.__name__ != 'str' else (user.updated_at or '-') }}</div>
+  </div>
+</div>
+
+<!-- 設定ナビゲーション -->
+<div class="settings-nav">
+  <a href="#profile-section" class="settings-nav-btn">
+    <div class="nav-icon">👤</div>
+    <div class="nav-text">
+      <div class="nav-title">プロフィール設定</div>
+      <div class="nav-desc">名前・ログインID・メール・パスワード変更</div>
+    </div>
+  </a>
+</div>
+
+<!-- プロフィール編集フォーム -->
+<div class="section-card" id="profile-section">
+  <p class="section-title">プロフィール編集</p>
+  <form method="POST">
     <input type="hidden" name="action" value="update_profile">
-    
-    <label>ログインID <span style="color:var(--danger)">*</span></label>
-    <input name="login_id" type="text" required value="{{ user.login_id }}" placeholder="employee01">
-    
-    <label>氏名 <span style="color:var(--danger)">*</span></label>
-    <input name="name" type="text" required value="{{ user.name }}" placeholder="山田 太郎">
-    
-    <label>メールアドレス</label>
-    <input name="email" type="email" value="{{ user.email or '' }}" placeholder="example@example.com">
-    
-    <div style="margin-top:12px">
-      <button class="btn" type="submit">プロフィールを更新</button>
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+      <div>
+        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">ログインID <span style="color:#ef4444">*</span></label>
+        <input type="text" name="login_id" value="{{ user.login_id }}" required
+          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">氏名 <span style="color:#ef4444">*</span></label>
+        <input type="text" name="name" value="{{ user.name }}" required
+          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">メールアドレス</label>
+        <input type="email" name="email" value="{{ user.email or '' }}"
+          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+      </div>
+      <button type="submit"
+        style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;border:none;padding:0.7rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;align-self:flex-start;">
+        プロフィールを更新
+      </button>
     </div>
   </form>
 </div>
 
-<!-- パスワード変更 -->
-<div class="card" style="margin-top:20px">
-  <h3>パスワード変更</h3>
-  <form method="post" autocomplete="off">
+<!-- パスワード変更フォーム -->
+<div class="section-card">
+  <p class="section-title">パスワード変更</p>
+  <form method="POST">
     <input type="hidden" name="action" value="change_password">
-    
-    <label>現在のパスワード <span style="color:var(--danger)">*</span></label>
-    <input name="current_password" type="password" required placeholder="現在のパスワード">
-    
-    <label>新しいパスワード <span style="color:var(--danger)">*</span></label>
-    <input name="new_password" type="password" required placeholder="8文字以上">
-    
-    <label>新しいパスワード（確認） <span style="color:var(--danger)">*</span></label>
-    <input name="confirm_password" type="password" required placeholder="もう一度入力">
-    
-    <div style="margin-top:12px">
-      <button class="btn" type="submit">パスワードを変更</button>
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+      <div>
+        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">現在のパスワード <span style="color:#ef4444">*</span></label>
+        <input type="password" name="current_password" required
+          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">新しいパスワード <span style="color:#ef4444">*</span></label>
+        <input type="password" name="new_password" required minlength="8"
+          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:0.875rem;font-weight:600;color:#374151;display:block;margin-bottom:0.4rem;">新しいパスワード（確認） <span style="color:#ef4444">*</span></label>
+        <input type="password" name="confirm_password" required minlength="8"
+          style="width:100%;padding:0.6rem 0.875rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+      </div>
+      <button type="submit"
+        style="background:#fff;color:#1a3a5c;border:1.5px solid #2563a8;padding:0.7rem 1.5rem;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;align-self:flex-start;">
+        パスワードを変更
+      </button>
     </div>
   </form>
 </div>
 
-<!-- 店舗選択 -->
-{% if store_list %}
-<div class="card" style="margin-top:20px">
-  <h3>店舗選択</h3>
-  <p>作業する店舗を選択してください。</p>
-  <form method="post" autocomplete="off">
-    <input type="hidden" name="action" value="select_store">
-    
-    <label>店舗</label>
-    <select name="store_id" required>
-      <option value="">-- 店舗を選択 --</option>
-      {% for store in store_list %}
-      <option value="{{ store.id }}" {% if session.store_id == store.id %}selected{% endif %}>{{ store.name }}</option>
-      {% endfor %}
-    </select>
-    
-    <div style="margin-top:12px">
-      <button class="btn" type="submit">店舗を選択</button>
-    </div>
-  </form>
-  
-  {% if session.store_id %}
-  <p style="margin-top:12px;color:var(--success)">
-    <strong>現在選択中の店舗ID:</strong> {{ session.store_id }}
-  </p>
-  {% endif %}
+{% if store_list and store_list | length > 1 %}
+<!-- 店舗選択（複数店舗所属の場合のみ表示） -->
+<div class="section-card">
+  <p class="section-title">アクセス先を選択</p>
+  <div style="display:flex;flex-direction:column;gap:0.75rem">
+    {% for store in store_list %}
+    <form method="POST" style="margin:0;">
+      <input type="hidden" name="action" value="select_store">
+      <input type="hidden" name="store_id" value="{{ store.id }}">
+      <button type="submit" class="access-nav-btn">
+        <span class="access-nav-icon">🏪</span>
+        <div class="access-nav-text">
+          <div class="access-nav-title">{{ store.name }}</div>
+          <div class="access-nav-desc">この店舗のダッシュボードへ</div>
+        </div>
+        <span class="access-nav-arrow">›</span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
 </div>
 {% endif %}
 
-<div class="card" style="margin-top:20px">
-  <a class="btn" href="{{ url_for('auth.logout') }}">ログアウト</a>
-</div>
 {% endblock %}

@@ -6,7 +6,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
-from app.models_login import TJugyoin, TTenant, TTenpo, TJugyoinTenpo
+from app.models_login import TJugyoin, TTenant, TTenpo, TJugyoinTenpo, TTenpoAppSetting, TTenantAppSetting
 from sqlalchemy import func, and_, or_
 from ..utils.decorators import ROLES
 from ..utils.decorators import require_roles
@@ -17,8 +17,56 @@ bp = Blueprint('employee', __name__, url_prefix='/employee')
 @bp.route('/dashboard')
 @require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dashboard():
-    """従業員ダッシュボード"""
-    return render_template('employee_dashboard.html')
+    """従業員ダッシュボード（利用可能アプリ一覧）"""
+    from app.blueprints.tenant_admin import AVAILABLE_APPS as TENANT_AVAILABLE_APPS
+    store_id = session.get('store_id')
+    tenant_id = session.get('tenant_id')
+    enabled_apps = []
+    tenant = None
+    store = None
+    if not store_id:
+        store_id = request.args.get('store_id', type=int)
+    db = SessionLocal()
+    try:
+        if tenant_id:
+            tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        if store_id:
+            store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+        # テナントへの配布設定を取得
+        if tenant_id:
+            tenant_app_settings_rows = db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant_id,
+                TTenantAppSetting.enabled == 1
+            ).all()
+            tenant_distributed_app_ids = {s.app_id for s in tenant_app_settings_rows}
+        else:
+            tenant_distributed_app_ids = set()
+        has_distribution_settings = len(tenant_distributed_app_ids) > 0
+        STORE_URLS = {
+            'client-management-tenant': lambda sid: f'/store/{sid}/dashboard',
+            'survey':                   lambda sid: f'/apps/survey/store/{sid}/',
+            'stampcard':                lambda sid: f'/apps/stampcard/store/{sid}/settings',
+            'reservation':              lambda sid: f'/apps/reservation/store/{sid}/settings',
+            'breeder-management':       lambda sid: '/breeder/dashboard',
+            'voucher-digitization':     lambda sid: f'/voucher?store_id={sid}',
+            'homepage-builder':         lambda sid: '/homepage',
+            'e-contract':               lambda sid: '/e-contract',
+            'real-estate':              lambda sid: '/apps/property',
+            'company-incorporation':    lambda sid: '/apps/teikan',
+            'truck-operation':          lambda sid: f'/truck/store/{sid}/',
+        }
+        for app in TENANT_AVAILABLE_APPS:
+            if has_distribution_settings and app['name'] not in tenant_distributed_app_ids:
+                continue
+            app_copy = dict(app)
+            app_name = app_copy['name']
+            if store_id and app_name in STORE_URLS:
+                app_copy['url'] = STORE_URLS[app_name](store_id)
+            enabled_apps.append(app_copy)
+    finally:
+        db.close()
+    mypage_url = url_for('employee.mypage')
+    return render_template('employee_dashboard.html', apps=enabled_apps, mypage_url=mypage_url, tenant=tenant, store=store)
 
 
 @bp.route('/mypage', methods=['GET', 'POST'])

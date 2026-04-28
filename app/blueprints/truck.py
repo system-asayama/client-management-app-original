@@ -951,6 +951,28 @@ def driver_from_employee():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+
+        def _get_employees():
+            """店舗に紐づく従業員を取得（store_idがあれば店舗絞り込み、なければテナント全体）"""
+            registered_driver_names = set(
+                d.name for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id, active=True).all()
+            )
+            if store_id:
+                # T_従業員_店舗 を JOIN して対象店舗の従業員のみ取得
+                emps = db.query(TJugyoin).join(
+                    TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
+                ).filter(
+                    TJugyoinTenpo.store_id == store_id,
+                    TJugyoin.active == 1,
+                ).order_by(TJugyoin.name).all() if store_id else []
+            else:
+                emps = db.query(TJugyoin).filter(
+                    TJugyoin.tenant_id == tenant_id,
+                    TJugyoin.active == 1,
+                ).order_by(TJugyoin.name).all() if tenant_id else []
+            return emps, registered_driver_names
+
         if request.method == 'POST':
             employee_id = request.form.get('employee_id', '').strip()
             login_id = request.form.get('login_id', '').strip()
@@ -959,13 +981,9 @@ def driver_from_employee():
             note = request.form.get('note', '').strip()
             if not employee_id or not login_id or not password:
                 flash('従業員・ログインID・パスワードは必須です', 'error')
-                registered_login_ids = [d.login_id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id).all()]
-                employees = db.query(TJugyoin).filter(
-                    TJugyoin.tenant_id == tenant_id,
-                    TJugyoin.active == 1,
-                    ~TJugyoin.login_id.in_(registered_login_ids)
-                ).order_by(TJugyoin.name).all() if tenant_id else []
-                return render_template('truck/driver_from_employee.html', employees=employees)
+                emps, registered_names = _get_employees()
+                return render_template('truck/driver_from_employee.html',
+                                       employees=emps, registered_names=registered_names)
             employee = db.query(TJugyoin).get(int(employee_id))
             if not employee:
                 flash('従業員が見つかりません', 'error')
@@ -973,13 +991,9 @@ def driver_from_employee():
             existing = db.query(TruckDriver).filter_by(login_id=login_id).first()
             if existing:
                 flash('そのログインIDはすでに登録されています', 'error')
-                registered_login_ids = [d.login_id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id).all()]
-                employees = db.query(TJugyoin).filter(
-                    TJugyoin.tenant_id == tenant_id,
-                    TJugyoin.active == 1,
-                    ~TJugyoin.login_id.in_(registered_login_ids)
-                ).order_by(TJugyoin.name).all() if tenant_id else []
-                return render_template('truck/driver_from_employee.html', employees=employees)
+                emps, registered_names = _get_employees()
+                return render_template('truck/driver_from_employee.html',
+                                       employees=emps, registered_names=registered_names)
             driver = TruckDriver(
                 login_id=login_id,
                 password_hash=generate_password_hash(password),
@@ -988,6 +1002,7 @@ def driver_from_employee():
                 license_number=license_number,
                 note=note,
                 tenant_id=tenant_id,
+                store_id=store_id,
             )
             db.add(driver)
             # 従業員から登録の場合、従業員は既存。ドライバー用パスワードで従業員パスワードを更新する
@@ -995,14 +1010,9 @@ def driver_from_employee():
             db.commit()
             flash(f'従業員「{employee.name}」をドライバーとして登録しました', 'success')
             return redirect(url_for('truck.drivers'))
-        registered_login_ids = [d.login_id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id).all()]
-        employees = db.query(TJugyoin).filter(
-            TJugyoin.tenant_id == tenant_id,
-            TJugyoin.active == 1,
-        ).order_by(TJugyoin.name).all() if tenant_id else []
-        registered_names = set(d.name for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id, active=True).all())
+        emps, registered_names = _get_employees()
         return render_template('truck/driver_from_employee.html',
-                               employees=employees,
+                               employees=emps,
                                registered_names=registered_names)
     finally:
         db.close()

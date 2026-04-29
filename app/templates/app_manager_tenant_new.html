@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}テナント新規作成{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .office-header {
@@ -113,6 +114,12 @@
     <a href="{{ url_for('app_manager.tenants') }}">← 一覧へ戻る</a>
   </div>
 </div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}{% for category, message in messages %}
+<div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+{% endfor %}{% endif %}
+{% endwith %}
 
 
 <form method="post" action="{{ url_for('app_manager.tenant_new') }}">

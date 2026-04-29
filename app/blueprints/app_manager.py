@@ -651,6 +651,7 @@ def app_manager_new():
             active = 1 if request.form.get('active') == '1' else 0
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
+            can_manage_tenants = 1 if request.form.get('can_manage_tenants') == '1' else 0
             
             # アプリ管理者作成（同じグループに所属）
             hashed_password = generate_password_hash(password)
@@ -665,7 +666,8 @@ def app_manager_new():
                 active=active if not is_first_admin else 1,
                 is_owner=1 if is_first_admin else 0,
                 can_manage_admins=can_manage if not is_first_admin else 1,
-                can_distribute_apps=can_distribute_apps if not is_first_admin else 1
+                can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
+                can_manage_tenants=can_manage_tenants if not is_first_admin else 1
             )
             db.add(new_admin)
             db.commit()
@@ -715,6 +717,7 @@ def app_manager_edit(admin_id):
             active = 1 if request.form.get('active') == '1' else 0
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
+            can_manage_tenants = 1 if request.form.get('can_manage_tenants') == '1' else 0
             
             if not login_id or not name:
                 flash('ログインIDと氏名は必須です', 'error')
@@ -745,6 +748,7 @@ def app_manager_edit(admin_id):
                             if admin.is_owner != 1:
                                 admin.can_manage_admins = can_manage
                                 admin.can_distribute_apps = can_distribute_apps
+                                admin.can_manage_tenants = can_manage_tenants
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -773,7 +777,8 @@ def app_manager_edit(admin_id):
             'active': admin.active,
             'is_owner': admin.is_owner,
             'can_manage_admins': admin.can_manage_admins,
-            'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0)
+            'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
+            'can_manage_tenants': getattr(admin, 'can_manage_tenants', 0)
         }
         
         is_self = (admin_id == current_user_id)
@@ -993,6 +998,7 @@ def transfer_ownership(admin_id):
         admin.is_owner = 1
         admin.can_manage_admins = 1
         admin.can_distribute_apps = 1
+        admin.can_manage_tenants = 1
         db.commit()
         
         flash(f'オーナー権限を「{new_owner_name}」に移譲しました', 'success')
@@ -1031,6 +1037,7 @@ def grant_owner(admin_id):
                 admin.is_owner = 1
                 admin.can_manage_admins = 1
                 admin.can_distribute_apps = 1
+                admin.can_manage_tenants = 1
                 db.commit()
                 flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
     finally:

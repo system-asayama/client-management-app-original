@@ -90,6 +90,7 @@
   .badge-inactive { background: #f3f4f6; color: #6b7280; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
   .badge-perm { background: #ede9fe; color: #5b21b6; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
   .badge-distribute { background: #dbeafe; color: #1d4ed8; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
+  .badge-tenant { background: #d1fae5; color: #065f46; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 99px; font-weight: 600; }
 
   .admin-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
   .admin-actions a, .admin-actions button {
@@ -179,6 +180,7 @@
       {% else %}
         {% if am.can_manage_admins == 1 %}<span class="badge-perm">管理者権限</span>{% endif %}
         {% if am.can_distribute_apps == 1 %}<span class="badge-distribute">配布権限</span>{% endif %}
+        {% if am.can_manage_tenants == 1 %}<span class="badge-tenant">テナント管理</span>{% endif %}
         {% if am.active == 1 %}
           <span class="badge-active">✓ 有効</span>
         {% else %}

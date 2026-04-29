@@ -147,6 +147,7 @@ class TruckOperation(Base):
     break_start_time = Column(DateTime)
     break_end_time = Column(DateTime)
     operation_date = Column(Date, default=date.today)
+    operation_type = Column(String(20), default='driving')  # 'driving' or 'office'
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

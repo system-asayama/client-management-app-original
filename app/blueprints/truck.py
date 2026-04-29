@@ -2629,6 +2629,92 @@ def driver_apk_download():
         db.close()
 
 
+# ─── ドライバー内勤モード ────────────────────────────────────────
+
+@bp.route('/driver/office')
+@driver_login_required
+def driver_office():
+    """ドライバー内勤モード画面（出勤・休憩・退勤）"""
+    driver_id = session['truck_driver_id']
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        today = date.today()
+        today_str = today.strftime('%Y年%m月%d日')
+        # 本日の内勤レコードを取得
+        office_op = db.query(TruckOperation).filter_by(
+            driver_id=driver_id,
+            operation_date=today,
+            operation_type='office',
+        ).order_by(TruckOperation.id.desc()).first()
+        return render_template(
+            'truck/driver_office.html',
+            driver=driver,
+            today_str=today_str,
+            office_op=office_op,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/driver/office/action', methods=['POST'])
+@driver_login_required
+def driver_office_action():
+    """ドライバー内勤モードのアクション（出勤・休憩開始・休憩終了・退勤）"""
+    driver_id = session['truck_driver_id']
+    action = request.form.get('action')
+    db = SessionLocal()
+    try:
+        today = date.today()
+        now = datetime.now()
+        office_op = db.query(TruckOperation).filter_by(
+            driver_id=driver_id,
+            operation_date=today,
+            operation_type='office',
+        ).order_by(TruckOperation.id.desc()).first()
+
+        if action == 'checkin':
+            # 出勤：新規レコード作成
+            # truck_idはNOT NULLなのでそのドライバーのテナントの最初のトラックを使用、なけれ〇1
+            from app.models_truck import Truck as TruckModel
+            driver = db.query(TruckDriver).get(driver_id)
+            truck = db.query(TruckModel).filter_by(
+                tenant_id=driver.tenant_id, active=True
+            ).first() if driver else None
+            truck_id = truck.id if truck else 1
+            new_op = TruckOperation(
+                driver_id=driver_id,
+                truck_id=truck_id,
+                route_id=None,
+                status='office_working',
+                operation_type='office',
+                start_time=now,
+                operation_date=today,
+                tenant_id=driver.tenant_id if driver else None,
+            )
+            db.add(new_op)
+            db.commit()
+
+        elif action == 'break_start' and office_op:
+            office_op.status = 'office_break'
+            office_op.break_start_time = now
+            db.commit()
+
+        elif action == 'break_end' and office_op:
+            office_op.status = 'office_working'
+            office_op.break_end_time = now
+            db.commit()
+
+        elif action == 'checkout' and office_op:
+            office_op.status = 'office_finished'
+            office_op.end_time = now
+            db.commit()
+
+        return redirect(url_for('truck.driver_office'))
+    finally:
+        db.close()
+
+
 # ─── 内勤スタッフ（TruckAdmin）マイページ ────────────────────────────────────────
 
 @bp.route('/office/login', methods=['GET', 'POST'])

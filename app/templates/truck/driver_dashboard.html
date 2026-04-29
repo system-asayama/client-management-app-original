@@ -64,6 +64,14 @@
       <div class="empty">本日の運行記録はありません</div>
       {% endif %}
     </div>
+    <!-- 内勤モード -->
+    <div class="card">
+      <div class="section-title">🏢 内勤モード</div>
+      <a href="{{ url_for('truck.driver_office') }}"
+        style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;text-align:center;text-decoration:none;">
+        🏢 内勤モード（出勤・休憩・退勤）
+      </a>
+    </div>
     <!-- アプリ起動 / ダウンロード -->
     <div class="card">
       <div class="section-title">📱 トラック運行管理アプリ</div>

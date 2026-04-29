@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>内勤モード - トラック運行管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; min-height: 100vh; background: #f0f4f8; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .topbar { background: linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 52px; }
+    .topbar-title { font-size: 16px; font-weight: 700; }
+    .topbar-user { display: flex; align-items: center; gap: 10px; }
+    .topbar-logout { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; text-decoration: none; }
+    .content { padding: 16px; max-width: 500px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 16px; }
+    .status-icon { font-size: 48px; text-align: center; margin-bottom: 8px; }
+    .status-label { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+    .status-detail { font-size: 13px; color: #64748b; text-align: center; line-height: 1.6; }
+    .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center; text-decoration: none; margin-bottom: 10px; color: #fff; }
+    .btn-green { background: linear-gradient(135deg,#16a34a,#15803d); }
+    .btn-amber { background: linear-gradient(135deg,#d97706,#b45309); }
+    .btn-red { background: linear-gradient(135deg,#dc2626,#b91c1c); }
+    .btn-back { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .section-title { font-size: 14px; font-weight: 700; color: #0f2744; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-title">🏢 内勤モード</div>
+    <div class="topbar-user">
+      <span style="font-size:13px;">{{ driver.name if driver else '' }}</span>
+      <a href="{{ url_for('truck.driver_logout') }}" class="topbar-logout">ログアウト</a>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- ヘッダーカード -->
+    <div class="card">
+      <div style="font-size:20px;font-weight:700;color:#0f2744;">{{ driver.name if driver else '-' }}</div>
+      <div style="font-size:13px;color:#64748b;margin-top:4px;">{{ today_str }}　内勤モード</div>
+    </div>
+
+    <!-- ステータスカード -->
+    <div class="card">
+      <div class="section-title">現在のステータス</div>
+
+      {% if not office_op %}
+        <div class="status-icon">🏠</div>
+        <div class="status-label" style="color:#64748b;">未出勤</div>
+        <div class="status-detail">本日はまだ出勤していません</div>
+
+      {% elif office_op.status == 'office_working' %}
+        <div class="status-icon">💼</div>
+        <div class="status-label" style="color:#16a34a;">勤務中</div>
+        <div class="status-detail">
+          出勤: {{ office_op.start_time.strftime('%H:%M') if office_op.start_time else '-' }}
+          {% if office_op.break_end_time %}
+          <br>休憩終了: {{ office_op.break_end_time.strftime('%H:%M') }}
+          {% endif %}
+        </div>
+
+      {% elif office_op.status == 'office_break' %}
+        <div class="status-icon">☕</div>
+        <div class="status-label" style="color:#d97706;">休憩中</div>
+        <div class="status-detail">
+          出勤: {{ office_op.start_time.strftime('%H:%M') if office_op.start_time else '-' }}
+          　休憩開始: {{ office_op.break_start_time.strftime('%H:%M') if office_op.break_start_time else '-' }}
+        </div>
+
+      {% elif office_op.status == 'office_finished' %}
+        <div class="status-icon">🏁</div>
+        <div class="status-label" style="color:#dc2626;">退勤済み</div>
+        <div class="status-detail">
+          出勤: {{ office_op.start_time.strftime('%H:%M') if office_op.start_time else '-' }}
+          　退勤: {{ office_op.end_time.strftime('%H:%M') if office_op.end_time else '-' }}
+          {% if office_op.break_start_time and office_op.break_end_time %}
+          <br>休憩: {{ office_op.break_start_time.strftime('%H:%M') }} 〜 {{ office_op.break_end_time.strftime('%H:%M') }}
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- アクションカード -->
+    <div class="card">
+      <div class="section-title">操作</div>
+
+      {% if not office_op %}
+        <form method="post" action="{{ url_for('truck.driver_office_action') }}">
+          <input type="hidden" name="action" value="checkin">
+          <button type="submit" class="btn btn-green">🏢 出勤する</button>
+        </form>
+
+      {% elif office_op.status == 'office_working' %}
+        <form method="post" action="{{ url_for('truck.driver_office_action') }}">
+          <input type="hidden" name="action" value="break_start">
+          <button type="submit" class="btn btn-amber">☕ 休憩開始</button>
+        </form>
+        <form method="post" action="{{ url_for('truck.driver_office_action') }}">
+          <input type="hidden" name="action" value="checkout">
+          <button type="submit" class="btn btn-red" onclick="return confirm('退勤しますか？')">🏁 退勤する</button>
+        </form>
+
+      {% elif office_op.status == 'office_break' %}
+        <form method="post" action="{{ url_for('truck.driver_office_action') }}">
+          <input type="hidden" name="action" value="break_end">
+          <button type="submit" class="btn btn-green">💼 休憩終了・勤務再開</button>
+        </form>
+
+      {% elif office_op.status == 'office_finished' %}
+        <div style="text-align:center;color:#64748b;font-size:14px;padding:8px;">
+          本日の内勤勤務は終了しました。お疲れ様でした！
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- 戻るボタン -->
+    <a href="{{ url_for('truck.driver_dashboard') }}" class="btn btn-back">← ドライバーマイページに戻る</a>
+  </div>
+</body>
+</html>

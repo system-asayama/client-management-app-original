@@ -2655,7 +2655,29 @@ def driver_dashboard():
                 'office_working', 'office_break', 'office_finished'
             ])
         ).order_by(TruckOperation.start_time).all()
-        # 月別運行履歴
+        # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
+        # APK設定はテナント共通（tenant_id=None）
+        apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
+        apk_version = TruckAppSettings.get(db, 'android_apk_version', None, '')
+        return render_template(
+            'truck/driver_dashboard.html',
+            driver=driver,
+            today_str=today_str,
+            operations=operations,
+            apk_url=apk_url,
+            apk_version=apk_version,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/driver/history')
+@driver_login_required
+def driver_history():
+    driver_id = session['truck_driver_id']
+    db = SessionLocal()
+    try:
+        today = date.today()
         try:
             hist_year = int(request.args.get('hist_year', today.year))
             hist_month = int(request.args.get('hist_month', today.month))
@@ -2672,20 +2694,11 @@ def driver_dashboard():
                 'office_working', 'office_break', 'office_finished'
             ])
         ).order_by(TruckOperation.operation_date.desc(), TruckOperation.start_time.desc()).all()
-        # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
-        # APK設定はテナント共通（tenant_id=None）
-        apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
-        apk_version = TruckAppSettings.get(db, 'android_apk_version', None, '')
         return render_template(
-            'truck/driver_dashboard.html',
-            driver=driver,
-            today_str=today_str,
-            operations=operations,
+            'truck/driver_history.html',
             history_ops=history_ops,
             hist_year=hist_year,
             hist_month=hist_month,
-            apk_url=apk_url,
-            apk_version=apk_version,
         )
     finally:
         db.close()

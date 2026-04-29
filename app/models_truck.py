@@ -374,3 +374,23 @@ class TruckInvoiceItem(Base):
     quantity = Column(Integer, default=1)                  # 数量
     unit_price = Column(Integer, default=0)                # 単価
     amount = Column(Integer, default=0)                    # 金額
+
+
+class TruckSchedule(Base):
+    """運行スケジュール"""
+    __tablename__ = "truck_schedules"
+    id = Column(Integer, primary_key=True)
+    schedule_date = Column(Date, nullable=False)           # 運行予定日
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)
+    route_id = Column(Integer, ForeignKey("truck_routes.id"), nullable=True)
+    start_time = Column(String(5))                         # 予定出発時刻 HH:MM
+    end_time = Column(String(5))                           # 予定終了時刻 HH:MM
+    note = Column(Text)                                    # 備考
+    tenant_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    driver = relationship("TruckDriver", backref="schedules")
+    truck = relationship("Truck", backref="schedules")
+    route = relationship("TruckRoute", backref="schedules")

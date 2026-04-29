@@ -1,0 +1,110 @@
+{% extends "truck/base.html" %}
+{% block title %}運行スケジュール{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">📅 運行スケジュール</h4>
+    <a href="{{ url_for('truck.schedule_new') }}" class="btn btn-primary btn-sm">
+      ＋ 新規登録
+    </a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show py-2" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  <!-- 月選択 -->
+  <form method="get" class="row g-2 mb-3 align-items-end">
+    <div class="col-auto">
+      <label class="form-label mb-1 small">年</label>
+      <select name="year" class="form-select form-select-sm">
+        {% for y in years %}
+          <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}年</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label mb-1 small">月</label>
+      <select name="month" class="form-select form-select-sm">
+        {% for m in months %}
+          <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>{{ m }}月</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-outline-secondary btn-sm">表示</button>
+    </div>
+    <div class="col-auto ms-auto">
+      {% set prev_month = selected_month - 1 %}
+      {% set prev_year = selected_year %}
+      {% if prev_month == 0 %}{% set prev_month = 12 %}{% set prev_year = selected_year - 1 %}{% endif %}
+      {% set next_month = selected_month + 1 %}
+      {% set next_year = selected_year %}
+      {% if next_month == 13 %}{% set next_month = 1 %}{% set next_year = selected_year + 1 %}{% endif %}
+      <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-outline-secondary btn-sm">‹ 前月</a>
+      <a href="?year={{ next_year }}&month={{ next_month }}" class="btn btn-outline-secondary btn-sm ms-1">翌月 ›</a>
+    </div>
+  </form>
+
+  <div class="card shadow-sm">
+    <div class="card-header py-2">
+      <strong>{{ selected_year }}年{{ selected_month }}月のスケジュール</strong>
+      <span class="badge bg-secondary ms-2">{{ schedules|length }}件</span>
+    </div>
+    <div class="card-body p-0">
+      {% if schedules %}
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>日付</th>
+                <th>ドライバー</th>
+                <th>トラック</th>
+                <th>ルート</th>
+                <th>出発</th>
+                <th>終了</th>
+                <th>備考</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in schedules %}
+              <tr>
+                <td class="text-nowrap">{{ s.schedule_date.strftime('%m/%d') }}（{{ ['月','火','水','木','金','土','日'][s.schedule_date.weekday()] }}）</td>
+                <td>{{ s.driver.name if s.driver else '-' }}</td>
+                <td>{{ s.truck.name if s.truck else '-' }}</td>
+                <td>{{ s.route.name if s.route else '-' }}</td>
+                <td>{{ s.start_time or '-' }}</td>
+                <td>{{ s.end_time or '-' }}</td>
+                <td class="text-muted small">{{ s.note or '' }}</td>
+                <td class="text-nowrap">
+                  <a href="{{ url_for('truck.schedule_edit', schedule_id=s.id) }}" class="btn btn-outline-primary btn-xs py-0 px-2 me-1" style="font-size:0.75rem;">編集</a>
+                  <form method="post" action="{{ url_for('truck.schedule_delete', schedule_id=s.id) }}" style="display:inline;" onsubmit="return confirm('このスケジュールを削除しますか？')">
+                    <button type="submit" class="btn btn-outline-danger btn-xs py-0 px-2" style="font-size:0.75rem;">削除</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center text-muted py-5">
+          <p class="mb-2">この月のスケジュールはありません</p>
+          <a href="{{ url_for('truck.schedule_new') }}" class="btn btn-primary btn-sm">＋ 新規登録</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

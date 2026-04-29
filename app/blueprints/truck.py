@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem, TruckSchedule
 from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup, TJugyoin, TJugyoinTenpo
 from app.utils.decorators import require_roles, ROLES
 
@@ -3201,5 +3201,216 @@ def finance_invoice_delete(invoice_id):
             db.commit()
             flash('請求書を削除しました', 'success')
         return redirect(url_for('truck.finance_invoice'))
+    finally:
+        db.close()
+
+
+# ─── 運行スケジュール ────────────────────────────────────
+
+@bp.route('/schedule')
+@login_required_truck
+def schedule_list():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        today = date.today()
+        selected_year = request.args.get('year', str(today.year))
+        selected_month = request.args.get('month', str(today.month))
+
+        try:
+            year = int(selected_year)
+            month = int(selected_month)
+            start_date = date(year, month, 1)
+            if month == 12:
+                end_date = date(year + 1, 1, 1)
+            else:
+                end_date = date(year, month + 1, 1)
+        except Exception:
+            year = today.year
+            month = today.month
+            start_date = date(year, month, 1)
+            end_date = date(year, month + 1, 1) if month < 12 else date(year + 1, 1, 1)
+
+        q = db.query(TruckSchedule).filter(
+            TruckSchedule.schedule_date >= start_date,
+            TruckSchedule.schedule_date < end_date,
+        )
+        if tenant_id:
+            from sqlalchemy import or_
+            q = q.filter(or_(TruckSchedule.tenant_id == tenant_id, TruckSchedule.tenant_id == None))
+        schedules = q.order_by(TruckSchedule.schedule_date, TruckSchedule.start_time).all()
+
+        dq = db.query(TruckDriver).filter(TruckDriver.active == True)
+        if tenant_id:
+            dq = dq.filter(TruckDriver.tenant_id == tenant_id)
+        drivers = dq.all()
+
+        tq = db.query(Truck).filter(Truck.active == True)
+        if tenant_id:
+            tq = tq.filter(Truck.tenant_id == tenant_id)
+        trucks = tq.all()
+
+        rq = db.query(TruckRoute).filter(TruckRoute.active == True)
+        if tenant_id:
+            rq = rq.filter(TruckRoute.tenant_id == tenant_id)
+        routes = rq.all()
+
+        years = list(range(today.year - 1, today.year + 3))
+        months = list(range(1, 13))
+
+        return render_template(
+            'truck/schedule_list.html',
+            schedules=schedules,
+            drivers=drivers,
+            trucks=trucks,
+            routes=routes,
+            years=years,
+            months=months,
+            selected_year=year,
+            selected_month=month,
+            error=None,
+        )
+    except Exception as e:
+        return render_template('truck/schedule_list.html',
+                               schedules=[], drivers=[], trucks=[], routes=[],
+                               years=[], months=list(range(1, 13)),
+                               selected_year=date.today().year, selected_month=date.today().month,
+                               error=str(e))
+    finally:
+        db.close()
+
+
+@bp.route('/schedule/new', methods=['GET', 'POST'])
+@login_required_truck
+def schedule_new():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+
+        dq = db.query(TruckDriver).filter(TruckDriver.active == True)
+        if tenant_id:
+            dq = dq.filter(TruckDriver.tenant_id == tenant_id)
+        drivers = dq.all()
+
+        tq = db.query(Truck).filter(Truck.active == True)
+        if tenant_id:
+            tq = tq.filter(Truck.tenant_id == tenant_id)
+        trucks = tq.all()
+
+        rq = db.query(TruckRoute).filter(TruckRoute.active == True)
+        if tenant_id:
+            rq = rq.filter(TruckRoute.tenant_id == tenant_id)
+        routes = rq.all()
+
+        if request.method == 'POST':
+            schedule_date_str = request.form.get('schedule_date', '')
+            driver_id = request.form.get('driver_id') or None
+            truck_id = request.form.get('truck_id') or None
+            route_id = request.form.get('route_id') or None
+            start_time = request.form.get('start_time', '').strip() or None
+            end_time = request.form.get('end_time', '').strip() or None
+            note = request.form.get('note', '').strip() or None
+
+            try:
+                schedule_date = date.fromisoformat(schedule_date_str)
+            except Exception:
+                flash('日付の形式が正しくありません', 'error')
+                return render_template('truck/schedule_form.html',
+                                       schedule=None, drivers=drivers, trucks=trucks, routes=routes,
+                                       action_url=url_for('truck.schedule_new'), form_title='スケジュール新規登録')
+
+            sched = TruckSchedule(
+                schedule_date=schedule_date,
+                driver_id=int(driver_id) if driver_id else None,
+                truck_id=int(truck_id) if truck_id else None,
+                route_id=int(route_id) if route_id else None,
+                start_time=start_time,
+                end_time=end_time,
+                note=note,
+                tenant_id=tenant_id,
+            )
+            db.add(sched)
+            db.commit()
+            flash('スケジュールを登録しました', 'success')
+            return redirect(url_for('truck.schedule_list',
+                                    year=schedule_date.year, month=schedule_date.month))
+
+        return render_template('truck/schedule_form.html',
+                               schedule=None, drivers=drivers, trucks=trucks, routes=routes,
+                               action_url=url_for('truck.schedule_new'), form_title='スケジュール新規登録')
+    finally:
+        db.close()
+
+
+@bp.route('/schedule/<int:schedule_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def schedule_edit(schedule_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        sched = db.query(TruckSchedule).get(schedule_id)
+        if not sched:
+            flash('スケジュールが見つかりません', 'error')
+            return redirect(url_for('truck.schedule_list'))
+
+        dq = db.query(TruckDriver).filter(TruckDriver.active == True)
+        if tenant_id:
+            dq = dq.filter(TruckDriver.tenant_id == tenant_id)
+        drivers = dq.all()
+
+        tq = db.query(Truck).filter(Truck.active == True)
+        if tenant_id:
+            tq = tq.filter(Truck.tenant_id == tenant_id)
+        trucks = tq.all()
+
+        rq = db.query(TruckRoute).filter(TruckRoute.active == True)
+        if tenant_id:
+            rq = rq.filter(TruckRoute.tenant_id == tenant_id)
+        routes = rq.all()
+
+        if request.method == 'POST':
+            schedule_date_str = request.form.get('schedule_date', '')
+            try:
+                sched.schedule_date = date.fromisoformat(schedule_date_str)
+            except Exception:
+                flash('日付の形式が正しくありません', 'error')
+                return render_template('truck/schedule_form.html',
+                                       schedule=sched, drivers=drivers, trucks=trucks, routes=routes,
+                                       action_url=url_for('truck.schedule_edit', schedule_id=schedule_id),
+                                       form_title='スケジュール編集')
+            sched.driver_id = int(request.form.get('driver_id')) if request.form.get('driver_id') else None
+            sched.truck_id = int(request.form.get('truck_id')) if request.form.get('truck_id') else None
+            sched.route_id = int(request.form.get('route_id')) if request.form.get('route_id') else None
+            sched.start_time = request.form.get('start_time', '').strip() or None
+            sched.end_time = request.form.get('end_time', '').strip() or None
+            sched.note = request.form.get('note', '').strip() or None
+            db.commit()
+            flash('スケジュールを更新しました', 'success')
+            return redirect(url_for('truck.schedule_list',
+                                    year=sched.schedule_date.year, month=sched.schedule_date.month))
+
+        return render_template('truck/schedule_form.html',
+                               schedule=sched, drivers=drivers, trucks=trucks, routes=routes,
+                               action_url=url_for('truck.schedule_edit', schedule_id=schedule_id),
+                               form_title='スケジュール編集')
+    finally:
+        db.close()
+
+
+@bp.route('/schedule/<int:schedule_id>/delete', methods=['POST'])
+@login_required_truck
+def schedule_delete(schedule_id):
+    db = SessionLocal()
+    try:
+        sched = db.query(TruckSchedule).get(schedule_id)
+        if sched:
+            year = sched.schedule_date.year
+            month = sched.schedule_date.month
+            db.delete(sched)
+            db.commit()
+            flash('スケジュールを削除しました', 'success')
+            return redirect(url_for('truck.schedule_list', year=year, month=month))
+        flash('スケジュールが見つかりません', 'error')
+        return redirect(url_for('truck.schedule_list'))
     finally:
         db.close()

@@ -2963,9 +2963,11 @@ def store_dashboard(store_id):
                                    operations=[], status_counts={},
                                    trucks=[], drivers=[], error="店舗が見つかりません")
 
+        OFFICE_STATUSES = ['office_working', 'office_break', 'office_finished']
         ops = db.query(TruckOperation).filter(
             TruckOperation.operation_date == today,
             TruckOperation.tenant_id == store.tenant_id,
+            ~TruckOperation.status.in_(OFFICE_STATUSES),
         ).order_by(TruckOperation.start_time).all()
 
         status_counts = {}

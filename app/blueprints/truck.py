@@ -2648,9 +2648,12 @@ def driver_dashboard():
         driver = db.query(TruckDriver).get(driver_id)
         today = date.today()
         today_str = today.strftime('%Y年%m月%d日')
-        operations = db.query(TruckOperation).filter_by(
-            driver_id=driver_id,
-            operation_date=today,
+        operations = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date == today,
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
         ).order_by(TruckOperation.start_time).all()
         # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
         # APK設定はテナント共通（tenant_id=None）

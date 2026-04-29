@@ -1080,6 +1080,16 @@ def revoke_owner(admin_id):
 def tenants():
     """テナント管理（担当テナントの一覧）"""
     role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     group_id = session.get('app_manager_group_id')
     db = SessionLocal()
     try:
@@ -1113,6 +1123,16 @@ def tenants():
 def tenant_new():
     """テナント新規作成"""
     role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     app_manager = get_current_app_manager()
     if not app_manager and role != 'system_admin':
         return redirect(url_for('app_manager.login'))
@@ -1179,6 +1199,17 @@ def tenant_new():
 @require_roles('app_manager', 'system_admin')
 def tenant_edit(tenant_id):
     """テナント編集"""
+    role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     from app.models_login import TTenant
     db = SessionLocal()
     try:
@@ -1229,6 +1260,17 @@ def tenant_edit(tenant_id):
 @require_roles('app_manager', 'system_admin')
 def tenant_delete(tenant_id):
     """テナント削除（無効化）"""
+    role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     from app.models_login import TTenant
     db = SessionLocal()
     try:
@@ -1441,6 +1483,18 @@ def distribute():
     if not group_id:
         flash('アプリ管理者グループが選択されていません', 'error')
         return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.login'))
+
+    # アプリ配布権限チェック（オーナーまたはcan_distribute_apps=1のみアクセス可能）
+    if role == 'app_manager':
+        _db_check = SessionLocal()
+        try:
+            _admin_id = session.get('user_id')
+            _current_admin = _db_check.query(TKanrisha).filter(TKanrisha.id == _admin_id).first()
+            if not _current_admin or (_current_admin.is_owner != 1 and getattr(_current_admin, 'can_distribute_apps', 0) != 1):
+                flash('アプリ配布権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_check.close()
 
     db = SessionLocal()
     try:

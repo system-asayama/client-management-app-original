@@ -203,8 +203,8 @@ def available_apps():
             'breeder-management':       '/breeder/tenant_summary',
         }
         for app in TENANT_AVAILABLE_APPS:
-            # テナントへの配布設定がある場合は、配布されたアプリのみ表示
-            if has_distribution_settings and app['name'] not in tenant_distributed_app_ids:
+            # テナントへの配布設定がある場合は配布されたアプリのみ、ない場合は表示しない
+            if not has_distribution_settings or app['name'] not in tenant_distributed_app_ids:
                 continue
             app_copy = dict(app)
             app_name = app_copy['name']

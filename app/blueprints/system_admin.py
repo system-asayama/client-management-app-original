@@ -2924,6 +2924,16 @@ def app_manager_new():
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def app_limit_management():
     """利用可能アプリ管理画面"""
+    # 権限チェック（オーナーまたはアプリ管理者管理権限が必要）
+    user_id = session.get('user_id')
+    db_check = SessionLocal()
+    try:
+        current_user = db_check.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if current_user and current_user.is_owner != 1 and getattr(current_user, 'can_manage_app_managers', 0) != 1:
+            flash('アプリ管理者管理権限がありません', 'error')
+            return redirect(url_for('system_admin.dashboard'))
+    finally:
+        db_check.close()
     db = SessionLocal()
     
     try:
@@ -2981,6 +2991,16 @@ def app_limit_management():
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def update_app_limit():
     """アプリ配布数上限を更新"""
+    # 権限チェック（オーナーまたはアプリ管理者管理権限が必要）
+    user_id = session.get('user_id')
+    db_check = SessionLocal()
+    try:
+        current_user = db_check.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if current_user and current_user.is_owner != 1 and getattr(current_user, 'can_manage_app_managers', 0) != 1:
+            flash('アプリ管理者管理権限がありません', 'error')
+            return redirect(url_for('system_admin.dashboard'))
+    finally:
+        db_check.close()
     db = SessionLocal()
     
     try:

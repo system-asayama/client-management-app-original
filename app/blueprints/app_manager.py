@@ -733,15 +733,18 @@ def app_manager_edit(admin_id):
                         TKanrisha.app_manager_group_id == group_id
                     ).first()
                     
+                    is_self = (admin_id == current_user_id)
                     if admin:
                         admin.login_id = login_id
                         admin.name = name
                         admin.email = email
-                        admin.active = active
-                        # オーナーでない場合のみ管理権限を変更可能
-                        if admin.is_owner != 1:
-                            admin.can_manage_admins = can_manage
-                            admin.can_distribute_apps = can_distribute_apps
+                        # 自分自身の場合は有効・権限設定を変更不可（オーナーが移譲する場合のみ変更可）
+                        if not is_self:
+                            admin.active = active
+                            # オーナーでない場合のみ管理権限を変更可能
+                            if admin.is_owner != 1:
+                                admin.can_manage_admins = can_manage
+                                admin.can_distribute_apps = can_distribute_apps
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -773,7 +776,8 @@ def app_manager_edit(admin_id):
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0)
         }
         
-        return render_template('app_manager_app_manager_edit.html', admin=admin_data)
+        is_self = (admin_id == current_user_id)
+        return render_template('app_manager_app_manager_edit.html', admin=admin_data, is_self=is_self)
     finally:
         db.close()
 

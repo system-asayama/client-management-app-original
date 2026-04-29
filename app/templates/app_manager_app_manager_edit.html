@@ -134,6 +134,10 @@
 <div class="owner-notice">
   ★ このアカウントはオーナーです。権限設定は変更できません。
 </div>
+{% elif is_self %}
+<div class="owner-notice" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">
+  ⚠️ 自分自身の権限設定は変更できません。権限の変更はオーナーからの移譲により行われます。
+</div>
 {% endif %}
 
 <form method="post" action="{{ url_for('app_manager.app_manager_edit', admin_id=admin.id) }}">
@@ -192,30 +196,30 @@
     <div class="section-card-title">権限・ステータス設定</div>
 
     <div class="checkbox-group">
-      <label class="checkbox-item {% if admin.is_owner == 1 %}disabled-item{% endif %}">
+      <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
         <input type="checkbox" name="active" value="1"
                {% if admin.active == 1 %}checked{% endif %}
-               {% if admin.is_owner == 1 %}disabled{% endif %}>
+               {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
         <div class="checkbox-item-label">
           <strong>有効</strong>
           <span>チェックを外すと、このアプリ管理者はログインできなくなります。</span>
         </div>
       </label>
 
-      <label class="checkbox-item {% if admin.is_owner == 1 %}disabled-item{% endif %}">
+      <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
         <input type="checkbox" name="can_manage_admins" value="1"
                {% if admin.can_manage_admins == 1 %}checked{% endif %}
-               {% if admin.is_owner == 1 %}disabled{% endif %}>
+               {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
         <div class="checkbox-item-label">
           <strong>管理者権限</strong>
           <span>他のアプリ管理者の作成・編集・削除ができます。</span>
         </div>
       </label>
 
-      <label class="checkbox-item {% if admin.is_owner == 1 %}disabled-item{% endif %}">
+      <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
         <input type="checkbox" name="can_distribute_apps" value="1"
                {% if admin.can_distribute_apps == 1 %}checked{% endif %}
-               {% if admin.is_owner == 1 %}disabled{% endif %}>
+               {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
         <div class="checkbox-item-label">
           <strong>アプリ配布権限</strong>
           <span>テナントへのアプリ配布設定ができます。</span>

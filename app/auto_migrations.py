@@ -1289,3 +1289,37 @@ def run_truck_schedule_migration():
         logger.error(traceback.format_exc())
     finally:
         conn.close()
+
+
+def run_truck_store_id_migration():
+    """trucks・truck_driversテーブルにstore_idカラムを追加するマイグレーション"""
+    from app.utils.db import get_db_connection, _sql
+    from sqlalchemy import text
+    conn = get_db_connection()
+    try:
+        # trucks.store_id
+        try:
+            conn.execute(text('SELECT store_id FROM trucks LIMIT 1'))
+            logger.info("- trucks.store_id カラムは既に存在します（スキップ）")
+        except Exception:
+            conn.rollback()
+            conn.execute(text('ALTER TABLE trucks ADD COLUMN store_id INTEGER'))
+            conn.commit()
+            logger.info("✓ trucks.store_id カラムを追加しました")
+
+        # truck_drivers.store_id
+        try:
+            conn.execute(text('SELECT store_id FROM truck_drivers LIMIT 1'))
+            logger.info("- truck_drivers.store_id カラムは既に存在します（スキップ）")
+        except Exception:
+            conn.rollback()
+            conn.execute(text('ALTER TABLE truck_drivers ADD COLUMN store_id INTEGER'))
+            conn.commit()
+            logger.info("✓ truck_drivers.store_id カラムを追加しました")
+    except Exception as e:
+        conn.rollback()
+        import traceback
+        logger.error(f"✗ run_truck_store_id_migration エラー: {e}")
+        logger.error(traceback.format_exc())
+    finally:
+        conn.close()

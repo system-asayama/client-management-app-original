@@ -35,6 +35,17 @@
       <label>免許番号</label>
       <input type="text" name="license_number" value="{{ driver.license_number if driver else '' }}" placeholder="例：123456789012">
     </div>
+    {% if stores %}
+    <div class="form-field">
+      <label>🏢 所属店舗</label>
+      <select name="store_id" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;background:#fff;">
+        <option value="">── 指定なし ──</option>
+        {% for store in stores %}
+        <option value="{{ store.id }}" {% if driver and driver.store_id == store.id %}selected{% endif %}>{{ store.名称 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
     <div class="form-field">
       <label>備考</label>
       <textarea name="note">{{ driver.note if driver else '' }}</textarea>

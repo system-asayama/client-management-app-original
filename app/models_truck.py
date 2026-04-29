@@ -27,6 +27,7 @@ class Truck(Base):
     capacity = Column(Float)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
+    store_id = Column(Integer, nullable=True)  # 所属店舗ID
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -118,6 +119,7 @@ class TruckDriver(Base):
     license_number = Column(String(50))
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
+    store_id = Column(Integer, nullable=True)  # 所属店舗ID
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

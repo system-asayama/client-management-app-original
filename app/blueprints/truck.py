@@ -302,9 +302,14 @@ def trucks():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+        role = session.get('role')
         q = db.query(Truck)
         if tenant_id:
             q = q.filter(Truck.tenant_id == tenant_id)
+        # 店舗管理者は自店舗のトラックのみ表示
+        if role == 'admin' and store_id:
+            q = q.filter((Truck.store_id == store_id) | (Truck.store_id == None))
         trucks_list = q.order_by(Truck.created_at.desc()).all()
         return render_template('truck/trucks.html', trucks=trucks_list, error=None, today=date.today())
     except Exception as e:
@@ -363,6 +368,7 @@ def _parse_truck_form(form, files=None):
         insurance_company=form.get('insurance_company', '').strip() or None,
         insurance_policy=form.get('insurance_policy', '').strip() or None,
         insurance_expiry=parse_date(form.get('insurance_expiry', '').strip()),
+        store_id=parse_int(form.get('store_id', '').strip()),
     )
     # 写真アップロード
     if files:
@@ -838,9 +844,14 @@ def drivers():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+        role = session.get('role')
         q = db.query(TruckDriver)
         if tenant_id:
             q = q.filter(TruckDriver.tenant_id == tenant_id)
+        # 店舗管理者は自店舗のドライバーのみ表示
+        if role == 'admin' and store_id:
+            q = q.filter((TruckDriver.store_id == store_id) | (TruckDriver.store_id == None))
         drivers_list = q.order_by(TruckDriver.created_at.desc()).all()
         return render_template('truck/drivers.html', drivers=drivers_list, error=None)
     except Exception as e:
@@ -864,13 +875,14 @@ def driver_new():
             position = request.form.get('position', 'ドライバー').strip()
             license_number = request.form.get('license_number', '').strip()
             note = request.form.get('note', '').strip()
+            stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
             if not login_id or not password or not name or not email:
                 flash('ログインID・パスワード・氏名・メールアドレスは必須です', 'error')
-                return render_template('truck/driver_form.html', driver=None, action='new')
+                return render_template('truck/driver_form.html', driver=None, action='new', stores=stores_list)
             existing = db.query(TruckDriver).filter_by(login_id=login_id).first()
             if existing:
                 flash('そのログインIDはすでに登録されています', 'error')
-                return render_template('truck/driver_form.html', driver=None, action='new')
+                return render_template('truck/driver_form.html', driver=None, action='new', stores=stores_list)
             # 従業員テーブルのlogin_id / email 重複チェック
             existing_emp = db.query(TJugyoin).filter(
                 (TJugyoin.login_id == login_id) | (TJugyoin.email == email)
@@ -878,6 +890,11 @@ def driver_new():
             if existing_emp:
                 flash('そのログインIDまたはメールアドレスは従業員としてすでに登録されています', 'error')
                 return render_template('truck/driver_form.html', driver=None, action='new')
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                form_store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                form_store_id = None
             driver = TruckDriver(
                 login_id=login_id,
                 password_hash=generate_password_hash(password),
@@ -886,6 +903,7 @@ def driver_new():
                 license_number=license_number,
                 note=note,
                 tenant_id=tenant_id,
+                store_id=form_store_id,
             )
             db.add(driver)
             db.flush()
@@ -914,11 +932,10 @@ def driver_new():
             db.commit()
             flash(f'ドライバー「{name}」を登録しました（従業員にも自動登録しました）', 'success')
             return redirect(url_for('truck.drivers'))
-        return render_template('truck/driver_form.html', driver=None, action='new')
+        stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+        return render_template('truck/driver_form.html', driver=None, action='new', stores=stores_list)
     finally:
         db.close()
-
-
 @bp.route('/drivers/<int:driver_id>/edit', methods=['GET', 'POST'])
 @login_required_truck
 def driver_edit(driver_id):
@@ -938,13 +955,22 @@ def driver_edit(driver_id):
             new_password = request.form.get('password', '').strip()
             if new_password:
                 driver.password_hash = generate_password_hash(new_password)
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                driver.store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                driver.store_id = None
             if not driver.login_id or not driver.name:
                 flash('ログインIDと氏名は必須です', 'error')
-                return render_template('truck/driver_form.html', driver=driver, action='edit')
+                tenant_id = session.get('tenant_id')
+                stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+                return render_template('truck/driver_form.html', driver=driver, action='edit', stores=stores_list)
             db.commit()
             flash(f'ドライバー「{driver.name}」を更新しました', 'success')
             return redirect(url_for('truck.drivers'))
-        return render_template('truck/driver_form.html', driver=driver, action='edit')
+        tenant_id = session.get('tenant_id')
+        stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+        return render_template('truck/driver_form.html', driver=driver, action='edit', stores=stores_list)
     finally:
         db.close()
 

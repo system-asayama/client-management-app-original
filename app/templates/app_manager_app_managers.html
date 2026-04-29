@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}アプリ管理者管理{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .office-header {
@@ -127,6 +128,14 @@
     {% endif %}
   </div>
 </div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  {% for category, message in messages %}
+    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+{% endwith %}
 
 <!-- アクションバー -->
 {% if is_owner or can_manage_app_managers %}

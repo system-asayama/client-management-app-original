@@ -2646,11 +2646,11 @@ def tenant_apps():
             tenant_distributed_app_ids = set()
             has_distribution_settings = False
 
-        # 配布設定がある場合は配布されたアプリのみ、ない場合は全アプリを表示
+        # 配布設定がある場合は配布されたアプリのみ、ない場合は空リスト（未設定テナントにはアプリを表示しない）
         if has_distribution_settings:
             apps = [app for app in AVAILABLE_APPS if app['name'] in tenant_distributed_app_ids]
         else:
-            apps = list(AVAILABLE_APPS)
+            apps = []
         
         # 店舗情報を取得（現在選択中の店舗）
         store_id = session.get('store_id')

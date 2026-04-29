@@ -217,9 +217,11 @@ def history():
             start_date = date(today.year, today.month, 1)
             end_date = today + timedelta(days=1)
 
+        OFFICE_STATUSES = ['office_working', 'office_break', 'office_finished']
         q = db.query(TruckOperation).filter(
             TruckOperation.operation_date >= start_date,
             TruckOperation.operation_date < end_date,
+            ~TruckOperation.status.in_(OFFICE_STATUSES),
         )
         if tenant_id:
             q = q.filter(TruckOperation.tenant_id == tenant_id)

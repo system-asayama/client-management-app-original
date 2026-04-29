@@ -1690,8 +1690,7 @@ def system_admin_new():
                 can_manage_all_tenants=can_manage_all_tenants if not is_first_admin else 1,
                 can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
                 can_manage_api_keys=can_manage_api_keys if not is_first_admin else 1,
-                can_manage_app_managers=can_manage_app_managers if not is_first_admin else 1,
-                distributed_by_admin_id=current_user_id if not is_first_admin else None
+                can_manage_app_managers=can_manage_app_managers if not is_first_admin else 1
             )
             db.add(new_admin)
             db.commit()

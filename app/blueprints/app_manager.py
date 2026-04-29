@@ -1015,11 +1015,20 @@ def grant_owner(admin_id):
         if not admin:
             flash('管理者が見つかりません', 'error')
         else:
-            admin.is_owner = 1
-            admin.can_manage_admins = 1
-            admin.can_distribute_apps = 1
-            db.commit()
-            flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
+            # オーナーは1人のみ許可
+            existing_owner = db.query(TKanrisha).filter(
+                TKanrisha.app_manager_group_id == group_id,
+                TKanrisha.is_owner == 1,
+                TKanrisha.id != admin_id
+            ).first()
+            if existing_owner:
+                flash(f'オーナーは1人のみ設定できます。現在のオーナー「{existing_owner.name}」のオーナー権限を先に解除してください。', 'error')
+            else:
+                admin.is_owner = 1
+                admin.can_manage_admins = 1
+                admin.can_distribute_apps = 1
+                db.commit()
+                flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
     finally:
         db.close()
     return redirect(url_for('app_manager.app_managers'))

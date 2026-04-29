@@ -468,7 +468,7 @@ def mypage_profile():
 @bp.route('/mypage/api-settings', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def mypage_api_settings():
-    """API設定ページ（各種APIキー管理）"""
+    """API設定ページ（各種アプリキー管理）"""
     user_id = session.get('user_id')
     db = SessionLocal()
     try:
@@ -477,6 +477,10 @@ def mypage_api_settings():
         ).first()
         if not admin:
             flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('system_admin.mypage'))
+        # API設定権限チェック（オーナーまたはcan_manage_api_keys=1のみ変更可）
+        if admin.is_owner != 1 and getattr(admin, 'can_manage_api_keys', 0) != 1:
+            flash('API設定権限がありません', 'error')
             return redirect(url_for('system_admin.mypage'))
 
         user = {
@@ -1603,6 +1607,7 @@ def system_admins():
                 'can_manage_admins': a.can_manage_admins,
                 'can_manage_all_tenants': getattr(a, 'can_manage_all_tenants', 0),
                 'can_distribute_apps': getattr(a, 'can_distribute_apps', 0),
+                'can_manage_api_keys': getattr(a, 'can_manage_api_keys', 0),
                 'app_limit': getattr(a, 'app_limit', None)
             })
         
@@ -1665,6 +1670,7 @@ def system_admin_new():
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
             
             # アプリ使用上限数を取得
             app_limit_str = request.form.get('app_limit', '').strip()
@@ -1694,6 +1700,7 @@ def system_admin_new():
                 can_manage_admins=can_manage if not is_first_admin else 1,
                 can_manage_all_tenants=can_manage_all_tenants if not is_first_admin else 1,
                 can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
+                can_manage_api_keys=can_manage_api_keys if not is_first_admin else 1,
                 app_limit=app_limit if not is_first_admin else None,
                 distributed_by_admin_id=current_user_id if not is_first_admin else None
             )
@@ -1757,6 +1764,7 @@ def system_admin_edit(admin_id):
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
             
             # アプリ使用上限数を取得
             app_limit_str = request.form.get('app_limit', '').strip()
@@ -1797,6 +1805,9 @@ def system_admin_edit(admin_id):
                             # can_distribute_appsが存在する場合のみ更新
                             if hasattr(admin, 'can_distribute_apps'):
                                 admin.can_distribute_apps = can_distribute_apps
+                            # can_manage_api_keysが存在する場合のみ更新
+                            if hasattr(admin, 'can_manage_api_keys'):
+                                admin.can_manage_api_keys = can_manage_api_keys
                             # app_limitが存在する場合のみ更新
                             if hasattr(admin, 'app_limit'):
                                 admin.app_limit = app_limit
@@ -1825,6 +1836,7 @@ def system_admin_edit(admin_id):
             'can_manage_admins': admin.can_manage_admins,
             'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0),
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
+            'can_manage_api_keys': getattr(admin, 'can_manage_api_keys', 0),
             'app_limit': getattr(admin, 'app_limit', None)
         }
         

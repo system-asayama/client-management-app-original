@@ -2924,14 +2924,12 @@ def app_manager_new():
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def app_limit_management():
     """利用可能アプリ管理画面"""
-    # 権限チェック（オーナーまたはアプリ管理者管理権限が必要）
+    # 編集権限チェック（閲覧は全員可・編集はオーナーまたはアプリ管理者管理権限が必要）
     user_id = session.get('user_id')
     db_check = SessionLocal()
     try:
         current_user = db_check.query(TKanrisha).filter(TKanrisha.id == user_id).first()
-        if current_user and current_user.is_owner != 1 and getattr(current_user, 'can_manage_app_managers', 0) != 1:
-            flash('アプリ管理者管理権限がありません', 'error')
-            return redirect(url_for('system_admin.dashboard'))
+        can_edit = current_user and (current_user.is_owner == 1 or getattr(current_user, 'can_manage_app_managers', 0) == 1)
     finally:
         db_check.close()
     db = SessionLocal()
@@ -2981,7 +2979,7 @@ def app_limit_management():
             })
         
         from app.blueprints.tenant_admin import AVAILABLE_APPS
-        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=AVAILABLE_APPS)
+        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=AVAILABLE_APPS, can_edit=can_edit)
     
     finally:
         db.close()

@@ -193,6 +193,9 @@
 
       <!-- プラン変更 -->
       <div class="section-title">プラン変更</div>
+      {% if not can_edit %}
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:0.5rem 1rem;font-size:0.85rem;color:#92400e;margin-bottom:1rem">🔒 閲覧のみ（変更にはアプリ管理者管理権限が必要です）</div>
+      {% endif %}
       <form method="POST" action="{{ url_for('system_admin.update_app_limit') }}">
         <input type="hidden" name="group_id" value="{{ group.group_id }}">
         <input type="hidden" name="action" value="update_plan">
@@ -201,6 +204,7 @@
             style="{% if group.plan == 'unlimited' %}border-color:#10b981;background:#f0fdf4{% endif %}">
             <input type="radio" name="plan" value="unlimited"
               {% if group.plan == 'unlimited' %}checked{% endif %}
+              {% if not can_edit %}disabled{% endif %}
               onchange="onPlanChange({{ loop.index }}, 'unlimited')">
             <div class="plan-check" id="planCheck{{ loop.index }}unlimited"
               style="{% if group.plan == 'unlimited' %}background:#10b981;border-color:#10b981{% endif %}">
@@ -214,6 +218,7 @@
             style="{% if group.plan == '10app_pack' %}border-color:#3b82f6;background:#eff6ff{% endif %}">
             <input type="radio" name="plan" value="10app_pack"
               {% if group.plan == '10app_pack' %}checked{% endif %}
+              {% if not can_edit %}disabled{% endif %}
               onchange="onPlanChange({{ loop.index }}, '10app_pack')">
             <div class="plan-check" id="planCheck{{ loop.index }}tenapp"
               style="{% if group.plan == '10app_pack' %}background:#3b82f6;border-color:#3b82f6{% endif %}">
@@ -227,6 +232,7 @@
             style="{% if group.plan == 'individual' %}border-color:#6b7280;background:#f9fafb{% endif %}">
             <input type="radio" name="plan" value="individual"
               {% if group.plan == 'individual' %}checked{% endif %}
+              {% if not can_edit %}disabled{% endif %}
               onchange="onPlanChange({{ loop.index }}, 'individual')">
             <div class="plan-check" id="planCheck{{ loop.index }}individual"
               style="{% if group.plan == 'individual' %}background:#6b7280;border-color:#6b7280{% endif %}">
@@ -237,7 +243,9 @@
             <div class="plan-desc">アプリを個別に選択</div>
           </label>
         </div>
+        {% if can_edit %}
         <button type="submit" class="btn-primary">プランを更新</button>
+        {% endif %}
       </form>
 
       <hr class="divider">
@@ -277,6 +285,7 @@
             <label class="app-item {% if app.name in group.enabled_app_ids %}app-checked{% endif %}">
               <input type="checkbox" name="selected_apps" value="{{ app.name }}"
                 {% if app.name in group.enabled_app_ids %}checked{% endif %}
+                {% if not can_edit %}disabled{% endif %}
                 onchange="onAppCheck({{ loop.index }}, currentPlan_{{ loop.index }})">
               <div class="app-icon">{{ app.icon }}</div>
               <div class="app-label">{{ app.display_name }}</div>
@@ -284,7 +293,9 @@
             {% endfor %}
           </div>
           <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            {% if can_edit %}
             <button type="submit" class="btn-primary">利用アプリを更新</button>
+            {% endif %}
             <span id="appCount_{{ loop.index }}" style="font-size:0.85rem;color:#6b7280">
               選択中: <strong>{{ group.enabled_app_ids|length }}</strong> アプリ
             </span>

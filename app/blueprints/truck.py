@@ -130,6 +130,12 @@ bp.add_app_template_global(format_time, 'truck_format_time')
 @bp.route('/')
 @login_required_truck
 def dashboard():
+    # 店舗管理者（role=admin かつ store_id あり）は自店舗ダッシュボードへリダイレクト
+    role = session.get('role', '')
+    store_id = session.get('store_id')
+    if role == 'admin' and store_id:
+        return redirect(url_for('truck.store_dashboard', store_id=store_id))
+
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')

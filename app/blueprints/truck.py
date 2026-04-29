@@ -2540,6 +2540,69 @@ def mobile_photo_list():
         db.close()
 
 
+@bp.route('/api/mobile/operation/history', methods=['GET'])
+def mobile_operation_history():
+    """運行履歴取得API
+    クエリパラメータ: year, month
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    driver_id = None
+    staff_token = request.headers.get('X-Staff-Token', '')
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id = int(staff_token.split(':')[0])
+        except (ValueError, IndexError):
+            pass
+    if not driver_id:
+        return jsonify({'ok': False, 'error': '認証情報がありません'}), 401
+    today = date.today()
+    try:
+        year = int(request.args.get('year', today.year))
+        month = int(request.args.get('month', today.month))
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+    except Exception:
+        start_date = date(today.year, today.month, 1)
+        end_date = today
+    db = SessionLocal()
+    try:
+        ops = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date >= start_date,
+            TruckOperation.operation_date < end_date,
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
+        ).order_by(TruckOperation.operation_date.desc(), TruckOperation.start_time.desc()).all()
+        result = []
+        for op in ops:
+            truck = db.query(Truck).get(op.truck_id) if op.truck_id else None
+            route = db.query(TruckRoute).get(op.route_id) if op.route_id else None
+            result.append({
+                'id': op.id,
+                'driver_id': op.driver_id,
+                'truck_id': op.truck_id,
+                'route_id': op.route_id,
+                'status': op.status,
+                'operation_date': op.operation_date.isoformat() if op.operation_date else None,
+                'start_time': op.start_time.isoformat() if op.start_time else None,
+                'end_time': op.end_time.isoformat() if op.end_time else None,
+                'truck_number': truck.number if truck else None,
+                'truck_name': truck.name if truck else None,
+                'route_name': route.name if route else None,
+            })
+        return jsonify({'ok': True, 'operations': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
 @bp.route('/static/operation_photos/<path:filename>')
 def serve_operation_photo(filename):
     """運行写真の静的ファイル配信"""

@@ -145,13 +145,6 @@
   </div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
 
 <!-- プロフィールサマリーカード -->
 <div class="profile-card">

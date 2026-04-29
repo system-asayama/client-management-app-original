@@ -121,13 +121,6 @@
   </div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-  {% for category, message in messages %}
-    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
-{% endwith %}
 
 <div class="info-box">
   ℹ️ 新しいアプリ管理者を作成します。作成後、ログインIDとパスワードを本人に共有してください。

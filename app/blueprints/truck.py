@@ -2893,6 +2893,13 @@ def office_dashboard():
 @login_required_truck
 def tenant_summary():
     """テナント集計ページ（テナント管理者・システム管理者用）"""
+    # 店舗管理者（role=admin）はアクセス不可—自店舗ダッシュボードへリダイレクト
+    _role = session.get('role', '')
+    _store_id = session.get('store_id')
+    if _role == 'admin' and _store_id:
+        flash('アクセス権限がありません。', 'warning')
+        return redirect(url_for('truck.store_dashboard', store_id=_store_id))
+
     from app.models_login import TTenpo, TTenant
     db = SessionLocal()
     try:

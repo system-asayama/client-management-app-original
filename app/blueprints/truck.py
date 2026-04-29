@@ -739,9 +739,14 @@ def routes():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+        role = session.get('role')
         q = db.query(TruckRoute)
         if tenant_id:
             q = q.filter(TruckRoute.tenant_id == tenant_id)
+        # 店舗管理者は自店舗のルートのみ表示
+        if role == 'admin' and store_id:
+            q = q.filter((TruckRoute.store_id == store_id) | (TruckRoute.store_id == None))
         routes_list = q.order_by(TruckRoute.created_at.desc()).all()
         return render_template('truck/routes.html', routes=routes_list, error=None)
     except Exception as e:
@@ -757,6 +762,7 @@ def route_new():
     try:
         tenant_id = session.get('tenant_id')
         clients = db.query(TruckClient).filter_by(active=True, tenant_id=tenant_id).order_by(TruckClient.name).all()
+        stores = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
         if request.method == 'POST':
             name = request.form.get('name', '').strip()
             origin = request.form.get('origin', '').strip()
@@ -767,7 +773,12 @@ def route_new():
             note = request.form.get('note', '').strip()
             if not name:
                 flash('ルート名は必須です', 'error')
-                return render_template('truck/route_form.html', route=None, action='new', clients=clients)
+                return render_template('truck/route_form.html', route=None, action='new', clients=clients, stores=stores)
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                form_store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                form_store_id = None
             route = TruckRoute(
                 name=name,
                 origin=origin,
@@ -777,16 +788,15 @@ def route_new():
                 contract_amount=int(contract_amount) if contract_amount else None,
                 note=note,
                 tenant_id=tenant_id,
+                store_id=form_store_id,
             )
             db.add(route)
             db.commit()
             flash(f'ルート「{name}」を登録しました', 'success')
             return redirect(url_for('truck.routes'))
-        return render_template('truck/route_form.html', route=None, action='new', clients=clients)
+        return render_template('truck/route_form.html', route=None, action='new', clients=clients, stores=stores)
     finally:
         db.close()
-
-
 @bp.route('/routes/<int:route_id>/edit', methods=['GET', 'POST'])
 @login_required_truck
 def route_edit(route_id):
@@ -798,6 +808,7 @@ def route_edit(route_id):
             return redirect(url_for('truck.routes'))
         tenant_id = session.get('tenant_id')
         clients = db.query(TruckClient).filter_by(active=True, tenant_id=tenant_id).order_by(TruckClient.name).all()
+        stores = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
         if request.method == 'POST':
             route.name = request.form.get('name', '').strip()
             route.origin = request.form.get('origin', '').strip()
@@ -810,13 +821,18 @@ def route_edit(route_id):
             route.contract_amount = int(contract_amount_edit) if contract_amount_edit else None
             route.note = request.form.get('note', '').strip()
             route.active = request.form.get('active') == '1'
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                route.store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                route.store_id = None
             if not route.name:
                 flash('ルート名は必須です', 'error')
-                return render_template('truck/route_form.html', route=route, action='edit', clients=clients)
+                return render_template('truck/route_form.html', route=route, action='edit', clients=clients, stores=stores)
             db.commit()
             flash(f'ルート「{route.name}」を更新しました', 'success')
             return redirect(url_for('truck.routes'))
-        return render_template('truck/route_form.html', route=route, action='edit', clients=clients)
+        return render_template('truck/route_form.html', route=route, action='edit', clients=clients, stores=stores)
     finally:
         db.close()
 

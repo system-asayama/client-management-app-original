@@ -36,6 +36,15 @@
       <input type="number" name="contract_amount" value="{{ route.contract_amount if route and route.contract_amount else '' }}" placeholder="例：50000" step="1" min="0">
     </div>
     <div class="form-field">
+      <label>🏢 所属店舗</label>
+      <select name="store_id">
+        <option value="">― 全店舗共通 ―</option>
+        {% for s in stores %}
+        <option value="{{ s.id }}" {% if route and route.store_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-field">
       <label>備考</label>
       <textarea name="note">{{ route.note if route else '' }}</textarea>
     </div>

@@ -1316,6 +1316,16 @@ def run_truck_store_id_migration():
             conn.execute(text('ALTER TABLE truck_drivers ADD COLUMN store_id INTEGER'))
             conn.commit()
             logger.info("✓ truck_drivers.store_id カラムを追加しました")
+
+        # truck_routes.store_id
+        try:
+            conn.execute(text('SELECT store_id FROM truck_routes LIMIT 1'))
+            logger.info("- truck_routes.store_id カラムは既に存在します（スキップ）")
+        except Exception:
+            conn.rollback()
+            conn.execute(text('ALTER TABLE truck_routes ADD COLUMN store_id INTEGER'))
+            conn.commit()
+            logger.info("✓ truck_routes.store_id カラムを追加しました")
     except Exception as e:
         conn.rollback()
         import traceback

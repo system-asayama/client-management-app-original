@@ -128,14 +128,6 @@
   </div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-  {% for category, message in messages %}
-    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
-{% endwith %}
-
 <!-- アクションバー -->
 {% if is_owner or can_manage_app_managers %}
 <div class="action-bar">

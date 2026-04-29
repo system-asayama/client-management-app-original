@@ -2286,7 +2286,10 @@ def mobile_operation_today():
         op = db.query(TruckOperation).filter(
             TruckOperation.driver_id == driver_id,
             TruckOperation.operation_date == today,
-            TruckOperation.status != 'finished'
+            TruckOperation.status != 'finished',
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
         ).order_by(TruckOperation.id.desc()).first()
         if not op:
             return jsonify({'ok': True, 'operation': None})

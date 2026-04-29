@@ -1351,7 +1351,6 @@ def tenant_admin_edit(tid, admin_id):
             'can_manage_admins': admin.can_manage_admins,
             'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0),
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
-            'app_limit': getattr(admin, 'app_limit', None)
         }
         
         # テナント一覧を取得
@@ -1608,7 +1607,7 @@ def system_admins():
                 'can_manage_all_tenants': getattr(a, 'can_manage_all_tenants', 0),
                 'can_distribute_apps': getattr(a, 'can_distribute_apps', 0),
                 'can_manage_api_keys': getattr(a, 'can_manage_api_keys', 0),
-                'app_limit': getattr(a, 'app_limit', None)
+                'can_manage_app_managers': getattr(a, 'can_manage_app_managers', 0),
             })
         
         return render_template('sys_system_admins.html', 
@@ -1671,17 +1670,7 @@ def system_admin_new():
             can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
             can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
-            
-            # アプリ使用上限数を取得
-            app_limit_str = request.form.get('app_limit', '').strip()
-            app_limit = None
-            if app_limit_str:
-                try:
-                    app_limit = int(app_limit_str)
-                    if app_limit < 0:
-                        app_limit = None
-                except ValueError:
-                    app_limit = None
+            can_manage_app_managers = 1 if request.form.get('can_manage_app_managers') == '1' else 0
             
             # 作成者のIDを取得
             current_user_id = session.get('user_id')
@@ -1701,7 +1690,7 @@ def system_admin_new():
                 can_manage_all_tenants=can_manage_all_tenants if not is_first_admin else 1,
                 can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
                 can_manage_api_keys=can_manage_api_keys if not is_first_admin else 1,
-                app_limit=app_limit if not is_first_admin else None,
+                can_manage_app_managers=can_manage_app_managers if not is_first_admin else 1,
                 distributed_by_admin_id=current_user_id if not is_first_admin else None
             )
             db.add(new_admin)
@@ -1765,17 +1754,7 @@ def system_admin_edit(admin_id):
             can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
             can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
-            
-            # アプリ使用上限数を取得
-            app_limit_str = request.form.get('app_limit', '').strip()
-            app_limit = None
-            if app_limit_str:
-                try:
-                    app_limit = int(app_limit_str)
-                    if app_limit < 0:
-                        app_limit = None
-                except ValueError:
-                    app_limit = None
+            can_manage_app_managers = 1 if request.form.get('can_manage_app_managers') == '1' else 0
             
             if not login_id or not name:
                 flash('ログインIDと氏名は必須です', 'error')
@@ -1808,9 +1787,9 @@ def system_admin_edit(admin_id):
                             # can_manage_api_keysが存在する場合のみ更新
                             if hasattr(admin, 'can_manage_api_keys'):
                                 admin.can_manage_api_keys = can_manage_api_keys
-                            # app_limitが存在する場合のみ更新
-                            if hasattr(admin, 'app_limit'):
-                                admin.app_limit = app_limit
+                            # can_manage_app_managersが存在する場合のみ更新
+                            if hasattr(admin, 'can_manage_app_managers'):
+                                admin.can_manage_app_managers = can_manage_app_managers
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -1837,7 +1816,7 @@ def system_admin_edit(admin_id):
             'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0),
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
             'can_manage_api_keys': getattr(admin, 'can_manage_api_keys', 0),
-            'app_limit': getattr(admin, 'app_limit', None)
+            'can_manage_app_managers': getattr(admin, 'can_manage_app_managers', 0),
         }
         
         return render_template('sys_system_admin_edit.html', admin=admin_data)

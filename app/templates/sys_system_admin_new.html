@@ -157,11 +157,9 @@
       <label><input name="can_manage_api_keys" type="checkbox" value="1"><span>API設定権限</span></label>
       <div class="hint">チェックを入れると、このシステム管理者はOpenAI・Google・AnthropicなどのAPIキーを設定・変更できます。</div>
     </div>
-
-    <div class="form-group" style="margin-top:1rem">
-      <label>アプリ使用上限数（プラン）</label>
-      <input name="app_limit" type="number" min="0" step="1" placeholder="空欄=無制限" style="max-width:200px">
-      <div class="hint">このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。</div>
+    <div class="checkbox-card">
+      <label><input name="can_manage_app_managers" type="checkbox" value="1"><span>アプリ管理者管理権限</span></label>
+      <div class="hint">チェックを入れると、このシステム管理者はアプリ管理者の作成・編集・削除ができます。</div>
     </div>
 
     <div class="form-actions">

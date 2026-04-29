@@ -2655,6 +2655,23 @@ def driver_dashboard():
                 'office_working', 'office_break', 'office_finished'
             ])
         ).order_by(TruckOperation.start_time).all()
+        # 月別運行履歴
+        try:
+            hist_year = int(request.args.get('hist_year', today.year))
+            hist_month = int(request.args.get('hist_month', today.month))
+        except (ValueError, TypeError):
+            hist_year = today.year
+            hist_month = today.month
+        hist_start = date(hist_year, hist_month, 1)
+        hist_end = date(hist_year + 1, 1, 1) if hist_month == 12 else date(hist_year, hist_month + 1, 1)
+        history_ops = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date >= hist_start,
+            TruckOperation.operation_date < hist_end,
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
+        ).order_by(TruckOperation.operation_date.desc(), TruckOperation.start_time.desc()).all()
         # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
         # APK設定はテナント共通（tenant_id=None）
         apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
@@ -2664,6 +2681,9 @@ def driver_dashboard():
             driver=driver,
             today_str=today_str,
             operations=operations,
+            history_ops=history_ops,
+            hist_year=hist_year,
+            hist_month=hist_month,
             apk_url=apk_url,
             apk_version=apk_version,
         )

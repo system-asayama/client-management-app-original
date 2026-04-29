@@ -785,7 +785,7 @@ def route_new():
                 destination=destination,
                 distance_km=float(distance_km) if distance_km else None,
                 client_id=int(client_id_str) if client_id_str else None,
-                contract_amount=int(contract_amount) if contract_amount else None,
+                contract_amount=int(float(contract_amount)) if contract_amount else None,
                 note=note,
                 tenant_id=tenant_id,
                 store_id=form_store_id,
@@ -818,7 +818,7 @@ def route_edit(route_id):
             client_id_str = request.form.get('client_id', '').strip()
             route.client_id = int(client_id_str) if client_id_str else None
             contract_amount_edit = request.form.get('contract_amount', '').strip()
-            route.contract_amount = int(contract_amount_edit) if contract_amount_edit else None
+            route.contract_amount = int(float(contract_amount_edit)) if contract_amount_edit else None
             route.note = request.form.get('note', '').strip()
             route.active = request.form.get('active') == '1'
             form_store_id = request.form.get('store_id', '').strip()

@@ -2418,7 +2418,7 @@ def app_management():
             
             elif action == 'select_store':
                 # 店舗選択
-                selected_tenant_id = request.form.get('tenant_id', type=int)
+                selected_tenant_id = request.form.get('tenant_id', type=int) or session_tenant_id
                 selected_store_id = request.form.get('store_id', type=int)
                 
                 # 権限チェック
@@ -2479,7 +2479,7 @@ def app_management():
             
             elif action == 'update_apps':
                 # アプリ設定更新
-                selected_tenant_id = request.form.get('tenant_id', type=int)
+                selected_tenant_id = request.form.get('tenant_id', type=int) or session_tenant_id
                 selected_store_id = request.form.get('store_id', type=int)
                 
                 # 権限チェック

@@ -1096,17 +1096,19 @@ def revoke_owner(admin_id):
 def tenants():
     """テナント管理（担当テナントの一覧）"""
     role = session.get('role')
+    group_id = session.get('app_manager_group_id')
+
+    # 閲覧は全員可能。編集・削除操作のために権限情報をテンプレートに渡す
+    can_edit = True  # system_adminは常に可
     if role == 'app_manager':
         _db_c = SessionLocal()
         try:
             _aid = session.get('user_id')
             _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
-            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
-                flash('テナント管理権限がありません', 'error')
-                return redirect(url_for('app_manager.dashboard'))
+            can_edit = bool(_adm and (_adm.is_owner == 1 or getattr(_adm, 'can_manage_tenants', 0) == 1))
         finally:
             _db_c.close()
-    group_id = session.get('app_manager_group_id')
+
     db = SessionLocal()
     try:
         from app.models_login import TTenant
@@ -1128,7 +1130,8 @@ def tenants():
         
         return render_template(
             'app_manager_tenants.html',
-            tenants=tenants_list
+            tenants=tenants_list,
+            can_edit=can_edit
         )
     finally:
         db.close()
@@ -1500,15 +1503,14 @@ def distribute():
         flash('アプリ管理者グループが選択されていません', 'error')
         return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.login'))
 
-    # アプリ配布権限チェック（オーナーまたはcan_distribute_apps=1のみアクセス可能）
+    # 閲覧は全員可能。配布設定変更（POST）時のみ権限チェック
+    can_distribute = True  # system_adminは常に可
     if role == 'app_manager':
         _db_check = SessionLocal()
         try:
             _admin_id = session.get('user_id')
             _current_admin = _db_check.query(TKanrisha).filter(TKanrisha.id == _admin_id).first()
-            if not _current_admin or (_current_admin.is_owner != 1 and getattr(_current_admin, 'can_distribute_apps', 0) != 1):
-                flash('アプリ配布権限がありません', 'error')
-                return redirect(url_for('app_manager.dashboard'))
+            can_distribute = bool(_current_admin and (_current_admin.is_owner == 1 or getattr(_current_admin, 'can_distribute_apps', 0) == 1))
         finally:
             _db_check.close()
 
@@ -1545,6 +1547,11 @@ def distribute():
         ).order_by(TTenant.id).all()
 
         if request.method == 'POST':
+            # POST（変更操作）は権限必須
+            if not can_distribute:
+                flash('アプリ配布権限がありません', 'error')
+                return redirect(url_for('app_manager.distribute'))
+
             tenant_id = request.form.get('tenant_id')
             selected_apps = request.form.getlist('apps')
 
@@ -1585,7 +1592,8 @@ def distribute():
             tenants=tenants,
             enabled_apps=enabled_apps,
             tenant_app_settings=tenant_app_settings,
-            is_system_admin_view=(role == 'system_admin')
+            is_system_admin_view=(role == 'system_admin'),
+            can_distribute=can_distribute
         )
     finally:
         db.close()

@@ -217,22 +217,22 @@
       </label>
 
       <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
-        <input type="checkbox" name="can_distribute_apps" value="1"
-               {% if admin.can_distribute_apps == 1 %}checked{% endif %}
-               {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
-        <div class="checkbox-item-label">
-          <strong>アプリ配布権限</strong>
-          <span>テナントへのアプリ配布設定ができます。</span>
-        </div>
-      </label>
-
-      <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
         <input type="checkbox" name="can_manage_tenants" value="1"
                {% if admin.can_manage_tenants == 1 %}checked{% endif %}
                {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
         <div class="checkbox-item-label">
           <strong>テナント管理権限</strong>
           <span>テナントの作成・編集・管理ができます。</span>
+        </div>
+      </label>
+
+      <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
+        <input type="checkbox" name="can_distribute_apps" value="1"
+               {% if admin.can_distribute_apps == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>アプリ配布権限</strong>
+          <span>テナントへのアプリ配布設定ができます。</span>
         </div>
       </label>
     </div>

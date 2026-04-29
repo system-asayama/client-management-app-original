@@ -40,7 +40,7 @@
       <select name="store_id">
         <option value="">― 全店舗共通 ―</option>
         {% for s in stores %}
-        <option value="{{ s.id }}" {% if route and route.store_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        <option value="{{ s.id }}" {% if route and route.store_id == s.id %}selected{% endif %}>{{ s.名称 }}</option>
         {% endfor %}
       </select>
     </div>

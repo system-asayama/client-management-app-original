@@ -229,6 +229,14 @@
           <span>テナントへのアプリ配布設定ができます。</span>
         </div>
       </label>
+      <label class="checkbox-item">
+        <input type="checkbox" name="can_manage_api_keys" value="1"
+               {% if request.form.get('can_manage_api_keys') == '1' %}checked{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>API設定権限</strong>
+          <span>APIキーの設定・変更ができます。</span>
+        </div>
+      </label>
     </div>
   </div>
 

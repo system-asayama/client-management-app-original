@@ -383,6 +383,17 @@ def api_keys():
     role = session.get('role')
     group_id = session.get('app_manager_group_id')
 
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_api_keys', 0) != 1):
+                flash('API設定権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
+
     if not group_id:
         flash('アプリ管理者グループが選択されていません', 'error')
         return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.dashboard'))
@@ -652,6 +663,7 @@ def app_manager_new():
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
             can_manage_tenants = 1 if request.form.get('can_manage_tenants') == '1' else 0
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
             
             # アプリ管理者作成（同じグループに所属）
             hashed_password = generate_password_hash(password)
@@ -667,7 +679,8 @@ def app_manager_new():
                 is_owner=1 if is_first_admin else 0,
                 can_manage_admins=can_manage if not is_first_admin else 1,
                 can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
-                can_manage_tenants=can_manage_tenants if not is_first_admin else 1
+                can_manage_tenants=can_manage_tenants if not is_first_admin else 1,
+                can_manage_api_keys=can_manage_api_keys if not is_first_admin else 1
             )
             db.add(new_admin)
             db.commit()
@@ -718,6 +731,7 @@ def app_manager_edit(admin_id):
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
             can_manage_tenants = 1 if request.form.get('can_manage_tenants') == '1' else 0
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
             
             if not login_id or not name:
                 flash('ログインIDと氏名は必須です', 'error')
@@ -749,6 +763,7 @@ def app_manager_edit(admin_id):
                                 admin.can_manage_admins = can_manage
                                 admin.can_distribute_apps = can_distribute_apps
                                 admin.can_manage_tenants = can_manage_tenants
+                                admin.can_manage_api_keys = can_manage_api_keys
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -778,7 +793,8 @@ def app_manager_edit(admin_id):
             'is_owner': admin.is_owner,
             'can_manage_admins': admin.can_manage_admins,
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
-            'can_manage_tenants': getattr(admin, 'can_manage_tenants', 0)
+            'can_manage_tenants': getattr(admin, 'can_manage_tenants', 0),
+            'can_manage_api_keys': getattr(admin, 'can_manage_api_keys', 0)
         }
         
         is_self = (admin_id == current_user_id)

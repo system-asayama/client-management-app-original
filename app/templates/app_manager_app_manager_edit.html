@@ -235,6 +235,15 @@
           <span>テナントへのアプリ配布設定ができます。</span>
         </div>
       </label>
+      <label class="checkbox-item {% if admin.is_owner == 1 or is_self %}disabled-item{% endif %}">
+        <input type="checkbox" name="can_manage_api_keys" value="1"
+               {% if admin.can_manage_api_keys == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 or is_self %}disabled{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>API設定権限</strong>
+          <span>APIキーの設定・変更ができます。</span>
+        </div>
+      </label>
     </div>
   </div>
 

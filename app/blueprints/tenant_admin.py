@@ -3591,7 +3591,6 @@ def select_tenant_from_mypage():
         return redirect(url_for('tenant_admin.mypage'))
     
     session['tenant_id'] = int(tenant_id)
-    flash('テナントを選択しました', 'success')
     return redirect(url_for('tenant_admin.dashboard'))
 
 
@@ -3606,7 +3605,6 @@ def select_store_from_mypage():
         return redirect(url_for('tenant_admin.mypage'))
     
     session['store_id'] = int(store_id)
-    flash('店舗を選択しました', 'success')
     return redirect(url_for('admin.dashboard'))
 
 

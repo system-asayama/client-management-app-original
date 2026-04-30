@@ -513,7 +513,6 @@ def select_tenant_from_mypage():
         session['store_id'] = None
         session.modified = True
         
-        flash(f'テナント「{tenant.名称}」を選択しました', 'success')
         return redirect(url_for('tenant_admin.dashboard'))
         
     finally:
@@ -548,7 +547,6 @@ def select_store_from_mypage():
         session['store_id'] = store.id
         session.modified = True
         
-        flash(f'店舗「{store.名称}」を選択しました', 'success')
         return redirect(url_for('admin.dashboard'))
         
     finally:

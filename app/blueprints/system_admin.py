@@ -2150,7 +2150,6 @@ def select_app_manager_group_from_mypage():
         session['app_manager_group_id'] = group.id
         session['tenant_id'] = None
         session['store_id'] = None
-        flash(f'アプリ管理者グループ「{group.group_name}」を選択しました', 'success')
         return redirect('/app_manager/')
     finally:
         db.close()
@@ -2181,7 +2180,6 @@ def select_tenant_from_mypage():
         session['tenant_id'] = tenant.id
         session['store_id'] = None  # 店舗選択をクリア
         
-        flash(f'テナント「{tenant.名称}」を選択しました', 'success')
         
         # テナント管理者ダッシュボードへリダイレクト
         return redirect('/tenant_admin/')
@@ -2218,9 +2216,7 @@ def select_store_from_mypage():
         session['tenant_id'] = store.tenant_id
         
         if tenant:
-            flash(f'店舗「{store.名称}」（テナント: {tenant.名称}）を選択しました', 'success')
         else:
-            flash(f'店舗「{store.名称}」を選択しました', 'success')
         
         # 店舗管理者ダッシュボードへリダイレクト
         return redirect('/admin/')

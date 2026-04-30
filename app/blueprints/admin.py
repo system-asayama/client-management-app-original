@@ -1225,7 +1225,6 @@ def select_store_from_mypage():
         return redirect(url_for('admin.mypage'))
     
     session['store_id'] = int(store_id)
-    flash('店舗を選択しました', 'success')
     return redirect(url_for('admin.dashboard'))
 
 

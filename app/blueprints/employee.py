@@ -220,7 +220,6 @@ def mypage():
                     
                     if relation:
                         session['store_id'] = store_id
-                        flash('店舗を選択しました', 'success')
                     else:
                         flash('指定された店舗にアクセスする権限がありません', 'error')
                 

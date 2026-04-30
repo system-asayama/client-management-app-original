@@ -196,17 +196,48 @@ def create_app() -> Flask:
                 except Exception:
                     pass
 
-            # バナーメッセージにコンテキストを追加
-            banner_parts = []
+            # 「○○の××を表示しています」形式でバナーメッセージを構築
+            subject_parts = []
             if app_manager_group_name:
-                banner_parts.append(f'グループ「{app_manager_group_name}」')
+                subject_parts.append(f'グループ「{app_manager_group_name}」')
             if context.get('current_tenant_name'):
-                banner_parts.append(f'テナント「{context["current_tenant_name"]}」')
+                subject_parts.append(f'テナント「{context["current_tenant_name"]}」')
             if context.get('current_store_name'):
-                banner_parts.append(f'店舗「{context["current_store_name"]}」')
+                subject_parts.append(f'店舗「{context["current_store_name"]}」')
 
-            if banner_parts:
-                context['viewing_as_banner'] = context['viewing_as_banner'] + ' — ' + '・'.join(banner_parts) + 'を表示しています'
+            # ページ名をURLパスから判定
+            try:
+                from flask import request as _req
+                path = _req.path
+                if '/dashboard' in path:
+                    page_name = 'ダッシュボード'
+                elif '/distribute' in path:
+                    page_name = 'アプリ配布設定'
+                elif '/plan' in path:
+                    page_name = 'プラン設定'
+                elif '/app_managers' in path:
+                    page_name = 'アプリ管理者管理'
+                elif '/tenants' in path:
+                    page_name = 'テナント管理'
+                elif '/stores' in path:
+                    page_name = '店舗管理'
+                elif '/api_keys' in path:
+                    page_name = 'APIキー設定'
+                elif '/members' in path:
+                    page_name = 'メンバー管理'
+                elif '/settings' in path:
+                    page_name = '設定'
+                else:
+                    page_name = 'ページ'
+            except Exception:
+                page_name = 'ページ'
+
+            role_label = context['viewing_as_banner']  # 「システム管理者として閲覧中」等
+            if subject_parts:
+                subject_str = '・'.join(subject_parts)
+                context['viewing_as_banner'] = f'{role_label} — {subject_str}の{page_name}を表示しています'
+            else:
+                context['viewing_as_banner'] = f'{role_label} — {page_name}を表示しています'
         
         return context
 

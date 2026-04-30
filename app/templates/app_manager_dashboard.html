@@ -181,11 +181,6 @@
 {% endwith %}
 
 
-{% if is_system_admin_view %}
-<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:0.75rem 1.25rem;margin-bottom:1.25rem;font-size:0.875rem;color:#92400e">
-  <strong>システム管理者として閲覧中</strong> — グループ「{{ group.group_name }}」のダッシュボードを表示しています
-</div>
-{% endif %}
 
 <!-- ウェルカムカード -->
 {% if app_manager %}

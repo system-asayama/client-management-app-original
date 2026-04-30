@@ -148,6 +148,9 @@ def create_app() -> Flask:
                 # システム管理者がアプリ管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
                 if role == 'system_admin' and not _on_own_page:
                     context['viewing_as_banner'] = 'システム管理者として閲覧中'
+            elif role == 'admin':
+                # 店舗管理者として操作中（store_idなしでも常に店舗管理者ダッシュボードへ）
+                context['current_dashboard_url'] = url_for('admin.dashboard')
             elif role == 'system_admin':
                 # システム管理者として操作中
                 context['current_dashboard_url'] = url_for('system_admin.dashboard')

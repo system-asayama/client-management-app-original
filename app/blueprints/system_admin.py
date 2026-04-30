@@ -2939,6 +2939,7 @@ def app_limit_management():
         from app.models_login import TAppManagerGroup
         groups = db.query(TAppManagerGroup).order_by(TAppManagerGroup.id).all()
         
+        from app.blueprints.tenant_admin import AVAILABLE_APPS as _AVAILABLE_APPS
         group_data = []
         for group in groups:
             # グループに所属するアプリ管理者数を取得
@@ -2963,7 +2964,7 @@ def app_limit_management():
             current_plan = getattr(group, 'plan', 'individual') or 'individual'
             enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
             # AVAILABLE_APPSに存在するIDのみに絞り込む（不正データを除外）
-            _available_app_names = {app['name'] for app in AVAILABLE_APPS}
+            _available_app_names = {app['name'] for app in _AVAILABLE_APPS}
             try:
                 enabled_app_ids_raw = json.loads(enabled_apps_raw)
                 enabled_app_ids = [app_id for app_id in enabled_app_ids_raw if app_id in _available_app_names]
@@ -2981,8 +2982,7 @@ def app_limit_management():
                 'enabled_app_ids': enabled_app_ids,
             })
         
-        from app.blueprints.tenant_admin import AVAILABLE_APPS
-        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=AVAILABLE_APPS, can_edit=can_edit)
+        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=_AVAILABLE_APPS, can_edit=can_edit)
     
     finally:
         db.close()

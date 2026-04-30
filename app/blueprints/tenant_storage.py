@@ -88,7 +88,7 @@ def _build_view(storage_config):
 # 一覧ページ（トップ）
 # ===========================
 @bp.route('/', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
 def storage_settings():
     """ストレージ連携設定トップ（一覧）"""
     tenant_id = session.get('tenant_id')
@@ -109,7 +109,7 @@ def storage_settings():
 # Dropbox 設定ページ
 # ===========================
 @bp.route('/dropbox', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
 def storage_dropbox():
     """Dropbox連携設定ページ"""
     tenant_id = session.get('tenant_id')
@@ -157,7 +157,7 @@ def storage_dropbox():
 # Dropbox OAuth2 認可フロー
 # ===========================
 @bp.route('/dropbox/oauth/start', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
 def dropbox_oauth_start():
     """DropboxのOAuth2認可フローを開始する"""
     from dropbox import DropboxOAuth2Flow
@@ -183,7 +183,7 @@ def dropbox_oauth_start():
 
 
 @bp.route('/dropbox/oauth/callback', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
 def dropbox_oauth_callback():
     """DropboxのOAuth2コールバック処理"""
     from dropbox import DropboxOAuth2Flow
@@ -251,7 +251,7 @@ def dropbox_oauth_callback():
 # Dropbox フォルダ一覧API
 # ===========================
 @bp.route('/dropbox/folders', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_folders():
     """DropboxのフォルダツリーをJSON形式で返す"""
     tenant_id = session.get('tenant_id')
@@ -306,7 +306,7 @@ def dropbox_folders():
 # Dropbox フォルダ作成API
 # ===========================
 @bp.route('/dropbox/create-folder', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_create_folder():
     """Dropboxに新規フォルダを作成する"""
     tenant_id = session.get('tenant_id')
@@ -349,7 +349,7 @@ def dropbox_create_folder():
 # Dropbox ベースフォルダ保存API
 # ===========================
 @bp.route('/dropbox/set-folder', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_set_folder():
     """Dropboxのベースフォルダパスを保存する"""
     tenant_id = session.get('tenant_id')
@@ -383,7 +383,7 @@ def dropbox_set_folder():
 # Google Cloud Storage 設定ページ
 # ===========================
 @bp.route('/gcs', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
 def storage_gcs():
     """Google Cloud Storage連携設定ページ"""
     tenant_id = session.get('tenant_id')
@@ -430,7 +430,7 @@ def storage_gcs():
 # 連携解除
 # ===========================
 @bp.route('/disconnect', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
 def disconnect_storage():
     """ストレージ連携を解除"""
     tenant_id = session.get('tenant_id')

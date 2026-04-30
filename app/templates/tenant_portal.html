@@ -45,6 +45,10 @@
     <div><h1 class="page-header-title">テナントポータル</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h2>テナント管理者ポータル</h2>
 <p class="small" style="color:#666">

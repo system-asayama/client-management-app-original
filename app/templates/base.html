@@ -55,10 +55,6 @@
       {% endif %}
     </header>
 
-    {% if viewing_as_banner %}
-    <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
-    {% endif %}
-
     {% block flash_messages %}
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}

@@ -56,6 +56,10 @@
     </div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}

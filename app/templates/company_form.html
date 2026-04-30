@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">会社フォーム</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="wrap">
     <h1>会社基本情報 {{ '登録' if mode=='create' else '編集' }}</h1>

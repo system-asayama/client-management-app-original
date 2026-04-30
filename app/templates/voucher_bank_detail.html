@@ -106,6 +106,10 @@
     {% endif %}
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <!-- 処理中バナー -->
 {% if stmt.ステータス in ('pending', 'processing') %}

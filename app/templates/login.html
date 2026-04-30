@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">ログイン</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h2>顧問先・税理士ログイン</h2>
     <form method="post">

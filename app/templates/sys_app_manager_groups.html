@@ -119,6 +119,10 @@
     <a class="btn-back" href="{{ current_dashboard_url }}">← ダッシュボードに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% if get_flashed_messages() %}
 <div style="margin-bottom:1rem">

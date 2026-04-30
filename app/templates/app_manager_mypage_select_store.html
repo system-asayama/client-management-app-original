@@ -146,6 +146,10 @@
     <a href="{{ url_for('app_manager.mypage') }}">← マイページへ戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 
 <div class="search-card">

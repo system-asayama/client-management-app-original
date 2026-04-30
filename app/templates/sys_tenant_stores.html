@@ -51,6 +51,10 @@
     </div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 <div class="search-bar">
   <input type="text" id="searchInput" placeholder="店舗名またはSlugで検索...">
   <span id="searchResult" style="margin-left:10px;color:#6b7280;font-size:0.9em"></span>

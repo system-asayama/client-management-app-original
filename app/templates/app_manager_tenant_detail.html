@@ -45,6 +45,10 @@
     <a href="{{ url_for('app_manager.tenants') }}" class="header-btn">← テナント一覧</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 
 <!-- 基本情報 -->

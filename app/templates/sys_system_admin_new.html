@@ -102,6 +102,10 @@
     <a href="{{ url_for('system_admin.system_admins') }}">一覧に戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% if get_flashed_messages() %}
 <div style="margin-bottom:1rem">

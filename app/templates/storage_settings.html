@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">ストレージ設定</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h1>外部ストレージ設定（事業所ID: {{ org_id }})</h1>
 

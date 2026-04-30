@@ -39,6 +39,10 @@
     <a href="{{ current_dashboard_url }}">ダッシュボード</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="section-card">
   <div class="section-title">{{ store.名称 if store else '店舗' }} で利用可能なアプリ</div>

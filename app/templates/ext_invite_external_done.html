@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">招待完了</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h1>招待を送信しました</h1>
   <p class="muted">

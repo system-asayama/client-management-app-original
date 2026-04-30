@@ -110,6 +110,10 @@
     </div>
     <a href="{{ url_for('clients.edit_profession_info', client_id=client.id) }}" class="btn-edit">&#9998; 編集</a>
   </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
   <!-- サブページナビゲーション -->
   <div class="nav-card-grid">

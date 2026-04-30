@@ -92,6 +92,10 @@
     <span class="page-title">📋 受託業務一覧</span>
     <a href="{{ url_for('clients.add_commissioned_work', client_id=client.id) }}" class="btn-add">＋ 業務を追加</a>
   </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
   {% if works %}
   <!-- 合計顧問料 -->

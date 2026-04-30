@@ -145,6 +145,10 @@
     <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 
 <!-- プロフィールサマリーカード -->

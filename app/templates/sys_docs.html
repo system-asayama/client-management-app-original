@@ -102,6 +102,10 @@
     <a href="{{ current_dashboard_url }}">ダッシュボードに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <p style="font-size:0.875rem;color:#6b7280;margin-bottom:1.5rem">システム開発・運用に関するドキュメント一覧</p>
 

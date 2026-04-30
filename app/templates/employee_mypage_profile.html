@@ -76,6 +76,10 @@
     <a href="{{ url_for('employee.mypage') }}">← マイページに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <!-- プロフィール編集 -->
 <div class="form-card">

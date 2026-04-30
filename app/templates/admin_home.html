@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">店舗管理ホーム</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h1>管理者ホーム</h1>
 <p>管理者としてログイン中：{{ session.get('user') }}</p>

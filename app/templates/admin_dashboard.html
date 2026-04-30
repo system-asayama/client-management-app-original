@@ -143,6 +143,10 @@
     <a href="{{ mypage_url }}">&#128100; {{ mypage_label or 'マイページ' }}</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <!-- ウェルカムカード -->
 <div class="welcome-card">

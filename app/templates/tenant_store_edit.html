@@ -35,6 +35,10 @@
     <a href="{{ url_for('tenant_admin.stores') }}">店舗一覧</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="form-card">
   <div class="form-section-title">基本情報</div>

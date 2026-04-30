@@ -226,7 +226,12 @@ def mypage():
         else:
             tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         store_list = []
+        # 自分のグループのテナントIDセットを取得
+        my_tenant_ids = {t['id'] for t in tenant_list}
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
+            # 自分のグループのテナントに属する店舗のみ表示
+            if my_tenant_ids and s.tenant_id not in my_tenant_ids:
+                continue
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
             store_list.append({
                 'id': s.id,
@@ -482,7 +487,10 @@ def mypage_select_store():
         else:
             tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         stores = []
+        my_tenant_ids = {t['id'] for t in tenants}
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
+            if my_tenant_ids and s.tenant_id not in my_tenant_ids:
+                continue
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
             stores.append({'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id, 'tenant_name': tenant.名称 if tenant else ''})
         return render_template('app_manager_mypage_select_store.html', tenants=tenants, stores=stores)

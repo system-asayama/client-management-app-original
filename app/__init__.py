@@ -128,8 +128,11 @@ def create_app() -> Flask:
             store_id_check = session.get('store_id')
             tenant_id_check = session.get('tenant_id')
             app_manager_group_id_check = session.get('app_manager_group_id')
-            if store_id_check:
-                # 店舗管理者として操作中
+            if role == 'admin':
+                # 店舗管理者ロールは常に店舗管理者ダッシュボードへ（store_idの有無に関わらず）
+                context['current_dashboard_url'] = url_for('admin.dashboard')
+            elif store_id_check:
+                # 上位ロールが店舗管理者として操作中
                 context['current_dashboard_url'] = url_for('admin.dashboard')
                 # 上位ロールが店舗管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
                 if role in ('system_admin', 'app_manager', 'tenant_admin') and not _on_own_page:

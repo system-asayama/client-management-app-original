@@ -99,7 +99,7 @@
     <h1>システム設定</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+    <a href="{{ current_dashboard_url }}">ダッシュボードに戻る</a>
   </div>
 </div>
 
@@ -125,7 +125,7 @@
     </div>
     <div class="form-actions">
       <button type="submit" class="btn-primary-form">保存</button>
-      <a href="{{ url_for('system_admin.dashboard') }}" class="btn-cancel-form">戻る</a>
+      <a href="{{ current_dashboard_url }}" class="btn-cancel-form">戻る</a>
     </div>
   </form>
 </div>

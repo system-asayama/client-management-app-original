@@ -127,7 +127,7 @@
     <div class="nav-links">
         <a href="{{ url_for('clients.client_info', client_id=client.id) }}">← 顧問先ページに戻る</a>
         <a href="{{ url_for('clients.clients') }}">顧問先一覧</a>
-        <a href="{{ url_for('tenant_admin.dashboard') }}">🏠 ホーム</a>
+        <a href="{{ current_dashboard_url }}">🏠 ホーム</a>
     </div>
 
     <script>

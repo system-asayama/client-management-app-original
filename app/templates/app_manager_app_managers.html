@@ -123,11 +123,7 @@
     <h1>アプリ管理者管理</h1>
   </div>
   <div class="header-actions">
-    {% if is_system_admin_view %}
-      <a href="{{ url_for('system_admin.dashboard') }}">← ダッシュボードへ</a>
-    {% else %}
-      <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ</a>
-    {% endif %}
+      <a href="{{ current_dashboard_url }}">← ダッシュボードへ</a>
   </div>
 </div>
 

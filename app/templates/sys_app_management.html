@@ -45,7 +45,7 @@
   <div class="page-header-inner">
     <div><h1 class="page-header-title">アプリ管理</h1></div>
     <div class="page-header-actions">
-      <a href="{{ url_for('system_admin.dashboard') }}" class="header-btn-outline">ダッシュボードに戻る</a>
+      <a href="{{ current_dashboard_url }}" class="header-btn-outline">ダッシュボードに戻る</a>
     </div>
   </div>
 </div>
@@ -63,5 +63,5 @@
   <a href="{{ url_for('system_admin.app_management_store') }}" class="btn">店舗別設定を開く</a>
 </div>
 
-<a href="{{ url_for('system_admin.dashboard') }}" class="btn" style="margin-top:20px">ダッシュボードに戻る</a>
+<a href="{{ current_dashboard_url }}" class="btn" style="margin-top:20px">ダッシュボードに戻る</a>
 {% endblock %}

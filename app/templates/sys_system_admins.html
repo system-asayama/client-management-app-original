@@ -102,7 +102,7 @@
     {% if can_manage_system_admins() %}
     <a class="btn-create" href="{{ url_for('system_admin.system_admin_new') }}">＋ 新しいシステム管理者を作成</a>
     {% endif %}
-    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+    <a href="{{ current_dashboard_url }}">ダッシュボードに戻る</a>
   </div>
 </div>
 

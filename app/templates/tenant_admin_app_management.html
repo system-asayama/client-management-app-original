@@ -118,7 +118,7 @@
     <h1>📱 アプリ管理</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードへ</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボードへ</a>
   </div>
 </div>
 
@@ -214,7 +214,7 @@
 {% endif %}
 
 <div class="footer-actions">
-  <a class="btn-secondary" href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードに戻る</a>
+  <a class="btn-secondary" href="{{ current_dashboard_url }}">← ダッシュボードに戻る</a>
 </div>
 
 {% endblock %}

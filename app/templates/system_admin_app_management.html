@@ -345,6 +345,6 @@ input:checked + .toggle-slider:before {
         {% endfor %}
     </div>
     
-    <a href="{{ url_for('system_admin.dashboard') }}" class="btn btn-secondary">ダッシュボードに戻る</a>
+    <a href="{{ current_dashboard_url }}" class="btn btn-secondary">ダッシュボードに戻る</a>
 </div>
 {% endblock %}

@@ -152,7 +152,7 @@
   <div class="page-header-inner">
     <div><h1 class="page-header-title">テナント管理者一覧</h1></div>
     <div class="page-header-actions">
-      <a href="{{ url_for('tenant_admin.dashboard') }}" class="header-btn-outline">ダッシュボードに戻る</a>
+      <a href="{{ current_dashboard_url }}" class="header-btn-outline">ダッシュボードに戻る</a>
     </div>
   </div>
 </div>
@@ -161,7 +161,7 @@
 <div style="margin-bottom:20px">
   <a class="btn" href="{{ url_for('tenant_admin.tenant_admin_new') }}">新規作成</a>
   <a class="btn" href="{{ url_for('tenant_admin.tenant_admin_invite') }}">管理者招待</a>
-  <a class="btn sub" href="{{ url_for('tenant_admin.dashboard') }}">戻る</a>
+  <a class="btn sub" href="{{ current_dashboard_url }}">戻る</a>
 </div>
 
 {% if admins %}

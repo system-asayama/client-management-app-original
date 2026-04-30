@@ -141,7 +141,7 @@
     <h1>アプリ管理者マイページ</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">ダッシュボード</a>
+    <a href="{{ current_dashboard_url }}">ダッシュボード</a>
     <a href="{{ url_for('auth.logout') }}" style="background:rgba(220,38,38,0.3);border-color:rgba(220,38,38,0.5)">ログアウト</a>
   </div>
 </div>
@@ -202,7 +202,7 @@
 <div class="section-card">
   <p class="section-title">アクセス先を選択</p>
   <div style="display:flex; flex-direction:column; gap:0.75rem">
-    <a href="{{ url_for('app_manager.dashboard') }}" class="access-nav-btn">
+    <a href="{{ current_dashboard_url }}" class="access-nav-btn">
       <span class="access-nav-icon">🖥️</span>
       <div class="access-nav-text">
         <div class="access-nav-title">アプリ管理者ダッシュボード</div>

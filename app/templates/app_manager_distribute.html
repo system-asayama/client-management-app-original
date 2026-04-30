@@ -106,7 +106,7 @@
     <h1>📲 アプリ配布管理</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ戻る</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボードへ戻る</a>
   </div>
 </div>
 
@@ -227,7 +227,7 @@
 
 <!-- フッター -->
 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:2rem">
-  <a class="btn-secondary" href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ戻る</a>
+  <a class="btn-secondary" href="{{ current_dashboard_url }}">← ダッシュボードへ戻る</a>
   <a class="btn-secondary" href="{{ url_for('app_manager.plan') }}">⚙️ プラン・アプリ設定</a>
 </div>
 

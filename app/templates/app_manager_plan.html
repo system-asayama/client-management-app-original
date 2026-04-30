@@ -138,7 +138,7 @@
     <h1>⚙️ プラン管理・利用アプリ設定</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">&#8592; ダッシュボードへ戻る</a>
+    <a href="{{ current_dashboard_url }}">&#8592; ダッシュボードへ戻る</a>
   </div>
 </div>
 
@@ -241,7 +241,7 @@
 
 <!-- フッター -->
 <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-  <a class="btn-secondary" href="{{ url_for('app_manager.dashboard') }}">&#8592; ダッシュボードへ戻る</a>
+  <a class="btn-secondary" href="{{ current_dashboard_url }}">&#8592; ダッシュボードへ戻る</a>
 </div>
 
 <script>

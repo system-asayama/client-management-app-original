@@ -105,6 +105,29 @@ def create_app() -> Flask:
         except Exception:
             # ブループリントが登録されていない場合はデフォルトのURLを使用
             context['mypage_url'] = url_for('auth.index')
+
+        # 現在操作中のロールに応じたダッシュボードURLを設定
+        # セッションの状態（store_id / tenant_id / role）から現在操作中のロールを判定
+        try:
+            store_id_check = session.get('store_id')
+            tenant_id_check = session.get('tenant_id')
+            app_manager_group_id_check = session.get('app_manager_group_id')
+            if store_id_check:
+                # 店舗管理者として操作中
+                context['current_dashboard_url'] = url_for('admin.dashboard')
+            elif tenant_id_check:
+                # テナント管理者として操作中
+                context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+            elif role == 'app_manager' or app_manager_group_id_check:
+                # アプリ管理者として操作中
+                context['current_dashboard_url'] = url_for('app_manager.dashboard')
+            elif role == 'system_admin':
+                # システム管理者として操作中
+                context['current_dashboard_url'] = url_for('system_admin.dashboard')
+            else:
+                context['current_dashboard_url'] = url_for('auth.select_login')
+        except Exception:
+            context['current_dashboard_url'] = '/'
         
         # テナント情報を取得
         tenant_id = session.get('tenant_id')

@@ -109,6 +109,21 @@ def create_app() -> Flask:
         # 現在操作中のロールに応じたダッシュボードURLを設定
         # セッションの状態（store_id / tenant_id / role）から現在操作中のロールを判定
         context['viewing_as_banner'] = None  # 閲覧中バナーメッセージ
+        # 現在のURLパスを取得（自分のロールのパスではバナー非表示）
+        try:
+            from flask import request as _req_path
+            _current_path = _req_path.path
+        except Exception:
+            _current_path = ''
+        # 各ロールの自分のパスプレフィックス
+        _own_path_prefixes = {
+            'system_admin': '/system_admin',
+            'app_manager': '/app_manager',
+            'tenant_admin': '/tenant_admin',
+            'admin': '/admin',
+        }
+        _own_prefix = _own_path_prefixes.get(role, '')
+        _on_own_page = bool(_own_prefix and _current_path.startswith(_own_prefix))
         try:
             store_id_check = session.get('store_id')
             tenant_id_check = session.get('tenant_id')
@@ -116,22 +131,22 @@ def create_app() -> Flask:
             if store_id_check:
                 # 店舗管理者として操作中
                 context['current_dashboard_url'] = url_for('admin.dashboard')
-                # 上位ロールが店舗管理者ページを閲覧中の場合はバナー表示
-                if role in ('system_admin', 'app_manager', 'tenant_admin'):
+                # 上位ロールが店舗管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
+                if role in ('system_admin', 'app_manager', 'tenant_admin') and not _on_own_page:
                     role_label = 'システム管理者' if role == 'system_admin' else ('アプリ管理者' if role == 'app_manager' else 'テナント管理者')
                     context['viewing_as_banner'] = f'{role_label}として閲覧中'
             elif tenant_id_check:
                 # テナント管理者として操作中
                 context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
-                # 上位ロールがテナント管理者ページを閲覧中の場合はバナー表示
-                if role in ('system_admin', 'app_manager'):
+                # 上位ロールがテナント管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
+                if role in ('system_admin', 'app_manager') and not _on_own_page:
                     role_label = 'システム管理者' if role == 'system_admin' else 'アプリ管理者'
                     context['viewing_as_banner'] = f'{role_label}として閲覧中'
             elif role == 'app_manager' or app_manager_group_id_check:
                 # アプリ管理者として操作中
                 context['current_dashboard_url'] = url_for('app_manager.dashboard')
-                # システム管理者がアプリ管理者ページを閲覧中の場合はバナー表示
-                if role == 'system_admin':
+                # システム管理者がアプリ管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
+                if role == 'system_admin' and not _on_own_page:
                     context['viewing_as_banner'] = 'システム管理者として閲覧中'
             elif role == 'system_admin':
                 # システム管理者として操作中

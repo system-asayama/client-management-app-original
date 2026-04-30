@@ -182,7 +182,7 @@
           <span class="plan-badge plan-individual">📋 個別プラン</span>
         {% endif %}
         <span style="font-size:0.8rem;color:#9ca3af">
-          利用アプリ: {{ group.enabled_app_ids|length }} / {{ available_apps|length }}
+          利用アプリ: {% if group.plan == 'unlimited' %}{{ available_apps|length }}{% else %}{{ group.enabled_app_ids|length }}{% endif %} / {{ available_apps|length }}
         </span>
         <span id="arrow_{{ loop.index }}" style="color:#9ca3af;font-size:1rem;transition:transform 0.2s">▼</span>
       </div>

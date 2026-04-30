@@ -108,6 +108,7 @@ def create_app() -> Flask:
 
         # 現在操作中のロールに応じたダッシュボードURLを設定
         # セッションの状態（store_id / tenant_id / role）から現在操作中のロールを判定
+        context['viewing_as_banner'] = None  # 閲覧中バナーメッセージ
         try:
             store_id_check = session.get('store_id')
             tenant_id_check = session.get('tenant_id')
@@ -115,12 +116,23 @@ def create_app() -> Flask:
             if store_id_check:
                 # 店舗管理者として操作中
                 context['current_dashboard_url'] = url_for('admin.dashboard')
+                # 上位ロールが店舗管理者ページを閲覧中の場合はバナー表示
+                if role in ('system_admin', 'app_manager', 'tenant_admin'):
+                    role_label = 'システム管理者' if role == 'system_admin' else ('アプリ管理者' if role == 'app_manager' else 'テナント管理者')
+                    context['viewing_as_banner'] = f'{role_label}として閲覧中'
             elif tenant_id_check:
                 # テナント管理者として操作中
                 context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+                # 上位ロールがテナント管理者ページを閲覧中の場合はバナー表示
+                if role in ('system_admin', 'app_manager'):
+                    role_label = 'システム管理者' if role == 'system_admin' else 'アプリ管理者'
+                    context['viewing_as_banner'] = f'{role_label}として閲覧中'
             elif role == 'app_manager' or app_manager_group_id_check:
                 # アプリ管理者として操作中
                 context['current_dashboard_url'] = url_for('app_manager.dashboard')
+                # システム管理者がアプリ管理者ページを閲覧中の場合はバナー表示
+                if role == 'system_admin':
+                    context['viewing_as_banner'] = 'システム管理者として閲覧中'
             elif role == 'system_admin':
                 # システム管理者として操作中
                 context['current_dashboard_url'] = url_for('system_admin.dashboard')
@@ -166,6 +178,35 @@ def create_app() -> Flask:
                 conn.close()
             except Exception:
                 pass
+
+        # 閲覧中バナーにコンテキスト情報（グループ名・テナント名・店舗名）を付加
+        if context.get('viewing_as_banner'):
+            # アプリ管理者グループ名を取得
+            app_manager_group_name = None
+            app_mgr_gid = session.get('app_manager_group_id')
+            if app_mgr_gid:
+                try:
+                    from .models_login import TAppManagerGroup
+                    from .db import SessionLocal
+                    db = SessionLocal()
+                    grp = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == app_mgr_gid).first()
+                    if grp:
+                        app_manager_group_name = grp.group_name
+                    db.close()
+                except Exception:
+                    pass
+
+            # バナーメッセージにコンテキストを追加
+            banner_parts = []
+            if app_manager_group_name:
+                banner_parts.append(f'グループ「{app_manager_group_name}」')
+            if context.get('current_tenant_name'):
+                banner_parts.append(f'テナント「{context["current_tenant_name"]}」')
+            if context.get('current_store_name'):
+                banner_parts.append(f'店舗「{context["current_store_name"]}」')
+
+            if banner_parts:
+                context['viewing_as_banner'] = context['viewing_as_banner'] + ' — ' + '・'.join(banner_parts) + 'を表示しています'
         
         return context
 

@@ -4,9 +4,14 @@
   <meta charset="utf-8">
   <title>管理者 新規登録</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>label{display:block;margin:8px 0 4px}input{padding:8px;width:100%;max-width:360px}.btn{padding:8px 12px;border:1px solid #333;background:#fff;cursor:pointer}.error{color:#b00020}</style>
+  <style>label{display:block;margin:8px 0 4px}input{padding:8px;width:100%;max-width:360px}.btn{padding:8px 12px;border:1px solid #333;background:#fff;cursor:pointer}.error{color:#b00020}    .viewing-as-banner { background: #fff8e1; color: #7a5c00; border: 1px solid #ffe082; border-radius: 8px; padding: .6rem 1rem; margin: .5rem 0 1rem; font-size: .9rem; }
+  </style>
 </head>
 <body>
+  {% if viewing_as_banner %}
+  <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+  {% endif %}
+
   <h1>管理者 新規登録</h1>
   <p><a href="{{ url_for('admin_admins_list') }}">← 管理者一覧へ</a></p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}

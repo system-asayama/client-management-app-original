@@ -293,20 +293,26 @@ def edit_profile():
     """プロフィール編集"""
     user_id = session.get('user_id')
     
-    if request.method == 'GET':
-        return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
-    
-    # POST処理
-    login_id = request.form.get('login_id', '').strip()
-    name = request.form.get('name', '').strip()
-    email = request.form.get('email', '').strip()
-    
-    if not login_id or not name or not email:
-        flash('すべての項目を入力してください', 'error')
-        return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
-    
     db = SessionLocal()
     try:
+        # ログインユーザー情報を取得
+        app_manager = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not app_manager:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('app_manager.mypage'))
+        
+        if request.method == 'GET':
+            return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
+        
+        # POST処理
+        login_id = request.form.get('login_id', '').strip()
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        
+        if not login_id or not name or not email:
+            flash('すべての項目を入力してください', 'error')
+            return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
+        
         # ログインIDの重複チェック（自分以外）
         existing = db.query(TKanrisha).filter(
             TKanrisha.login_id == login_id,
@@ -318,10 +324,9 @@ def edit_profile():
             return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
         
         # 更新
-        current_admin = db.query(TKanrisha).filter(TKanrisha.id == app_manager.id).first()
-        current_admin.login_id = login_id
-        current_admin.name = name
-        current_admin.email = email
+        app_manager.login_id = login_id
+        app_manager.name = name
+        app_manager.email = email
         db.commit()
         
         # セッション更新

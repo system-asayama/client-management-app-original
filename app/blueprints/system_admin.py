@@ -2216,7 +2216,9 @@ def select_store_from_mypage():
         session['tenant_id'] = store.tenant_id
         
         if tenant:
+            pass
         else:
+            pass
         
         # 店舗管理者ダッシュボードへリダイレクト
         return redirect('/admin/')

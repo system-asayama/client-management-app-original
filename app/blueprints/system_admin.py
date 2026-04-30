@@ -2962,8 +2962,11 @@ def app_limit_management():
             import json
             current_plan = getattr(group, 'plan', 'individual') or 'individual'
             enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+            # AVAILABLE_APPSに存在するIDのみに絞り込む（不正データを除外）
+            _available_app_names = {app['name'] for app in AVAILABLE_APPS}
             try:
-                enabled_app_ids = json.loads(enabled_apps_raw)
+                enabled_app_ids_raw = json.loads(enabled_apps_raw)
+                enabled_app_ids = [app_id for app_id in enabled_app_ids_raw if app_id in _available_app_names]
             except Exception:
                 enabled_app_ids = []
 

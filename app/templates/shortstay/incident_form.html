@@ -1,0 +1,94 @@
+{% extends "shortstay/base.html" %}
+{% block title %}事故・ヒヤリハット報告 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}事故・ヒヤリハット報告{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '報告書編集' if incident else '事故・ヒヤリハット報告書作成' }}</div>
+  <a href="{{ url_for('shortstay.incidents') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-section-title">発生情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">種別 <span style="color:red;">*</span></label>
+        <select name="incident_type" class="form-control" required>
+          <option value="ヒヤリハット" {% if not incident or incident.incident_type == 'ヒヤリハット' %}selected{% endif %}>ヒヤリハット</option>
+          <option value="事故" {% if incident and incident.incident_type == '事故' %}selected{% endif %}>事故</option>
+          <option value="その他" {% if incident and incident.incident_type == 'その他' %}selected{% endif %}>その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">発生日 <span style="color:red;">*</span></label>
+        <input type="date" name="incident_date" class="form-control" required value="{{ incident.incident_date.isoformat() if incident else today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">発生時刻</label>
+        <input type="time" name="incident_time" class="form-control" value="{{ incident.incident_time or '' if incident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">利用者</label>
+        <select name="resident_id" class="form-control">
+          <option value="">選択してください（任意）</option>
+          {% for r in residents %}
+          <option value="{{ r.id }}" {% if incident and incident.resident_id == r.id %}selected{% endif %}>{{ r.last_name }}{{ r.first_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">発生場所</label>
+        <input type="text" name="location" class="form-control" placeholder="例：居室、浴室、廊下" value="{{ incident.location or '' if incident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">重症度</label>
+        <select name="severity" class="form-control">
+          <option value="">-</option>
+          <option value="なし" {% if incident and incident.severity == 'なし' %}selected{% endif %}>なし（ヒヤリハット）</option>
+          <option value="軽傷" {% if incident and incident.severity == '軽傷' %}selected{% endif %}>軽傷</option>
+          <option value="中等度" {% if incident and incident.severity == '中等度' %}selected{% endif %}>中等度</option>
+          <option value="重傷" {% if incident and incident.severity == '重傷' %}selected{% endif %}>重傷</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">発生状況・経緯 <span style="color:red;">*</span></label>
+      <textarea name="description" class="form-control" rows="5" required>{{ incident.description or '' if incident else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">対応内容</label>
+      <textarea name="response" class="form-control" rows="4">{{ incident.response or '' if incident else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">再発防止策</label>
+      <textarea name="prevention" class="form-control" rows="4">{{ incident.prevention or '' if incident else '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">報告者</label>
+        <input type="text" name="reporter_name" class="form-control" value="{{ incident.reporter_name or current_user_name if incident else current_user_name }}">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.5rem;">
+        <input type="checkbox" name="family_notified" id="family_notified" {% if incident and incident.family_notified %}checked{% endif %} style="width:auto;">
+        <label for="family_notified" style="font-weight:normal;">家族への報告済み</label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.5rem;">
+        <input type="checkbox" name="authority_notified" id="authority_notified" {% if incident and incident.authority_notified %}checked{% endif %} style="width:auto;">
+        <label for="authority_notified" style="font-weight:normal;">行政への報告済み</label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.incidents') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if incident else '提出する' }}</button>
+  </div>
+</form>
+{% endblock %}

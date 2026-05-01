@@ -1,0 +1,152 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ダッシュボード - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}ダッシュボード{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">本日の状況 <small style="font-size:0.9rem;color:#6b7280;">{{ today.strftime('%Y年%m月%d日') }}</small></div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.reservation_new') }}" class="btn btn-primary">＋ 新規予約</a>
+    <a href="{{ url_for('shortstay.vital_new') }}" class="btn">バイタル記録</a>
+    <a href="{{ url_for('shortstay.staff_note_new') }}" class="btn">申し送り</a>
+  </div>
+</div>
+
+<!-- 統計カード -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ current_residents }}</div>
+    <div class="stat-label">現在入所中</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-value">{{ today_checkins }}</div>
+    <div class="stat-label">本日の入所予定</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ today_checkouts }}</div>
+    <div class="stat-label">本日の退所予定</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ total_rooms }}</div>
+    <div class="stat-label">総居室数</div>
+  </div>
+  <div class="stat-card {% if occupancy_rate >= 80 %}success{% endif %}">
+    <div class="stat-value">{{ occupancy_rate }}%</div>
+    <div class="stat-label">稼働率</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ total_residents }}</div>
+    <div class="stat-label">登録利用者数</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+  <!-- 今後7日間の予約 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📅 今後7日間の予約</div>
+      <a href="{{ url_for('shortstay.reservations') }}" class="btn btn-sm">すべて見る</a>
+    </div>
+    {% if upcoming_reservations %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>入所日</th><th>退所日</th><th>利用者</th><th>状態</th></tr>
+        </thead>
+        <tbody>
+          {% for rsv in upcoming_reservations %}
+          <tr>
+            <td>{{ rsv.check_in_date.strftime('%m/%d') }}</td>
+            <td>{{ rsv.check_out_date.strftime('%m/%d') }}</td>
+            <td>
+              <a href="{{ url_for('shortstay.reservation_detail', reservation_id=rsv.id) }}" style="color:var(--primary);">
+                利用者#{{ rsv.resident_id }}
+              </a>
+            </td>
+            <td>
+              {% if rsv.status.value == '確定' %}
+                <span class="badge badge-green">{{ rsv.status.value }}</span>
+              {% elif rsv.status.value == '仮予約' %}
+                <span class="badge badge-yellow">{{ rsv.status.value }}</span>
+              {% else %}
+                <span class="badge badge-gray">{{ rsv.status.value }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--gray-500);text-align:center;padding:2rem 0;">今後7日間の予約はありません</p>
+    {% endif %}
+  </div>
+
+  <!-- 未対応の申し送り -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💬 緊急申し送り</div>
+      <a href="{{ url_for('shortstay.staff_notes') }}" class="btn btn-sm">すべて見る</a>
+    </div>
+    {% if urgent_notes %}
+    <div style="display:flex;flex-direction:column;gap:0.75rem;">
+      {% for note in urgent_notes %}
+      <div style="padding:0.75rem;background:#fef2f2;border-radius:8px;border-left:4px solid var(--danger);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+          <span class="badge badge-red">緊急</span>
+          <span style="font-size:0.8rem;color:var(--gray-500);">{{ note.note_date.strftime('%m/%d') }}</span>
+        </div>
+        <p style="font-size:0.875rem;color:var(--gray-700);">{{ note.content[:80] }}{% if note.content|length > 80 %}...{% endif %}</p>
+        <form method="post" action="{{ url_for('shortstay.staff_note_resolve', note_id=note.id) }}" style="margin-top:0.5rem;">
+          <button type="submit" class="btn btn-sm">対応済みにする</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:var(--gray-500);text-align:center;padding:2rem 0;">未対応の緊急申し送りはありません ✓</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- クイックアクション -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">クイックアクション</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.75rem;">
+    <a href="{{ url_for('shortstay.resident_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">👤</span>
+      <span>利用者登録</span>
+    </a>
+    <a href="{{ url_for('shortstay.reservation_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">📝</span>
+      <span>予約登録</span>
+    </a>
+    <a href="{{ url_for('shortstay.vital_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">🩺</span>
+      <span>バイタル記録</span>
+    </a>
+    <a href="{{ url_for('shortstay.meal_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">🍱</span>
+      <span>食事記録</span>
+    </a>
+    <a href="{{ url_for('shortstay.excretion_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">📋</span>
+      <span>排泄記録</span>
+    </a>
+    <a href="{{ url_for('shortstay.bath_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">🛁</span>
+      <span>入浴記録</span>
+    </a>
+    <a href="{{ url_for('shortstay.staff_note_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">💬</span>
+      <span>申し送り</span>
+    </a>
+    <a href="{{ url_for('shortstay.incident_new') }}" class="btn" style="justify-content:center;padding:1rem;flex-direction:column;gap:0.3rem;text-align:center;">
+      <span style="font-size:1.5rem;">⚠️</span>
+      <span>事故報告</span>
+    </a>
+  </div>
+</div>
+{% endblock %}

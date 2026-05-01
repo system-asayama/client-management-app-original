@@ -1,0 +1,62 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ケアプラン詳細 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}ケアプラン詳細{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">ケアプラン #{{ plan.id }}</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.care_plan_edit', plan_id=plan.id) }}" class="btn">編集</a>
+    <a href="{{ url_for('shortstay.care_plans') }}" class="btn">← 一覧へ</a>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--gray-100);">
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">利用者</div>
+      <div style="font-weight:600;">{% if resident %}<a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" style="color:var(--primary);">{{ resident.last_name }}{{ resident.first_name }}</a>{% else %}-{% endif %}</div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">作成日</div>
+      <div>{{ plan.created_date.strftime('%Y年%m月%d日') if plan.created_date else '-' }}</div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">有効期間</div>
+      <div>{{ plan.valid_from.strftime('%Y/%m/%d') if plan.valid_from else '-' }} 〜 {{ plan.valid_to.strftime('%Y/%m/%d') if plan.valid_to else '-' }}</div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">作成者</div>
+      <div>{{ plan.author_name or '-' }}</div>
+    </div>
+  </div>
+
+  {% if plan.goal %}
+  <div style="margin-bottom:1rem;">
+    <div style="font-size:0.85rem;font-weight:700;color:var(--gray-700);margin-bottom:0.4rem;">長期目標</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:var(--primary-light);border-radius:8px;">{{ plan.goal }}</div>
+  </div>
+  {% endif %}
+
+  {% if plan.short_term_goal %}
+  <div style="margin-bottom:1rem;">
+    <div style="font-size:0.85rem;font-weight:700;color:var(--gray-700);margin-bottom:0.4rem;">短期目標</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:var(--gray-50);border-radius:8px;">{{ plan.short_term_goal }}</div>
+  </div>
+  {% endif %}
+
+  {% if plan.support_content %}
+  <div style="margin-bottom:1rem;">
+    <div style="font-size:0.85rem;font-weight:700;color:var(--gray-700);margin-bottom:0.4rem;">支援内容</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:var(--gray-50);border-radius:8px;">{{ plan.support_content }}</div>
+  </div>
+  {% endif %}
+
+  {% if plan.precautions %}
+  <div>
+    <div style="font-size:0.85rem;font-weight:700;color:var(--gray-700);margin-bottom:0.4rem;">留意事項</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:#fffbeb;border-radius:8px;border:1px solid #fde68a;">{{ plan.precautions }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "shortstay/base.html" %}
+{% block title %}予約一覧 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}予約管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">予約一覧</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.reservation_calendar') }}" class="btn">📅 カレンダー表示</a>
+    <a href="{{ url_for('shortstay.reservation_new') }}" class="btn btn-primary">＋ 新規予約</a>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" class="search-bar" style="flex-wrap:wrap;">
+    <select name="status" class="form-control" style="max-width:150px;">
+      <option value="">すべての状態</option>
+      <option value="仮予約" {% if status_filter == '仮予約' %}selected{% endif %}>仮予約</option>
+      <option value="確定" {% if status_filter == '確定' %}selected{% endif %}>確定</option>
+      <option value="キャンセル" {% if status_filter == 'キャンセル' %}selected{% endif %}>キャンセル</option>
+    </select>
+    <input type="date" name="date_from" class="form-control" style="max-width:160px;" value="{{ date_from }}">
+    <span style="align-self:center;">〜</span>
+    <input type="date" name="date_to" class="form-control" style="max-width:160px;" value="{{ date_to }}">
+    <button type="submit" class="btn btn-primary">絞り込み</button>
+    <a href="{{ url_for('shortstay.reservations') }}" class="btn">クリア</a>
+  </form>
+
+  {% if reservations %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>入所日</th><th>退所日</th><th>泊数</th><th>利用者</th><th>居室</th><th>状態</th><th>入退所状態</th><th>送迎</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for rsv in reservations %}
+        {% set resident = residents_map.get(rsv.resident_id) %}
+        <tr>
+          <td>{{ rsv.check_in_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ rsv.check_out_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ (rsv.check_out_date - rsv.check_in_date).days }}泊</td>
+          <td>
+            {% if resident %}
+            <a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" style="color:var(--primary);">
+              {{ resident.last_name }}{{ resident.first_name }}
+            </a>
+            {% else %}-{% endif %}
+          </td>
+          <td>-</td>
+          <td>
+            {% if rsv.status.value == '確定' %}<span class="badge badge-green">{{ rsv.status.value }}</span>
+            {% elif rsv.status.value == '仮予約' %}<span class="badge badge-yellow">{{ rsv.status.value }}</span>
+            {% elif rsv.status.value == 'キャンセル' %}<span class="badge badge-red">{{ rsv.status.value }}</span>
+            {% else %}<span class="badge badge-gray">{{ rsv.status.value }}</span>{% endif %}
+          </td>
+          <td>
+            {% if rsv.check_status.value == '入所中' %}<span class="badge badge-blue">{{ rsv.check_status.value }}</span>
+            {% elif rsv.check_status.value == '退所済' %}<span class="badge badge-gray">{{ rsv.check_status.value }}</span>
+            {% else %}<span class="badge badge-yellow">{{ rsv.check_status.value }}</span>{% endif %}
+          </td>
+          <td>
+            {% if rsv.pickup_required %}迎え{% endif %}
+            {% if rsv.dropoff_required %}送り{% endif %}
+            {% if not rsv.pickup_required and not rsv.dropoff_required %}-{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('shortstay.reservation_detail', reservation_id=rsv.id) }}" class="btn btn-sm">詳細</a>
+            <a href="{{ url_for('shortstay.reservation_edit', reservation_id=rsv.id) }}" class="btn btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--gray-500);">{{ reservations|length }}件</p>
+  {% else %}
+  <div style="text-align:center;padding:3rem;color:var(--gray-500);">
+    <p style="font-size:1.5rem;margin-bottom:0.5rem;">📝</p>
+    <p>予約が見つかりません</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

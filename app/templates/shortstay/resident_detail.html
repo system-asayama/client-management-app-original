@@ -1,0 +1,420 @@
+{% extends "shortstay/base.html" %}
+{% block title %}{{ resident.last_name }}{{ resident.first_name }} - フェイスシート{% endblock %}
+{% block topbar_title %}利用者詳細（フェイスシート）{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">利用者詳細</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.reservation_new') }}?resident_id={{ resident.id }}" class="btn btn-primary">＋ 予約登録</a>
+    <a href="{{ url_for('shortstay.resident_edit', resident_id=resident.id) }}" class="btn">編集</a>
+    <a href="{{ url_for('shortstay.residents') }}" class="btn">← 一覧へ戻る</a>
+  </div>
+</div>
+
+<!-- ============================================================
+     フェイスシート本体
+     ============================================================ -->
+<div class="card" style="padding:0;overflow:hidden;">
+
+  <!-- タイトル行 -->
+  <div style="text-align:center;padding:1.25rem 1rem 0.75rem;border-bottom:2px solid #333;">
+    <h2 style="font-size:1.7rem;font-weight:bold;letter-spacing:0.25em;margin:0;">フェイスシート</h2>
+  </div>
+
+  <!-- 令和日付 -->
+  <div style="text-align:right;padding:0.4rem 2rem 0.4rem;font-size:0.88rem;border-bottom:1px solid #ccc;color:#555;">
+    {% if resident.updated_at %}
+      {% set reiwa_year = resident.updated_at.year - 2018 %}
+      令和 {{ reiwa_year }} 年 {{ resident.updated_at.month }} 月 {{ resident.updated_at.day }} 日 時点
+    {% else %}
+      令和　　年　　月　　日　時点
+    {% endif %}
+  </div>
+
+  <!-- メインテーブル -->
+  <div style="overflow-x:auto;padding:0;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.88rem;min-width:700px;">
+
+      <!-- ─── 行1: 写真 / フリガナ・氏名 / 性別・相談員・生年月日 ─── -->
+      <tr>
+        <td rowspan="2" style="width:11%;text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.75rem 0.5rem;background:#f5f5f5;">
+          <div style="font-size:0.8rem;color:#888;margin-bottom:0.4rem;">写真</div>
+          <div style="width:72px;height:90px;border:1px dashed #bbb;margin:0 auto;background:#fff;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:0.7rem;">未登録</div>
+        </td>
+        <td style="width:8%;text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">フリガナ</td>
+        <td style="width:22%;vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ (resident.last_name_kana or '　') }}　{{ (resident.first_name_kana or '　') }}
+        </td>
+        <td style="width:7%;text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">性別</td>
+        <td style="width:9%;vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.gender.value if resident.gender else '' }}
+        </td>
+        <td style="width:8%;text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">相談員</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.consultant_name or '' }}
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">氏名</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;font-weight:bold;font-size:1.05rem;">
+          {{ resident.last_name }}　{{ resident.first_name }}
+        </td>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">生年月日</td>
+        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {% if resident.birth_date %}
+            {{ resident.birth_date.year }}年 {{ resident.birth_date.month }}月 {{ resident.birth_date.day }}日
+            （{{ age }}歳）
+          {% else %}
+            　　年　　月　　日　　歳
+          {% endif %}
+        </td>
+      </tr>
+
+      <!-- ─── 行2: 障害支援区分 / 決定支給量 ─── -->
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">障害支援区分</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.disability_support_category or '' }}
+        </td>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">決定支給量</td>
+        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.approved_service_amount or '　' }}　日／月
+        </td>
+      </tr>
+
+      <!-- ─── 行3: 認定有効期間 / 支給決定期間 ─── -->
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">認定有効期間</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {% if resident.certification_valid_from %}{{ resident.certification_valid_from.strftime('%Y/%m/%d') }}{% else %}　　/　　/　　{% endif %}
+          ～
+          {% if resident.certification_valid_to %}{{ resident.certification_valid_to.strftime('%Y/%m/%d') }}{% else %}　　/　　/　　{% endif %}
+        </td>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">支給決定期間</td>
+        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {% if resident.service_decision_from %}{{ resident.service_decision_from.strftime('%Y/%m/%d') }}{% else %}　　/　　/　　{% endif %}
+          ～
+          {% if resident.service_decision_to %}{{ resident.service_decision_to.strftime('%Y/%m/%d') }}{% else %}　　/　　/　　{% endif %}
+        </td>
+      </tr>
+
+      <!-- ─── 行4: 障害等認定 ─── -->
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">障害等認定</td>
+        <td colspan="6" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.disability_certification or '' }}
+        </td>
+      </tr>
+
+      <!-- ─── 行5〜9: 食事（左）＋ 服薬（右）の複合セクション ─── -->
+      <tr>
+        <!-- 食事：左ラベル（5行分） -->
+        <td rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">食事</td>
+        <!-- 食事動作 -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">食事動作</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.meal_action == '自立' %}adl-sel{% endif %}">自立</span>
+          ・
+          <span class="adl-opt {% if resident.meal_action == '見守り' %}adl-sel{% endif %}">見守り</span>
+          ・
+          <span class="adl-opt {% if resident.meal_action == '介助' %}adl-sel{% endif %}">介助</span>
+        </td>
+        <!-- 服薬：左ラベル（5行分） -->
+        <td rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬</td>
+        <!-- 定期薬 -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">定期薬</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.medication_regular or '' }}<br>
+          <small style="color:#888;">朝・昼・夕・眠前</small>
+        </td>
+      </tr>
+      <tr>
+        <!-- ★アレルギー -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">★アレルギー</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;{% if resident.allergies %}color:#c00;font-weight:bold;{% endif %}">
+          {{ resident.allergies or '' }}
+        </td>
+        <!-- 頓服 -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">頓服</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {% if resident.medication_prn %}
+            あり（{{ resident.medication_prn }}）・なし
+          {% else %}
+            あり（　　　　　　）・<span style="font-weight:bold;">なし</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <!-- 嫌いなもの -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">嫌いなもの</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.disliked_food or '' }}
+        </td>
+        <!-- 管理 -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">管理</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.medication_management == '自己管理' %}adl-sel{% endif %}">自己管理</span>
+          ・
+          <span class="adl-opt {% if resident.medication_management == '職員管理' %}adl-sel{% endif %}">職員管理</span>
+        </td>
+      </tr>
+      <tr>
+        <!-- 形態（とろみ等） -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">形態（とろみ等）</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.meal_form or '' }}
+        </td>
+        <!-- 特記（2行分） -->
+        <td rowspan="2" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
+        <td rowspan="2" colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;min-height:3rem;">{{ resident.medication_special_notes or '' }}</td>
+      </tr>
+      <tr>
+        <!-- 好きなもの -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">好きなもの</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.favorite_food or '' }}
+        </td>
+      </tr>
+
+      <!-- ─── 行10: トイレ動作 / 入浴 ─── -->
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">トイレ動作</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.toilet_action == '自立' %}adl-sel{% endif %}">自立</span>
+          ・
+          <span class="adl-opt {% if resident.toilet_action == '見守り' %}adl-sel{% endif %}">見守り</span>
+          ・
+          <span class="adl-opt {% if resident.toilet_action == '介助' %}adl-sel{% endif %}">介助</span>
+        </td>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">入浴</td>
+        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.bath_assistance == '自立' %}adl-sel{% endif %}">自立</span>
+          ・
+          <span class="adl-opt {% if resident.bath_assistance == '見守り' %}adl-sel{% endif %}">見守り</span>
+          ・
+          <span class="adl-opt {% if resident.bath_assistance == '一部介助' %}adl-sel{% endif %}">一部介助</span>
+          ・
+          <span class="adl-opt {% if resident.bath_assistance == '全介助' %}adl-sel{% endif %}">全介助</span>
+        </td>
+      </tr>
+
+      <!-- ─── 行11: 排尿コントロール / 更衣 ─── -->
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">排尿コントロール</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.urinary_control == '失禁なし' %}adl-sel{% endif %}">失禁なし</span>
+          ・
+          <span class="adl-opt {% if resident.urinary_control == '時に失禁' %}adl-sel{% endif %}">時に失禁</span>
+          ・
+          <span class="adl-opt {% if resident.urinary_control == '介助' %}adl-sel{% endif %}">介助</span>
+        </td>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">更衣</td>
+        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.dressing_assistance == '自立' %}adl-sel{% endif %}">自立</span>
+          ・
+          <span class="adl-opt {% if resident.dressing_assistance == '見守り' %}adl-sel{% endif %}">見守り</span>
+          ・
+          <span class="adl-opt {% if resident.dressing_assistance == '一部介助' %}adl-sel{% endif %}">一部介助</span>
+          ・
+          <span class="adl-opt {% if resident.dressing_assistance == '全介助' %}adl-sel{% endif %}">全介助</span>
+        </td>
+      </tr>
+
+      <!-- ─── 行12: 排便コントロール / 意思疎通 ─── -->
+      <tr>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">排便コントロール</td>
+        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.bowel_control == '失禁なし' %}adl-sel{% endif %}">失禁なし</span>
+          ・
+          <span class="adl-opt {% if resident.bowel_control == '時に失禁' %}adl-sel{% endif %}">時に失禁</span>
+          ・
+          <span class="adl-opt {% if resident.bowel_control == '介助' %}adl-sel{% endif %}">介助</span>
+        </td>
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">意思疎通</td>
+        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          <span class="adl-opt {% if resident.communication == '可能' %}adl-sel{% endif %}">可能</span>
+          ・
+          <span class="adl-opt {% if resident.communication == '何とか可能' %}adl-sel{% endif %}">何とか可能</span>
+          ・
+          <span class="adl-opt {% if resident.communication == '不可能' %}adl-sel{% endif %}">不可能</span>
+        </td>
+      </tr>
+
+    </table>
+  </div>
+</div>
+<!-- /フェイスシート本体 -->
+
+<!-- ============================================================
+     追加情報（介護保険・医療・ケアマネ・緊急連絡先）
+     ============================================================ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;">
+
+  <!-- 介護保険情報 -->
+  <div class="card">
+    <div class="form-section-title">介護保険情報</div>
+    <table style="width:100%;font-size:0.875rem;">
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;width:45%;">介護度</td><td style="padding:0.35rem 0.5rem;">{{ resident.care_level.value if resident.care_level else '未設定' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">介護保険番号</td><td style="padding:0.35rem 0.5rem;">{{ resident.care_insurance_no or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">有効期限</td><td style="padding:0.35rem 0.5rem;">{{ resident.care_insurance_expiry.strftime('%Y/%m/%d') if resident.care_insurance_expiry else '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">保険者番号</td><td style="padding:0.35rem 0.5rem;">{{ resident.insurer_no or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">保険者名</td><td style="padding:0.35rem 0.5rem;">{{ resident.insurer_name or '' }}</td></tr>
+    </table>
+  </div>
+
+  <!-- 医療情報 -->
+  <div class="card">
+    <div class="form-section-title">医療情報</div>
+    <table style="width:100%;font-size:0.875rem;">
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;width:45%;">主治医名</td><td style="padding:0.35rem 0.5rem;">{{ resident.doctor_name or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">病院名</td><td style="padding:0.35rem 0.5rem;">{{ resident.hospital_name or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">病院電話</td><td style="padding:0.35rem 0.5rem;">{{ resident.hospital_phone or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;vertical-align:top;">既往歴</td><td style="padding:0.35rem 0.5rem;white-space:pre-wrap;">{{ resident.medical_history or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;vertical-align:top;">特記事項</td><td style="padding:0.35rem 0.5rem;white-space:pre-wrap;">{{ resident.special_notes or '' }}</td></tr>
+    </table>
+  </div>
+
+  <!-- ケアマネジャー情報 -->
+  <div class="card">
+    <div class="form-section-title">担当ケアマネジャー情報</div>
+    <table style="width:100%;font-size:0.875rem;">
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;width:45%;">担当ケアマネ</td><td style="padding:0.35rem 0.5rem;">{{ resident.care_manager_name or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">事業所名</td><td style="padding:0.35rem 0.5rem;">{{ resident.care_manager_office or '' }}</td></tr>
+      <tr><td style="padding:0.35rem 0.5rem;color:#666;">電話番号</td><td style="padding:0.35rem 0.5rem;">{{ resident.care_manager_phone or '' }}</td></tr>
+    </table>
+  </div>
+
+  <!-- 緊急連絡先 -->
+  <div class="card">
+    <div class="form-section-title">緊急連絡先</div>
+    {% if emergency_contacts %}
+      <table style="width:100%;font-size:0.875rem;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8f9fa;">
+            <th style="padding:0.35rem 0.5rem;text-align:left;border-bottom:1px solid #dee2e6;">氏名</th>
+            <th style="padding:0.35rem 0.5rem;text-align:left;border-bottom:1px solid #dee2e6;">続柄</th>
+            <th style="padding:0.35rem 0.5rem;text-align:left;border-bottom:1px solid #dee2e6;">電話番号</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ec in emergency_contacts %}
+          <tr>
+            <td style="padding:0.35rem 0.5rem;border-bottom:1px solid #f0f0f0;">{{ ec.name }}</td>
+            <td style="padding:0.35rem 0.5rem;border-bottom:1px solid #f0f0f0;">{{ ec.relation_type or '' }}</td>
+            <td style="padding:0.35rem 0.5rem;border-bottom:1px solid #f0f0f0;">{{ ec.phone or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p style="color:#999;padding:0.5rem;margin:0;">登録なし</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 服薬詳細 -->
+{% if resident.medications %}
+<div class="card" style="margin-top:1rem;">
+  <div class="form-section-title">服薬情報（詳細）</div>
+  <p style="white-space:pre-wrap;padding:0.5rem;margin:0;font-size:0.875rem;">{{ resident.medications }}</p>
+</div>
+{% endif %}
+
+<!-- 最新バイタル -->
+{% if vitals %}
+<div class="card" style="margin-top:1rem;">
+  <div class="card-header">
+    <div class="card-title">最新バイタル記録</div>
+    <a href="{{ url_for('shortstay.vital_new') }}?resident_id={{ resident.id }}" class="btn btn-sm">＋ 記録</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日付</th><th>時刻</th><th>体温</th><th>血圧</th><th>脈拍</th><th>SpO2</th><th>体重</th></tr>
+      </thead>
+      <tbody>
+        {% for v in vitals %}
+        <tr>
+          <td>{{ v.record_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ v.record_time or '-' }}</td>
+          <td>{{ v.body_temp or '-' }}{% if v.body_temp %}℃{% endif %}</td>
+          <td>{{ v.blood_pressure_high or '-' }}{% if v.blood_pressure_high %}/{{ v.blood_pressure_low }}{% endif %}</td>
+          <td>{{ v.pulse or '-' }}{% if v.pulse %}回/分{% endif %}</td>
+          <td>{{ v.spo2 or '-' }}{% if v.spo2 %}%{% endif %}</td>
+          <td>{{ v.weight or '-' }}{% if v.weight %}kg{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 予約履歴 -->
+<div class="card" style="margin-top:1rem;">
+  <div class="card-header">
+    <div class="card-title">予約履歴</div>
+    <a href="{{ url_for('shortstay.reservation_new') }}?resident_id={{ resident.id }}" class="btn btn-sm btn-primary">＋ 予約登録</a>
+  </div>
+  {% if reservations %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>入所日</th><th>退所日</th><th>状態</th><th>入退所状態</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for rsv in reservations %}
+        <tr>
+          <td>{{ rsv.check_in_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ rsv.check_out_date.strftime('%Y/%m/%d') }}</td>
+          <td>
+            {% if rsv.status.value == '確定' %}<span class="badge badge-green">{{ rsv.status.value }}</span>
+            {% elif rsv.status.value == '仮予約' %}<span class="badge badge-yellow">{{ rsv.status.value }}</span>
+            {% elif rsv.status.value == 'キャンセル' %}<span class="badge badge-red">{{ rsv.status.value }}</span>
+            {% else %}<span class="badge badge-gray">{{ rsv.status.value }}</span>{% endif %}
+          </td>
+          <td>
+            {% if rsv.check_status.value == '入所中' %}<span class="badge badge-blue">{{ rsv.check_status.value }}</span>
+            {% elif rsv.check_status.value == '退所済' %}<span class="badge badge-gray">{{ rsv.check_status.value }}</span>
+            {% else %}<span class="badge badge-yellow">{{ rsv.check_status.value }}</span>{% endif %}
+          </td>
+          <td><a href="{{ url_for('shortstay.reservation_detail', reservation_id=rsv.id) }}" class="btn btn-sm">詳細</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:#999;padding:0.5rem;">予約履歴がありません</p>
+  {% endif %}
+</div>
+
+<!-- アクションボタン -->
+<div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;margin-bottom:2rem;">
+  <a href="{{ url_for('shortstay.care_records') }}?resident_id={{ resident.id }}" class="btn">ケア記録</a>
+  <a href="{{ url_for('shortstay.care_plans') }}?resident_id={{ resident.id }}" class="btn">ケアプラン</a>
+  <a href="{{ url_for('shortstay.resident_edit', resident_id=resident.id) }}" class="btn btn-primary">編集</a>
+</div>
+
+<style>
+/* フェイスシート用スタイル */
+.adl-opt {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  color: #555;
+  font-size: 0.88rem;
+}
+.adl-sel {
+  background: #1a56db;
+  color: #fff !important;
+  font-weight: bold;
+  border-radius: 3px;
+  padding: 0.15rem 0.45rem;
+}
+@media print {
+  .page-header, .btn, .card:not(:first-of-type) { display: none !important; }
+  .card:first-of-type { box-shadow: none !important; border: none !important; }
+}
+</style>
+{% endblock %}

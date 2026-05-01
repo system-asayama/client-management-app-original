@@ -1,0 +1,65 @@
+{% extends "shortstay/base.html" %}
+{% block title %}申し送り - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}申し送り{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">申し送り一覧</div>
+  <a href="{{ url_for('shortstay.staff_note_new') }}" class="btn btn-primary">＋ 申し送り追加</a>
+</div>
+
+<!-- フィルター -->
+<div class="card">
+  <form method="get" class="search-bar">
+    <select name="priority" class="form-control" style="max-width:150px;">
+      <option value="">全優先度</option>
+      <option value="緊急" {% if priority_filter == '緊急' %}selected{% endif %}>緊急</option>
+      <option value="重要" {% if priority_filter == '重要' %}selected{% endif %}>重要</option>
+      <option value="通常" {% if priority_filter == '通常' %}selected{% endif %}>通常</option>
+    </select>
+    <select name="resolved" class="form-control" style="max-width:150px;">
+      <option value="">全状態</option>
+      <option value="0" {% if resolved_filter == '0' %}selected{% endif %}>未対応</option>
+      <option value="1" {% if resolved_filter == '1' %}selected{% endif %}>対応済み</option>
+    </select>
+    <button type="submit" class="btn btn-primary">絞り込み</button>
+    <a href="{{ url_for('shortstay.staff_notes') }}" class="btn">クリア</a>
+  </form>
+</div>
+
+{% if notes %}
+<div style="display:flex;flex-direction:column;gap:0.75rem;">
+  {% for note in notes %}
+  <div class="card" style="margin:0;{% if note.priority == '緊急' %}border-left:4px solid var(--danger);{% elif note.priority == '重要' %}border-left:4px solid var(--warning);{% else %}border-left:4px solid var(--gray-300);{% endif %}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+          {% if note.priority == '緊急' %}<span class="badge badge-red">緊急</span>
+          {% elif note.priority == '重要' %}<span class="badge badge-orange">重要</span>
+          {% else %}<span class="badge badge-gray">通常</span>{% endif %}
+          {% if note.is_resolved %}<span class="badge badge-green">対応済み</span>{% endif %}
+          <span style="font-size:0.8rem;color:var(--gray-500);">{{ note.note_date.strftime('%Y/%m/%d') }}</span>
+          {% if note.author_name %}<span style="font-size:0.8rem;color:var(--gray-500);">{{ note.author_name }}</span>{% endif %}
+        </div>
+        <p style="font-size:0.9rem;white-space:pre-wrap;">{{ note.content }}</p>
+        {% if note.target_shift %}<p style="font-size:0.8rem;color:var(--gray-500);margin-top:0.3rem;">対象シフト：{{ note.target_shift }}</p>{% endif %}
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-shrink:0;">
+        {% if not note.is_resolved %}
+        <form method="post" action="{{ url_for('shortstay.staff_note_resolve', note_id=note.id) }}">
+          <button type="submit" class="btn btn-sm btn-success">対応済み</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('shortstay.staff_note_edit', note_id=note.id) }}" class="btn btn-sm">編集</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="font-size:1.5rem;margin-bottom:0.5rem;">💬</p>
+  <p style="color:var(--gray-500);">申し送りがありません</p>
+</div>
+{% endif %}
+{% endblock %}

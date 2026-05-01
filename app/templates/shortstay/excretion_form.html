@@ -1,0 +1,95 @@
+{% extends "shortstay/base.html" %}
+{% block title %}排泄記録 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}排泄記録{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '排泄記録編集' if excretion else '排泄記録' }}</div>
+  <a href="{{ url_for('shortstay.care_records') }}" class="btn">← 記録一覧へ</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">利用者 <span style="color:red;">*</span></label>
+        <select name="resident_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for r in residents %}
+          <option value="{{ r.id }}" {% if excretion and excretion.resident_id == r.id %}selected{% endif %}>{{ r.last_name }}{{ r.first_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">記録日 <span style="color:red;">*</span></label>
+        <input type="date" name="record_date" class="form-control" required value="{{ excretion.record_date.isoformat() if excretion else today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">時刻</label>
+        <input type="time" name="record_time" class="form-control" value="{{ excretion.record_time or '' if excretion else '' }}">
+      </div>
+    </div>
+
+    <div class="form-section-title">排泄情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">排泄種別</label>
+        <select name="excretion_type" class="form-control">
+          <option value="尿" {% if excretion and excretion.excretion_type == '尿' %}selected{% endif %}>尿</option>
+          <option value="便" {% if excretion and excretion.excretion_type == '便' %}selected{% endif %}>便</option>
+          <option value="尿・便" {% if excretion and excretion.excretion_type == '尿・便' %}selected{% endif %}>尿・便</option>
+          <option value="なし" {% if excretion and excretion.excretion_type == 'なし' %}selected{% endif %}>なし</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">量</label>
+        <select name="amount" class="form-control">
+          <option value="">-</option>
+          <option value="少量" {% if excretion and excretion.amount == '少量' %}selected{% endif %}>少量</option>
+          <option value="中量" {% if excretion and excretion.amount == '中量' %}selected{% endif %}>中量</option>
+          <option value="多量" {% if excretion and excretion.amount == '多量' %}selected{% endif %}>多量</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">性状</label>
+        <select name="condition" class="form-control">
+          <option value="">-</option>
+          <option value="普通" {% if excretion and excretion.condition == '普通' %}selected{% endif %}>普通</option>
+          <option value="軟便" {% if excretion and excretion.condition == '軟便' %}selected{% endif %}>軟便</option>
+          <option value="硬便" {% if excretion and excretion.condition == '硬便' %}selected{% endif %}>硬便</option>
+          <option value="水様便" {% if excretion and excretion.condition == '水様便' %}selected{% endif %}>水様便</option>
+          <option value="血便" {% if excretion and excretion.condition == '血便' %}selected{% endif %}>血便</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">排泄方法</label>
+        <select name="method" class="form-control">
+          <option value="">-</option>
+          <option value="トイレ" {% if excretion and excretion.method == 'トイレ' %}selected{% endif %}>トイレ</option>
+          <option value="ポータブルトイレ" {% if excretion and excretion.method == 'ポータブルトイレ' %}selected{% endif %}>ポータブルトイレ</option>
+          <option value="おむつ" {% if excretion and excretion.method == 'おむつ' %}selected{% endif %}>おむつ</option>
+          <option value="尿器" {% if excretion and excretion.method == '尿器' %}selected{% endif %}>尿器</option>
+          <option value="導尿" {% if excretion and excretion.method == '導尿' %}selected{% endif %}>導尿</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">記録者</label>
+        <input type="text" name="recorded_by" class="form-control" value="{{ excretion.recorded_by or current_user_name if excretion else current_user_name }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">特記事項</label>
+      <textarea name="notes" class="form-control" rows="2">{{ excretion.notes or '' if excretion else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.care_records') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if excretion else '記録する' }}</button>
+  </div>
+</form>
+{% endblock %}

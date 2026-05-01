@@ -1,0 +1,42 @@
+{% extends "shortstay/base.html" %}
+{% block title %}居室管理 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}居室管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">居室管理</div>
+  <a href="{{ url_for('shortstay.room_new') }}" class="btn btn-primary">＋ 居室登録</a>
+</div>
+
+{% if rooms %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;">
+  {% for room in rooms %}
+  <div class="card" style="margin:0;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:1.2rem;font-weight:700;">{{ room.room_number }}</div>
+        {% if room.room_name %}<div style="font-size:0.85rem;color:var(--gray-500);">{{ room.room_name }}</div>{% endif %}
+      </div>
+      <span class="badge {% if room.is_available %}badge-green{% else %}badge-red{% endif %}">
+        {{ '利用可' if room.is_available else '利用不可' }}
+      </span>
+    </div>
+    <div style="margin-top:0.75rem;font-size:0.85rem;color:var(--gray-500);">
+      {% if room.room_type %}<div>種別：{{ room.room_type }}</div>{% endif %}
+      {% if room.floor %}<div>階数：{{ room.floor }}階</div>{% endif %}
+      {% if room.notes %}<div style="margin-top:0.3rem;">{{ room.notes[:40] }}</div>{% endif %}
+    </div>
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;">
+      <a href="{{ url_for('shortstay.room_edit', room_id=room.id) }}" class="btn btn-sm">編集</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="font-size:1.5rem;margin-bottom:0.5rem;">🛏️</p>
+  <p style="color:var(--gray-500);">居室が登録されていません</p>
+  <a href="{{ url_for('shortstay.room_new') }}" class="btn btn-primary" style="margin-top:1rem;">居室を登録する</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -2341,6 +2341,14 @@ AVAILABLE_APPS = [
         'url': '/apps/reservation',
         'icon': '📅',
         'scope': 'store'
+    },
+    {
+        'name': 'shortstay',
+        'display_name': 'ショートステイ運営管理',
+        'description': '短期入所（ショートステイ）の利用者・予約・ケア記録・請求・シフトを一元管理するアプリ',
+        'url': '/shortstay/',
+        'icon': '🏥',
+        'scope': 'store'
     }
 ]
 

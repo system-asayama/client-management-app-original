@@ -1,0 +1,94 @@
+{% extends "shortstay/base.html" %}
+{% block title %}空き状況カレンダー - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}空き状況カレンダー{% endblock %}
+
+{% block head %}
+<style>
+.calendar-table { width: 100%; border-collapse: collapse; }
+.calendar-table th { background: var(--gray-50); padding: 0.5rem; text-align: center; border: 1px solid var(--gray-200); font-size: 0.85rem; }
+.calendar-table td { border: 1px solid var(--gray-200); padding: 0.4rem; vertical-align: top; min-height: 80px; width: calc(100%/7); }
+.calendar-table td.today { background: #eff6ff; }
+.calendar-table td.other-month { background: var(--gray-50); color: var(--gray-300); }
+.day-num { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+.rsv-chip { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-bottom: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+.rsv-chip.confirmed { background: #dcfce7; color: #15803d; }
+.rsv-chip.tentative { background: #fef9c3; color: #a16207; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">空き状況カレンダー</div>
+  <a href="{{ url_for('shortstay.reservation_new') }}" class="btn btn-primary">＋ 新規予約</a>
+</div>
+
+<!-- 月ナビゲーション -->
+<div class="card" style="padding:0.75rem 1.25rem;">
+  <div style="display:flex;align-items:center;justify-content:center;gap:1.5rem;">
+    {% set prev_month = month - 1 if month > 1 else 12 %}
+    {% set prev_year = year if month > 1 else year - 1 %}
+    {% set next_month = month + 1 if month < 12 else 1 %}
+    {% set next_year = year if month < 12 else year + 1 %}
+    <a href="{{ url_for('shortstay.reservation_calendar', year=prev_year, month=prev_month) }}" class="btn btn-sm">← 前月</a>
+    <h2 style="font-size:1.2rem;font-weight:700;">{{ year }}年{{ month }}月</h2>
+    <a href="{{ url_for('shortstay.reservation_calendar', year=next_year, month=next_month) }}" class="btn btn-sm">次月 →</a>
+  </div>
+</div>
+
+<!-- 居室稼働状況サマリー -->
+{% if rooms %}
+<div class="card">
+  <div class="card-header"><div class="card-title">🛏️ 居室一覧（{{ rooms|length }}室）</div></div>
+  <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+    {% for room in rooms %}
+    <span class="badge badge-gray" style="font-size:0.85rem;">{{ room.room_number }}{% if room.room_name %}（{{ room.room_name }}）{% endif %}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- カレンダー本体 -->
+<div class="card">
+  <table class="calendar-table">
+    <thead>
+      <tr>
+        <th style="color:#dc2626;">日</th>
+        <th>月</th><th>火</th><th>水</th><th>木</th><th>金</th>
+        <th style="color:#2563eb;">土</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for week in cal %}
+      <tr>
+        {% for day in week %}
+        {% if day == 0 %}
+        <td class="other-month"></td>
+        {% else %}
+          {% set current_date = first_day.replace(day=day) %}
+          <td class="{% if current_date == today %}today{% endif %}">
+            <div class="day-num" style="{% if loop.index0 == 0 %}color:#dc2626;{% elif loop.index0 == 6 %}color:#2563eb;{% endif %}">
+              {{ day }}
+            </div>
+            {% for rsv in month_reservations %}
+              {% if rsv.check_in_date <= current_date and rsv.check_out_date >= current_date %}
+                {% set resident = residents_map.get(rsv.resident_id) %}
+                <span class="rsv-chip {{ 'confirmed' if rsv.status.value == '確定' else 'tentative' }}" title="{{ resident.last_name ~ resident.first_name if resident else '' }}">
+                  {{ resident.last_name if resident else '?' }}
+                </span>
+              {% endif %}
+            {% endfor %}
+          </td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 凡例 -->
+<div style="display:flex;gap:1rem;font-size:0.8rem;margin-top:0.5rem;">
+  <span><span class="rsv-chip confirmed" style="display:inline-block;width:60px;">確定</span></span>
+  <span><span class="rsv-chip tentative" style="display:inline-block;width:60px;">仮予約</span></span>
+</div>
+{% endblock %}

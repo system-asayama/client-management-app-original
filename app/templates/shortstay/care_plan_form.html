@@ -1,0 +1,72 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ケアプラン - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}ケアプラン{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ 'ケアプラン編集' if plan else 'ケアプラン作成' }}</div>
+  <a href="{{ url_for('shortstay.care_plans') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">利用者 <span style="color:red;">*</span></label>
+        <select name="resident_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for r in residents %}
+          <option value="{{ r.id }}" {% if plan and plan.resident_id == r.id %}selected{% endif %}>{{ r.last_name }}{{ r.first_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">作成日</label>
+        <input type="date" name="created_date" class="form-control" value="{{ plan.created_date.isoformat() if plan and plan.created_date else today }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">有効期間（開始）</label>
+        <input type="date" name="valid_from" class="form-control" value="{{ plan.valid_from.isoformat() if plan and plan.valid_from else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">有効期間（終了）</label>
+        <input type="date" name="valid_to" class="form-control" value="{{ plan.valid_to.isoformat() if plan and plan.valid_to else '' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">長期目標</label>
+      <textarea name="goal" class="form-control" rows="3">{{ plan.goal or '' if plan else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">短期目標</label>
+      <textarea name="short_term_goal" class="form-control" rows="3">{{ plan.short_term_goal or '' if plan else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">支援内容</label>
+      <textarea name="support_content" class="form-control" rows="5">{{ plan.support_content or '' if plan else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">留意事項</label>
+      <textarea name="precautions" class="form-control" rows="3">{{ plan.precautions or '' if plan else '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">作成者</label>
+        <input type="text" name="author_name" class="form-control" value="{{ plan.author_name or current_user_name if plan else current_user_name }}">
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.care_plans') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if plan else '作成する' }}</button>
+  </div>
+</form>
+{% endblock %}

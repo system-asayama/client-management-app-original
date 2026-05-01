@@ -1,0 +1,79 @@
+{% extends "shortstay/base.html" %}
+{% block title %}入浴記録 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}入浴記録{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '入浴記録編集' if bath else '入浴記録' }}</div>
+  <a href="{{ url_for('shortstay.care_records') }}" class="btn">← 記録一覧へ</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">利用者 <span style="color:red;">*</span></label>
+        <select name="resident_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for r in residents %}
+          <option value="{{ r.id }}" {% if bath and bath.resident_id == r.id %}selected{% endif %}>{{ r.last_name }}{{ r.first_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">記録日 <span style="color:red;">*</span></label>
+        <input type="date" name="record_date" class="form-control" required value="{{ bath.record_date.isoformat() if bath else today }}">
+      </div>
+    </div>
+
+    <div class="form-section-title">入浴情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">入浴方法</label>
+        <select name="bath_method" class="form-control">
+          <option value="">-</option>
+          <option value="一般浴" {% if bath and bath.bath_method == '一般浴' %}selected{% endif %}>一般浴</option>
+          <option value="機械浴" {% if bath and bath.bath_method == '機械浴' %}selected{% endif %}>機械浴</option>
+          <option value="シャワー浴" {% if bath and bath.bath_method == 'シャワー浴' %}selected{% endif %}>シャワー浴</option>
+          <option value="清拭" {% if bath and bath.bath_method == '清拭' %}selected{% endif %}>清拭</option>
+          <option value="足浴" {% if bath and bath.bath_method == '足浴' %}selected{% endif %}>足浴</option>
+          <option value="入浴なし" {% if bath and bath.bath_method == '入浴なし' %}selected{% endif %}>入浴なし</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">湯温（℃）</label>
+        <input type="number" name="water_temp" class="form-control" step="0.5" min="30" max="50" placeholder="40" value="{{ bath.water_temp or '' if bath else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">入浴時間（分）</label>
+        <input type="number" name="duration_minutes" class="form-control" min="0" max="120" placeholder="15" value="{{ bath.duration_minutes or '' if bath else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.5rem;">
+        <input type="checkbox" name="hair_wash" id="hair_wash" {% if bath and bath.hair_wash %}checked{% endif %} style="width:auto;">
+        <label for="hair_wash" style="font-weight:normal;">洗髪</label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.5rem;">
+        <input type="checkbox" name="nail_care" id="nail_care" {% if bath and bath.nail_care %}checked{% endif %} style="width:auto;">
+        <label for="nail_care" style="font-weight:normal;">爪切り</label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">記録者</label>
+        <input type="text" name="recorded_by" class="form-control" value="{{ bath.recorded_by or current_user_name if bath else current_user_name }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">特記事項</label>
+      <textarea name="notes" class="form-control" rows="3">{{ bath.notes or '' if bath else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.care_records') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if bath else '記録する' }}</button>
+  </div>
+</form>
+{% endblock %}

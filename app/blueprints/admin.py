@@ -63,6 +63,14 @@ AVAILABLE_APPS = [
         'description': '物件・部屋・入居者・購貸契約管理、家購収支・減価償却・シミュレーションを一元管理',
         'url': '/apps/property',
         'icon': '🏠'
+    },
+    {
+        'name': 'shortstay',
+        'display_name': 'ショートステイ運営管理',
+        'scope': 'store',
+        'description': '短期入所（ショートステイ）の利用者・予約・ケア記録・請求・シフトを一元管理するアプリ',
+        'url': '/shortstay/',
+        'icon': '🏥'
     }
 ]
 

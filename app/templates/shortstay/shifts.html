@@ -1,0 +1,64 @@
+{% extends "shortstay/base.html" %}
+{% block title %}シフト管理 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}シフト管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">シフト管理</div>
+  <a href="{{ url_for('shortstay.shift_new') }}" class="btn btn-primary">＋ シフト登録</a>
+</div>
+
+<!-- 月ナビゲーション -->
+<div class="card" style="padding:0.75rem 1.25rem;">
+  <div style="display:flex;align-items:center;justify-content:center;gap:1.5rem;">
+    {% set prev_month = month - 1 if month > 1 else 12 %}
+    {% set prev_year = year if month > 1 else year - 1 %}
+    {% set next_month = month + 1 if month < 12 else 1 %}
+    {% set next_year = year if month < 12 else year + 1 %}
+    <a href="{{ url_for('shortstay.shifts', year=prev_year, month=prev_month) }}" class="btn btn-sm">← 前月</a>
+    <h2 style="font-size:1.2rem;font-weight:700;">{{ year }}年{{ month }}月</h2>
+    <a href="{{ url_for('shortstay.shifts', year=next_year, month=next_month) }}" class="btn btn-sm">次月 →</a>
+  </div>
+</div>
+
+{% if shifts %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日付</th><th>スタッフ名</th><th>シフト種別</th><th>出勤時間</th><th>退勤時間</th><th>休憩（分）</th><th>実働（時間）</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for s in shifts %}
+        <tr>
+          <td>{{ s.shift_date.strftime('%m/%d（%a）') }}</td>
+          <td>{{ s.staff_name }}</td>
+          <td>
+            {% if s.shift_type == '日勤' %}<span class="badge badge-blue">{{ s.shift_type }}</span>
+            {% elif s.shift_type == '夜勤' %}<span class="badge badge-orange">{{ s.shift_type }}</span>
+            {% elif s.shift_type == '早番' %}<span class="badge badge-green">{{ s.shift_type }}</span>
+            {% elif s.shift_type == '遅番' %}<span class="badge badge-yellow">{{ s.shift_type }}</span>
+            {% elif s.shift_type == '休日' %}<span class="badge badge-gray">{{ s.shift_type }}</span>
+            {% else %}<span class="badge badge-gray">{{ s.shift_type or '-' }}</span>{% endif %}
+          </td>
+          <td>{{ s.start_time or '-' }}</td>
+          <td>{{ s.end_time or '-' }}</td>
+          <td>{{ s.break_minutes or '-' }}</td>
+          <td>{{ s.actual_hours or '-' }}</td>
+          <td>
+            <a href="{{ url_for('shortstay.shift_edit', shift_id=s.id) }}" class="btn btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="font-size:1.5rem;margin-bottom:0.5rem;">🗓️</p>
+  <p style="color:var(--gray-500);">{{ year }}年{{ month }}月のシフトが登録されていません</p>
+  <a href="{{ url_for('shortstay.shift_new') }}" class="btn btn-primary" style="margin-top:1rem;">シフトを登録する</a>
+</div>
+{% endif %}
+{% endblock %}

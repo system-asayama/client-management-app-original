@@ -1,0 +1,65 @@
+{% extends "shortstay/base.html" %}
+{% block title %}事故・ヒヤリハット詳細 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}事故・ヒヤリハット詳細{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">事故・ヒヤリハット報告書 #{{ incident.id }}</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.incident_edit', incident_id=incident.id) }}" class="btn">編集</a>
+    <a href="{{ url_for('shortstay.incidents') }}" class="btn">← 一覧へ</a>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+    {% if incident.incident_type == '事故' %}<span class="badge badge-red" style="font-size:0.9rem;">事故</span>
+    {% elif incident.incident_type == 'ヒヤリハット' %}<span class="badge badge-yellow" style="font-size:0.9rem;">ヒヤリハット</span>
+    {% else %}<span class="badge badge-gray" style="font-size:0.9rem;">{{ incident.incident_type }}</span>{% endif %}
+    {% if incident.severity %}<span class="badge {% if incident.severity == '重傷' %}badge-red{% elif incident.severity == '中等度' %}badge-orange{% else %}badge-yellow{% endif %}">{{ incident.severity }}</span>{% endif %}
+    <span style="font-size:0.875rem;color:var(--gray-500);">{{ incident.incident_date.strftime('%Y年%m月%d日') }}{% if incident.incident_time %} {{ incident.incident_time }}{% endif %}</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">利用者</div>
+      <div>{% if resident %}<a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" style="color:var(--primary);">{{ resident.last_name }}{{ resident.first_name }}</a>{% else %}-{% endif %}</div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">発生場所</div>
+      <div>{{ incident.location or '-' }}</div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">報告者</div>
+      <div>{{ incident.reporter_name or '-' }}</div>
+    </div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--gray-500);">通知状況</div>
+      <div>
+        {% if incident.family_notified %}<span class="badge badge-green">家族報告済</span>{% endif %}
+        {% if incident.authority_notified %}<span class="badge badge-blue">行政報告済</span>{% endif %}
+        {% if not incident.family_notified and not incident.authority_notified %}-{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:1rem;">
+    <div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.3rem;">発生状況・経緯</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:var(--gray-50);border-radius:8px;">{{ incident.description }}</div>
+  </div>
+
+  {% if incident.response %}
+  <div style="margin-bottom:1rem;">
+    <div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.3rem;">対応内容</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:var(--gray-50);border-radius:8px;">{{ incident.response }}</div>
+  </div>
+  {% endif %}
+
+  {% if incident.prevention %}
+  <div>
+    <div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.3rem;">再発防止策</div>
+    <div style="white-space:pre-wrap;font-size:0.9rem;padding:0.75rem;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">{{ incident.prevention }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

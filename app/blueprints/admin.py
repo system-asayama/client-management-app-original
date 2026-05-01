@@ -202,6 +202,7 @@ def available_apps():
             'real-estate':              lambda sid: '/apps/property',
             'company-incorporation':    lambda sid: '/apps/teikan',
             'truck-operation':          lambda sid: f'/truck/store/{sid}/',
+            'shortstay':                lambda sid: '/shortstay/',
         }
         TENANT_URLS = {
             'client-management-tenant': '/tenant_admin/jimusho',

@@ -164,7 +164,7 @@
         <button class="btn-delete" type="submit">削除</button>
       </form>
       {% endif %}
-      <a class="btn-distribute" href="{{ url_for('app_manager.distribute') }}">&#12450;&#12503;&#12522;&#37197;&#24067;&#35373;&#23450;</a>
+      <a class="btn-distribute" href="{{ url_for('app_manager.distribute', tenant_id=t.id) }}">&#12450;&#12503;&#12522;&#37197;&#24067;&#35373;&#23450;</a>
     </div>
   </div>
   {% endfor %}

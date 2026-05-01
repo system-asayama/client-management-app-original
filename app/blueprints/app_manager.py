@@ -1503,8 +1503,9 @@ def plan():
 
 
 @bp.route('/distribute', methods=['GET', 'POST'])
+@bp.route('/distribute/<int:tenant_id>', methods=['GET', 'POST'])
 @require_roles('app_manager', 'system_admin')
-def distribute():
+def distribute(tenant_id=None):
     """テナントへのアプリ配布管理"""
     import json
     role = session.get('role')
@@ -1552,10 +1553,13 @@ def distribute():
             enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
 
         # テナント一覧（自分のグループが作成したテナントのみ）
-        tenants = db.query(TTenant).filter(
+        tenants_query = db.query(TTenant).filter(
             TTenant.有効 == 1,
             TTenant.app_manager_group_id == group_id
-        ).order_by(TTenant.id).all()
+        )
+        if tenant_id:
+            tenants_query = tenants_query.filter(TTenant.id == tenant_id)
+        tenants = tenants_query.order_by(TTenant.id).all()
 
         if request.method == 'POST':
             # POST（変更操作）は権限必須
@@ -1604,7 +1608,8 @@ def distribute():
             enabled_apps=enabled_apps,
             tenant_app_settings=tenant_app_settings,
             is_system_admin_view=(role == 'system_admin'),
-            can_distribute=can_distribute
+            can_distribute=can_distribute,
+            selected_tenant_id=tenant_id
         )
     finally:
         db.close()

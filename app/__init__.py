@@ -590,6 +590,13 @@ def create_app() -> Flask:
         print("✅ shortstay blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ shortstay blueprint 登録エラー: {e}")
+    # 飼い主アプリ blueprint登録
+    try:
+        from .blueprints.owner import bp as owner_bp
+        app.register_blueprint(owner_bp)
+        print("✅ owner blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ owner blueprint 登録エラー: {e}")
     # カスタムJinja2フィルター
     import json as _json
     @app.template_filter('from_json')

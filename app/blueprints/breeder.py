@@ -4282,3 +4282,217 @@ def survival_report():
         km=km,
         breed=breed_filter,
     )
+
+
+# ─── 飼い主管理（ブリーダー側） ─────────────────────────────────
+@bp.route('/owners')
+@require_roles(*BREEDER_ROLES)
+def owner_list():
+    """飼い主一覧"""
+    from app.models_breeder import Owner, OwnerDog, Dog
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+        q = db.query(Owner)
+        if tenant_id:
+            q = q.filter(Owner.tenant_id == tenant_id)
+        owners = q.order_by(Owner.created_at.desc()).all()
+
+        # 各飼い主の犬一覧を取得
+        owner_data = []
+        for owner in owners:
+            dogs = db.query(OwnerDog, Dog).join(
+                Dog, OwnerDog.dog_id == Dog.id
+            ).filter(OwnerDog.owner_id == owner.id).all()
+            owner_data.append({
+                'owner': owner,
+                'dogs': dogs,
+                'dog_count': len(dogs),
+            })
+
+        return render_template('breeder/owner_list.html', owner_data=owner_data)
+    finally:
+        db.close()
+
+
+@bp.route('/owners/new', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def owner_new():
+    """飼い主新規登録（招待URL発行）"""
+    from app.models_breeder import Owner, OwnerDog, Dog
+    import secrets
+    from datetime import datetime, timedelta
+    db = _get_db()
+    try:
+        tenant_id, store_id = _get_tenant_store()
+
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip()
+            phone = request.form.get('phone', '').strip()
+            dog_id = request.form.get('dog_id')
+            nickname = request.form.get('nickname', '').strip()
+            notes = request.form.get('notes', '').strip()
+
+            if not name:
+                flash('飼い主名は必須です。', 'error')
+                dogs = _get_available_dogs(db, tenant_id, store_id)
+                return render_template('breeder/owner_new.html', dogs=dogs)
+
+            # 招待トークン生成（72時間有効）
+            token = secrets.token_urlsafe(32)
+            expires = datetime.now() + timedelta(hours=72)
+
+            owner = Owner(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                name=name,
+                email=email if email else None,
+                phone=phone if phone else None,
+                notes=notes if notes else None,
+                invite_token=token,
+                invite_token_expires=expires,
+                is_active=0,
+            )
+            db.add(owner)
+            db.flush()  # owner.id を取得
+
+            # 犬との紐付け
+            if dog_id:
+                od = OwnerDog(
+                    owner_id=owner.id,
+                    dog_id=int(dog_id),
+                    nickname=nickname if nickname else None,
+                    acquired_date=request.form.get('acquired_date') or None,
+                    breeder_id=tenant_id,
+                    share_health_data=0,
+                    share_followup_data=0,
+                )
+                db.add(od)
+
+            db.commit()
+            flash(f'飼い主を登録しました。招待URLを共有してください。', 'success')
+            return redirect(url_for('breeder.owner_invite_url', owner_id=owner.id))
+
+        dogs = _get_available_dogs(db, tenant_id, store_id)
+        return render_template('breeder/owner_new.html', dogs=dogs)
+    except Exception as e:
+        db.rollback()
+        flash(f'登録中にエラーが発生しました: {e}', 'error')
+        return redirect(url_for('breeder.owner_list'))
+    finally:
+        db.close()
+
+
+def _get_available_dogs(db, tenant_id, store_id):
+    """販売済み・譲渡済みの犬一覧を取得"""
+    from app.models_breeder import Dog, Puppy
+    dogs = []
+    # 親犬
+    q = db.query(Dog)
+    if tenant_id:
+        q = q.filter(Dog.tenant_id == tenant_id)
+    dogs += q.all()
+    return dogs
+
+
+@bp.route('/owners/<int:owner_id>/invite-url')
+@require_roles(*BREEDER_ROLES)
+def owner_invite_url(owner_id: int):
+    """招待URL表示ページ"""
+    from app.models_breeder import Owner
+    from flask import request as req
+    db = _get_db()
+    try:
+        owner = db.query(Owner).filter(Owner.id == owner_id).first()
+        if not owner:
+            flash('飼い主が見つかりません。', 'error')
+            return redirect(url_for('breeder.owner_list'))
+
+        # 招待URLを生成
+        base_url = req.host_url.rstrip('/')
+        if owner.invite_token:
+            invite_url = f"{base_url}/owner/invite/{owner.invite_token}"
+        else:
+            invite_url = None
+
+        return render_template('breeder/owner_invite_url.html', owner=owner, invite_url=invite_url)
+    finally:
+        db.close()
+
+
+@bp.route('/owners/<int:owner_id>/reinvite', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def owner_reinvite(owner_id: int):
+    """招待URL再発行"""
+    from app.models_breeder import Owner
+    import secrets
+    from datetime import datetime, timedelta
+    db = _get_db()
+    try:
+        owner = db.query(Owner).filter(Owner.id == owner_id).first()
+        if not owner:
+            flash('飼い主が見つかりません。', 'error')
+            return redirect(url_for('breeder.owner_list'))
+
+        token = secrets.token_urlsafe(32)
+        expires = datetime.now() + timedelta(hours=72)
+        owner.invite_token = token
+        owner.invite_token_expires = expires
+        owner.is_active = 0  # 再登録を促す
+        db.commit()
+
+        flash('招待URLを再発行しました。', 'success')
+        return redirect(url_for('breeder.owner_invite_url', owner_id=owner_id))
+    except Exception as e:
+        db.rollback()
+        flash(f'再発行中にエラーが発生しました: {e}', 'error')
+        return redirect(url_for('breeder.owner_list'))
+    finally:
+        db.close()
+
+
+@bp.route('/owners/<int:owner_id>/add-dog', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def owner_add_dog(owner_id: int):
+    """飼い主に犬を追加紐付け"""
+    from app.models_breeder import Owner, OwnerDog
+    db = _get_db()
+    try:
+        owner = db.query(Owner).filter(Owner.id == owner_id).first()
+        if not owner:
+            return jsonify({'error': 'not found'}), 404
+
+        dog_id = request.form.get('dog_id')
+        nickname = request.form.get('nickname', '').strip()
+        if not dog_id:
+            return jsonify({'error': 'dog_id required'}), 400
+
+        # 重複チェック
+        existing = db.query(OwnerDog).filter(
+            OwnerDog.owner_id == owner_id,
+            OwnerDog.dog_id == int(dog_id)
+        ).first()
+        if existing:
+            flash('この犬はすでに登録されています。', 'error')
+            return redirect(url_for('breeder.owner_invite_url', owner_id=owner_id))
+
+        od = OwnerDog(
+            owner_id=owner_id,
+            dog_id=int(dog_id),
+            nickname=nickname if nickname else None,
+            acquired_date=request.form.get('acquired_date') or None,
+            breeder_id=owner.tenant_id,
+            share_health_data=0,
+            share_followup_data=0,
+        )
+        db.add(od)
+        db.commit()
+        flash('犬を追加しました。', 'success')
+        return redirect(url_for('breeder.owner_invite_url', owner_id=owner_id))
+    except Exception as e:
+        db.rollback()
+        flash(f'追加中にエラーが発生しました: {e}', 'error')
+        return redirect(url_for('breeder.owner_invite_url', owner_id=owner_id))
+    finally:
+        db.close()

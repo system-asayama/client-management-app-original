@@ -1,0 +1,65 @@
+{% extends 'breeder/base.html' %}
+{% block title %}招待URL{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">招待URL</h1>
+    <p class="page-subtitle">{{ owner.name }} さんへの招待URLです</p>
+  </div>
+  <div class="page-header-right">
+    <a href="/breeder/owners" class="btn btn-outline">一覧に戻る</a>
+  </div>
+</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <div class="alert alert-{{ cat }}">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="card" style="max-width:600px;">
+  <div style="margin-bottom:16px;">
+    <div style="font-weight:700; font-size:16px;">{{ owner.name }}</div>
+    <div style="font-size:13px; color:#666;">{{ owner.email or 'メール未設定' }}</div>
+    <div style="margin-top:6px;">
+      {% if owner.is_active %}
+        <span class="badge badge-success">✓ 登録済み</span>
+      {% else %}
+        <span class="badge badge-warning">招待中（未登録）</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if invite_url %}
+  <div style="background:#f0f4ff; border:2px solid #2563eb; border-radius:8px; padding:14px; margin-bottom:16px;">
+    <div style="font-size:12px; font-weight:700; color:#2563eb; margin-bottom:6px;">📎 招待URL（72時間有効）</div>
+    <div style="word-break:break-all; font-size:13px; font-family:monospace; color:#1e293b;">{{ invite_url }}</div>
+    <button onclick="navigator.clipboard.writeText('{{ invite_url }}').then(()=>alert('コピーしました'))"
+      class="btn btn-sm btn-primary" style="margin-top:10px;">URLをコピー</button>
+  </div>
+  <p style="font-size:13px; color:#666;">
+    このURLを飼い主さんにLINEやメールで送ってください。
+    飼い主さんはURLにアクセスしてパスワードを設定することで登録が完了します。
+  </p>
+  {% else %}
+  <p style="color:#666;">招待URLは発行されていません。</p>
+  {% endif %}
+
+  <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+    <form method="POST" action="/breeder/owners/{{ owner.id }}/reinvite" style="margin:0;">
+      <button type="submit" class="btn btn-outline btn-sm">URLを再発行</button>
+    </form>
+  </div>
+</div>
+
+<!-- 紐付けられた犬 -->
+<div class="card" style="max-width:600px; margin-top:16px;">
+  <div class="card-title">🐕 紐付けられた犬</div>
+  <form method="POST" action="/breeder/owners/{{ owner.id }}/add-dog" style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+    <select name="dog_id" class="form-control" style="flex:1; min-width:150px;">
+      <option value="">犬を選択...</option>
+    </select>
+    <input type="text" name="nickname" class="form-control" placeholder="愛称" style="width:100px;">
+    <button type="submit" class="btn btn-sm btn-primary">追加</button>
+  </form>
+</div>
+{% endblock %}

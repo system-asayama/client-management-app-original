@@ -678,7 +678,7 @@ class PuppyFollowUp(Base):
 # 飼い主（将来の飼い主アプリ連携用）
 # ─────────────────────────────────────────────
 class Owner(Base):
-    """飼い主テーブル（将来の飼い主アプリ連携用）"""
+    """飼い主テーブル（飼い主アプリ連携・認証対応）"""
     __tablename__ = 'owners'
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
@@ -687,6 +687,12 @@ class Owner(Base):
     email = Column(String(320), nullable=True, comment='メールアドレス')
     phone = Column(String(30), nullable=True, comment='電話番号')
     notes = Column(Text, nullable=True, comment='備考')
+    # 認証関連
+    password_hash = Column(String(256), nullable=True, comment='パスワードハッシュ')
+    invite_token = Column(String(64), nullable=True, index=True, comment='招待トークン')
+    invite_token_expires = Column(DateTime, nullable=True, comment='招待トークン有効期限')
+    is_active = Column(Integer, nullable=False, default=0, comment='アクティブフラグ(0:招待中,1:登録済み)')
+    last_login_at = Column(DateTime, nullable=True, comment='最終ログイン日時')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

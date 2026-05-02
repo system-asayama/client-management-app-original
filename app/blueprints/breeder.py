@@ -4739,6 +4739,7 @@ def admin_kpi_dashboard():
 @require_roles('owner', 'system_admin', 'tenant_admin')
 def api_create_kpi_snapshot():
     """KPIスナップショットを手動作成するAPI"""
+    db = _get_db()
     from app.models_breeder import KpiSnapshot
     from sqlalchemy import text
     from datetime import date
@@ -4781,6 +4782,7 @@ def api_create_kpi_snapshot():
 @require_roles('owner', 'system_admin', 'tenant_admin')
 def api_kpi_summary():
     """KPIサマリーを返すAPI"""
+    db = _get_db()
     from app.models_breeder import KpiSnapshot
 
     snapshots = db.query(KpiSnapshot).order_by(

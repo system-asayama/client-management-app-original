@@ -84,7 +84,7 @@
 {% if snapshots %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
-const snapshots = {{ snapshots | tojson(default=str) if snapshots else '[]' }};
+const snapshots = {{ snapshots | tojson if snapshots else '[]' }};
 const labels = snapshots.map(s => s.snapshot_date || '').reverse();
 const activeBreeders = snapshots.map(s => s.active_breeders || 0).reverse();
 const totalDogs = snapshots.map(s => s.total_dogs || 0).reverse();

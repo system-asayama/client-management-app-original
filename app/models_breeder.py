@@ -908,7 +908,7 @@ class Plan(Base):
     max_dogs = Column(Integer, nullable=True, comment='犬登録上限（NULLは無制限）')
     max_owners = Column(Integer, nullable=True, comment='飼い主登録上限（NULLは無制限）')
     features = Column(JSON, nullable=True, comment='利用可能機能リスト（JSON配列）')
-    is_active = Column(Integer, default=1, comment='有効フラグ')
+    is_active = Column(Boolean, default=True, comment='有効フラグ')
     sort_order = Column(Integer, default=0, comment='表示順')
     created_at = Column(DateTime, server_default=func.now())
 

@@ -569,3 +569,140 @@ class MatingEvaluation(Base):
     max_depth = Column(Integer, nullable=False, default=5, comment='探索世代数')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ─────────────────────────────────────────────
+# 犬種別リスクマスタ
+# ─────────────────────────────────────────────
+class BreedRiskMaster(Base):
+    """犬種別リスクマスタテーブル"""
+    __tablename__ = 'breed_risk_masters'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    breed = Column(String(100), nullable=False, index=True, comment='犬種名')
+    risk_name = Column(String(200), nullable=False, comment='リスク名')
+    risk_category = Column(String(50), nullable=True, comment='カテゴリ（genetic/structural/other）')
+    severity = Column(String(20), nullable=True, comment='重篤度（high/medium/low）')
+    description = Column(Text, nullable=True, comment='説明')
+    recommended_test = Column(String(300), nullable=True, comment='推奨検査')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 親犬の健康履歴
+# ─────────────────────────────────────────────
+class DogHealthRecord(Base):
+    """親犬の健康履歴テーブル"""
+    __tablename__ = 'dog_health_records'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
+    record_date = Column(Date, nullable=True, comment='記録日')
+    category = Column(String(50), nullable=True, comment='カテゴリ（orthopedic/eye/heart/skin/respiratory/digestive/neurological/reproductive/other）')
+    title = Column(String(300), nullable=False, comment='タイトル')
+    severity = Column(String(20), nullable=True, comment='重篤度（critical/high/medium/low）')
+    description = Column(Text, nullable=True, comment='詳細')
+    diagnosed_by_vet = Column(Integer, nullable=True, comment='獣医師診断フラグ（1=あり）')
+    resolved = Column(Integer, nullable=True, comment='解決済みフラグ（1=解決済み）')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 繁殖履歴
+# ─────────────────────────────────────────────
+class BreedingHistory(Base):
+    """繁殖履歴テーブル"""
+    __tablename__ = 'breeding_histories'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    store_id = Column(Integer, nullable=True, index=True)
+    sire_id = Column(Integer, ForeignKey('dogs.id'), nullable=False, index=True, comment='父犬ID')
+    dam_id = Column(Integer, ForeignKey('dogs.id'), nullable=False, index=True, comment='母犬ID')
+    mating_date = Column(Date, nullable=True, comment='交配日')
+    birth_date = Column(Date, nullable=True, comment='出産日')
+    pregnancy_result = Column(String(20), nullable=True, comment='妊娠結果（success/failed/miscarriage/unknown）')
+    puppy_count = Column(Integer, nullable=True, comment='出生頭数')
+    live_birth_count = Column(Integer, nullable=True, comment='生存出生頭数')
+    stillbirth_count = Column(Integer, nullable=True, comment='死産頭数')
+    c_section = Column(Integer, nullable=True, comment='帝王切開フラグ（1=あり）')
+    complications = Column(Text, nullable=True, comment='合併症・特記事項')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 産子記録
+# ─────────────────────────────────────────────
+class PuppyRecord(Base):
+    """産子記録テーブル"""
+    __tablename__ = 'puppy_records'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    breeding_history_id = Column(Integer, ForeignKey('breeding_histories.id', ondelete='CASCADE'), nullable=False, index=True)
+    puppy_id = Column(Integer, ForeignKey('dogs.id'), nullable=True, index=True, comment='犬IDと紐付け（任意）')
+    sex = Column(String(10), nullable=True, comment='性別（male/female/unknown）')
+    birth_weight = Column(Numeric(6, 1), nullable=True, comment='出生体重（g）')
+    survived = Column(Integer, nullable=True, comment='生存フラグ（1=生存）')
+    death_date = Column(Date, nullable=True, comment='死亡日')
+    death_age_days = Column(Integer, nullable=True, comment='死亡時日齢')
+    health_status = Column(String(100), nullable=True, comment='健康状態')
+    defects = Column(Text, nullable=True, comment='先天異常・奇形')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 産子フォローアップ
+# ─────────────────────────────────────────────
+class PuppyFollowUp(Base):
+    """産子フォローアップテーブル"""
+    __tablename__ = 'puppy_followups'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    puppy_id = Column(Integer, ForeignKey('puppy_records.id', ondelete='CASCADE'), nullable=False, index=True)
+    followup_date = Column(Date, nullable=True, comment='フォローアップ日')
+    age_months = Column(Integer, nullable=True, comment='月齢')
+    weight = Column(Numeric(6, 2), nullable=True, comment='体重（kg）')
+    health_status = Column(String(100), nullable=True, comment='健康状態')
+    disease_found = Column(Integer, nullable=True, comment='疾患発見フラグ（1=あり）')
+    disease_name = Column(String(200), nullable=True, comment='疾患名')
+    temperament = Column(String(200), nullable=True, comment='性格・気質')
+    owner_reported = Column(Integer, nullable=True, comment='飼い主報告フラグ（1=飼い主報告）')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 飼い主（将来の飼い主アプリ連携用）
+# ─────────────────────────────────────────────
+class Owner(Base):
+    """飼い主テーブル（将来の飼い主アプリ連携用）"""
+    __tablename__ = 'owners'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    store_id = Column(Integer, nullable=True, index=True)
+    name = Column(String(200), nullable=False, comment='飼い主名')
+    email = Column(String(320), nullable=True, comment='メールアドレス')
+    phone = Column(String(30), nullable=True, comment='電話番号')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 飼い主×犬の紐付け（将来の飼い主アプリ連携用）
+# ─────────────────────────────────────────────
+class OwnerDog(Base):
+    """飼い主と犬の紐付けテーブル（将来の飼い主アプリ連携用）"""
+    __tablename__ = 'owner_dogs'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(Integer, ForeignKey('owners.id', ondelete='CASCADE'), nullable=False, index=True)
+    dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
+    acquired_date = Column(Date, nullable=True, comment='取得日')
+    breeder_id = Column(Integer, nullable=True, comment='ブリーダーID（将来の連携用）')
+    share_health_data = Column(Integer, nullable=True, default=0, comment='健康データ共有フラグ')
+    share_followup_data = Column(Integer, nullable=True, default=0, comment='フォローアップデータ共有フラグ')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

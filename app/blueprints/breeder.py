@@ -2849,3 +2849,604 @@ def api_jkc_shows():
     
     except Exception as e:
         return {'events': [], 'error': str(e)}, 200
+
+
+# ===========================================================================
+# 繁殖意思決定支援システム - 拡張ルート
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# 健康履歴登録画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/dogs/<int:dog_id>/health-records', methods=['GET', 'POST'])
+def health_records(dog_id):
+    """健康履歴登録・一覧画面"""
+    from app.models_breeder import Dog, DogHealthRecord
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        return '犬が見つかりません', 404
+
+    if request.method == 'POST':
+        record = DogHealthRecord(
+            dog_id=dog_id,
+            record_date=request.form.get('record_date') or None,
+            category=request.form.get('category') or None,
+            title=request.form.get('title', ''),
+            severity=request.form.get('severity') or None,
+            description=request.form.get('description') or None,
+            diagnosed_by_vet=1 if request.form.get('diagnosed_by_vet') else 0,
+            resolved=1 if request.form.get('resolved') else 0,
+            notes=request.form.get('notes') or None,
+        )
+        db.add(record)
+        db.commit()
+        return redirect(url_for('breeder.health_records', dog_id=dog_id))
+
+    records = db.query(DogHealthRecord).filter(DogHealthRecord.dog_id == dog_id).order_by(DogHealthRecord.record_date.desc()).all()
+    return render_template('breeder/health_records.html', dog=dog, records=records)
+
+
+@bp.route('/dogs/<int:dog_id>/health-records/<int:record_id>/delete', methods=['POST'])
+def health_record_delete(dog_id, record_id):
+    from app.models_breeder import DogHealthRecord
+    db = _get_db()
+    r = db.query(DogHealthRecord).filter(DogHealthRecord.id == record_id, DogHealthRecord.dog_id == dog_id).first()
+    if r:
+        db.delete(r)
+        db.commit()
+    return redirect(url_for('breeder.health_records', dog_id=dog_id))
+
+
+# ---------------------------------------------------------------------------
+# 繁殖履歴登録画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/breeding-histories', methods=['GET', 'POST'])
+def breeding_histories():
+    """繁殖履歴一覧・登録画面"""
+    from app.models_breeder import Dog, BreedingHistory
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+
+    if request.method == 'POST':
+        bh = BreedingHistory(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            sire_id=int(request.form.get('sire_id')),
+            dam_id=int(request.form.get('dam_id')),
+            mating_date=request.form.get('mating_date') or None,
+            birth_date=request.form.get('birth_date') or None,
+            pregnancy_result=request.form.get('pregnancy_result') or None,
+            puppy_count=int(request.form.get('puppy_count') or 0) or None,
+            live_birth_count=int(request.form.get('live_birth_count') or 0) or None,
+            stillbirth_count=int(request.form.get('stillbirth_count') or 0) or None,
+            c_section=1 if request.form.get('c_section') else 0,
+            complications=request.form.get('complications') or None,
+            notes=request.form.get('notes') or None,
+        )
+        db.add(bh)
+        db.commit()
+        return redirect(url_for('breeder.breeding_histories'))
+
+    histories = db.query(BreedingHistory).filter(
+        BreedingHistory.tenant_id == tenant_id
+    ).order_by(BreedingHistory.mating_date.desc()).all()
+
+    dogs = db.query(Dog).filter(Dog.tenant_id == tenant_id).all()
+    return render_template('breeder/breeding_histories.html', histories=histories, dogs=dogs)
+
+
+# ---------------------------------------------------------------------------
+# 産子登録画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/breeding-histories/<int:history_id>/puppies', methods=['GET', 'POST'])
+def puppy_records(history_id):
+    """産子記録一覧・登録画面"""
+    from app.models_breeder import BreedingHistory, PuppyRecord, Dog
+    db = _get_db()
+
+    history = db.query(BreedingHistory).filter(BreedingHistory.id == history_id).first()
+    if not history:
+        return '繁殖履歴が見つかりません', 404
+
+    if request.method == 'POST':
+        pr = PuppyRecord(
+            breeding_history_id=history_id,
+            puppy_id=int(request.form.get('puppy_id') or 0) or None,
+            sex=request.form.get('sex') or None,
+            birth_weight=float(request.form.get('birth_weight') or 0) or None,
+            survived=1 if request.form.get('survived') else 0,
+            death_date=request.form.get('death_date') or None,
+            death_age_days=int(request.form.get('death_age_days') or 0) or None,
+            health_status=request.form.get('health_status') or None,
+            defects=request.form.get('defects') or None,
+            notes=request.form.get('notes') or None,
+        )
+        db.add(pr)
+        db.commit()
+        return redirect(url_for('breeder.puppy_records', history_id=history_id))
+
+    puppies = db.query(PuppyRecord).filter(PuppyRecord.breeding_history_id == history_id).all()
+    dogs = db.query(Dog).all()
+    return render_template('breeder/puppy_records.html', history=history, puppies=puppies, dogs=dogs)
+
+
+# ---------------------------------------------------------------------------
+# 産子フォローアップ画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/puppy-records/<int:puppy_id>/followups', methods=['GET', 'POST'])
+def puppy_followups(puppy_id):
+    """産子フォローアップ一覧・登録画面"""
+    from app.models_breeder import PuppyRecord, PuppyFollowUp
+    db = _get_db()
+
+    puppy = db.query(PuppyRecord).filter(PuppyRecord.id == puppy_id).first()
+    if not puppy:
+        return '産子記録が見つかりません', 404
+
+    if request.method == 'POST':
+        fu = PuppyFollowUp(
+            puppy_id=puppy_id,
+            followup_date=request.form.get('followup_date') or None,
+            age_months=int(request.form.get('age_months') or 0) or None,
+            weight=float(request.form.get('weight') or 0) or None,
+            health_status=request.form.get('health_status') or None,
+            disease_found=1 if request.form.get('disease_found') else 0,
+            disease_name=request.form.get('disease_name') or None,
+            temperament=request.form.get('temperament') or None,
+            owner_reported=1 if request.form.get('owner_reported') else 0,
+            notes=request.form.get('notes') or None,
+        )
+        db.add(fu)
+        db.commit()
+        return redirect(url_for('breeder.puppy_followups', puppy_id=puppy_id))
+
+    followups = db.query(PuppyFollowUp).filter(PuppyFollowUp.puppy_id == puppy_id).order_by(PuppyFollowUp.followup_date.desc()).all()
+    return render_template('breeder/puppy_followups.html', puppy=puppy, followups=followups)
+
+
+# ---------------------------------------------------------------------------
+# 候補比較画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/mating-compare', methods=['GET', 'POST'])
+def mating_compare():
+    """交配候補比較画面"""
+    from app.models_breeder import Dog
+    from app.services.breeding_logic import compare_mating_candidates
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+
+    dogs = db.query(Dog).filter(Dog.tenant_id == tenant_id).all()
+    results = None
+    fixed_dog = None
+    fixed_role = 'dam'
+    error = None
+
+    if request.method == 'POST':
+        try:
+            fixed_dog_id = int(request.form.get('fixed_dog_id', 0))
+            fixed_role   = request.form.get('fixed_role', 'dam')
+            candidate_ids_raw = request.form.getlist('candidate_ids')
+            candidate_ids = [int(x) for x in candidate_ids_raw if x]
+            max_depth = int(request.form.get('max_depth', 5))
+
+            if not fixed_dog_id or not candidate_ids:
+                error = '固定する犬と候補犬を選択してください。'
+            else:
+                fixed_dog = db.query(Dog).filter(Dog.id == fixed_dog_id).first()
+                results = compare_mating_candidates(
+                    fixed_dog_id=fixed_dog_id,
+                    fixed_role=fixed_role,
+                    candidate_ids=candidate_ids,
+                    max_depth=max_depth,
+                    db=db,
+                    use_ai_comment=False,
+                )
+        except Exception as e:
+            error = f'比較中にエラーが発生しました: {e}'
+
+    return render_template('breeder/mating_compare.html',
+                           dogs=dogs, results=results, fixed_dog=fixed_dog,
+                           fixed_role=fixed_role, error=error)
+
+
+# ---------------------------------------------------------------------------
+# 総合レポート画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/mating-report/<int:evaluation_id>')
+def mating_report(evaluation_id):
+    """交配評価レポート画面"""
+    import json as _json
+    from app.models_breeder import MatingEvaluation, Dog
+    from app.services.comment_generator import generate_ai_report_text
+    db = _get_db()
+
+    ev = db.query(MatingEvaluation).filter(MatingEvaluation.id == evaluation_id).first()
+    if not ev:
+        return '評価が見つかりません', 404
+
+    result = _json.loads(ev.result_json) if ev.result_json else {}
+    sire = db.query(Dog).filter(Dog.id == ev.sire_id).first()
+    dam  = db.query(Dog).filter(Dog.id == ev.dam_id).first()
+
+    report_text = generate_ai_report_text(result)
+
+    return render_template('breeder/mating_report.html',
+                           evaluation=ev, result=result,
+                           sire=sire, dam=dam,
+                           report_text=report_text)
+
+
+@bp.route('/mating-report/<int:evaluation_id>/pdf')
+def mating_report_pdf(evaluation_id):
+    """交配評価レポートPDF出力"""
+    import json as _json
+    import subprocess, tempfile, os
+    from flask import send_file
+    from app.models_breeder import MatingEvaluation, Dog
+    from app.services.comment_generator import generate_ai_report_text
+    db = _get_db()
+
+    ev = db.query(MatingEvaluation).filter(MatingEvaluation.id == evaluation_id).first()
+    if not ev:
+        return '評価が見つかりません', 404
+
+    result = _json.loads(ev.result_json) if ev.result_json else {}
+    sire = db.query(Dog).filter(Dog.id == ev.sire_id).first()
+    dam  = db.query(Dog).filter(Dog.id == ev.dam_id).first()
+    report_text = generate_ai_report_text(result)
+
+    html_content = render_template('breeder/mating_report_pdf.html',
+                                   evaluation=ev, result=result,
+                                   sire=sire, dam=dam,
+                                   report_text=report_text)
+
+    with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as f:
+        f.write(html_content)
+        html_path = f.name
+
+    pdf_path = html_path.replace('.html', '.pdf')
+    try:
+        subprocess.run(['manus-md-to-pdf', html_path, pdf_path], check=False, timeout=30)
+        if not os.path.exists(pdf_path):
+            # weasyprint フォールバック
+            from weasyprint import HTML
+            HTML(filename=html_path).write_pdf(pdf_path)
+        return send_file(pdf_path, as_attachment=True,
+                         download_name=f'mating_report_{evaluation_id}.pdf',
+                         mimetype='application/pdf')
+    finally:
+        try:
+            os.unlink(html_path)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# 犬種別リスクマスタ管理画面
+# ---------------------------------------------------------------------------
+
+@bp.route('/breed-risks', methods=['GET', 'POST'])
+def breed_risks():
+    """犬種別リスクマスタ管理画面"""
+    from app.models_breeder import BreedRiskMaster
+    db = _get_db()
+
+    if request.method == 'POST':
+        action = request.form.get('action', 'add')
+        if action == 'add':
+            risk = BreedRiskMaster(
+                breed=request.form.get('breed', ''),
+                risk_name=request.form.get('risk_name', ''),
+                risk_category=request.form.get('risk_category') or None,
+                severity=request.form.get('severity') or None,
+                description=request.form.get('description') or None,
+                recommended_test=request.form.get('recommended_test') or None,
+                notes=request.form.get('notes') or None,
+            )
+            db.add(risk)
+            db.commit()
+        elif action == 'delete':
+            risk_id = int(request.form.get('risk_id', 0))
+            r = db.query(BreedRiskMaster).filter(BreedRiskMaster.id == risk_id).first()
+            if r:
+                db.delete(r)
+                db.commit()
+        return redirect(url_for('breeder.breed_risks'))
+
+    risks = db.query(BreedRiskMaster).order_by(BreedRiskMaster.breed, BreedRiskMaster.risk_name).all()
+    return render_template('breeder/breed_risks.html', risks=risks)
+
+
+# ---------------------------------------------------------------------------
+# API エンドポイント
+# ---------------------------------------------------------------------------
+
+@bp.route('/api/dogs', methods=['GET'])
+def api_dogs_list():
+    """GET /api/dogs - 犬一覧API"""
+    from app.models_breeder import Dog
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+    dogs = db.query(Dog).filter(Dog.tenant_id == tenant_id).all()
+    return jsonify([{
+        'id': d.id, 'name': d.name, 'breed': d.breed,
+        'sex': d.sex, 'birth_date': str(d.birth_date) if d.birth_date else None,
+    } for d in dogs])
+
+
+@bp.route('/api/dogs', methods=['POST'])
+def api_dog_create():
+    """POST /api/dogs - 犬登録API"""
+    from app.models_breeder import Dog
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+    data = request.get_json() or {}
+    dog = Dog(
+        tenant_id=tenant_id, store_id=store_id,
+        name=data.get('name', ''),
+        breed=data.get('breed'),
+        sex=data.get('sex'),
+        birth_date=data.get('birth_date'),
+    )
+    db.add(dog)
+    db.commit()
+    return jsonify({'id': dog.id, 'name': dog.name}), 201
+
+
+@bp.route('/api/dogs/<int:dog_id>', methods=['GET'])
+def api_dog_detail(dog_id):
+    """GET /api/dogs/{dog_id} - 犬詳細API"""
+    from app.models_breeder import Dog
+    db = _get_db()
+    dog = db.query(Dog).filter(Dog.id == dog_id).first()
+    if not dog:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify({
+        'id': dog.id, 'name': dog.name, 'breed': dog.breed,
+        'sex': dog.sex, 'birth_date': str(dog.birth_date) if dog.birth_date else None,
+    })
+
+
+@bp.route('/api/health-records', methods=['POST'])
+def api_health_record_create():
+    """POST /api/health-records - 健康履歴登録API"""
+    from app.models_breeder import DogHealthRecord
+    db = _get_db()
+    data = request.get_json() or {}
+    r = DogHealthRecord(
+        dog_id=data.get('dog_id'),
+        record_date=data.get('record_date'),
+        category=data.get('category'),
+        title=data.get('title', ''),
+        severity=data.get('severity'),
+        description=data.get('description'),
+        diagnosed_by_vet=data.get('diagnosed_by_vet', 0),
+        resolved=data.get('resolved', 0),
+        notes=data.get('notes'),
+    )
+    db.add(r)
+    db.commit()
+    return jsonify({'id': r.id}), 201
+
+
+@bp.route('/api/breeding-histories', methods=['POST'])
+def api_breeding_history_create():
+    """POST /api/breeding-histories - 繁殖履歴登録API"""
+    from app.models_breeder import BreedingHistory
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+    data = request.get_json() or {}
+    bh = BreedingHistory(
+        tenant_id=tenant_id, store_id=store_id,
+        sire_id=data.get('sire_id'),
+        dam_id=data.get('dam_id'),
+        mating_date=data.get('mating_date'),
+        birth_date=data.get('birth_date'),
+        pregnancy_result=data.get('pregnancy_result'),
+        puppy_count=data.get('puppy_count'),
+        live_birth_count=data.get('live_birth_count'),
+        stillbirth_count=data.get('stillbirth_count'),
+        c_section=data.get('c_section', 0),
+        complications=data.get('complications'),
+        notes=data.get('notes'),
+    )
+    db.add(bh)
+    db.commit()
+    return jsonify({'id': bh.id}), 201
+
+
+@bp.route('/api/puppy-records', methods=['POST'])
+def api_puppy_record_create():
+    """POST /api/puppy-records - 産子記録登録API"""
+    from app.models_breeder import PuppyRecord
+    db = _get_db()
+    data = request.get_json() or {}
+    pr = PuppyRecord(
+        breeding_history_id=data.get('breeding_history_id'),
+        puppy_id=data.get('puppy_id'),
+        sex=data.get('sex'),
+        birth_weight=data.get('birth_weight'),
+        survived=data.get('survived', 1),
+        death_date=data.get('death_date'),
+        death_age_days=data.get('death_age_days'),
+        health_status=data.get('health_status'),
+        defects=data.get('defects'),
+        notes=data.get('notes'),
+    )
+    db.add(pr)
+    db.commit()
+    return jsonify({'id': pr.id}), 201
+
+
+@bp.route('/api/puppy-followups', methods=['POST'])
+def api_puppy_followup_create():
+    """POST /api/puppy-followups - 産子フォローアップ登録API"""
+    from app.models_breeder import PuppyFollowUp
+    db = _get_db()
+    data = request.get_json() or {}
+    fu = PuppyFollowUp(
+        puppy_id=data.get('puppy_id'),
+        followup_date=data.get('followup_date'),
+        age_months=data.get('age_months'),
+        weight=data.get('weight'),
+        health_status=data.get('health_status'),
+        disease_found=data.get('disease_found', 0),
+        disease_name=data.get('disease_name'),
+        temperament=data.get('temperament'),
+        owner_reported=data.get('owner_reported', 0),
+        notes=data.get('notes'),
+    )
+    db.add(fu)
+    db.commit()
+    return jsonify({'id': fu.id}), 201
+
+
+@bp.route('/api/mating/evaluate', methods=['POST'])
+def api_mating_evaluate():
+    """POST /api/mating/evaluate - 交配総合評価API"""
+    import json as _json
+    from app.models_breeder import Dog, MatingEvaluation
+    from app.services.breeding_logic import evaluate_mating_compatibility_full
+    db = _get_db()
+    tenant_id, store_id = _get_tenant_store()
+    data = request.get_json() or {}
+
+    sire_id   = data.get('sire_id')
+    dam_id    = data.get('dam_id')
+    max_depth = data.get('max_depth', 5)
+    use_ai    = data.get('use_ai_comment', False)
+
+    if not sire_id or not dam_id:
+        return jsonify({'error': 'sire_id と dam_id は必須です'}), 400
+
+    sire = db.query(Dog).filter(Dog.id == sire_id).first()
+    dam  = db.query(Dog).filter(Dog.id == dam_id).first()
+
+    result = evaluate_mating_compatibility_full(
+        sire_id=sire_id, dam_id=dam_id,
+        max_depth=max_depth, db=db,
+        use_ai_comment=use_ai,
+        sire_breed=sire.breed if sire else None,
+        dam_breed=dam.breed if dam else None,
+    )
+
+    ev = MatingEvaluation(
+        tenant_id=tenant_id, store_id=store_id,
+        sire_id=sire_id, dam_id=dam_id,
+        coi=result.get('coi', 0),
+        coi_percent=result.get('coi_percent', 0),
+        rank=result.get('rank', ''),
+        recommendation=result.get('judgment', ''),
+        result_json=_json.dumps(result, ensure_ascii=False),
+        max_depth=max_depth,
+    )
+    db.add(ev)
+    db.commit()
+
+    result['evaluation_id'] = ev.id
+    return jsonify(result)
+
+
+@bp.route('/api/mating/compare-candidates', methods=['POST'])
+def api_mating_compare():
+    """POST /api/mating/compare-candidates - 候補比較API"""
+    from app.models_breeder import Dog
+    from app.services.breeding_logic import compare_mating_candidates
+    db = _get_db()
+    data = request.get_json() or {}
+
+    fixed_dog_id  = data.get('fixed_dog_id')
+    fixed_role    = data.get('fixed_role', 'dam')
+    candidate_ids = data.get('candidate_ids', [])
+    max_depth     = data.get('max_depth', 5)
+
+    if not fixed_dog_id or not candidate_ids:
+        return jsonify({'error': 'fixed_dog_id と candidate_ids は必須です'}), 400
+
+    results = compare_mating_candidates(
+        fixed_dog_id=fixed_dog_id,
+        fixed_role=fixed_role,
+        candidate_ids=candidate_ids,
+        max_depth=max_depth,
+        db=db,
+    )
+    return jsonify({'candidate_rankings': results})
+
+
+@bp.route('/api/mating/evaluations/<int:evaluation_id>', methods=['GET'])
+def api_mating_evaluation_get(evaluation_id):
+    """GET /api/mating/evaluations/{evaluation_id} - 評価取得API"""
+    import json as _json
+    from app.models_breeder import MatingEvaluation
+    db = _get_db()
+    ev = db.query(MatingEvaluation).filter(MatingEvaluation.id == evaluation_id).first()
+    if not ev:
+        return jsonify({'error': 'not found'}), 404
+    result = _json.loads(ev.result_json) if ev.result_json else {}
+    result['evaluation_id'] = ev.id
+    return jsonify(result)
+
+
+@bp.route('/api/mating/evaluations/<int:evaluation_id>/report', methods=['GET'])
+def api_mating_evaluation_report(evaluation_id):
+    """GET /api/mating/evaluations/{evaluation_id}/report - レポートJSON取得API"""
+    import json as _json
+    from app.models_breeder import MatingEvaluation, Dog
+    from app.services.comment_generator import generate_ai_report_text
+    db = _get_db()
+    ev = db.query(MatingEvaluation).filter(MatingEvaluation.id == evaluation_id).first()
+    if not ev:
+        return jsonify({'error': 'not found'}), 404
+    result = _json.loads(ev.result_json) if ev.result_json else {}
+    sire = db.query(Dog).filter(Dog.id == ev.sire_id).first()
+    dam  = db.query(Dog).filter(Dog.id == ev.dam_id).first()
+    report_text = generate_ai_report_text(result)
+    return jsonify({
+        'evaluation_id': ev.id,
+        'sire': {'id': sire.id, 'name': sire.name} if sire else None,
+        'dam':  {'id': dam.id,  'name': dam.name}  if dam  else None,
+        'report': report_text,
+        'result': result,
+    })
+
+
+@bp.route('/api/breed-risks', methods=['GET'])
+def api_breed_risks_list():
+    """GET /api/breed-risks - 犬種別リスクマスタ一覧API"""
+    from app.models_breeder import BreedRiskMaster
+    db = _get_db()
+    risks = db.query(BreedRiskMaster).all()
+    return jsonify([{
+        'id': r.id, 'breed': r.breed, 'risk_name': r.risk_name,
+        'risk_category': r.risk_category, 'severity': r.severity,
+        'description': r.description, 'recommended_test': r.recommended_test,
+    } for r in risks])
+
+
+@bp.route('/api/breed-risks', methods=['POST'])
+def api_breed_risk_create():
+    """POST /api/breed-risks - 犬種別リスクマスタ登録API"""
+    from app.models_breeder import BreedRiskMaster
+    db = _get_db()
+    data = request.get_json() or {}
+    r = BreedRiskMaster(
+        breed=data.get('breed', ''),
+        risk_name=data.get('risk_name', ''),
+        risk_category=data.get('risk_category'),
+        severity=data.get('severity'),
+        description=data.get('description'),
+        recommended_test=data.get('recommended_test'),
+        notes=data.get('notes'),
+    )
+    db.add(r)
+    db.commit()
+    return jsonify({'id': r.id}), 201

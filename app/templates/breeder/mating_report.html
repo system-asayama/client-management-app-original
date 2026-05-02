@@ -1,0 +1,121 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}交配評価レポート{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;">
+  <div>
+    <h1 class="page-title">📄 交配評価レポート #{{ evaluation.id }}</h1>
+  </div>
+  <a href="{{ url_for('breeder.mating_report_pdf', evaluation_id=evaluation.id) }}" class="btn btn-primary">📥 PDFダウンロード</a>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="card-header"><h2 class="card-title">父犬情報</h2></div>
+    <div class="card-body">
+      <p><strong>名前：</strong>{{ sire.name if sire else '-' }}</p>
+      <p><strong>犬種：</strong>{{ sire.breed if sire else '-' }}</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2 class="card-title">母犬情報</h2></div>
+    <div class="card-body">
+      <p><strong>名前：</strong>{{ dam.name if dam else '-' }}</p>
+      <p><strong>犬種：</strong>{{ dam.breed if dam else '-' }}</p>
+    </div>
+  </div>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">総合評価</h2></div>
+  <div class="card-body">
+    <div style="display:flex;align-items:center;gap:2rem;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        {% set sc = result.total_score %}
+        {% set sc_color = '#28a745' if sc >= 85 else ('#17a2b8' if sc >= 70 else ('#ffc107' if sc >= 55 else '#dc3545')) %}
+        <div style="font-size:3rem;font-weight:bold;color:{{ sc_color }};">{{ sc or '-' }}</div>
+        <div>総合スコア（100点満点）</div>
+      </div>
+      <div>
+        <div style="font-size:1.5rem;font-weight:bold;">{{ result.judgment or '-' }}</div>
+        <div style="color:var(--text-dim);">COI: {{ result.coi_percent|round(2) if result.coi_percent is not none else '-' }}%（ランク {{ result.rank or '-' }}）</div>
+        <div style="color:var(--text-dim);">AVK: {{ result.avk.avk_percent|round(1) if result.avk else '-' }}%</div>
+      </div>
+    </div>
+    {% if report_text.summary %}
+    <div style="margin-top:1rem;padding:1rem;background:#f8f9fa;border-radius:.5rem;">
+      <p>{{ report_text.summary }}</p>
+      {% if report_text.detail %}<p style="margin-top:.5rem;color:var(--text-dim);">{{ report_text.detail }}</p>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="card-header"><h2 class="card-title">スコア内訳</h2></div>
+    <div class="card-body">
+      {% if result.score_breakdown %}
+      <table class="table">
+        <thead><tr><th>項目</th><th>スコア</th></tr></thead>
+        <tbody>
+          <tr><td>COI（25点）</td><td>{{ result.score_breakdown.coi or 0 }}</td></tr>
+          <tr><td>AVK（15点）</td><td>{{ result.score_breakdown.avk or 0 }}</td></tr>
+          <tr><td>遺伝病リスク（20点）</td><td>{{ result.score_breakdown.genetic_disease or 0 }}</td></tr>
+          <tr><td>健康履歴（15点）</td><td>{{ result.score_breakdown.health_history or 0 }}</td></tr>
+          <tr><td>繁殖履歴（10点）</td><td>{{ result.score_breakdown.breeding_history or 0 }}</td></tr>
+          <tr><td>産子実績（10点）</td><td>{{ result.score_breakdown.offspring_performance or 0 }}</td></tr>
+          <tr><td>犬種別検査充足度（5点）</td><td>{{ result.score_breakdown.breed_risk or 0 }}</td></tr>
+        </tbody>
+      </table>
+      {% endif %}
+      {% if result.forced_deductions %}
+      <div style="margin-top:.5rem;">
+        <strong style="color:red;">強制減点：</strong>
+        {% for d in result.forced_deductions %}
+        <div style="color:red;font-size:.85rem;">{{ d.reason }}（{{ d.deduction }}点）</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2 class="card-title">遺伝病リスク</h2></div>
+    <div class="card-body">
+      {% if result.genetic_disease_risks %}
+      {% for r in result.genetic_disease_risks %}
+      {% set risk_color = 'red' if r.risk in ('very_high','high') else ('orange' if r.risk == 'low_carrier' else 'green') %}
+      <div style="margin-bottom:.5rem;padding:.5rem;background:#f8f9fa;border-radius:.25rem;">
+        <strong>{{ r.disease_name }}</strong>
+        <span style="margin-left:.5rem;color:{{ risk_color }};">{{ r.risk_label or r.risk }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p style="color:var(--text-dim);">遺伝病リスクデータなし</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% if result.warnings %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title" style="color:orange;">⚠️ 警告</h2></div>
+  <div class="card-body">
+    {% for ww in result.warnings %}
+    <div style="padding:.4rem 0;border-bottom:1px solid #eee;color:orange;">⚠ {{ ww }}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% if report_text.improvements %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">💡 改善提案</h2></div>
+  <div class="card-body">
+    {% for s in report_text.improvements %}
+    <div style="padding:.4rem 0;border-bottom:1px solid #eee;">→ {{ s }}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+<div class="card">
+  <div class="card-header"><h2 class="card-title">注意事項</h2></div>
+  <div class="card-body">
+    <p style="color:var(--text-dim);">{{ report_text.caution or '本評価は参考情報です。最終的な交配判断は必ず獣医師にご相談ください。' }}</p>
+  </div>
+</div>
+{% endblock %}

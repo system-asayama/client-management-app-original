@@ -1,0 +1,87 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}犬種別リスクマスタ{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🐾 犬種別リスクマスタ</h1>
+  <p class="page-desc">犬種ごとの遺伝的・構造的リスクと推奨検査を管理します。</p>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">新規登録</h2></div>
+  <div class="card-body">
+    <form method="POST">
+      <input type="hidden" name="action" value="add">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">犬種 <span style="color:red">*</span></label>
+          <input type="text" name="breed" class="form-control" required placeholder="例：トイプードル">
+        </div>
+        <div class="form-group">
+          <label class="form-label">リスク名 <span style="color:red">*</span></label>
+          <input type="text" name="risk_name" class="form-control" required placeholder="例：PRA（進行性網膜萎縮症）">
+        </div>
+        <div class="form-group">
+          <label class="form-label">カテゴリ</label>
+          <select name="risk_category" class="form-control">
+            <option value="">-- 選択 --</option>
+            <option value="genetic">遺伝的</option>
+            <option value="structural">構造的</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">重篤度</label>
+          <select name="severity" class="form-control">
+            <option value="">-- 選択 --</option>
+            <option value="high">高</option>
+            <option value="medium">中</option>
+            <option value="low">低</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:2/-1;">
+          <label class="form-label">推奨検査</label>
+          <input type="text" name="recommended_test" class="form-control" placeholder="例：PRA遺伝子検査">
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">説明</label>
+          <textarea name="description" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><h2 class="card-title">リスクマスタ一覧（{{ risks|length }}件）</h2></div>
+  <div class="card-body">
+    {% if risks %}
+    <table class="table">
+      <thead><tr><th>犬種</th><th>リスク名</th><th>カテゴリ</th><th>重篤度</th><th>推奨検査</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for r in risks %}
+      <tr>
+        <td>{{ r.breed }}</td>
+        <td>{{ r.risk_name }}</td>
+        <td>{{ r.risk_category or '-' }}</td>
+        <td>
+          {% if r.severity == 'high' %}<span style="color:red;font-weight:bold;">高</span>
+          {% elif r.severity == 'medium' %}<span style="color:orange;">中</span>
+          {% else %}<span style="color:#aaa;">低</span>{% endif %}
+        </td>
+        <td>{{ r.recommended_test or '-' }}</td>
+        <td>
+          <form method="POST" style="display:inline;" onsubmit="return confirm('削除しますか？')">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="risk_id" value="{{ r.id }}">
+            <button type="submit" class="btn btn-sm" style="color:red;">削除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-dim);">リスクマスタが登録されていません。組み込みマスタ（10犬種）が自動的に使用されます。</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

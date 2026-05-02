@@ -1,0 +1,79 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}産子フォローアップ{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📈 産子フォローアップ</h1>
+  <p class="page-desc">産子ID: {{ puppy.id }} の成長・健康追跡</p>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">フォローアップ登録</h2></div>
+  <div class="card-body">
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">フォローアップ日</label>
+          <input type="date" name="followup_date" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">月齢</label>
+          <input type="number" name="age_months" class="form-control" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">体重（kg）</label>
+          <input type="number" name="weight" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">健康状態</label>
+          <input type="text" name="health_status" class="form-control" placeholder="例：良好">
+        </div>
+        <div class="form-group">
+          <label class="form-label">疾患発見</label>
+          <label><input type="checkbox" name="disease_found"> 疾患あり</label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">疾患名</label>
+          <input type="text" name="disease_name" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">性格・気質</label>
+          <input type="text" name="temperament" class="form-control" placeholder="例：温和、活発">
+        </div>
+        <div class="form-group">
+          <label class="form-label">報告者</label>
+          <label><input type="checkbox" name="owner_reported"> 飼い主報告</label>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">備考</label>
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+      <a href="{{ url_for('breeder.puppy_records', history_id=puppy.breeding_history_id) }}" class="btn btn-secondary" style="margin-left:.5rem;">戻る</a>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><h2 class="card-title">フォローアップ履歴（{{ followups|length }}件）</h2></div>
+  <div class="card-body">
+    {% if followups %}
+    <table class="table">
+      <thead><tr><th>日付</th><th>月齢</th><th>体重</th><th>健康状態</th><th>疾患</th><th>性格</th></tr></thead>
+      <tbody>
+      {% for f in followups %}
+      <tr>
+        <td>{{ f.followup_date or '-' }}</td>
+        <td>{{ f.age_months or '-' }}ヶ月</td>
+        <td>{{ f.weight or '-' }}kg</td>
+        <td>{{ f.health_status or '-' }}</td>
+        <td>{% if f.disease_found %}<span style="color:orange;">{{ f.disease_name or '疾患あり' }}</span>{% else %}-{% endif %}</td>
+        <td>{{ f.temperament or '-' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-dim);">フォローアップ記録はありません。</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

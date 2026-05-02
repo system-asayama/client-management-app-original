@@ -861,3 +861,980 @@ def evaluate_mating_compatibility(
         result['comment'] = _generate_rule_based_comment(result)
 
     return result
+
+
+# ===========================================================================
+# 拡張ロジック：繁殖意思決定支援システム
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# AVK（Ancestor Loss Coefficient）計算
+# ---------------------------------------------------------------------------
+
+def calculate_avk(sire_id: int, dam_id: int, max_depth: int, db) -> dict:
+    """
+    AVK（Ancestor Loss Coefficient / 祖先消失係数）を計算する。
+
+    目的：
+    血統表上に本来存在するはずの祖先数に対して、
+    実際にユニークな祖先が何頭いるかの割合を計算する。
+
+    計算式：
+    AVK% = (ユニーク祖先数 / 理論上の祖先数) × 100
+
+    理論上の祖先数 = 2^1 + 2^2 + ... + 2^max_depth
+                  = 2^(max_depth+1) - 2
+
+    Returns
+    -------
+    dict:
+        avk_percent         : float  AVK%（高いほど多様性が高い）
+        expected_ancestors  : int    理論上の祖先数
+        unique_ancestors    : int    実際のユニーク祖先数
+        ancestor_loss_percent : float 祖先消失率%
+        diversity_level     : str   多様性レベル
+    """
+    sire_ancestors = get_ancestors(sire_id, max_depth, db)
+    dam_ancestors  = get_ancestors(dam_id,  max_depth, db)
+
+    # 子犬視点の祖先（父・母の祖先 + 父・母自身）
+    all_ancestor_ids = set(sire_ancestors.keys()) | set(dam_ancestors.keys())
+    all_ancestor_ids.add(sire_id)
+    all_ancestor_ids.add(dam_id)
+
+    unique_count = len(all_ancestor_ids)
+
+    # 理論上の祖先数（子犬の視点で max_depth+1 世代まで）
+    # 子犬の親 = 2頭（世代1）、祖父母 = 4頭（世代2）、...
+    expected_count = sum(2 ** g for g in range(1, max_depth + 2))
+
+    avk_percent = round(unique_count / expected_count * 100, 2) if expected_count > 0 else 0.0
+    ancestor_loss_percent = round(100.0 - avk_percent, 2)
+
+    if avk_percent >= 90:
+        diversity_level = 'high'
+        diversity_label = '多様性高い'
+    elif avk_percent >= 80:
+        diversity_level = 'medium_high'
+        diversity_label = 'やや重複あり'
+    elif avk_percent >= 70:
+        diversity_level = 'medium_low'
+        diversity_label = '重複多め'
+    else:
+        diversity_level = 'low'
+        diversity_label = '祖先集中が強い'
+
+    return {
+        'avk_percent': avk_percent,
+        'expected_ancestors': expected_count,
+        'unique_ancestors': unique_count,
+        'ancestor_loss_percent': ancestor_loss_percent,
+        'diversity_level': diversity_level,
+        'diversity_label': diversity_label,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 祖先集中度スコア
+# ---------------------------------------------------------------------------
+
+def calculate_ancestor_concentration(sire_id: int, dam_id: int, max_depth: int, db) -> list:
+    """
+    同一祖先が何回出現しているかを集計し、集中度を返す。
+
+    Returns
+    -------
+    list of dict:
+        dog_id              : int
+        name                : str
+        appearance_count    : int  出現回数（父側＋母側の合計）
+        generations         : list 出現した世代のリスト（重複あり）
+        concentration_level : str  通常/軽度/中度/高度
+    """
+    sire_ancestors = get_ancestors(sire_id, max_depth, db)
+    dam_ancestors  = get_ancestors(dam_id,  max_depth, db)
+
+    all_ids = set(sire_ancestors.keys()) | set(dam_ancestors.keys())
+    result = []
+
+    for anc_id in all_ids:
+        sire_gens = sire_ancestors.get(anc_id, [])
+        dam_gens  = dam_ancestors.get(anc_id, [])
+        count = len(sire_gens) + len(dam_gens)
+        all_gens = sorted(set(sire_gens + dam_gens))
+
+        if count == 1:
+            level = 'normal'
+            label = '通常'
+        elif count == 2:
+            level = 'mild'
+            label = '軽度集中'
+        elif count == 3:
+            level = 'moderate'
+            label = '中度集中'
+        else:
+            level = 'high'
+            label = '高度集中'
+
+        result.append({
+            'dog_id': anc_id,
+            'name': _get_dog_name(anc_id, db),
+            'appearance_count': count,
+            'sire_appearances': len(sire_gens),
+            'dam_appearances': len(dam_gens),
+            'generations': all_gens,
+            'concentration_level': level,
+            'concentration_label': label,
+        })
+
+    result.sort(key=lambda x: x['appearance_count'], reverse=True)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# ライン依存度
+# ---------------------------------------------------------------------------
+
+def calculate_line_dependency(sire_id: int, dam_id: int, max_depth: int, db) -> dict:
+    """
+    特定の祖先または血統ラインへの依存度を計算する。
+
+    Returns
+    -------
+    dict:
+        top_ancestor        : str  最頻出祖先名
+        top_ancestor_id     : int
+        top_ancestor_ratio  : float 全出現数に占める割合%
+        dependency_level    : str  low/medium/high/very_high
+        total_appearances   : int  全祖先の出現数合計
+        top_ancestors       : list 上位5祖先
+    """
+    concentration = calculate_ancestor_concentration(sire_id, dam_id, max_depth, db)
+
+    if not concentration:
+        return {
+            'top_ancestor': None,
+            'top_ancestor_id': None,
+            'top_ancestor_ratio': 0.0,
+            'dependency_level': 'low',
+            'dependency_label': '依存なし',
+            'total_appearances': 0,
+            'top_ancestors': [],
+        }
+
+    total_appearances = sum(a['appearance_count'] for a in concentration)
+    top = concentration[0]
+    top_ratio = round(top['appearance_count'] / total_appearances * 100, 2) if total_appearances > 0 else 0.0
+
+    if top_ratio >= 30:
+        dep_level = 'very_high'
+        dep_label = '特定祖先への依存が非常に高い'
+    elif top_ratio >= 20:
+        dep_level = 'high'
+        dep_label = '特定祖先への依存が高い'
+    elif top_ratio >= 10:
+        dep_level = 'medium'
+        dep_label = '特定祖先への依存がやや見られる'
+    else:
+        dep_level = 'low'
+        dep_label = '依存は低い'
+
+    return {
+        'top_ancestor': top['name'],
+        'top_ancestor_id': top['dog_id'],
+        'top_ancestor_ratio': top_ratio,
+        'dependency_level': dep_level,
+        'dependency_label': dep_label,
+        'total_appearances': total_appearances,
+        'top_ancestors': concentration[:5],
+    }
+
+
+# ---------------------------------------------------------------------------
+# 犬種別リスク評価
+# ---------------------------------------------------------------------------
+
+# 組み込みリスクマスタ（DBにデータがない場合のフォールバック）
+_BUILTIN_BREED_RISKS = {
+    'トイプードル': [
+        {'risk_name': 'PRA（進行性網膜萎縮症）', 'severity': 'high', 'recommended_test': 'PRA遺伝子検査'},
+        {'risk_name': '膝蓋骨脱臼', 'severity': 'medium', 'recommended_test': '整形外科検査'},
+    ],
+    'チワワ': [
+        {'risk_name': '水頭症', 'severity': 'high', 'recommended_test': 'MRI/CT検査'},
+        {'risk_name': '膝蓋骨脱臼', 'severity': 'medium', 'recommended_test': '整形外科検査'},
+    ],
+    '柴犬': [
+        {'risk_name': 'アトピー性皮膚炎', 'severity': 'medium', 'recommended_test': 'アレルギー検査'},
+        {'risk_name': '緑内障', 'severity': 'high', 'recommended_test': '眼科検査'},
+    ],
+    'フレンチブルドッグ': [
+        {'risk_name': '短頭種気道症候群（BOAS）', 'severity': 'high', 'recommended_test': '呼吸機能検査'},
+        {'risk_name': '椎間板ヘルニア', 'severity': 'high', 'recommended_test': 'MRI/X線検査'},
+    ],
+    'ゴールデンレトリバー': [
+        {'risk_name': '股関節形成不全', 'severity': 'high', 'recommended_test': 'X線検査（OFA/PennHIP）'},
+        {'risk_name': '腫瘍系疾患', 'severity': 'high', 'recommended_test': '定期健康診断'},
+    ],
+    'ラブラドールレトリバー': [
+        {'risk_name': '股関節形成不全', 'severity': 'high', 'recommended_test': 'X線検査'},
+        {'risk_name': '進行性網膜萎縮症', 'severity': 'high', 'recommended_test': 'PRA遺伝子検査'},
+    ],
+    'ダックスフンド': [
+        {'risk_name': '椎間板ヘルニア', 'severity': 'high', 'recommended_test': 'MRI/X線検査'},
+        {'risk_name': '進行性網膜萎縮症', 'severity': 'medium', 'recommended_test': 'PRA遺伝子検査'},
+    ],
+    'ポメラニアン': [
+        {'risk_name': '気管虚脱', 'severity': 'medium', 'recommended_test': 'X線/内視鏡検査'},
+        {'risk_name': '膝蓋骨脱臼', 'severity': 'medium', 'recommended_test': '整形外科検査'},
+    ],
+    'マルチーズ': [
+        {'risk_name': '膝蓋骨脱臼', 'severity': 'medium', 'recommended_test': '整形外科検査'},
+        {'risk_name': '白内障', 'severity': 'medium', 'recommended_test': '眼科検査'},
+    ],
+    'ビーグル': [
+        {'risk_name': '脊椎疾患', 'severity': 'medium', 'recommended_test': 'X線検査'},
+        {'risk_name': '甲状腺機能低下症', 'severity': 'medium', 'recommended_test': '血液検査'},
+    ],
+}
+
+
+def evaluate_breed_risks(sire_breed: str | None, dam_breed: str | None, sire_gene_results: list, dam_gene_results: list, db) -> dict:
+    """
+    犬種別リスクマスタを参照し、検査不足や注意項目を返す。
+
+    Parameters
+    ----------
+    sire_breed        : 父犬の犬種
+    dam_breed         : 母犬の犬種
+    sire_gene_results : 父犬の遺伝疾患検査結果リスト（MockGene 相当）
+    dam_gene_results  : 母犬の遺伝疾患検査結果リスト
+    db                : SQLAlchemy セッション
+
+    Returns
+    -------
+    dict:
+        breed_warnings  : list  犬種別警告
+        missing_tests   : list  未実施の推奨検査
+    """
+    warnings = []
+    missing_tests = []
+
+    sire_tested = {g.disease_name for g in sire_gene_results}
+    dam_tested  = {g.disease_name for g in dam_gene_results}
+
+    for breed in set(filter(None, [sire_breed, dam_breed])):
+        # DBから取得を試みる
+        breed_risks = []
+        try:
+            from app.models_breeder import BreedRiskMaster
+            breed_risks = db.query(BreedRiskMaster).filter(BreedRiskMaster.breed == breed).all()
+        except Exception:
+            pass
+
+        # DBにデータがなければ組み込みマスタを使う
+        if not breed_risks:
+            builtin = _BUILTIN_BREED_RISKS.get(breed, [])
+            for r in builtin:
+                risk_name = r['risk_name']
+                severity  = r.get('severity', 'medium')
+                rec_test  = r.get('recommended_test', '')
+                # 検査未実施チェック
+                if risk_name not in sire_tested and sire_breed == breed:
+                    missing_tests.append({
+                        'breed': breed,
+                        'side': 'sire',
+                        'risk_name': risk_name,
+                        'recommended_test': rec_test,
+                        'severity': severity,
+                    })
+                if risk_name not in dam_tested and dam_breed == breed:
+                    missing_tests.append({
+                        'breed': breed,
+                        'side': 'dam',
+                        'risk_name': risk_name,
+                        'recommended_test': rec_test,
+                        'severity': severity,
+                    })
+                if severity == 'high':
+                    warnings.append(f'【{breed}】{risk_name}のリスクがあります。{rec_test}の確認を推奨します。')
+        else:
+            for r in breed_risks:
+                if r.severity == 'high':
+                    warnings.append(f'【{r.breed}】{r.risk_name}のリスクがあります。{r.recommended_test or ""}の確認を推奨します。')
+                if r.risk_name not in sire_tested and sire_breed == breed:
+                    missing_tests.append({
+                        'breed': breed,
+                        'side': 'sire',
+                        'risk_name': r.risk_name,
+                        'recommended_test': r.recommended_test or '',
+                        'severity': r.severity or 'medium',
+                    })
+                if r.risk_name not in dam_tested and dam_breed == breed:
+                    missing_tests.append({
+                        'breed': breed,
+                        'side': 'dam',
+                        'risk_name': r.risk_name,
+                        'recommended_test': r.recommended_test or '',
+                        'severity': r.severity or 'medium',
+                    })
+
+    return {
+        'breed_warnings': warnings,
+        'missing_tests': missing_tests,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 健康履歴評価
+# ---------------------------------------------------------------------------
+
+def evaluate_health_records(sire_id: int, dam_id: int, db) -> dict:
+    """
+    父犬・母犬の健康履歴を評価し、リスクスコアと警告を返す。
+
+    Returns
+    -------
+    dict:
+        health_warnings  : list  警告リスト
+        health_score_penalty : int  減点（0〜50）
+        sire_issues      : list  父犬の問題
+        dam_issues       : list  母犬の問題
+    """
+    warnings = []
+    penalty = 0
+    sire_issues = []
+    dam_issues  = []
+
+    for dog_id, side, issues in [(sire_id, '父犬', sire_issues), (dam_id, '母犬', dam_issues)]:
+        try:
+            from app.models_breeder import DogHealthRecord
+            records = db.query(DogHealthRecord).filter(DogHealthRecord.dog_id == dog_id).all()
+        except Exception:
+            records = []
+
+        for r in records:
+            issue = {
+                'title': r.title,
+                'category': r.category,
+                'severity': r.severity,
+                'resolved': bool(r.resolved),
+            }
+            issues.append(issue)
+
+            # 重度疾患
+            if r.severity == 'critical':
+                warnings.append(f'{side}に重篤な疾患歴があります：{r.title}')
+                penalty += 20
+            elif r.severity == 'high':
+                warnings.append(f'{side}に重大な疾患歴があります：{r.title}')
+                penalty += 10
+
+            # 未解決疾患
+            if not r.resolved:
+                warnings.append(f'{side}に未解決の疾患があります：{r.title}')
+                penalty += 5
+
+            # 繁殖関連疾患
+            if r.category == 'reproductive':
+                warnings.append(f'{side}に繁殖関連の疾患歴があります：{r.title}（繁殖前に獣医師への相談を推奨します）')
+                penalty += 15
+
+    # 同一カテゴリの疾患が父母双方にある場合
+    sire_cats = {i['category'] for i in sire_issues if i['category']}
+    dam_cats  = {i['category'] for i in dam_issues  if i['category']}
+    shared_cats = sire_cats & dam_cats
+    for cat in shared_cats:
+        warnings.append(f'父犬・母犬の双方に{cat}カテゴリの疾患歴があります。子犬への影響を慎重に評価してください。')
+        penalty += 5
+
+    return {
+        'health_warnings': warnings,
+        'health_score_penalty': min(penalty, 50),
+        'sire_issues': sire_issues,
+        'dam_issues': dam_issues,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 繁殖履歴評価
+# ---------------------------------------------------------------------------
+
+def evaluate_breeding_history(sire_id: int, dam_id: int, db) -> dict:
+    """
+    父犬・母犬の繁殖履歴を評価し、統計と警告を返す。
+
+    Returns
+    -------
+    dict:
+        sire_stats       : dict  父犬の繁殖統計
+        dam_stats        : dict  母犬の繁殖統計
+        pair_history     : list  同ペアの過去の繁殖記録
+        breeding_warnings : list  警告
+    """
+    warnings = []
+
+    def _calc_stats(dog_id: int, role: str) -> dict:
+        try:
+            from app.models_breeder import BreedingHistory
+            if role == 'sire':
+                records = db.query(BreedingHistory).filter(BreedingHistory.sire_id == dog_id).all()
+            else:
+                records = db.query(BreedingHistory).filter(BreedingHistory.dam_id == dog_id).all()
+        except Exception:
+            records = []
+
+        total = len(records)
+        if total == 0:
+            return {'total_litters': 0, 'success_rate': None, 'avg_puppy_count': None, 'stillbirth_rate': None, 'c_section_rate': None}
+
+        success = sum(1 for r in records if r.pregnancy_result == 'success')
+        total_puppies    = sum(r.puppy_count or 0 for r in records)
+        live_births      = sum(r.live_birth_count or 0 for r in records)
+        stillbirths      = sum(r.stillbirth_count or 0 for r in records)
+        c_sections       = sum(1 for r in records if r.c_section)
+
+        success_rate     = round(success / total * 100, 1) if total > 0 else None
+        avg_puppies      = round(total_puppies / total, 1) if total > 0 else None
+        stillbirth_rate  = round(stillbirths / total_puppies * 100, 1) if total_puppies > 0 else None
+        c_section_rate   = round(c_sections / total * 100, 1) if total > 0 else None
+
+        return {
+            'total_litters': total,
+            'success_rate': success_rate,
+            'avg_puppy_count': avg_puppies,
+            'stillbirth_rate': stillbirth_rate,
+            'c_section_rate': c_section_rate,
+        }
+
+    sire_stats = _calc_stats(sire_id, 'sire')
+    dam_stats  = _calc_stats(dam_id,  'dam')
+
+    # 同ペアの過去記録
+    pair_history = []
+    try:
+        from app.models_breeder import BreedingHistory
+        pairs = db.query(BreedingHistory).filter(
+            BreedingHistory.sire_id == sire_id,
+            BreedingHistory.dam_id == dam_id
+        ).all()
+        for p in pairs:
+            pair_history.append({
+                'mating_date': str(p.mating_date) if p.mating_date else None,
+                'pregnancy_result': p.pregnancy_result,
+                'puppy_count': p.puppy_count,
+                'live_birth_count': p.live_birth_count,
+                'stillbirth_count': p.stillbirth_count,
+                'c_section': bool(p.c_section),
+            })
+    except Exception:
+        pass
+
+    # 警告
+    if dam_stats['total_litters'] and dam_stats['total_litters'] >= 5:
+        warnings.append(f'母犬の出産回数が{dam_stats["total_litters"]}回と多い状態です。繁殖休止を検討してください。')
+    if dam_stats.get('c_section_rate') and dam_stats['c_section_rate'] >= 50:
+        warnings.append(f'母犬の帝王切開率が{dam_stats["c_section_rate"]}%と高い状態です。')
+    if dam_stats.get('stillbirth_rate') and dam_stats['stillbirth_rate'] >= 10:
+        warnings.append(f'母犬の死産率が{dam_stats["stillbirth_rate"]}%と高い状態です。')
+
+    return {
+        'sire_stats': sire_stats,
+        'dam_stats': dam_stats,
+        'pair_history': pair_history,
+        'breeding_warnings': warnings,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 産子実績評価
+# ---------------------------------------------------------------------------
+
+def evaluate_offspring_performance(sire_id: int, dam_id: int, db) -> dict:
+    """
+    過去産子データから産子実績スコアを算出する。
+
+    Returns
+    -------
+    dict:
+        total_litters      : int
+        total_puppies      : int
+        live_birth_rate    : float
+        stillbirth_rate    : float
+        defect_rate        : float
+        known_disease_rate : float
+        performance_level  : str  excellent/good/fair/poor
+        offspring_warnings : list
+    """
+    warnings = []
+
+    try:
+        from app.models_breeder import BreedingHistory, PuppyRecord, PuppyFollowUp
+        histories = db.query(BreedingHistory).filter(
+            BreedingHistory.sire_id == sire_id,
+            BreedingHistory.dam_id == dam_id
+        ).all()
+    except Exception:
+        histories = []
+
+    if not histories:
+        return {
+            'total_litters': 0,
+            'total_puppies': 0,
+            'live_birth_rate': None,
+            'stillbirth_rate': None,
+            'defect_rate': None,
+            'known_disease_rate': None,
+            'performance_level': 'unknown',
+            'offspring_warnings': [],
+        }
+
+    total_litters  = len(histories)
+    total_puppies  = 0
+    live_births    = 0
+    stillbirths    = 0
+    defect_count   = 0
+    disease_count  = 0
+
+    for h in histories:
+        try:
+            puppies = db.query(PuppyRecord).filter(PuppyRecord.breeding_history_id == h.id).all()
+        except Exception:
+            puppies = []
+
+        for p in puppies:
+            total_puppies += 1
+            if p.survived:
+                live_births += 1
+            else:
+                stillbirths += 1
+            if p.defects:
+                defect_count += 1
+
+            # フォローアップで疾患発見
+            try:
+                followups = db.query(PuppyFollowUp).filter(
+                    PuppyFollowUp.puppy_id == p.id,
+                    PuppyFollowUp.disease_found == 1
+                ).all()
+                if followups:
+                    disease_count += 1
+            except Exception:
+                pass
+
+    live_birth_rate   = round(live_births / total_puppies * 100, 1) if total_puppies > 0 else None
+    stillbirth_rate   = round(stillbirths / total_puppies * 100, 1) if total_puppies > 0 else None
+    defect_rate       = round(defect_count / total_puppies * 100, 1) if total_puppies > 0 else None
+    known_disease_rate = round(disease_count / total_puppies * 100, 1) if total_puppies > 0 else None
+
+    # パフォーマンスレベル
+    score = 100
+    if live_birth_rate is not None and live_birth_rate < 90:
+        score -= 20
+    if stillbirth_rate is not None and stillbirth_rate >= 10:
+        score -= 20
+        warnings.append(f'過去産子の死産率が{stillbirth_rate}%と高い状態です。')
+    if defect_rate is not None and defect_rate >= 5:
+        score -= 30
+        warnings.append(f'過去産子の先天異常率が{defect_rate}%と高い状態です。同じ組み合わせの再交配は慎重に判断してください。')
+    if known_disease_rate is not None and known_disease_rate >= 10:
+        score -= 20
+        warnings.append(f'過去産子の疾患発生率が{known_disease_rate}%と高い状態です。')
+
+    if score >= 85:
+        level = 'excellent'
+    elif score >= 70:
+        level = 'good'
+    elif score >= 55:
+        level = 'fair'
+    else:
+        level = 'poor'
+
+    return {
+        'total_litters': total_litters,
+        'total_puppies': total_puppies,
+        'live_birth_rate': live_birth_rate,
+        'stillbirth_rate': stillbirth_rate,
+        'defect_rate': defect_rate,
+        'known_disease_rate': known_disease_rate,
+        'performance_level': level,
+        'offspring_warnings': warnings,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 総合スコア計算
+# ---------------------------------------------------------------------------
+
+def calculate_total_score(
+    coi_percent: float,
+    avk_result: dict,
+    gene_risks: list,
+    health_result: dict,
+    breeding_result: dict,
+    offspring_result: dict,
+    breed_risk_result: dict,
+    close_patterns: list,
+) -> dict:
+    """
+    100点満点の総合スコアを計算する。
+
+    配点：
+    - COI         : 25点
+    - AVK         : 15点
+    - 遺伝病リスク : 20点
+    - 健康履歴     : 15点
+    - 繁殖履歴     : 10点
+    - 産子実績     : 10点
+    - 犬種別検査充足度 : 5点
+
+    強制減点：
+    - carrier × carrier  : -30点
+    - affected を含む    : -40点
+    - COI 20%以上        : -30点
+    - 親子/兄妹交配      : -50点
+    - 重大な未解決疾患   : -30点
+
+    Returns
+    -------
+    dict:
+        total_score     : int   0〜100（強制減点後は0以下になる場合あり）
+        score_breakdown : dict  各項目のスコア
+        judgment        : str   推奨候補/条件付き/慎重/原則非推奨/非推奨
+        forced_deductions : list 強制減点リスト
+    """
+    breakdown = {}
+    forced_deductions = []
+
+    # --- COI スコア（25点）---
+    if coi_percent < 5:
+        coi_score = 25
+    elif coi_percent < 10:
+        coi_score = 20
+    elif coi_percent < 15:
+        coi_score = 15
+    elif coi_percent < 20:
+        coi_score = 8
+    else:
+        coi_score = 0
+    breakdown['coi'] = coi_score
+
+    # --- AVK スコア（15点）---
+    avk_pct = avk_result.get('avk_percent', 100)
+    if avk_pct >= 90:
+        avk_score = 15
+    elif avk_pct >= 80:
+        avk_score = 12
+    elif avk_pct >= 70:
+        avk_score = 8
+    else:
+        avk_score = 4
+    breakdown['avk'] = avk_score
+
+    # --- 遺伝病リスク スコア（20点）---
+    gene_score = 20
+    for r in gene_risks:
+        if r['risk'] == 'very_high':
+            gene_score -= 15
+        elif r['risk'] == 'high':
+            gene_score -= 10
+        elif r['risk'] == 'low_carrier':
+            gene_score -= 3
+        elif r['risk'] == 'unknown_warning':
+            gene_score -= 2
+    gene_score = max(gene_score, 0)
+    breakdown['genetic_disease'] = gene_score
+
+    # --- 健康履歴 スコア（15点）---
+    health_penalty = health_result.get('health_score_penalty', 0)
+    health_score = max(15 - health_penalty, 0)
+    breakdown['health_history'] = health_score
+
+    # --- 繁殖履歴 スコア（10点）---
+    breeding_score = 10
+    dam_stats = breeding_result.get('dam_stats', {})
+    if dam_stats.get('total_litters', 0) >= 5:
+        breeding_score -= 3
+    if dam_stats.get('c_section_rate') and dam_stats['c_section_rate'] >= 50:
+        breeding_score -= 3
+    if dam_stats.get('stillbirth_rate') and dam_stats['stillbirth_rate'] >= 10:
+        breeding_score -= 4
+    breeding_score = max(breeding_score, 0)
+    breakdown['breeding_history'] = breeding_score
+
+    # --- 産子実績 スコア（10点）---
+    perf_level = offspring_result.get('performance_level', 'unknown')
+    perf_map = {'excellent': 10, 'good': 8, 'fair': 5, 'poor': 2, 'unknown': 7}
+    offspring_score = perf_map.get(perf_level, 7)
+    breakdown['offspring_performance'] = offspring_score
+
+    # --- 犬種別検査充足度 スコア（5点）---
+    missing_tests = breed_risk_result.get('missing_tests', [])
+    high_missing = sum(1 for t in missing_tests if t.get('severity') == 'high')
+    breed_score = max(5 - high_missing * 2, 0)
+    breakdown['breed_risk'] = breed_score
+
+    base_score = sum(breakdown.values())
+
+    # --- 強制減点 ---
+    forced_total = 0
+
+    # carrier × carrier
+    has_carrier_x_carrier = any(r['risk'] == 'high' and
+                                 r.get('sire_status') == 'carrier' and
+                                 r.get('dam_status') == 'carrier'
+                                 for r in gene_risks)
+    if has_carrier_x_carrier:
+        forced_deductions.append({'reason': 'carrier × carrier の遺伝病リスク', 'deduction': -30})
+        forced_total -= 30
+
+    # affected を含む
+    has_affected = any(r.get('sire_status') == 'affected' or r.get('dam_status') == 'affected'
+                       for r in gene_risks)
+    if has_affected:
+        forced_deductions.append({'reason': 'affected（発症個体）を含む', 'deduction': -40})
+        forced_total -= 40
+
+    # COI 20%以上
+    if coi_percent >= 20:
+        forced_deductions.append({'reason': f'COIが{coi_percent:.1f}%と非常に高い', 'deduction': -30})
+        forced_total -= 30
+
+    # 親子/兄妹交配
+    critical_patterns = [p for p in close_patterns if p.get('severity') == 'critical']
+    if critical_patterns:
+        forced_deductions.append({'reason': '親子または兄妹交配', 'deduction': -50})
+        forced_total -= 50
+
+    # 重大な未解決疾患
+    has_critical_unresolved = (
+        any(i.get('severity') == 'critical' and not i.get('resolved')
+            for i in health_result.get('sire_issues', []))
+        or
+        any(i.get('severity') == 'critical' and not i.get('resolved')
+            for i in health_result.get('dam_issues', []))
+    )
+    if has_critical_unresolved:
+        forced_deductions.append({'reason': '重大な未解決疾患あり', 'deduction': -30})
+        forced_total -= 30
+
+    total_score = max(base_score + forced_total, 0)
+
+    # 総合判定
+    if total_score >= 85:
+        judgment = '推奨候補'
+        judgment_level = 'excellent'
+    elif total_score >= 70:
+        judgment = '条件付きで有力'
+        judgment_level = 'good'
+    elif total_score >= 55:
+        judgment = '慎重に検討'
+        judgment_level = 'fair'
+    elif total_score >= 40:
+        judgment = '原則非推奨'
+        judgment_level = 'poor'
+    else:
+        judgment = '非推奨'
+        judgment_level = 'very_poor'
+
+    return {
+        'total_score': total_score,
+        'base_score': base_score,
+        'score_breakdown': breakdown,
+        'forced_deductions': forced_deductions,
+        'forced_total': forced_total,
+        'judgment': judgment,
+        'judgment_level': judgment_level,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 交配候補比較
+# ---------------------------------------------------------------------------
+
+def compare_mating_candidates(
+    fixed_dog_id: int,
+    fixed_role: str,
+    candidate_ids: list[int],
+    max_depth: int,
+    db,
+    use_ai_comment: bool = False,
+) -> list:
+    """
+    固定した犬（父犬または母犬）に対して、複数の候補をランキング評価する。
+
+    Parameters
+    ----------
+    fixed_dog_id  : 固定する犬の ID
+    fixed_role    : 'sire'（固定が父犬）または 'dam'（固定が母犬）
+    candidate_ids : 候補犬の ID リスト
+    max_depth     : COI 計算の最大世代数
+    db            : SQLAlchemy セッション
+
+    Returns
+    -------
+    list of dict（total_score の降順でソート済み）
+    """
+    results = []
+
+    for cand_id in candidate_ids:
+        if fixed_role == 'sire':
+            sire_id, dam_id = fixed_dog_id, cand_id
+        else:
+            sire_id, dam_id = cand_id, fixed_dog_id
+
+        try:
+            eval_result = evaluate_mating_compatibility_full(
+                sire_id=sire_id,
+                dam_id=dam_id,
+                max_depth=max_depth,
+                db=db,
+                use_ai_comment=use_ai_comment,
+            )
+            results.append({
+                'candidate_id': cand_id,
+                'candidate_name': _get_dog_name(cand_id, db),
+                'total_score': eval_result.get('total_score', 0),
+                'coi_percent': eval_result.get('coi_percent', 0),
+                'avk_percent': eval_result.get('avk', {}).get('avk_percent', 0),
+                'judgment': eval_result.get('judgment', ''),
+                'judgment_level': eval_result.get('judgment_level', ''),
+                'rank': eval_result.get('rank', ''),
+                'warnings': eval_result.get('warnings', []),
+                'positive_points': eval_result.get('positive_points', []),
+                'improvement_suggestions': eval_result.get('improvement_suggestions', []),
+                'detail': eval_result,
+            })
+        except Exception as e:
+            results.append({
+                'candidate_id': cand_id,
+                'candidate_name': _get_dog_name(cand_id, db),
+                'total_score': 0,
+                'error': str(e),
+            })
+
+    results.sort(key=lambda x: x.get('total_score', 0), reverse=True)
+
+    for i, r in enumerate(results):
+        r['rank_position'] = i + 1
+        if i == 0:
+            r['recommendation'] = '最有力候補'
+        elif i == 1:
+            r['recommendation'] = '有力候補'
+        elif r.get('total_score', 0) >= 70:
+            r['recommendation'] = '検討候補'
+        else:
+            r['recommendation'] = '要検討'
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# 総合評価（拡張版）
+# ---------------------------------------------------------------------------
+
+def evaluate_mating_compatibility_full(
+    sire_id: int,
+    dam_id: int,
+    max_depth: int = 5,
+    db = None,
+    use_ai_comment: bool = False,
+    sire_breed: str | None = None,
+    dam_breed: str | None = None,
+) -> dict:
+    """
+    繁殖意思決定支援システムの総合評価関数。
+
+    既存の evaluate_mating_compatibility に加えて、
+    AVK・祖先集中度・ライン依存度・健康履歴・繁殖履歴・産子実績・
+    犬種別リスク・総合スコアを統合して返す。
+
+    Returns
+    -------
+    dict: 全評価指標を含む総合評価 JSON
+    """
+    # 基本評価（COI・遺伝病・近親パターン）
+    base = evaluate_mating_compatibility(
+        sire_id=sire_id,
+        dam_id=dam_id,
+        max_depth=max_depth,
+        db=db,
+        use_ai_comment=False,
+    )
+
+    # AVK
+    avk = calculate_avk(sire_id, dam_id, max_depth, db)
+
+    # 祖先集中度
+    concentration = calculate_ancestor_concentration(sire_id, dam_id, max_depth, db)
+
+    # ライン依存度
+    line_dep = calculate_line_dependency(sire_id, dam_id, max_depth, db)
+
+    # 健康履歴
+    health = evaluate_health_records(sire_id, dam_id, db)
+
+    # 繁殖履歴
+    breeding = evaluate_breeding_history(sire_id, dam_id, db)
+
+    # 産子実績
+    offspring = evaluate_offspring_performance(sire_id, dam_id, db)
+
+    # 犬種別リスク
+    sire_genes = []
+    dam_genes  = []
+    try:
+        from app.models_breeder import GeneticTestResult
+        sire_genes = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == sire_id).all()
+        dam_genes  = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == dam_id).all()
+    except Exception:
+        pass
+
+    breed_risks = evaluate_breed_risks(sire_breed, dam_breed, sire_genes, dam_genes, db)
+
+    # 総合スコア
+    score = calculate_total_score(
+        coi_percent=base['coi_percent'],
+        avk_result=avk,
+        gene_risks=base['genetic_disease_risks'],
+        health_result=health,
+        breeding_result=breeding,
+        offspring_result=offspring,
+        breed_risk_result=breed_risks,
+        close_patterns=base['close_inbreeding_patterns'],
+    )
+
+    # 全警告を統合
+    all_warnings = (
+        base.get('warnings', []) +
+        health.get('health_warnings', []) +
+        breeding.get('breeding_warnings', []) +
+        offspring.get('offspring_warnings', []) +
+        breed_risks.get('breed_warnings', [])
+    )
+
+    result = {
+        **base,
+        'avk': avk,
+        'ancestor_concentration': concentration,
+        'line_dependency': line_dep,
+        'health_evaluation': health,
+        'breeding_evaluation': breeding,
+        'offspring_evaluation': offspring,
+        'breed_risk_evaluation': breed_risks,
+        'total_score': score['total_score'],
+        'base_score': score['base_score'],
+        'score_breakdown': score['score_breakdown'],
+        'forced_deductions': score['forced_deductions'],
+        'judgment': score['judgment'],
+        'judgment_level': score['judgment_level'],
+        'warnings': all_warnings,
+    }
+
+    # AI コメント（分離済み）
+    if use_ai_comment:
+        result['comment'] = generate_ai_comment(result)
+    else:
+        result['comment'] = _generate_rule_based_comment(result)
+
+    return result

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>景品一覧 - {{ store.name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+        
+        body {
+            font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        .header h1::before {
+            content: '🎁';
+            font-size: 36px;
+        }
+        
+        .store-name {
+            font-size: 18px;
+            color: #667eea;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+        
+        .prizes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .prize-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            padding: 16px 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            min-height: 80px;
+        }
+        
+        .prize-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .prize-card.special {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        }
+        
+        .prize-card.rank-1 {
+            background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+        }
+        
+        .prize-card.rank-2 {
+            background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+        }
+        
+        .prize-card.rank-3 {
+            background: linear-gradient(135deg, #A8E6CF 0%, #56CCF2 100%);
+        }
+        
+        .prize-card.rank-4 {
+            background: linear-gradient(135deg, #FFE66D 0%, #FFAB73 100%);
+        }
+        
+        .prize-card.rank-5 {
+            background: linear-gradient(135deg, #C3AED6 0%, #8E9EAB 100%);
+        }
+        
+        .prize-rank {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            min-width: 80px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .prize-content {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .prize-name {
+            font-size: 16px;
+            color: #fff;
+            font-weight: 600;
+            line-height: 1.4;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            flex: 1;
+        }
+        
+        .prize-score {
+            font-size: 13px;
+            color: rgba(255,255,255,0.95);
+            background: rgba(0,0,0,0.15);
+            padding: 6px 12px;
+            border-radius: 15px;
+            white-space: nowrap;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #e0e0e0;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .footer-message {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .back-button, .print-button {
+            position: fixed;
+            top: 20px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .back-button {
+            left: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .print-button {
+            right: 20px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .print-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+            
+            body {
+                background: white !important;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                padding: 20px;
+                max-width: 100%;
+                background: white !important;
+            }
+            
+            .back-button, .print-button {
+                display: none !important;
+            }
+            
+            .prize-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            .prizes-list {
+                gap: 10px;
+            }
+            
+            @page {
+                size: A4;
+                margin: 15mm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/admin/store/{{ store.id }}/settings" class="back-button no-print">← 戻る</a>
+    <button onclick="window.print()" class="print-button no-print">🖨️ 印刷</button>
+    
+    <div class="container">
+        <div class="header">
+            <h1>景品一覧</h1>
+            <div class="store-name">{{ store.name }}</div>
+        </div>
+        
+        <div class="prizes-list">
+            {% for prize in prizes %}
+            <div class="prize-card {% if loop.index == 1 %}special{% else %}rank-{{ loop.index }}{% endif %}">
+                <div class="prize-rank">{{ prize.rank }}</div>
+                <div class="prize-content">
+                    <div class="prize-name">{{ prize.name }}</div>
+                    <div class="prize-score">
+                        {% if prize.min_score is defined and prize.max_score is defined %}
+                            {{ prize.min_score }}点 〜 {{ prize.max_score }}点
+                        {% elif prize.min_score is defined %}
+                            {{ prize.min_score }}点以上
+                        {% else %}
+                            〜 {{ prize.max_score }}点
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="footer">
+            <div class="footer-message">スロットゲームで合計得点を獲得して、素敵な景品をゲットしよう！</div>
+            <div>{{ store.name }} - 景品一覧</div>
+        </div>
+    </div>
+</body>
+</html>

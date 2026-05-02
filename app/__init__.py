@@ -571,6 +571,21 @@ def create_app() -> Flask:
         print("✅ survey_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ survey_app blueprint 登録エラー: {e}")
+    # QR印刷・景品印刷ルート登録
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        from qr_print_routes import register_qr_print_routes
+        register_qr_print_routes(app)
+        print("✅ qr_print_routes 登録完了")
+    except Exception as e:
+        print(f"⚠️ qr_print_routes 登録エラー: {e}")
+    try:
+        from prize_print_routes import register_prize_print_routes
+        register_prize_print_routes(app)
+        print("✅ prize_print_routes 登録完了")
+    except Exception as e:
+        print(f"⚠️ prize_print_routes 登録エラー: {e}")
     # スタンプカード blueprint登録
     try:
         from .blueprints.stampcard_app import bp as stampcard_app_bp

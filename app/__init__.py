@@ -566,8 +566,9 @@ def create_app() -> Flask:
         print(f"⚠️ breeder blueprint 登録エラー: {e}")
     # アンケートシステム blueprint登録
     try:
-        from .blueprints.survey_app import bp as survey_app_bp
+        from .blueprints.survey_app import bp as survey_app_bp, _run_slot_migrations
         app.register_blueprint(survey_app_bp)
+        _run_slot_migrations()
         print("✅ survey_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ survey_app blueprint 登録エラー: {e}")

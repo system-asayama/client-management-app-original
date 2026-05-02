@@ -3450,3 +3450,835 @@ def api_breed_risk_create():
     db.add(r)
     db.commit()
     return jsonify({'id': r.id}), 201
+
+
+# ═══════════════════════════════════════════════════════════════
+# 飼い主アプリ連携 API（Owner / OwnerDog / HealthLog / MedicalEvent / LifeStatus / DeathInfo）
+# ═══════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────
+# POST /api/owners  飼い主登録
+# ─────────────────────────────────────────────
+@bp.route('/api/owners', methods=['POST'])
+def api_owner_create():
+    """POST /api/owners - 飼い主登録API"""
+    from app.models_breeder import Owner
+    db = _get_db()
+    data = request.get_json() or {}
+    tenant_id = session.get('tenant_id')
+    store_id = session.get('store_id')
+    o = Owner(
+        tenant_id=tenant_id,
+        store_id=store_id,
+        name=data.get('name', ''),
+        email=data.get('email'),
+        phone=data.get('phone'),
+        notes=data.get('notes'),
+    )
+    db.add(o)
+    db.commit()
+    return jsonify({'id': o.id, 'name': o.name}), 201
+
+
+@bp.route('/api/owners', methods=['GET'])
+def api_owners_list():
+    """GET /api/owners - 飼い主一覧API"""
+    from app.models_breeder import Owner
+    db = _get_db()
+    tenant_id = session.get('tenant_id')
+    q = db.query(Owner)
+    if tenant_id:
+        q = q.filter(Owner.tenant_id == tenant_id)
+    owners = q.order_by(Owner.created_at.desc()).all()
+    return jsonify([{
+        'id': o.id, 'name': o.name, 'email': o.email,
+        'phone': o.phone, 'created_at': str(o.created_at),
+    } for o in owners])
+
+
+# ─────────────────────────────────────────────
+# POST /api/owner-dogs  飼い主×犬紐付け登録
+# ─────────────────────────────────────────────
+@bp.route('/api/owner-dogs', methods=['POST'])
+def api_owner_dog_create():
+    """POST /api/owner-dogs - 飼い主×犬紐付け登録API"""
+    from app.models_breeder import OwnerDog
+    db = _get_db()
+    data = request.get_json() or {}
+    od = OwnerDog(
+        owner_id=data.get('owner_id'),
+        dog_id=data.get('dog_id'),
+        nickname=data.get('nickname'),
+        acquired_date=data.get('acquired_date'),
+        breeder_id=data.get('breeder_id'),
+        share_health_data=int(data.get('share_health_data', 0)),
+        share_followup_data=int(data.get('share_followup_data', 0)),
+    )
+    db.add(od)
+    db.commit()
+    return jsonify({'id': od.id}), 201
+
+
+# ─────────────────────────────────────────────
+# POST /api/health-logs  健康ログ記録
+# ─────────────────────────────────────────────
+@bp.route('/api/health-logs', methods=['POST'])
+def api_health_log_create():
+    """POST /api/health-logs - 健康ログ記録API（体重・食欲・活動量など）"""
+    from app.models_breeder import HealthLog
+    from datetime import date as _date
+    db = _get_db()
+    data = request.get_json() or {}
+    log = HealthLog(
+        owner_dog_id=data.get('owner_dog_id'),
+        log_date=data.get('log_date') or str(_date.today()),
+        weight=data.get('weight'),
+        food_type=data.get('food_type'),
+        activity_level=data.get('activity_level'),
+        appetite=data.get('appetite'),
+        stool_condition=data.get('stool_condition'),
+        notes=data.get('notes'),
+    )
+    db.add(log)
+    db.commit()
+    return jsonify({'id': log.id}), 201
+
+
+@bp.route('/api/health-logs/<int:owner_dog_id>', methods=['GET'])
+def api_health_logs_list(owner_dog_id):
+    """GET /api/health-logs/{owner_dog_id} - 健康ログ一覧API"""
+    from app.models_breeder import HealthLog
+    db = _get_db()
+    logs = db.query(HealthLog).filter(
+        HealthLog.owner_dog_id == owner_dog_id
+    ).order_by(HealthLog.log_date.desc()).all()
+    return jsonify([{
+        'id': l.id, 'log_date': str(l.log_date), 'weight': float(l.weight) if l.weight else None,
+        'food_type': l.food_type, 'activity_level': l.activity_level,
+        'appetite': l.appetite, 'stool_condition': l.stool_condition, 'notes': l.notes,
+    } for l in logs])
+
+
+# ─────────────────────────────────────────────
+# POST /api/medical-events  医療イベント記録
+# ─────────────────────────────────────────────
+@bp.route('/api/medical-events', methods=['POST'])
+def api_medical_event_create():
+    """POST /api/medical-events - 通院・病気・ワクチン等の医療イベント記録API"""
+    from app.models_breeder import MedicalEvent
+    from datetime import date as _date
+    db = _get_db()
+    data = request.get_json() or {}
+    ev = MedicalEvent(
+        owner_dog_id=data.get('owner_dog_id'),
+        event_date=data.get('event_date') or str(_date.today()),
+        category=data.get('category', 'other'),
+        title=data.get('title', ''),
+        severity=data.get('severity'),
+        diagnosed_by_vet=int(data.get('diagnosed_by_vet', 0)),
+        treatment=data.get('treatment'),
+        resolved=int(data.get('resolved', 0)),
+        notes=data.get('notes'),
+    )
+    db.add(ev)
+    db.commit()
+    return jsonify({'id': ev.id}), 201
+
+
+@bp.route('/api/medical-events/<int:owner_dog_id>', methods=['GET'])
+def api_medical_events_list(owner_dog_id):
+    """GET /api/medical-events/{owner_dog_id} - 医療イベント一覧API"""
+    from app.models_breeder import MedicalEvent
+    db = _get_db()
+    events = db.query(MedicalEvent).filter(
+        MedicalEvent.owner_dog_id == owner_dog_id
+    ).order_by(MedicalEvent.event_date.desc()).all()
+    return jsonify([{
+        'id': e.id, 'event_date': str(e.event_date), 'category': e.category,
+        'title': e.title, 'severity': e.severity,
+        'diagnosed_by_vet': bool(e.diagnosed_by_vet),
+        'treatment': e.treatment, 'resolved': bool(e.resolved), 'notes': e.notes,
+    } for e in events])
+
+
+# ─────────────────────────────────────────────
+# POST /api/life-status  生活ステータス変更
+# ─────────────────────────────────────────────
+@bp.route('/api/life-status', methods=['POST'])
+def api_life_status_create():
+    """
+    POST /api/life-status - ステータス変更API
+    設計思想：「死亡しましたか？」と直接聞かず、
+    「現在の状態を教えてください」として状態遷移で取得する。
+    """
+    from app.models_breeder import LifeStatus
+    from datetime import date as _date
+    db = _get_db()
+    data = request.get_json() or {}
+    ls = LifeStatus(
+        owner_dog_id=data.get('owner_dog_id'),
+        status=data.get('status', 'healthy'),
+        status_date=data.get('status_date') or str(_date.today()),
+        age_months=data.get('age_months'),
+        notes=data.get('notes'),
+    )
+    db.add(ls)
+    db.commit()
+    return jsonify({'id': ls.id, 'status': ls.status}), 201
+
+
+@bp.route('/api/life-status/<int:owner_dog_id>', methods=['GET'])
+def api_life_status_list(owner_dog_id):
+    """GET /api/life-status/{owner_dog_id} - ステータス履歴一覧API"""
+    from app.models_breeder import LifeStatus
+    db = _get_db()
+    statuses = db.query(LifeStatus).filter(
+        LifeStatus.owner_dog_id == owner_dog_id
+    ).order_by(LifeStatus.status_date.desc()).all()
+    return jsonify([{
+        'id': s.id, 'status': s.status, 'status_date': str(s.status_date),
+        'age_months': s.age_months, 'notes': s.notes,
+    } for s in statuses])
+
+
+# ─────────────────────────────────────────────
+# POST /api/death-info  死亡情報登録（選択式・センシティブ設計）
+# ─────────────────────────────────────────────
+@bp.route('/api/death-info', methods=['POST'])
+def api_death_info_create():
+    """
+    POST /api/death-info - 死亡情報登録API
+    設計思想：年齢を直接入力させず選択式（age_range）で取得する。
+    個人情報は一切収集しない。
+    """
+    from app.models_breeder import DeathInfo
+    db = _get_db()
+    data = request.get_json() or {}
+    di = DeathInfo(
+        owner_dog_id=data.get('owner_dog_id'),
+        estimated_age_range=data.get('estimated_age_range'),
+        cause_category=data.get('cause_category', 'unknown'),
+        notes=data.get('notes'),
+    )
+    db.add(di)
+    db.commit()
+    return jsonify({'id': di.id}), 201
+
+
+# ─────────────────────────────────────────────
+# GET /api/owner-dogs/{id}/dashboard  飼い主ダッシュボード
+# ─────────────────────────────────────────────
+@bp.route('/api/owner-dogs/<int:owner_dog_id>/dashboard', methods=['GET'])
+def api_owner_dog_dashboard(owner_dog_id):
+    """
+    GET /api/owner-dogs/{id}/dashboard - 飼い主向け健康ダッシュボードAPI
+    体重推移・医療イベント・ワクチンアラート・シニア通知を一括返却する。
+    """
+    from app.models_breeder import (
+        OwnerDog, Dog, HealthLog, MedicalEvent, LifeStatus, VaccineSchedule
+    )
+    from app.services.survival_analysis import (
+        analyze_weight_trend, generate_vaccine_alerts, check_senior_notification
+    )
+    from datetime import date as _date
+    db = _get_db()
+
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    if not od:
+        return jsonify({'error': 'Not found'}), 404
+
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first()
+
+    # 健康ログ（直近90件）
+    logs = db.query(HealthLog).filter(
+        HealthLog.owner_dog_id == owner_dog_id
+    ).order_by(HealthLog.log_date.desc()).limit(90).all()
+
+    log_dicts = [{'log_date': l.log_date, 'weight': l.weight} for l in logs]
+    weight_trend = analyze_weight_trend(log_dicts)
+
+    # 医療イベント（直近10件）
+    events = db.query(MedicalEvent).filter(
+        MedicalEvent.owner_dog_id == owner_dog_id
+    ).order_by(MedicalEvent.event_date.desc()).limit(10).all()
+
+    # 現在のステータス
+    latest_status = db.query(LifeStatus).filter(
+        LifeStatus.owner_dog_id == owner_dog_id
+    ).order_by(LifeStatus.status_date.desc()).first()
+
+    # ワクチンアラート
+    schedules = db.query(VaccineSchedule).filter(
+        VaccineSchedule.owner_dog_id == owner_dog_id
+    ).all()
+    schedule_dicts = [{
+        'id': s.id, 'vaccine_type': s.vaccine_type,
+        'scheduled_date': s.scheduled_date, 'is_completed': s.is_completed,
+    } for s in schedules]
+    vaccine_alerts = generate_vaccine_alerts(schedule_dicts)
+
+    # シニア通知
+    birth_date = dog.birth_date if dog else None
+    senior_info = check_senior_notification(birth_date)
+
+    return jsonify({
+        'owner_dog_id': owner_dog_id,
+        'dog': {
+            'id': dog.id if dog else None,
+            'name': dog.name if dog else None,
+            'nickname': od.nickname,
+            'breed': dog.breed if dog else None,
+            'birth_date': str(dog.birth_date) if dog and dog.birth_date else None,
+        },
+        'current_status': latest_status.status if latest_status else 'healthy',
+        'weight_trend': weight_trend,
+        'recent_medical_events': [{
+            'id': e.id, 'event_date': str(e.event_date), 'category': e.category,
+            'title': e.title, 'severity': e.severity, 'resolved': bool(e.resolved),
+        } for e in events],
+        'vaccine_alerts': vaccine_alerts,
+        'senior_info': senior_info,
+    })
+
+
+# ─────────────────────────────────────────────
+# GET /api/analytics/survival  生存分析API
+# ─────────────────────────────────────────────
+@bp.route('/api/analytics/survival', methods=['GET'])
+def api_analytics_survival():
+    """
+    GET /api/analytics/survival - カプランマイヤー生存分析API
+    クエリパラメータ: breed（犬種）, tenant_id（テナント）
+    """
+    from app.models_breeder import OwnerDog, Dog, LifeStatus, DeathInfo
+    from app.services.survival_analysis import (
+        kaplan_meier_estimate, make_survival_record,
+        greenwood_confidence_interval
+    )
+    db = _get_db()
+    breed_filter = request.args.get('breed')
+    tenant_id = session.get('tenant_id')
+
+    # share_health_data=1 の OwnerDog のみ対象（プライバシー設計）
+    q = db.query(OwnerDog).filter(OwnerDog.share_health_data == 1)
+    if tenant_id:
+        # breeder_id でフィルタ（ブリーダーは自分のテナントのデータのみ）
+        q = q.filter(OwnerDog.breeder_id == tenant_id)
+    owner_dogs = q.all()
+
+    records = []
+    for od in owner_dogs:
+        dog = db.query(Dog).filter(Dog.id == od.dog_id).first()
+        if not dog:
+            continue
+        if breed_filter and dog.breed != breed_filter:
+            continue
+
+        # 最新ステータスを確認
+        latest_status = db.query(LifeStatus).filter(
+            LifeStatus.owner_dog_id == od.id
+        ).order_by(LifeStatus.status_date.desc()).first()
+
+        is_deceased = latest_status and latest_status.status == 'deceased'
+
+        # 死亡情報（選択式年齢帯）
+        death_info = db.query(DeathInfo).filter(
+            DeathInfo.owner_dog_id == od.id
+        ).first()
+
+        age_months = None
+        age_range = None
+        if is_deceased:
+            if latest_status and latest_status.age_months:
+                age_months = latest_status.age_months
+            elif death_info:
+                age_range = death_info.estimated_age_range
+        else:
+            # 生存中: 現在の月齢を計算
+            if dog.birth_date:
+                from datetime import date as _date
+                today = _date.today()
+                age_months = (today.year - dog.birth_date.year) * 12 + (
+                    today.month - dog.birth_date.month
+                )
+
+        rec = make_survival_record(
+            dog_id=dog.id,
+            age_months=age_months,
+            is_deceased=is_deceased,
+            age_range=age_range,
+        )
+        records.append(rec)
+
+    from app.services.survival_analysis import kaplan_meier_estimate, greenwood_confidence_interval
+    km = kaplan_meier_estimate(records)
+    curve_with_ci = greenwood_confidence_interval(km['survival_curve'])
+    km['survival_curve'] = curve_with_ci
+
+    return jsonify({
+        'breed': breed_filter or 'all',
+        'survival_analysis': km,
+    })
+
+
+# ─────────────────────────────────────────────
+# GET /api/analytics/line-performance  ライン別分析API
+# ─────────────────────────────────────────────
+@bp.route('/api/analytics/line-performance', methods=['GET'])
+def api_analytics_line_performance():
+    """
+    GET /api/analytics/line-performance - ライン別パフォーマンス分析API
+    クエリパラメータ: ancestor_id（祖先犬ID）
+    """
+    from app.models_breeder import (
+        Dog, OwnerDog, LifeStatus, DeathInfo, MedicalEvent, PuppyRecord
+    )
+    from app.services.survival_analysis import (
+        make_survival_record, analyze_line_performance
+    )
+    from app.services.breeding_logic import get_ancestors
+    db = _get_db()
+
+    ancestor_id = request.args.get('ancestor_id', type=int)
+    if not ancestor_id:
+        return jsonify({'error': 'ancestor_id is required'}), 400
+
+    ancestor = db.query(Dog).filter(Dog.id == ancestor_id).first()
+    if not ancestor:
+        return jsonify({'error': 'Ancestor not found'}), 404
+
+    # 祖先の子孫を取得（breeding_logicのget_ancestorsを逆引き）
+    # 全犬の祖先を調べて ancestor_id が含まれるものを子孫とする
+    all_dogs = db.query(Dog).filter(Dog.id != ancestor_id).all()
+    descendant_ids = []
+    for dog in all_dogs:
+        ancestors = get_ancestors(db, dog.id, max_depth=5)
+        if ancestor_id in ancestors:
+            descendant_ids.append(dog.id)
+
+    # 子孫の生存レコードを作成
+    survival_records = []
+    for dog_id in descendant_ids:
+        od = db.query(OwnerDog).filter(
+            OwnerDog.dog_id == dog_id,
+            OwnerDog.share_health_data == 1
+        ).first()
+        if not od:
+            continue
+
+        latest_status = db.query(LifeStatus).filter(
+            LifeStatus.owner_dog_id == od.id
+        ).order_by(LifeStatus.status_date.desc()).first()
+
+        is_deceased = latest_status and latest_status.status == 'deceased'
+        death_info = db.query(DeathInfo).filter(
+            DeathInfo.owner_dog_id == od.id
+        ).first()
+
+        dog = db.query(Dog).filter(Dog.id == dog_id).first()
+        age_months = None
+        age_range = None
+        if is_deceased:
+            if latest_status and latest_status.age_months:
+                age_months = latest_status.age_months
+            elif death_info:
+                age_range = death_info.estimated_age_range
+        else:
+            if dog and dog.birth_date:
+                from datetime import date as _date
+                today = _date.today()
+                age_months = (today.year - dog.birth_date.year) * 12 + (
+                    today.month - dog.birth_date.month
+                )
+
+        survival_records.append(make_survival_record(
+            dog_id=dog_id,
+            age_months=age_months,
+            is_deceased=is_deceased,
+            age_range=age_range,
+        ))
+
+    # 医療イベント
+    medical_events = []
+    for dog_id in descendant_ids:
+        od = db.query(OwnerDog).filter(
+            OwnerDog.dog_id == dog_id,
+            OwnerDog.share_health_data == 1
+        ).first()
+        if not od:
+            continue
+        events = db.query(MedicalEvent).filter(
+            MedicalEvent.owner_dog_id == od.id
+        ).all()
+        for e in events:
+            medical_events.append({
+                'dog_id': dog_id,
+                'title': e.title,
+                'category': e.category,
+                'severity': e.severity,
+            })
+
+    # 繁殖結果
+    breeding_results = []
+    puppies = db.query(PuppyRecord).filter(
+        PuppyRecord.dog_id.in_(descendant_ids)
+    ).all() if descendant_ids else []
+    # litter_id でグループ化
+    litter_map = {}
+    for p in puppies:
+        lid = p.litter_id or p.id
+        if lid not in litter_map:
+            litter_map[lid] = {'litter_id': lid, 'puppy_count': 0, 'survival_count': 0}
+        litter_map[lid]['puppy_count'] += 1
+        if p.status not in ('deceased', 'stillborn'):
+            litter_map[lid]['survival_count'] += 1
+    breeding_results = list(litter_map.values())
+
+    result = analyze_line_performance(
+        ancestor_id=ancestor_id,
+        ancestor_name=ancestor.name,
+        descendant_records=survival_records,
+        medical_events=medical_events,
+        breeding_results=breeding_results,
+    )
+
+    return jsonify({'line_analysis': result})
+
+
+# ─────────────────────────────────────────────
+# ワクチンスケジュール管理
+# ─────────────────────────────────────────────
+@bp.route('/api/vaccine-schedules', methods=['POST'])
+def api_vaccine_schedule_create():
+    """POST /api/vaccine-schedules - ワクチン・予防薬スケジュール登録API"""
+    from app.models_breeder import VaccineSchedule
+    db = _get_db()
+    data = request.get_json() or {}
+    vs = VaccineSchedule(
+        owner_dog_id=data.get('owner_dog_id'),
+        vaccine_type=data.get('vaccine_type', ''),
+        scheduled_date=data.get('scheduled_date'),
+        completed_date=data.get('completed_date'),
+        is_completed=int(data.get('is_completed', 0)),
+        notes=data.get('notes'),
+    )
+    db.add(vs)
+    db.commit()
+    return jsonify({'id': vs.id}), 201
+
+
+@bp.route('/api/vaccine-schedules/<int:owner_dog_id>', methods=['GET'])
+def api_vaccine_schedules_list(owner_dog_id):
+    """GET /api/vaccine-schedules/{owner_dog_id} - ワクチンスケジュール一覧API"""
+    from app.models_breeder import VaccineSchedule
+    from app.services.survival_analysis import generate_vaccine_alerts
+    db = _get_db()
+    schedules = db.query(VaccineSchedule).filter(
+        VaccineSchedule.owner_dog_id == owner_dog_id
+    ).order_by(VaccineSchedule.scheduled_date).all()
+
+    schedule_dicts = [{
+        'id': s.id, 'vaccine_type': s.vaccine_type,
+        'scheduled_date': s.scheduled_date, 'is_completed': s.is_completed,
+    } for s in schedules]
+    alerts = generate_vaccine_alerts(schedule_dicts)
+
+    return jsonify({
+        'schedules': [{
+            'id': s.id, 'vaccine_type': s.vaccine_type,
+            'scheduled_date': str(s.scheduled_date),
+            'completed_date': str(s.completed_date) if s.completed_date else None,
+            'is_completed': bool(s.is_completed), 'notes': s.notes,
+        } for s in schedules],
+        'alerts': alerts,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# 飼い主向けUIルート
+# ═══════════════════════════════════════════════════════════════
+
+@bp.route('/owner/<int:owner_dog_id>/dashboard')
+def owner_dashboard(owner_dog_id):
+    """飼い主向け健康ダッシュボード"""
+    from app.models_breeder import OwnerDog, Dog, HealthLog, MedicalEvent, LifeStatus, VaccineSchedule
+    from app.services.survival_analysis import (
+        analyze_weight_trend, generate_vaccine_alerts, check_senior_notification
+    )
+    from datetime import date as _date
+    db = _get_db()
+
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    if not od:
+        return "Not found", 404
+
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first()
+
+    logs = db.query(HealthLog).filter(
+        HealthLog.owner_dog_id == owner_dog_id
+    ).order_by(HealthLog.log_date.desc()).limit(90).all()
+    log_dicts = [{'log_date': l.log_date, 'weight': l.weight} for l in logs]
+    weight_trend = analyze_weight_trend(log_dicts)
+
+    events = db.query(MedicalEvent).filter(
+        MedicalEvent.owner_dog_id == owner_dog_id
+    ).order_by(MedicalEvent.event_date.desc()).limit(10).all()
+
+    latest_status = db.query(LifeStatus).filter(
+        LifeStatus.owner_dog_id == owner_dog_id
+    ).order_by(LifeStatus.status_date.desc()).first()
+
+    schedules = db.query(VaccineSchedule).filter(
+        VaccineSchedule.owner_dog_id == owner_dog_id
+    ).all()
+    schedule_dicts = [{
+        'id': s.id, 'vaccine_type': s.vaccine_type,
+        'scheduled_date': s.scheduled_date, 'is_completed': s.is_completed,
+    } for s in schedules]
+    vaccine_alerts = generate_vaccine_alerts(schedule_dicts)
+
+    birth_date = dog.birth_date if dog else None
+    senior_info = check_senior_notification(birth_date)
+
+    return render_template('owner/owner_dashboard.html',
+        owner_dog_id=owner_dog_id,
+        dog={
+            'id': dog.id if dog else None,
+            'name': dog.name if dog else '不明',
+            'nickname': od.nickname,
+            'breed': dog.breed if dog else None,
+            'birth_date': str(dog.birth_date) if dog and dog.birth_date else None,
+        },
+        current_status=latest_status.status if latest_status else 'healthy',
+        weight_trend=weight_trend,
+        recent_medical_events=[{
+            'id': e.id, 'event_date': str(e.event_date), 'category': e.category,
+            'title': e.title, 'severity': e.severity, 'resolved': bool(e.resolved),
+        } for e in events],
+        vaccine_alerts=vaccine_alerts,
+        senior_info=senior_info,
+    )
+
+
+@bp.route('/owner/<int:owner_dog_id>/health-log/new')
+def owner_health_log_new(owner_dog_id):
+    """健康ログ記録フォーム"""
+    from app.models_breeder import OwnerDog, Dog
+    from datetime import date as _date
+    db = _get_db()
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first() if od else None
+    return render_template('owner/owner_health_log_form.html',
+        owner_dog_id=owner_dog_id,
+        dog={'name': dog.name if dog else '不明', 'nickname': od.nickname if od else None},
+        today=str(_date.today()),
+    )
+
+
+@bp.route('/owner/<int:owner_dog_id>/health-log', methods=['POST'])
+def owner_health_log_create(owner_dog_id):
+    """健康ログ記録処理"""
+    from app.models_breeder import HealthLog
+    db = _get_db()
+    data = request.form
+    log = HealthLog(
+        owner_dog_id=owner_dog_id,
+        log_date=data.get('log_date'),
+        weight=data.get('weight') or None,
+        food_type=data.get('food_type'),
+        activity_level=data.get('activity_level'),
+        appetite=data.get('appetite'),
+        stool_condition=data.get('stool_condition'),
+        notes=data.get('notes'),
+    )
+    db.add(log)
+    db.commit()
+    return redirect(url_for('breeder.owner_dashboard', owner_dog_id=owner_dog_id))
+
+
+@bp.route('/owner/<int:owner_dog_id>/status')
+def owner_status_update(owner_dog_id):
+    """状態更新フォーム"""
+    from app.models_breeder import OwnerDog, Dog, LifeStatus
+    from datetime import date as _date
+    db = _get_db()
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first() if od else None
+    latest = db.query(LifeStatus).filter(
+        LifeStatus.owner_dog_id == owner_dog_id
+    ).order_by(LifeStatus.status_date.desc()).first()
+    return render_template('owner/owner_status_update.html',
+        owner_dog_id=owner_dog_id,
+        dog={'name': dog.name if dog else '不明', 'nickname': od.nickname if od else None},
+        current_status=latest.status if latest else 'healthy',
+        today=str(_date.today()),
+    )
+
+
+@bp.route('/owner/<int:owner_dog_id>/status', methods=['POST'])
+def owner_status_update_create(owner_dog_id):
+    """状態更新処理（死亡情報も同時登録）"""
+    from app.models_breeder import LifeStatus, DeathInfo
+    db = _get_db()
+    data = request.form
+    status = data.get('status', 'healthy')
+
+    ls = LifeStatus(
+        owner_dog_id=owner_dog_id,
+        status=status,
+        status_date=data.get('status_date'),
+        notes=data.get('notes'),
+    )
+    db.add(ls)
+
+    if status == 'deceased' and data.get('estimated_age_range'):
+        di = DeathInfo(
+            owner_dog_id=owner_dog_id,
+            estimated_age_range=data.get('estimated_age_range'),
+            cause_category=data.get('cause_category', 'unknown'),
+            notes=data.get('notes'),
+        )
+        db.add(di)
+
+    db.commit()
+    return redirect(url_for('breeder.owner_dashboard', owner_dog_id=owner_dog_id))
+
+
+@bp.route('/owner/<int:owner_dog_id>/medical-events')
+def owner_medical_event_list(owner_dog_id):
+    """通院履歴一覧"""
+    from app.models_breeder import OwnerDog, Dog, MedicalEvent
+    db = _get_db()
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first() if od else None
+    events = db.query(MedicalEvent).filter(
+        MedicalEvent.owner_dog_id == owner_dog_id
+    ).order_by(MedicalEvent.event_date.desc()).all()
+    return render_template('owner/owner_medical_event_form.html',
+        owner_dog_id=owner_dog_id,
+        dog={'name': dog.name if dog else '不明', 'nickname': od.nickname if od else None},
+        events=events,
+        today=str(__import__('datetime').date.today()),
+    )
+
+
+@bp.route('/owner/<int:owner_dog_id>/medical-events/new')
+def owner_medical_event_new(owner_dog_id):
+    """医療イベント記録フォーム"""
+    from app.models_breeder import OwnerDog, Dog
+    from datetime import date as _date
+    db = _get_db()
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first() if od else None
+    return render_template('owner/owner_medical_event_form.html',
+        owner_dog_id=owner_dog_id,
+        dog={'name': dog.name if dog else '不明', 'nickname': od.nickname if od else None},
+        today=str(_date.today()),
+    )
+
+
+@bp.route('/owner/<int:owner_dog_id>/medical-events', methods=['POST'])
+def owner_medical_event_create(owner_dog_id):
+    """医療イベント記録処理"""
+    from app.models_breeder import MedicalEvent
+    db = _get_db()
+    data = request.form
+    ev = MedicalEvent(
+        owner_dog_id=owner_dog_id,
+        event_date=data.get('event_date'),
+        category=data.get('category', 'other'),
+        title=data.get('title', ''),
+        severity=data.get('severity') or None,
+        diagnosed_by_vet=int('diagnosed_by_vet' in data),
+        treatment=data.get('treatment'),
+        resolved=int('resolved' in data),
+        notes=data.get('notes'),
+    )
+    db.add(ev)
+    db.commit()
+    return redirect(url_for('breeder.owner_dashboard', owner_dog_id=owner_dog_id))
+
+
+@bp.route('/owner/<int:owner_dog_id>/vaccines')
+def owner_vaccine_list(owner_dog_id):
+    """ワクチン・予防スケジュール一覧"""
+    from app.models_breeder import OwnerDog, Dog, VaccineSchedule
+    from app.services.survival_analysis import generate_vaccine_alerts
+    db = _get_db()
+    od = db.query(OwnerDog).filter(OwnerDog.id == owner_dog_id).first()
+    dog = db.query(Dog).filter(Dog.id == od.dog_id).first() if od else None
+    schedules = db.query(VaccineSchedule).filter(
+        VaccineSchedule.owner_dog_id == owner_dog_id
+    ).order_by(VaccineSchedule.scheduled_date).all()
+    schedule_dicts = [{
+        'id': s.id, 'vaccine_type': s.vaccine_type,
+        'scheduled_date': s.scheduled_date, 'is_completed': s.is_completed,
+    } for s in schedules]
+    alerts = generate_vaccine_alerts(schedule_dicts)
+    return render_template('owner/owner_dashboard.html',
+        owner_dog_id=owner_dog_id,
+        dog={'name': dog.name if dog else '不明', 'nickname': od.nickname if od else None},
+        vaccine_alerts=alerts,
+        schedules=schedules,
+        current_status='healthy',
+        weight_trend={'current_weight': None, 'trend': 'unknown', 'data_points': []},
+        recent_medical_events=[],
+        senior_info=None,
+    )
+
+
+@bp.route('/analytics/survival')
+@login_required_breeder
+def survival_report():
+    """生存分析レポート（ブリーダー向け）"""
+    from app.models_breeder import OwnerDog, Dog, LifeStatus, DeathInfo
+    from app.services.survival_analysis import (
+        kaplan_meier_estimate, make_survival_record, greenwood_confidence_interval
+    )
+    from datetime import date as _date
+    db = _get_db()
+    breed_filter = request.args.get('breed')
+    tenant_id = session.get('tenant_id')
+
+    q = db.query(OwnerDog).filter(OwnerDog.share_health_data == 1)
+    if tenant_id:
+        q = q.filter(OwnerDog.breeder_id == tenant_id)
+    owner_dogs = q.all()
+
+    records = []
+    for od in owner_dogs:
+        dog = db.query(Dog).filter(Dog.id == od.dog_id).first()
+        if not dog:
+            continue
+        if breed_filter and dog.breed != breed_filter:
+            continue
+        latest_status = db.query(LifeStatus).filter(
+            LifeStatus.owner_dog_id == od.id
+        ).order_by(LifeStatus.status_date.desc()).first()
+        is_deceased = latest_status and latest_status.status == 'deceased'
+        death_info = db.query(DeathInfo).filter(DeathInfo.owner_dog_id == od.id).first()
+        age_months = None
+        age_range = None
+        if is_deceased:
+            if latest_status and latest_status.age_months:
+                age_months = latest_status.age_months
+            elif death_info:
+                age_range = death_info.estimated_age_range
+        else:
+            if dog.birth_date:
+                today = _date.today()
+                age_months = (today.year - dog.birth_date.year) * 12 + (
+                    today.month - dog.birth_date.month
+                )
+        records.append(make_survival_record(
+            dog_id=dog.id, age_months=age_months,
+            is_deceased=is_deceased, age_range=age_range,
+        ))
+
+    km = kaplan_meier_estimate(records)
+    km['survival_curve'] = greenwood_confidence_interval(km['survival_curve'])
+
+    return render_template('owner/survival_report.html',
+        km=km,
+        breed=breed_filter,
+    )

@@ -700,9 +700,129 @@ class OwnerDog(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     owner_id = Column(Integer, ForeignKey('owners.id', ondelete='CASCADE'), nullable=False, index=True)
     dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
+    nickname = Column(String(100), nullable=True, comment='愛称・呼び名')
     acquired_date = Column(Date, nullable=True, comment='取得日')
     breeder_id = Column(Integer, nullable=True, comment='ブリーダーID（将来の連携用）')
     share_health_data = Column(Integer, nullable=True, default=0, comment='健康データ共有フラグ')
     share_followup_data = Column(Integer, nullable=True, default=0, comment='フォローアップデータ共有フラグ')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 健康ログ（飼い主アプリ連携）
+# ─────────────────────────────────────────────
+class HealthLog(Base):
+    """飼い主が記録する日常健康ログ（体重・食欲・活動量など）"""
+    __tablename__ = 'health_logs'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
+                          nullable=False, index=True)
+    log_date = Column(Date, nullable=False, comment='記録日')
+    weight = Column(Numeric(5, 2), nullable=True, comment='体重(kg)')
+    food_type = Column(String(100), nullable=True, comment='フードの種類')
+    activity_level = Column(
+        SAEnum('high', 'normal', 'low', 'very_low', name='activity_level_enum'),
+        nullable=True, comment='活動量'
+    )
+    appetite = Column(
+        SAEnum('good', 'normal', 'poor', 'none', name='appetite_enum'),
+        nullable=True, comment='食欲'
+    )
+    stool_condition = Column(
+        SAEnum('normal', 'soft', 'diarrhea', 'constipation', 'blood', name='stool_enum'),
+        nullable=True, comment='便の状態'
+    )
+    notes = Column(Text, nullable=True, comment='メモ')
+    created_at = Column(DateTime, server_default=func.now())
+
+
+# ─────────────────────────────────────────────
+# 医療イベント（飼い主アプリ連携）
+# ─────────────────────────────────────────────
+class MedicalEvent(Base):
+    """通院・病気・ワクチン等の医療イベント"""
+    __tablename__ = 'medical_events'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
+                          nullable=False, index=True)
+    event_date = Column(Date, nullable=False, comment='イベント日')
+    category = Column(
+        SAEnum('illness', 'injury', 'vaccine', 'checkup', 'surgery', 'dental',
+               'other', name='medical_category_enum'),
+        nullable=False, comment='カテゴリ'
+    )
+    title = Column(String(200), nullable=False, comment='タイトル・病名')
+    severity = Column(
+        SAEnum('mild', 'moderate', 'severe', 'critical', name='severity_enum'),
+        nullable=True, comment='重症度'
+    )
+    diagnosed_by_vet = Column(Integer, default=0, comment='獣医師診断フラグ')
+    treatment = Column(Text, nullable=True, comment='治療内容')
+    resolved = Column(Integer, default=0, comment='解決済みフラグ')
+    notes = Column(Text, nullable=True, comment='メモ')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# ─────────────────────────────────────────────
+# 生活ステータス（飼い主アプリ連携）
+# ─────────────────────────────────────────────
+class LifeStatus(Base):
+    """犬の生活ステータス変化（健康→通院→持病→死亡などを状態遷移として記録）"""
+    __tablename__ = 'life_statuses'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
+                          nullable=False, index=True)
+    status = Column(
+        SAEnum('healthy', 'under_treatment', 'chronic_condition', 'deceased',
+               name='life_status_enum'),
+        nullable=False, comment='ステータス'
+    )
+    status_date = Column(Date, nullable=False, comment='ステータス変更日')
+    age_months = Column(Integer, nullable=True, comment='変更時の月齢（推定）')
+    notes = Column(Text, nullable=True, comment='メモ')
+    created_at = Column(DateTime, server_default=func.now())
+
+
+# ─────────────────────────────────────────────
+# 死亡情報（飼い主アプリ連携・センシティブ情報）
+# ─────────────────────────────────────────────
+class DeathInfo(Base):
+    """
+    死亡情報（直接入力させず選択式で取得）
+    age_range は直接年齢を聞かず選択式にする設計。
+    """
+    __tablename__ = 'death_infos'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
+                          nullable=False, unique=True, index=True)
+    estimated_age_range = Column(
+        SAEnum('0-1歳', '1-3歳', '3-7歳', '7-10歳', '10歳以上',
+               name='age_range_enum'),
+        nullable=True, comment='推定年齢帯（選択式）'
+    )
+    cause_category = Column(
+        SAEnum('natural', 'illness', 'accident', 'euthanasia', 'unknown',
+               name='cause_category_enum'),
+        nullable=True, comment='死因カテゴリ（選択式）'
+    )
+    notes = Column(Text, nullable=True, comment='任意メモ（個人情報なし）')
+    created_at = Column(DateTime, server_default=func.now())
+
+
+# ─────────────────────────────────────────────
+# ワクチン・予防スケジュール（飼い主アプリ連携）
+# ─────────────────────────────────────────────
+class VaccineSchedule(Base):
+    """ワクチン・予防薬のスケジュール管理"""
+    __tablename__ = 'vaccine_schedules'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
+                          nullable=False, index=True)
+    vaccine_type = Column(String(100), nullable=False, comment='ワクチン・予防薬の種類')
+    scheduled_date = Column(Date, nullable=False, comment='予定日')
+    completed_date = Column(Date, nullable=True, comment='実施日')
+    is_completed = Column(Integer, default=0, comment='完了フラグ')
+    notes = Column(Text, nullable=True, comment='メモ')
+    created_at = Column(DateTime, server_default=func.now())

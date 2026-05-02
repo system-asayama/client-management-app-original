@@ -4289,6 +4289,7 @@ def survival_report():
 @require_roles(*BREEDER_ROLES)
 def owner_list():
     """飼い主一覧"""
+    db = _get_db()
     from app.models_breeder import Owner, OwnerDog, Dog
     db = _get_db()
     try:
@@ -4319,6 +4320,7 @@ def owner_list():
 @require_roles(*BREEDER_ROLES)
 def owner_new():
     """飼い主新規登録（招待URL発行）"""
+    db = _get_db()
     from app.models_breeder import Owner, OwnerDog, Dog
     import secrets
     from datetime import datetime, timedelta
@@ -4400,6 +4402,7 @@ def _get_available_dogs(db, tenant_id, store_id):
 @require_roles(*BREEDER_ROLES)
 def owner_invite_url(owner_id: int):
     """招待URL表示ページ"""
+    db = _get_db()
     from app.models_breeder import Owner
     from flask import request as req
     db = _get_db()
@@ -4425,6 +4428,7 @@ def owner_invite_url(owner_id: int):
 @require_roles(*BREEDER_ROLES)
 def owner_reinvite(owner_id: int):
     """招待URL再発行"""
+    db = _get_db()
     from app.models_breeder import Owner
     import secrets
     from datetime import datetime, timedelta
@@ -4590,6 +4594,7 @@ def breeder_score_page():
 @require_roles(*BREEDER_ROLES)
 def api_recalculate_score():
     """評価スコアを再計算するAPI"""
+    db = _get_db()
     from app.services.breeder_score import calculate_and_save_breeder_score
     from app.services.plan_guard import can_use_feature, get_tenant_plan
 
@@ -4658,6 +4663,7 @@ def breeder_search():
 @require_roles(*BREEDER_ROLES)
 def plan_upgrade():
     """プランアップグレードページ"""
+    db = _get_db()
     from app.models_breeder import Subscription, Plan
     from app.services.plan_guard import get_plan_context, PLAN_FEATURES
 
@@ -4677,6 +4683,7 @@ def plan_upgrade():
 @require_roles(*BREEDER_ROLES)
 def api_current_plan():
     """現在のプラン情報を返すAPI"""
+    db = _get_db()
     from app.services.plan_guard import get_plan_context
 
     tenant_id = session.get('tenant_id')

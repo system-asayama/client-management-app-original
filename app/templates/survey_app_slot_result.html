@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スロット結果 - {{ store.name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .result-icon {
+            font-size: 50px;
+            margin-bottom: 10px;
+            animation: bounce 1s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        h1 {
+            font-size: 22px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .score-section {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .score-label {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .score-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 3px;
+        }
+        
+        .score-unit {
+            font-size: 20px;
+            color: #999;
+        }
+        
+        .prize-section {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        
+        .prize-section.no-prize {
+            background: linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .prize-rank {
+            font-size: 26px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 8px;
+        }
+        
+        .prize-name {
+            font-size: 18px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        .no-prize-message {
+            font-size: 20px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        .message {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .button-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .button-secondary {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .button-review {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .review-button-section {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .review-message {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .history-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        
+        .history-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        
+        .history-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            background: white;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #555;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            line-height: 1.4;
+        }
+        
+        .history-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .store-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #e0e0e0;
+            color: #999;
+            font-size: 13px;
+        }
+        
+        .history-toggle-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .history-toggle-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .history-section {
+            display: none;
+        }
+        
+        .history-section.show {
+            display: block;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .result-icon {
+                font-size: 60px;
+            }
+            
+            .score-value {
+                font-size: 36px;
+            }
+            
+            .prize-rank {
+                font-size: 28px;
+            }
+            
+            .prize-name {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if prize %}
+        <div class="result-icon">🎉</div>
+        <h1>おめでとうございます！</h1>
+        {% else %}
+        <div class="result-icon">🎰</div>
+        <h1>スロット完了</h1>
+        {% endif %}
+        
+        <div class="score-section">
+            <div class="score-label">獲得スコア</div>
+            <div class="score-value">{{ total_score }}</div>
+            <div class="score-unit">点</div>
+        </div>
+        
+        {% if prize %}
+        <div class="prize-section">
+            <div class="prize-rank">🏆 {{ prize.rank }}</div>
+            <div class="prize-name">{{ prize.name }}</div>
+        </div>
+        <div class="message">
+            スタッフにこの画面をお見せください。<br>
+            素敵な景品をお受け取りください！
+        </div>
+        {% else %}
+        <div class="prize-section no-prize">
+            <div class="no-prize-message">景品には届きませんでした</div>
+        </div>
+        <div class="message">
+            またのご来店をお待ちしております。<br>
+            次回はもっと高得点を目指しましょう！
+        </div>
+        {% endif %}
+        
+        {% if show_slot_review_button and google_review_url and google_review_url != '#' %}
+        <div class="review-button-section">
+            <a href="{{ google_review_url }}" target="_blank" class="button button-review">
+                ⭐ Google口コミを書く
+            </a>
+            <p class="review-message">ご来店いただきありがとうございました！<br>よろしければ口コミをお寄せください。</p>
+        </div>
+        {% endif %}
+        
+        {% if history %}
+        <button class="history-toggle-button" onclick="toggleHistory()">
+            📊 履歴を見る
+        </button>
+        <div class="history-section" id="historySection">
+            <h2 class="history-title">📊 スピン履歴</h2>
+            <div class="history-list">
+                {% for item in history %}
+                <div class="history-item">{{ item }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="store-info">
+            {{ store.name }}
+        </div>
+    </div>
+    
+    <script>
+        function toggleHistory() {
+            const historySection = document.getElementById('historySection');
+            const button = document.querySelector('.history-toggle-button');
+            
+            if (historySection.classList.contains('show')) {
+                historySection.classList.remove('show');
+                button.textContent = '📊 履歴を見る';
+            } else {
+                historySection.classList.add('show');
+                button.textContent = '📊 履歴を閉じる';
+            }
+        }
+    </script>
+</body>
+</html>

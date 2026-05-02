@@ -751,6 +751,11 @@
           <span class="nav-icon">📊</span>管理KPI
         </a></li>
         {% endif %}
+        {% if session.get('role') in ('system_admin', 'app_manager') %}
+        <li><a href="{{ url_for('breeder.admin_plan_settings') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_plan_settings' }}">
+          <span class="nav-icon">⚙️</span>プラン設定
+        </a></li>
+        {% endif %}
       </ul>
     </div>
 

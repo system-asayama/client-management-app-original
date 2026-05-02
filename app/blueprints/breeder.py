@@ -4809,3 +4809,217 @@ def api_kpi_summary():
         'paying_tenants': s.paying_tenants,
         'mrr': s.mrr,
     } for s in snapshots])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# プラン設定管理（アプリ管理者以上）
+# ─────────────────────────────────────────────────────────────────────────────
+
+# アプリ管理者以上のロール
+PLAN_ADMIN_ROLES = (ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+
+
+@bp.route('/admin/plan-settings')
+@require_roles(*PLAN_ADMIN_ROLES)
+def admin_plan_settings():
+    """プラン設定管理ページ（料金・機能割り当て）"""
+    db = _get_db()
+    from app.models_breeder import Plan
+    from app.services.plan_guard import PLAN_FEATURES, FEATURE_NAMES
+
+    plans = db.query(Plan).order_by(Plan.sort_order, Plan.id).all()
+    plans_data = []
+    for p in plans:
+        plans_data.append({
+            'id': p.id,
+            'name': p.name,
+            'display_name': p.display_name,
+            'price_monthly': p.price_monthly,
+            'price_yearly': p.price_yearly,
+            'max_dogs': p.max_dogs,
+            'max_owners': p.max_owners,
+            'features': p.features or [],
+            'is_active': p.is_active,
+            'sort_order': p.sort_order,
+        })
+
+    feature_categories = [
+        {'label': '遺伝・交配分析', 'features': [
+            'basic_coi', 'advanced_coi', 'avk_analysis', 'genetic_disease',
+            'basic_mating_eval', 'advanced_mating_eval',
+        ]},
+        {'label': '繁殖管理', 'features': [
+            'breeding_history', 'puppy_data', 'line_analysis',
+            'candidate_ranking', 'survival_analysis',
+        ]},
+        {'label': 'レポート', 'features': [
+            'basic_report', 'advanced_report', 'pdf_report',
+        ]},
+        {'label': '飼い主・健康管理', 'features': [
+            'owner_app', 'health_log', 'medical_event', 'vaccine_schedule',
+        ]},
+        {'label': 'プラットフォーム', 'features': [
+            'breeder_score', 'priority_support',
+            'api_access', 'data_export', 'custom_analysis',
+        ]},
+    ]
+
+    return render_template(
+        'breeder/admin_plan_settings.html',
+        plans=plans_data,
+        feature_categories=feature_categories,
+        feature_names=FEATURE_NAMES,
+        plan_features=PLAN_FEATURES,
+    )
+
+
+@bp.route('/api/admin/plan-settings/update', methods=['POST'])
+@require_roles(*PLAN_ADMIN_ROLES)
+def api_admin_plan_update():
+    """プラン設定を更新するAPI（料金・機能・制限値）"""
+    db = _get_db()
+    from app.models_breeder import Plan
+    from app.services.plan_guard import FEATURE_NAMES
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'リクエストデータが不正です'}), 400
+
+    plan_id = data.get('plan_id')
+    if not plan_id:
+        return jsonify({'success': False, 'error': 'plan_idが必要です'}), 400
+
+    plan = db.query(Plan).filter(Plan.id == plan_id).first()
+    if not plan:
+        return jsonify({'success': False, 'error': 'プランが見つかりません'}), 404
+
+    if 'display_name' in data:
+        plan.display_name = str(data['display_name']).strip()[:100]
+    if 'price_monthly' in data:
+        try:
+            plan.price_monthly = max(0, int(data['price_monthly']))
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'price_monthlyは整数で指定してください'}), 400
+    if 'price_yearly' in data:
+        try:
+            plan.price_yearly = max(0, int(data['price_yearly']))
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'price_yearlyは整数で指定してください'}), 400
+    if 'max_dogs' in data:
+        val = data['max_dogs']
+        plan.max_dogs = None if (val is None or val == '' or val == 0) else max(1, int(val))
+    if 'max_owners' in data:
+        val = data['max_owners']
+        plan.max_owners = None if (val is None or val == '' or val == 0) else max(1, int(val))
+    if 'features' in data:
+        features = data['features']
+        if not isinstance(features, list):
+            return jsonify({'success': False, 'error': 'featuresはリストで指定してください'}), 400
+        valid_keys = set(FEATURE_NAMES.keys())
+        plan.features = [f for f in features if f in valid_keys]
+    if 'is_active' in data:
+        plan.is_active = 1 if data['is_active'] else 0
+    if 'sort_order' in data:
+        try:
+            plan.sort_order = int(data['sort_order'])
+        except (ValueError, TypeError):
+            pass
+
+    try:
+        db.commit()
+        _sync_plan_guard_cache(db)
+        return jsonify({
+            'success': True,
+            'plan': {
+                'id': plan.id,
+                'name': plan.name,
+                'display_name': plan.display_name,
+                'price_monthly': plan.price_monthly,
+                'price_yearly': plan.price_yearly,
+                'max_dogs': plan.max_dogs,
+                'max_owners': plan.max_owners,
+                'features': plan.features or [],
+                'is_active': plan.is_active,
+            }
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/admin/plan-settings/bulk-update', methods=['POST'])
+@require_roles(*PLAN_ADMIN_ROLES)
+def api_admin_plan_bulk_update():
+    """複数プランを一括更新するAPI"""
+    db = _get_db()
+    from app.models_breeder import Plan
+    from app.services.plan_guard import FEATURE_NAMES
+
+    data = request.get_json()
+    if not data or 'plans' not in data:
+        return jsonify({'success': False, 'error': 'plansキーが必要です'}), 400
+
+    plans_data = data['plans']
+    valid_keys = set(FEATURE_NAMES.keys())
+    updated = []
+    errors = []
+
+    for plan_data in plans_data:
+        plan_id = plan_data.get('id')
+        if not plan_id:
+            errors.append({'error': 'plan_idが必要です'})
+            continue
+        plan = db.query(Plan).filter(Plan.id == plan_id).first()
+        if not plan:
+            errors.append({'id': plan_id, 'error': 'プランが見つかりません'})
+            continue
+        try:
+            if 'display_name' in plan_data:
+                plan.display_name = str(plan_data['display_name']).strip()[:100]
+            if 'price_monthly' in plan_data:
+                plan.price_monthly = max(0, int(plan_data['price_monthly']))
+            if 'price_yearly' in plan_data:
+                plan.price_yearly = max(0, int(plan_data['price_yearly']))
+            if 'max_dogs' in plan_data:
+                val = plan_data['max_dogs']
+                plan.max_dogs = None if (val is None or val == '' or val == 0) else max(1, int(val))
+            if 'max_owners' in plan_data:
+                val = plan_data['max_owners']
+                plan.max_owners = None if (val is None or val == '' or val == 0) else max(1, int(val))
+            if 'features' in plan_data:
+                features = plan_data['features']
+                if isinstance(features, list):
+                    plan.features = [f for f in features if f in valid_keys]
+            if 'is_active' in plan_data:
+                plan.is_active = 1 if plan_data['is_active'] else 0
+            updated.append(plan_id)
+        except Exception as e:
+            errors.append({'id': plan_id, 'error': str(e)})
+
+    try:
+        db.commit()
+        _sync_plan_guard_cache(db)
+        return jsonify({'success': True, 'updated': updated, 'errors': errors})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _sync_plan_guard_cache(db):
+    """DBのプラン設定をplan_guardのPLAN_FEATURESに反映する（即時反映）"""
+    try:
+        from app.models_breeder import Plan
+        from app.services import plan_guard
+        plans = db.query(Plan).filter(Plan.is_active == 1).all()
+        for p in plans:
+            if p.name in plan_guard.PLAN_FEATURES:
+                plan_guard.PLAN_FEATURES[p.name]['display_name'] = p.display_name
+                plan_guard.PLAN_FEATURES[p.name]['price_monthly'] = p.price_monthly
+                if p.max_dogs is not None:
+                    plan_guard.PLAN_FEATURES[p.name]['max_dogs'] = p.max_dogs
+                if p.max_owners is not None:
+                    plan_guard.PLAN_FEATURES[p.name]['max_owners'] = p.max_owners
+                if p.features:
+                    plan_guard.PLAN_FEATURES[p.name]['features'] = p.features
+    except Exception:
+        pass

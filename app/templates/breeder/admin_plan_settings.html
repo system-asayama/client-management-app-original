@@ -1,0 +1,469 @@
+{% extends "breeder/base.html" %}
+{% block title %}プラン設定管理{% endblock %}
+{% block topbar_title %}プラン設定管理{% endblock %}
+{% block content %}
+<style>
+  .plan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .plan-card {
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .plan-card:hover { border-color: var(--accent, #7c3aed); }
+  .plan-card-header {
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--border, #2a2a3e);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .plan-name-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--accent, #7c3aed);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .plan-card-body { padding: 1rem 1.25rem; }
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .field-label {
+    font-size: 0.75rem;
+    color: var(--text-muted, #888);
+    min-width: 90px;
+  }
+  .field-input {
+    flex: 1;
+    background: var(--input-bg, #0f0f1a);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 6px;
+    color: var(--text, #e0e0e0);
+    padding: 0.35rem 0.6rem;
+    font-size: 0.85rem;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  .field-input:focus {
+    outline: none;
+    border-color: var(--accent, #7c3aed);
+  }
+  .field-input.unlimited-hint::placeholder { color: var(--text-muted, #888); }
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 1rem 0 0.5rem;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem 0.5rem;
+  }
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--text, #e0e0e0);
+    cursor: pointer;
+    padding: 0.2rem 0.3rem;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .feature-item:hover { background: rgba(124,58,237,0.1); }
+  .feature-item input[type=checkbox] {
+    accent-color: var(--accent, #7c3aed);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .feature-category-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--accent, #7c3aed);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin: 0.75rem 0 0.3rem;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid rgba(124,58,237,0.2);
+  }
+  .save-btn {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.55rem;
+    background: var(--accent, #7c3aed);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .save-btn:hover { opacity: 0.88; }
+  .save-btn:active { transform: scale(0.98); }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .status-active { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .status-inactive { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-success { background: rgba(34,197,94,0.9); color: #fff; }
+  .toast-error { background: rgba(239,68,68,0.9); color: #fff; }
+  .bulk-save-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--card-bg, #1a1a2e);
+    border-bottom: 1px solid var(--border, #2a2a3e);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: -1.5rem -1.5rem 1.5rem;
+  }
+  .bulk-save-bar h2 { font-size: 1rem; margin: 0; }
+  .bulk-save-btn {
+    padding: 0.5rem 1.5rem;
+    background: var(--green, #22c55e);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .bulk-save-btn:hover { opacity: 0.85; }
+  .toggle-active {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-muted, #888);
+    cursor: pointer;
+  }
+  .toggle-active input { accent-color: var(--green, #22c55e); cursor: pointer; }
+  .feature-count-badge {
+    font-size: 0.7rem;
+    color: var(--text-muted, #888);
+    margin-left: 0.3rem;
+  }
+</style>
+
+<div class="bulk-save-bar">
+  <div>
+    <h2>⚙️ プラン設定管理</h2>
+    <p style="font-size:0.75rem;color:var(--text-muted);margin:0;">料金・機能・登録上限を変更して「一括保存」で即時反映します。</p>
+  </div>
+  <div style="display:flex;gap:0.75rem;align-items:center;">
+    <span id="change-indicator" style="font-size:0.75rem;color:var(--accent);display:none;">● 未保存の変更があります</span>
+    <button class="bulk-save-btn" onclick="bulkSave()">💾 一括保存</button>
+  </div>
+</div>
+
+{% if not plans %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="color:var(--text-muted);">プランデータが見つかりません。DBマイグレーションを確認してください。</p>
+</div>
+{% else %}
+<div class="plan-grid" id="plan-grid">
+  {% for plan in plans %}
+  <div class="plan-card" id="plan-card-{{ plan.id }}">
+    <div class="plan-card-header">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <span class="plan-name-badge">{{ plan.name }}</span>
+        <span class="status-badge {{ 'status-active' if plan.is_active else 'status-inactive' }}" id="status-badge-{{ plan.id }}">
+          {{ '有効' if plan.is_active else '無効' }}
+        </span>
+      </div>
+      <label class="toggle-active">
+        <input type="checkbox" id="active-{{ plan.id }}"
+               {{ 'checked' if plan.is_active else '' }}
+               onchange="markChanged({{ plan.id }})">
+        有効
+      </label>
+    </div>
+    <div class="plan-card-body">
+
+      <!-- 表示名 -->
+      <div class="field-row">
+        <span class="field-label">表示名</span>
+        <input type="text" class="field-input" id="display_name-{{ plan.id }}"
+               value="{{ plan.display_name }}" maxlength="100"
+               oninput="markChanged({{ plan.id }})">
+      </div>
+
+      <!-- 料金 -->
+      <div class="section-label">💰 料金設定</div>
+      <div class="field-row">
+        <span class="field-label">月額（円）</span>
+        <input type="number" class="field-input" id="price_monthly-{{ plan.id }}"
+               value="{{ plan.price_monthly }}" min="0" step="100"
+               oninput="markChanged({{ plan.id }})">
+      </div>
+      <div class="field-row">
+        <span class="field-label">年額（円）</span>
+        <input type="number" class="field-input" id="price_yearly-{{ plan.id }}"
+               value="{{ plan.price_yearly }}" min="0" step="1000"
+               oninput="markChanged({{ plan.id }})">
+      </div>
+
+      <!-- 登録上限 -->
+      <div class="section-label">📊 登録上限</div>
+      <div class="field-row">
+        <span class="field-label">犬の上限</span>
+        <input type="number" class="field-input unlimited-hint" id="max_dogs-{{ plan.id }}"
+               value="{{ plan.max_dogs if plan.max_dogs else '' }}"
+               min="0" placeholder="0=無制限"
+               oninput="markChanged({{ plan.id }})">
+      </div>
+      <div class="field-row">
+        <span class="field-label">飼い主の上限</span>
+        <input type="number" class="field-input unlimited-hint" id="max_owners-{{ plan.id }}"
+               value="{{ plan.max_owners if plan.max_owners else '' }}"
+               min="0" placeholder="0=無制限"
+               oninput="markChanged({{ plan.id }})">
+      </div>
+
+      <!-- 機能割り当て -->
+      <div class="section-label">
+        🔧 機能割り当て
+        <span class="feature-count-badge" id="feature-count-{{ plan.id }}">
+          ({{ plan.features | length }}機能)
+        </span>
+      </div>
+      <div id="features-{{ plan.id }}">
+        {% for cat in feature_categories %}
+        <div class="feature-category-title">{{ cat.label }}</div>
+        <div class="feature-grid">
+          {% for fkey in cat.features %}
+          <label class="feature-item">
+            <input type="checkbox"
+                   id="feat-{{ plan.id }}-{{ fkey }}"
+                   data-plan="{{ plan.id }}"
+                   data-key="{{ fkey }}"
+                   {{ 'checked' if fkey in plan.features else '' }}
+                   onchange="updateFeatureCount({{ plan.id }}); markChanged({{ plan.id }})">
+            {{ feature_names.get(fkey, fkey) }}
+          </label>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- 保存ボタン（個別） -->
+      <button class="save-btn" id="save-btn-{{ plan.id }}"
+              onclick="savePlan({{ plan.id }})">
+        保存
+      </button>
+      <div id="save-status-{{ plan.id }}" style="font-size:0.75rem;text-align:center;margin-top:0.4rem;height:1rem;"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- トースト通知 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── 変更フラグ管理 ───────────────────────────────────────
+const changedPlans = new Set();
+
+function markChanged(planId) {
+  changedPlans.add(planId);
+  document.getElementById('change-indicator').style.display = 'inline';
+}
+
+// ─── 機能数カウント更新 ────────────────────────────────────
+function updateFeatureCount(planId) {
+  const checkboxes = document.querySelectorAll(`input[data-plan="${planId}"]`);
+  const count = Array.from(checkboxes).filter(c => c.checked).length;
+  const badge = document.getElementById(`feature-count-${planId}`);
+  if (badge) badge.textContent = `(${count}機能)`;
+}
+
+// ─── プランデータ収集 ──────────────────────────────────────
+function collectPlanData(planId) {
+  const features = [];
+  document.querySelectorAll(`input[data-plan="${planId}"]:checked`).forEach(cb => {
+    features.push(cb.dataset.key);
+  });
+
+  const maxDogsVal = document.getElementById(`max_dogs-${planId}`).value;
+  const maxOwnersVal = document.getElementById(`max_owners-${planId}`).value;
+
+  return {
+    id: planId,
+    display_name: document.getElementById(`display_name-${planId}`).value.trim(),
+    price_monthly: parseInt(document.getElementById(`price_monthly-${planId}`).value) || 0,
+    price_yearly: parseInt(document.getElementById(`price_yearly-${planId}`).value) || 0,
+    max_dogs: maxDogsVal === '' ? null : (parseInt(maxDogsVal) || null),
+    max_owners: maxOwnersVal === '' ? null : (parseInt(maxOwnersVal) || null),
+    features: features,
+    is_active: document.getElementById(`active-${planId}`).checked,
+  };
+}
+
+// ─── 個別保存 ─────────────────────────────────────────────
+async function savePlan(planId) {
+  const btn = document.getElementById(`save-btn-${planId}`);
+  const statusEl = document.getElementById(`save-status-${planId}`);
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  statusEl.textContent = '';
+
+  const data = collectPlanData(planId);
+  data.plan_id = planId;
+
+  try {
+    const res = await fetch('/breeder/api/admin/plan-settings/update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('✅ ' + (document.getElementById(`display_name-${planId}`).value || 'プラン') + ' を保存しました', 'success');
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = '保存済み ✓';
+      changedPlans.delete(planId);
+      // ステータスバッジ更新
+      const badge = document.getElementById(`status-badge-${planId}`);
+      const isActive = document.getElementById(`active-${planId}`).checked;
+      badge.textContent = isActive ? '有効' : '無効';
+      badge.className = 'status-badge ' + (isActive ? 'status-active' : 'status-inactive');
+      if (changedPlans.size === 0) {
+        document.getElementById('change-indicator').style.display = 'none';
+      }
+    } else {
+      showToast('❌ ' + (json.error || '保存に失敗しました'), 'error');
+      statusEl.style.color = 'var(--red, #ef4444)';
+      statusEl.textContent = 'エラー';
+    }
+  } catch (e) {
+    showToast('❌ 通信エラーが発生しました', 'error');
+    statusEl.style.color = 'var(--red, #ef4444)';
+    statusEl.textContent = 'エラー';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  }
+}
+
+// ─── 一括保存 ─────────────────────────────────────────────
+async function bulkSave() {
+  const bulkBtn = document.querySelector('.bulk-save-btn');
+  bulkBtn.disabled = true;
+  bulkBtn.textContent = '保存中...';
+
+  // 全プランのデータを収集
+  const allPlanIds = {{ plans | map(attribute='id') | list | tojson }};
+  const plansData = allPlanIds.map(id => collectPlanData(id));
+
+  try {
+    const res = await fetch('/breeder/api/admin/plan-settings/bulk-update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({plans: plansData}),
+    });
+    const json = await res.json();
+    if (json.success) {
+      const updatedCount = json.updated ? json.updated.length : 0;
+      showToast(`✅ ${updatedCount}件のプランを保存しました`, 'success');
+      changedPlans.clear();
+      document.getElementById('change-indicator').style.display = 'none';
+      // 全プランのステータスバッジ更新
+      allPlanIds.forEach(id => {
+        const badge = document.getElementById(`status-badge-${id}`);
+        const isActive = document.getElementById(`active-${id}`).checked;
+        if (badge) {
+          badge.textContent = isActive ? '有効' : '無効';
+          badge.className = 'status-badge ' + (isActive ? 'status-active' : 'status-inactive');
+        }
+        const statusEl = document.getElementById(`save-status-${id}`);
+        if (statusEl) {
+          statusEl.style.color = 'var(--green)';
+          statusEl.textContent = '保存済み ✓';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        }
+      });
+      if (json.errors && json.errors.length > 0) {
+        showToast(`⚠️ ${json.errors.length}件のエラーがあります`, 'error');
+      }
+    } else {
+      showToast('❌ ' + (json.error || '一括保存に失敗しました'), 'error');
+    }
+  } catch (e) {
+    showToast('❌ 通信エラーが発生しました', 'error');
+  } finally {
+    bulkBtn.disabled = false;
+    bulkBtn.textContent = '💾 一括保存';
+  }
+}
+
+// ─── トースト通知 ──────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast toast-${type} show`;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3500);
+}
+
+// ─── ページ離脱警告 ────────────────────────────────────────
+window.addEventListener('beforeunload', (e) => {
+  if (changedPlans.size > 0) {
+    e.preventDefault();
+    e.returnValue = '未保存の変更があります。ページを離れますか？';
+  }
+});
+
+// ─── 初期化：機能数カウント ────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  {{ plans | map(attribute='id') | list | tojson }}.forEach(id => updateFeatureCount(id));
+});
+</script>
+{% endblock %}

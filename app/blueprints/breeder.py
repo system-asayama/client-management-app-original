@@ -4699,7 +4699,7 @@ def api_current_plan():
 # ─────────────────────────────────────────────
 
 @bp.route('/admin/kpi')
-@require_roles('owner', 'system_admin')
+@require_roles('owner', 'system_admin', 'tenant_admin')
 def admin_kpi_dashboard():
     """管理者向けKPIダッシュボード"""
     db = _get_db()

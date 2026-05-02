@@ -730,7 +730,12 @@ def _save_prizes_db_internal(store_id: int, prizes: list) -> None:
 
 def _do_spin(cfg: Config) -> tuple:
     """スロットを5回スピンして結果を返す"""
-    psum = sum(float(s.prob) for s in cfg.symbols) or 100.0
+    psum = sum(float(s.prob) for s in cfg.symbols)
+    if psum <= 0:
+        # 全確率が0の場合はデフォルト設定で再計算
+        from app.utils.slot_logic import recalc_probs_inverse_and_expected
+        recalc_probs_inverse_and_expected(cfg)
+        psum = sum(float(s.prob) for s in cfg.symbols) or 100.0
     for s in cfg.symbols:
         s.prob = float(s.prob) / psum * 100.0
 
@@ -1003,26 +1008,51 @@ def slot_result_by_slug(slug):
 @bp.post('/store/<int:store_id>/save_slot_config')
 @require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def save_slot_config(store_id):
-    """スロット設定を保存"""
+    """スロット設定を保存（Heroku版と同一ロジック）"""
     try:
+        expected_total_5 = float(request.form.get('expected_total_5', 100.0) or 100.0)
+        miss_probability = float(request.form.get('miss_probability', 20.0) or 20.0)
         symbol_count = int(request.form.get('symbol_count', 0))
+
+        # DBから現在のシンボル情報を取得（is_reach, reach_symbolを保持するため）
+        current_config = _get_slot_config(store_id)
+        current_symbols = {s.id: s for s in current_config.symbols}
+
         symbols = []
         for i in range(symbol_count):
             sym_id = request.form.get(f'symbol_id_{i}', '').strip()
-            if not sym_id:
+            sym_label = request.form.get(f'symbol_label_{i}', '').strip()
+            if not sym_id or not sym_label:
                 continue
-            disabled = request.form.get(f'symbol_disabled_{i}') == 'on'
-            if disabled:
-                continue
+            sym_payout = float(request.form.get(f'symbol_payout_{i}', 0) or 0)
+            sym_prob = float(request.form.get(f'symbol_prob_{i}', 0) or 0)
+            sym_color = request.form.get(f'symbol_color_{i}', '#888888')
+            sym_disabled = request.form.get(f'symbol_disabled_{i}') == 'on'
+            sym_is_default = request.form.get(f'symbol_is_default_{i}', 'false').lower() == 'true'
+            sym_is_reach = request.form.get(f'symbol_is_reach_{i}', 'false').lower() == 'true'
+            sym_reach_symbol = request.form.get(f'symbol_reach_symbol_{i}', '').strip() or None
+
+            # DBから is_reach と reach_symbol を取得（フォームから送信されていない場合）
+            if sym_id in current_symbols and not sym_is_reach:
+                sym_is_reach = current_symbols[sym_id].is_reach
+                sym_reach_symbol = current_symbols[sym_id].reach_symbol
+
+            # 確率が0の場合はDBから既存の確率を取得（不使用の場合は0のまま）
+            if sym_prob == 0 and sym_id in current_symbols and not sym_disabled:
+                sym_prob = current_symbols[sym_id].prob
+
             symbols.append(Symbol(
                 id=sym_id,
-                label=request.form.get(f'symbol_label_{i}', sym_id),
-                payout_3=float(request.form.get(f'symbol_payout_{i}', 0) or 0),
-                prob=float(request.form.get(f'symbol_prob_{i}', 0) or 0),
-                color=request.form.get(f'symbol_color_{i}', '#888888'),
-                is_reach=request.form.get(f'symbol_is_reach_{i}', 'false').lower() == 'true',
-                reach_symbol=request.form.get(f'symbol_reach_symbol_{i}') or None,
+                label=sym_label,
+                payout_3=sym_payout,
+                prob=sym_prob,
+                color=sym_color,
+                is_disabled=sym_disabled,
+                is_default=sym_is_default,
+                is_reach=sym_is_reach,
+                reach_symbol=sym_reach_symbol,
             ))
+
         if not symbols:
             flash('シンボルが1件以上必要です', 'error')
             return redirect(url_for('survey_app.survey_settings_view', store_id=store_id))
@@ -1031,8 +1061,8 @@ def save_slot_config(store_id):
             symbols=symbols,
             reels=3,
             base_bet=1,
-            expected_total_5=float(request.form.get('expected_total_5', 2500.0) or 2500.0),
-            miss_probability=float(request.form.get('miss_probability', 0.0) or 0.0),
+            expected_total_5=expected_total_5,
+            miss_probability=miss_probability,
         )
         _save_slot_config_db(store_id, cfg)
         flash('スロット設定を保存しました', 'success')

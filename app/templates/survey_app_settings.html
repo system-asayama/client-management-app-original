@@ -7,10 +7,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='slot.css') }}">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; margin: 0; }
-    .bar { background: #1a1a2e; color: white; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-    .bar h1 { margin: 0; font-size: 18px; }
-    .bar-links { display: flex; gap: 8px; flex-wrap: wrap; }
-    .wrap { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .admin-header { background: white; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .admin-header h1 { font-size: 20px; margin: 0; color: #1f2937; }
+    .container { max-width: 800px; margin: 32px auto; padding: 0 24px; }
+    .section { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
+    .section h2 { font-size: 18px; margin: 0 0 20px 0; color: #1f2937; }
     .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .card h2 { margin: 0 0 20px; font-size: 18px; color: #1a1a2e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
     .form-group { margin-bottom: 20px; }
@@ -220,16 +221,16 @@
   </script>
 </head>
 <body>
-  <header class="bar">
-    <h1>⚙️ アンケート設定 - {{ store_name }}</h1>
-    <div class="bar-links">
-      <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" style="color:white;text-decoration:none;padding:6px 12px;background:rgba(255,255,255,0.2);border-radius:6px;font-size:14px;">← ダッシュボード</a>
+  <div class="admin-header">
+    <h1>📋 アンケートアプリ設定</h1>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">🏠 店舗アプリ一覧</a>
       {% if store_slug %}
-      <a href="/apps/survey/store/{{ store_slug }}/slot?demo=true" target="_blank" style="color:white;text-decoration:none;padding:6px 12px;background:#3b82f6;border-radius:6px;font-size:14px;">🎰 デモプレイ</a>
+      <a href="/apps/survey/store/{{ store_id }}/slot?demo=true" target="_blank" style="padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎰 デモプレイ</a>
       {% endif %}
     </div>
-  </header>
-  <main class="wrap">
+  </div>
+  <div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
     <div class="flash-{{ category }}">{{ message }}</div>
@@ -424,6 +425,6 @@
         <p style="margin:8px 0 0;color:#666;font-size:14px;">5回スピンで合計点数が指定範囲内になる確率です。</p>
       </div>
     </div>
-  </main>
+  </div>
 </body>
 </html>

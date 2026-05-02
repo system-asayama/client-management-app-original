@@ -5023,3 +5023,167 @@ def _sync_plan_guard_cache(db):
                     plan_guard.PLAN_FEATURES[p.name]['features'] = p.features
     except Exception:
         pass
+
+# ─────────────────────────────────────────────
+# テナントプラン手動変更（管理者専用）
+# ─────────────────────────────────────────────
+
+@bp.route('/admin/tenant-plans')
+@require_roles(*PLAN_ADMIN_ROLES)
+def admin_tenant_plans():
+    """テナント別プラン管理ページ（アプリ管理者以上）"""
+    db = _get_db()
+    from app.models_breeder import Plan, Subscription
+    from app.models_login import TTenant
+
+    plans = db.query(Plan).filter(Plan.is_active == 1).order_by(Plan.sort_order, Plan.id).all()
+    plans_map = {p.id: p for p in plans}
+
+    tenants = db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()
+
+    subs = db.query(Subscription).all()
+    subs_map = {s.tenant_id: s for s in subs}
+
+    tenants_data = []
+    for t in tenants:
+        sub = subs_map.get(t.id)
+        if sub:
+            current_plan = plans_map.get(sub.plan_id)
+            plan_name = current_plan.display_name if current_plan else '不明'
+            plan_id = sub.plan_id
+            status = sub.status
+            trial_end = sub.trial_end.strftime('%Y-%m-%d') if sub.trial_end else None
+            period_end = sub.current_period_end.strftime('%Y-%m-%d') if sub.current_period_end else None
+            sub_id = sub.id
+        else:
+            plan_name = 'フリープラン（未設定）'
+            plan_id = 1
+            status = 'active'
+            trial_end = None
+            period_end = None
+            sub_id = None
+
+        tenants_data.append({
+            'id': t.id,
+            'name': t.名称,
+            'slug': t.slug,
+            'current_plan_id': plan_id,
+            'current_plan_name': plan_name,
+            'status': status,
+            'trial_end': trial_end,
+            'period_end': period_end,
+            'sub_id': sub_id,
+        })
+
+    history = []
+    try:
+        from app.models_breeder import PlanChangeLog
+        logs = db.query(PlanChangeLog).order_by(PlanChangeLog.changed_at.desc()).limit(50).all()
+        for log in logs:
+            from_plan = plans_map.get(log.from_plan_id)
+            to_plan = plans_map.get(log.to_plan_id)
+            tenant = next((t for t in tenants if t.id == log.tenant_id), None)
+            history.append({
+                'changed_at': log.changed_at.strftime('%Y-%m-%d %H:%M') if log.changed_at else '',
+                'tenant_name': tenant.名称 if tenant else f'テナントID:{log.tenant_id}',
+                'from_plan': from_plan.display_name if from_plan else '不明',
+                'to_plan': to_plan.display_name if to_plan else '不明',
+                'reason': log.reason or '',
+                'changed_by': log.changed_by or '',
+            })
+    except Exception:
+        pass
+
+    return render_template(
+        'breeder/admin_tenant_plans.html',
+        tenants=tenants_data,
+        plans=plans,
+        history=history,
+    )
+
+
+@bp.route('/api/admin/tenant-plans/change', methods=['POST'])
+@require_roles(*PLAN_ADMIN_ROLES)
+def api_admin_tenant_plan_change():
+    """テナントのプランを手動変更するAPI"""
+    db = _get_db()
+    from app.models_breeder import Plan, Subscription
+    from app.models_login import TTenant
+    from datetime import datetime, timedelta
+
+    data = request.get_json() or {}
+    tenant_id = data.get('tenant_id')
+    new_plan_id = data.get('plan_id')
+    status = data.get('status', 'active')
+    reason = data.get('reason', '')
+    trial_days = data.get('trial_days', 0)
+
+    if not tenant_id or not new_plan_id:
+        return jsonify({'success': False, 'error': 'tenant_id と plan_id は必須です'}), 400
+
+    tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+    if not tenant:
+        return jsonify({'success': False, 'error': 'テナントが見つかりません'}), 404
+
+    new_plan = db.query(Plan).filter(Plan.id == new_plan_id).first()
+    if not new_plan:
+        return jsonify({'success': False, 'error': 'プランが見つかりません'}), 404
+
+    now = datetime.utcnow()
+
+    try:
+        sub = db.query(Subscription).filter(Subscription.tenant_id == tenant_id).first()
+        old_plan_id = sub.plan_id if sub else 1
+
+        if sub:
+            sub.plan_id = new_plan_id
+            sub.status = 'trialing' if trial_days > 0 else status
+            sub.updated_at = now
+            if trial_days > 0:
+                sub.trial_start = now
+                sub.trial_end = now + timedelta(days=int(trial_days))
+            if status == 'canceled':
+                sub.canceled_at = now
+            if status == 'active':
+                sub.current_period_start = now
+                sub.current_period_end = now + timedelta(days=30)
+        else:
+            sub = Subscription(
+                tenant_id=tenant_id,
+                plan_id=new_plan_id,
+                status='trialing' if trial_days > 0 else status,
+                current_period_start=now,
+                current_period_end=now + timedelta(days=30),
+            )
+            if trial_days > 0:
+                sub.trial_start = now
+                sub.trial_end = now + timedelta(days=int(trial_days))
+            db.add(sub)
+
+        try:
+            from app.models_breeder import PlanChangeLog
+            log = PlanChangeLog(
+                tenant_id=tenant_id,
+                from_plan_id=old_plan_id,
+                to_plan_id=new_plan_id,
+                status=status,
+                reason=reason,
+                changed_by=session.get('login_id', ''),
+                changed_at=now,
+            )
+            db.add(log)
+        except Exception:
+            pass
+
+        db.commit()
+        return jsonify({
+            'success': True,
+            'message': f'{tenant.名称} のプランを {new_plan.display_name} に変更しました',
+            'tenant_id': tenant_id,
+            'plan_id': new_plan_id,
+            'plan_name': new_plan.display_name,
+            'status': 'trialing' if trial_days > 0 else status,
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500

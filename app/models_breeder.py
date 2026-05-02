@@ -1052,3 +1052,16 @@ class BreederSearchIndex(Base):
     is_public = Column(Integer, default=0, index=True)
     plan_name = Column(String(50), nullable=True, comment='現在のプラン名')
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class PlanChangeLog(Base):
+    """プラン変更履歴ログ"""
+    __tablename__ = 'plan_change_logs'
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False, index=True)
+    from_plan_id = Column(Integer, ForeignKey('plans.id'), nullable=True)
+    to_plan_id = Column(Integer, ForeignKey('plans.id'), nullable=False)
+    status = Column(String(50), nullable=True, comment='変更後のステータス')
+    reason = Column(Text, nullable=True, comment='変更理由')
+    changed_by = Column(String(255), nullable=True, comment='変更者ログインID')
+    changed_at = Column(DateTime, server_default=func.now(), index=True)

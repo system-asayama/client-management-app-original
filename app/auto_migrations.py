@@ -1607,6 +1607,29 @@ def run_platform_table_migrations():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
 
+        _create('plan_change_logs', """
+            CREATE TABLE plan_change_logs (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                from_plan_id INTEGER REFERENCES plans(id),
+                to_plan_id INTEGER NOT NULL REFERENCES plans(id),
+                status VARCHAR(50),
+                reason TEXT,
+                changed_by VARCHAR(255),
+                changed_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `plan_change_logs` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT NOT NULL,
+                `from_plan_id` INT,
+                `to_plan_id` INT NOT NULL,
+                `status` VARCHAR(50),
+                `reason` TEXT,
+                `changed_by` VARCHAR(255),
+                `changed_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
         logger.info("✓ run_platform_table_migrations 完了")
     except Exception as e:
         session.rollback()

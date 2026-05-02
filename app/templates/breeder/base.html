@@ -755,6 +755,9 @@
         <li><a href="{{ url_for('breeder.admin_plan_settings') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_plan_settings' }}">
           <span class="nav-icon">⚙️</span>プラン設定
         </a></li>
+        <li><a href="{{ url_for('breeder.admin_tenant_plans') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_tenant_plans' }}">
+          <span class="nav-icon">🏷️</span>テナントプラン管理
+        </a></li>
         {% endif %}
       </ul>
     </div>

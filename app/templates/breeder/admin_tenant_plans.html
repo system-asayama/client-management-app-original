@@ -1,0 +1,545 @@
+{% extends "breeder/base.html" %}
+{% block title %}テナントプラン管理{% endblock %}
+{% block topbar_title %}テナントプラン管理{% endblock %}
+{% block content %}
+<style>
+  /* ─── レイアウト ─── */
+  .atp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .atp-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text, #e0e0e0);
+    margin: 0;
+  }
+  .atp-header p {
+    font-size: 0.8rem;
+    color: var(--text-muted, #888);
+    margin: 0.25rem 0 0;
+  }
+
+  /* ─── テナントテーブル ─── */
+  .tenant-table-wrap {
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  .tenant-table-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border, #2a2a3e);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .tenant-table-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text, #e0e0e0);
+    margin: 0;
+  }
+  .search-input {
+    background: var(--input-bg, #0f0f1a);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 6px;
+    color: var(--text, #e0e0e0);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    width: 220px;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { outline: none; border-color: var(--accent, #7c3aed); }
+
+  table.atp-table { width: 100%; border-collapse: collapse; }
+  table.atp-table th {
+    padding: 0.65rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border, #2a2a3e);
+    text-align: left;
+    white-space: nowrap;
+  }
+  table.atp-table td {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text, #e0e0e0);
+    border-bottom: 1px solid var(--border, #1e1e2e);
+    vertical-align: middle;
+  }
+  table.atp-table tr:last-child td { border-bottom: none; }
+  table.atp-table tr:hover td { background: rgba(124,58,237,0.04); }
+
+  /* ─── プランバッジ ─── */
+  .plan-badge {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .plan-badge.free     { background: rgba(100,100,120,0.25); color: #aaa; border: 1px solid #444; }
+  .plan-badge.standard { background: rgba(59,130,246,0.2);  color: #60a5fa; border: 1px solid #3b82f6; }
+  .plan-badge.pro      { background: rgba(124,58,237,0.2);  color: #a78bfa; border: 1px solid #7c3aed; }
+  .plan-badge.enterprise { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+
+  /* ─── ステータスバッジ ─── */
+  .status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .status-badge.active   { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid #10b981; }
+  .status-badge.trialing { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid #3b82f6; }
+  .status-badge.canceled { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid #ef4444; }
+  .status-badge.past_due { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid #f59e0b; }
+
+  /* ─── アクションボタン ─── */
+  .btn-change {
+    background: var(--accent, #7c3aed);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .btn-change:hover { background: #6d28d9; transform: translateY(-1px); }
+
+  /* ─── モーダル ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 12px;
+    padding: 1.75rem;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-box h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text, #e0e0e0);
+    margin: 0 0 0.25rem;
+  }
+  .modal-box .modal-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted, #888);
+    margin-bottom: 1.25rem;
+  }
+  .modal-field { margin-bottom: 1rem; }
+  .modal-field label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted, #888);
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+  }
+  .modal-field select,
+  .modal-field input,
+  .modal-field textarea {
+    width: 100%;
+    background: var(--input-bg, #0f0f1a);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 6px;
+    color: var(--text, #e0e0e0);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+  }
+  .modal-field select:focus,
+  .modal-field input:focus,
+  .modal-field textarea:focus { outline: none; border-color: var(--accent, #7c3aed); }
+  .modal-field textarea { resize: vertical; min-height: 70px; }
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+  }
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border, #2a2a3e);
+    color: var(--text-muted, #888);
+    border-radius: 6px;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .btn-cancel:hover { border-color: #555; color: var(--text, #e0e0e0); }
+  .btn-save {
+    background: var(--accent, #7c3aed);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1.4rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-save:hover { background: #6d28d9; }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ─── トースト通知 ─── */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: #1e1e2e;
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 8px;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text, #e0e0e0);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 2000;
+    display: none;
+    max-width: 360px;
+    animation: slideUp 0.25s ease;
+  }
+  .toast.success { border-left: 3px solid #10b981; }
+  .toast.error   { border-left: 3px solid #ef4444; }
+  @keyframes slideUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* ─── 変更履歴 ─── */
+  .history-section {
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--border, #2a2a3e);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .history-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border, #2a2a3e);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text, #e0e0e0);
+  }
+  .history-empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted, #888);
+    font-size: 0.85rem;
+  }
+  table.history-table { width: 100%; border-collapse: collapse; }
+  table.history-table th {
+    padding: 0.6rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border, #2a2a3e);
+    text-align: left;
+  }
+  table.history-table td {
+    padding: 0.65rem 1rem;
+    font-size: 0.82rem;
+    color: var(--text, #e0e0e0);
+    border-bottom: 1px solid var(--border, #1e1e2e);
+  }
+  table.history-table tr:last-child td { border-bottom: none; }
+  .arrow-icon { color: var(--text-muted, #888); margin: 0 0.4rem; }
+</style>
+
+<div class="atp-header">
+  <div>
+    <h2>🏷️ テナントプラン管理</h2>
+    <p>各テナントのサブスクリプションプランを手動で変更できます。変更は即時反映されます。</p>
+  </div>
+</div>
+
+<!-- テナント一覧テーブル -->
+<div class="tenant-table-wrap">
+  <div class="tenant-table-header">
+    <h3>テナント一覧（{{ tenants|length }}件）</h3>
+    <input type="text" class="search-input" id="tenantSearch" placeholder="🔍 テナント名で絞り込み..." oninput="filterTenants(this.value)">
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="atp-table" id="tenantTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>テナント名</th>
+          <th>現在のプラン</th>
+          <th>ステータス</th>
+          <th>トライアル終了</th>
+          <th>次回更新日</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tenants %}
+        <tr data-name="{{ t.name }}">
+          <td style="color:var(--text-muted,#888); font-size:0.78rem;">{{ t.id }}</td>
+          <td>
+            <div style="font-weight:600;">{{ t.name }}</div>
+            <div style="font-size:0.72rem; color:var(--text-muted,#888);">{{ t.slug }}</div>
+          </td>
+          <td>
+            <span class="plan-badge {{ t.current_plan_id | string | replace('1','free') | replace('2','standard') | replace('3','pro') | replace('4','enterprise') }}"
+                  id="plan-badge-{{ t.id }}">
+              {{ t.current_plan_name }}
+            </span>
+          </td>
+          <td>
+            <span class="status-badge {{ t.status }}" id="status-badge-{{ t.id }}">
+              {% if t.status == 'active' %}有効
+              {% elif t.status == 'trialing' %}トライアル中
+              {% elif t.status == 'canceled' %}解約済み
+              {% elif t.status == 'past_due' %}支払い遅延
+              {% else %}{{ t.status }}{% endif %}
+            </span>
+          </td>
+          <td style="font-size:0.8rem; color:var(--text-muted,#888);" id="trial-end-{{ t.id }}">
+            {{ t.trial_end or '—' }}
+          </td>
+          <td style="font-size:0.8rem; color:var(--text-muted,#888);" id="period-end-{{ t.id }}">
+            {{ t.period_end or '—' }}
+          </td>
+          <td>
+            <button class="btn-change"
+                    onclick="openChangeModal({{ t.id }}, '{{ t.name }}', {{ t.current_plan_id }}, '{{ t.status }}')">
+              プラン変更
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 変更履歴 -->
+<div class="history-section">
+  <div class="history-header">📋 変更履歴（最新50件）</div>
+  {% if history %}
+  <div style="overflow-x:auto;">
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>変更日時</th>
+          <th>テナント</th>
+          <th>変更内容</th>
+          <th>理由</th>
+          <th>変更者</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td style="color:var(--text-muted,#888); white-space:nowrap;">{{ h.changed_at }}</td>
+          <td style="font-weight:600;">{{ h.tenant_name }}</td>
+          <td>
+            <span style="color:var(--text-muted,#888);">{{ h.from_plan }}</span>
+            <span class="arrow-icon">→</span>
+            <span style="color:#a78bfa; font-weight:600;">{{ h.to_plan }}</span>
+          </td>
+          <td style="color:var(--text-muted,#888); font-size:0.8rem;">{{ h.reason or '—' }}</td>
+          <td style="color:var(--text-muted,#888); font-size:0.8rem;">{{ h.changed_by or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="history-empty">変更履歴はまだありません</div>
+  {% endif %}
+</div>
+
+<!-- プラン変更モーダル -->
+<div class="modal-overlay" id="changeModal">
+  <div class="modal-box">
+    <h3>プランを変更する</h3>
+    <p class="modal-sub" id="modalSubTitle">テナント名</p>
+
+    <div class="modal-field">
+      <label>変更後のプラン</label>
+      <select id="modalPlanSelect">
+        {% for p in plans %}
+        <option value="{{ p.id }}" data-name="{{ p.name }}">
+          {{ p.display_name }}
+          {% if p.price_monthly > 0 %}（月額 {{ '{:,}'.format(p.price_monthly) }}円）{% else %}（無料）{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="modal-field">
+      <label>ステータス</label>
+      <select id="modalStatusSelect">
+        <option value="active">有効（active）</option>
+        <option value="trialing">トライアル中（trialing）</option>
+        <option value="canceled">解約済み（canceled）</option>
+        <option value="past_due">支払い遅延（past_due）</option>
+      </select>
+    </div>
+
+    <div class="modal-field" id="trialDaysField">
+      <label>トライアル日数（0=トライアルなし）</label>
+      <input type="number" id="modalTrialDays" value="0" min="0" max="365" placeholder="例: 14">
+    </div>
+
+    <div class="modal-field">
+      <label>変更理由（任意）</label>
+      <textarea id="modalReason" placeholder="例: 営業対応によるプロプランへのアップグレード"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" id="modalSaveBtn" onclick="savePlanChange()">変更を保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- トースト通知 -->
+<div class="toast" id="toast"></div>
+
+<script>
+let currentTenantId = null;
+
+// モーダルを開く
+function openChangeModal(tenantId, tenantName, currentPlanId, currentStatus) {
+  currentTenantId = tenantId;
+  document.getElementById('modalSubTitle').textContent = `テナント: ${tenantName}`;
+  document.getElementById('modalPlanSelect').value = currentPlanId;
+  document.getElementById('modalStatusSelect').value = currentStatus || 'active';
+  document.getElementById('modalTrialDays').value = 0;
+  document.getElementById('modalReason').value = '';
+  document.getElementById('changeModal').classList.add('active');
+}
+
+// モーダルを閉じる
+function closeModal() {
+  document.getElementById('changeModal').classList.remove('active');
+  currentTenantId = null;
+}
+
+// ステータス変更時にトライアル日数フィールドを表示/非表示
+document.getElementById('modalStatusSelect').addEventListener('change', function() {
+  const field = document.getElementById('trialDaysField');
+  field.style.display = this.value === 'trialing' ? 'block' : 'none';
+});
+
+// プラン変更を保存
+async function savePlanChange() {
+  if (!currentTenantId) return;
+
+  const planId = parseInt(document.getElementById('modalPlanSelect').value);
+  const status = document.getElementById('modalStatusSelect').value;
+  const trialDays = parseInt(document.getElementById('modalTrialDays').value) || 0;
+  const reason = document.getElementById('modalReason').value.trim();
+
+  const btn = document.getElementById('modalSaveBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const res = await fetch('/breeder/api/admin/tenant-plans/change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenant_id: currentTenantId,
+        plan_id: planId,
+        status: status,
+        trial_days: trialDays,
+        reason: reason,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      // テーブルの表示を更新
+      const planSelect = document.getElementById('modalPlanSelect');
+      const selectedOption = planSelect.options[planSelect.selectedIndex];
+      const planName = selectedOption.text.split('（')[0];
+      const planKey = selectedOption.dataset.name;
+
+      const badge = document.getElementById(`plan-badge-${currentTenantId}`);
+      if (badge) {
+        badge.className = `plan-badge ${planKey}`;
+        badge.textContent = planName;
+      }
+
+      const statusBadge = document.getElementById(`status-badge-${currentTenantId}`);
+      if (statusBadge) {
+        statusBadge.className = `status-badge ${status}`;
+        const statusLabels = { active: '有効', trialing: 'トライアル中', canceled: '解約済み', past_due: '支払い遅延' };
+        statusBadge.textContent = statusLabels[status] || status;
+      }
+
+      closeModal();
+      showToast(data.message, 'success');
+
+      // 履歴を更新するためページをリロード（2秒後）
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      showToast('エラー: ' + (data.error || '不明なエラー'), 'error');
+    }
+  } catch (e) {
+    showToast('通信エラーが発生しました', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '変更を保存';
+  }
+}
+
+// テナント検索フィルター
+function filterTenants(query) {
+  const rows = document.querySelectorAll('#tenantTable tbody tr');
+  const q = query.toLowerCase();
+  rows.forEach(row => {
+    const name = (row.dataset.name || '').toLowerCase();
+    row.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
+// トースト通知
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = (type === 'success' ? '✅ ' : '❌ ') + msg;
+  toast.className = `toast ${type}`;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
+// モーダル外クリックで閉じる
+document.getElementById('changeModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

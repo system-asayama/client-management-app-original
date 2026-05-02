@@ -4228,7 +4228,7 @@ def owner_vaccine_list(owner_dog_id):
 
 
 @bp.route('/analytics/survival')
-@login_required_breeder
+@require_roles(*BREEDER_ROLES)
 def survival_report():
     """生存分析レポート（ブリーダー向け）"""
     from app.models_breeder import OwnerDog, Dog, LifeStatus, DeathInfo

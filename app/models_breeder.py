@@ -452,7 +452,8 @@ class BreederPermission(Base):
     """
     __tablename__ = 'breeder_permissions'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     admin_id = Column(Integer, nullable=False, index=True, comment='対象管理者ID')
     tenant_id = Column(Integer, nullable=False, index=True, comment='対象テナントID')
     permission_level = Column(String(20), nullable=False, default='view', comment='view or operate')
@@ -469,7 +470,8 @@ class GeneticTestResult(Base):
     """
     __tablename__ = 'genetic_test_results'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     store_id = Column(Integer, nullable=True, index=True)
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
@@ -491,7 +493,8 @@ class ShowRecord(Base):
     """ドッグショー記録テーブル"""
     __tablename__ = 'show_records'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     store_id = Column(Integer, nullable=True, index=True)
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
@@ -516,7 +519,8 @@ class PublicCarte(Base):
     """
     __tablename__ = 'public_cartes'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     store_id = Column(Integer, nullable=True, index=True)
     dog_id = Column(Integer, ForeignKey('dogs.id'), nullable=True)
@@ -537,7 +541,8 @@ class KennelProfile(Base):
     """
     __tablename__ = 'kennel_profiles'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     store_id = Column(Integer, nullable=True, index=True)
     kennel_name = Column(String(200), nullable=True, comment='犬舎名')
@@ -563,7 +568,8 @@ class PedigreeAncestor(Base):
     """
     __tablename__ = 'pedigree_ancestors'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
     generation = Column(Integer, nullable=False, comment='世代（1=父母, 2=祖父母, 3=曾祖父母, 4=高祖父母）')
     position = Column(String(30), nullable=False, comment='位置コード（sire/dam/sire_sire等）')
@@ -584,7 +590,8 @@ class MatingEvaluation(Base):
     """
     __tablename__ = 'mating_evaluations'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True, comment='テナントID')
     store_id  = Column(Integer, nullable=True, index=True, comment='店舗ID')
     sire_id   = Column(Integer, ForeignKey('dogs.id'), nullable=False, comment='父犬ID')
@@ -605,7 +612,8 @@ class BreedRiskMaster(Base):
     """犬種別リスクマスタテーブル"""
     __tablename__ = 'breed_risk_masters'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     breed = Column(String(100), nullable=False, index=True, comment='犬種名')
     risk_name = Column(String(200), nullable=False, comment='リスク名')
     risk_category = Column(String(50), nullable=True, comment='カテゴリ（genetic/structural/other）')
@@ -624,7 +632,8 @@ class DogHealthRecord(Base):
     """親犬の健康履歴テーブル"""
     __tablename__ = 'dog_health_records'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
     record_date = Column(Date, nullable=True, comment='記録日')
     category = Column(String(50), nullable=True, comment='カテゴリ（orthopedic/eye/heart/skin/respiratory/digestive/neurological/reproductive/other）')
@@ -645,7 +654,8 @@ class BreedingHistory(Base):
     """繁殖履歴テーブル"""
     __tablename__ = 'breeding_histories'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     store_id = Column(Integer, nullable=True, index=True)
     sire_id = Column(Integer, ForeignKey('dogs.id'), nullable=False, index=True, comment='父犬ID')
@@ -670,7 +680,8 @@ class PuppyRecord(Base):
     """産子記録テーブル"""
     __tablename__ = 'puppy_records'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     breeding_history_id = Column(Integer, ForeignKey('breeding_histories.id', ondelete='CASCADE'), nullable=False, index=True)
     puppy_id = Column(Integer, ForeignKey('dogs.id'), nullable=True, index=True, comment='犬IDと紐付け（任意）')
     sex = Column(String(10), nullable=True, comment='性別（male/female/unknown）')
@@ -692,7 +703,8 @@ class PuppyFollowUp(Base):
     """産子フォローアップテーブル"""
     __tablename__ = 'puppy_followups'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     puppy_id = Column(Integer, ForeignKey('puppy_records.id', ondelete='CASCADE'), nullable=False, index=True)
     followup_date = Column(Date, nullable=True, comment='フォローアップ日')
     age_months = Column(Integer, nullable=True, comment='月齢')
@@ -714,7 +726,8 @@ class Owner(Base):
     """飼い主テーブル（飼い主アプリ連携・認証対応）"""
     __tablename__ = 'owners'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=True, index=True)
     store_id = Column(Integer, nullable=True, index=True)
     name = Column(String(200), nullable=False, comment='飼い主名')
@@ -738,7 +751,8 @@ class OwnerDog(Base):
     """飼い主と犬の紐付けテーブル（将来の飼い主アプリ連携用）"""
     __tablename__ = 'owner_dogs'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     owner_id = Column(Integer, ForeignKey('owners.id', ondelete='CASCADE'), nullable=False, index=True)
     dog_id = Column(Integer, ForeignKey('dogs.id', ondelete='CASCADE'), nullable=False, index=True)
     nickname = Column(String(100), nullable=True, comment='愛称・呼び名')
@@ -757,7 +771,8 @@ class HealthLog(Base):
     """飼い主が記録する日常健康ログ（体重・食欲・活動量など）"""
     __tablename__ = 'health_logs'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
                           nullable=False, index=True)
     log_date = Column(Date, nullable=False, comment='記録日')
@@ -786,7 +801,8 @@ class MedicalEvent(Base):
     """通院・病気・ワクチン等の医療イベント"""
     __tablename__ = 'medical_events'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
                           nullable=False, index=True)
     event_date = Column(Date, nullable=False, comment='イベント日')
@@ -815,7 +831,8 @@ class LifeStatus(Base):
     """犬の生活ステータス変化（健康→通院→持病→死亡などを状態遷移として記録）"""
     __tablename__ = 'life_statuses'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
                           nullable=False, index=True)
     status = Column(
@@ -839,7 +856,8 @@ class DeathInfo(Base):
     """
     __tablename__ = 'death_infos'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
                           nullable=False, unique=True, index=True)
     estimated_age_range = Column(
@@ -863,7 +881,8 @@ class VaccineSchedule(Base):
     """ワクチン・予防薬のスケジュール管理"""
     __tablename__ = 'vaccine_schedules'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     owner_dog_id = Column(Integer, ForeignKey('owner_dogs.id', ondelete='CASCADE'),
                           nullable=False, index=True)
     vaccine_type = Column(String(100), nullable=False, comment='ワクチン・予防薬の種類')
@@ -880,7 +899,8 @@ class Plan(Base):
     """料金プラン定義"""
     __tablename__ = 'plans'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False, unique=True, comment='プラン名 (free/standard/pro/enterprise)')
     display_name = Column(String(100), nullable=False, comment='表示名')
     price_monthly = Column(Integer, nullable=False, default=0, comment='月額料金（円）')
@@ -897,7 +917,8 @@ class Subscription(Base):
     """テナントのサブスクリプション状態"""
     __tablename__ = 'subscriptions'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
                        nullable=False, index=True)
     plan_id = Column(Integer, ForeignKey('plans.id'), nullable=False)
@@ -920,7 +941,8 @@ class StripeCustomer(Base):
     """Stripe顧客情報"""
     __tablename__ = 'stripe_customers'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
                        nullable=False, unique=True, index=True)
     stripe_customer_id = Column(String(255), nullable=False, unique=True, comment='Stripe Customer ID')
@@ -933,7 +955,8 @@ class FeatureUsage(Base):
     """機能利用ログ（KPI計測・制限管理）"""
     __tablename__ = 'feature_usages'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
                        nullable=False, index=True)
     feature_key = Column(String(100), nullable=False, comment='機能キー (coi_calc/avk_calc/report_pdf等)')
@@ -949,7 +972,8 @@ class BreederProfile(Base):
     """ブリーダー公開プロフィール"""
     __tablename__ = 'breeder_profiles'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
                        nullable=False, unique=True, index=True)
     kennel_name = Column(String(200), nullable=True, comment='ケネル名')
@@ -969,7 +993,8 @@ class BreederScore(Base):
     """ブリーダー評価スコア（定期計算・キャッシュ）"""
     __tablename__ = 'breeder_scores'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
                        nullable=False, index=True)
     calculated_at = Column(DateTime, server_default=func.now(), index=True)
@@ -993,7 +1018,8 @@ class KpiSnapshot(Base):
     """プラットフォーム全体KPIスナップショット（日次）"""
     __tablename__ = 'kpi_snapshots'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     snapshot_date = Column(Date, nullable=False, unique=True, index=True)
     active_breeders = Column(Integer, default=0, comment='アクティブブリーダー数')
     active_owners = Column(Integer, default=0, comment='アクティブ飼い主数')
@@ -1013,7 +1039,8 @@ class BreederSearchIndex(Base):
     """ブリーダー検索用インデックス（非正規化キャッシュ）"""
     __tablename__ = 'breeder_search_index'
 
-    __table_args__ = {'extend_existing': True}    id = Column(Integer, primary_key=True, autoincrement=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
                        nullable=False, unique=True, index=True)
     kennel_name = Column(String(200), nullable=True, index=True)

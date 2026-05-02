@@ -210,7 +210,7 @@
     <h1>📝 アンケート作成・編集</h1>
     <div class="user-info">
       <span class="user-name">{{ admin.name }} ({{ admin.store_code }})</span>
-      <a href="{{ url_for('survey_app.admin_logout') }}" class="btn-logout">ログアウト</a>
+      <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" class="btn-logout">ログアウト</a>
     </div>
   </div>
 
@@ -333,7 +333,7 @@
 
       <div class="section">
         <button type="submit" class="btn-primary">保存</button>
-        <a href="{{ url_for('survey_app.admin_dashboard') }}" class="btn-secondary">キャンセル</a>
+        <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" class="btn-secondary">キャンセル</a>
       </div>
     </form>
   </div>

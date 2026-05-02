@@ -4,75 +4,250 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>アンケート設定 - {{ store_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='slot.css') }}">
+  <link rel="stylesheet" href="/static/slot.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; margin: 0; }
-    .admin-header { background: white; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-    .admin-header h1 { font-size: 20px; margin: 0; color: #1f2937; }
-    .container { max-width: 800px; margin: 32px auto; padding: 0 24px; }
-    .section { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 24px; }
-    .section h2 { font-size: 18px; margin: 0 0 20px 0; color: #1f2937; }
-    .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .card h2 { margin: 0 0 20px; font-size: 18px; color: #1a1a2e; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; font-size: 14px; }
-    .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;
-      font-size: 15px; box-sizing: border-box; background: white;
+    body {
+      background: #f3f4f6;
     }
-    .form-group textarea { min-height: 100px; resize: vertical; }
-    .form-group .hint { font-size: 13px; color: #666; margin-top: 6px; }
-    .btn-primary { background: #3b82f6; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: 600; }
-    .btn-secondary { background: #6b7280; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-danger { background: #ef4444; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; }
-    .flash-success { background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
-    .flash-error { background: #f8d7da; color: #721c24; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
-    .radio-group { display: flex; gap: 20px; flex-wrap: wrap; }
-    .radio-group label { font-weight: normal; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    /* 景品設定 */
-    .prize-header { display: grid; grid-template-columns: 1fr 1fr 1fr 2fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #6b7280; }
-    .prize-row { display: grid; grid-template-columns: 1fr 1fr 1fr 2fr auto; gap: 12px; margin-bottom: 12px; align-items: start; }
-    .prize-row input { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
-    /* スロットシンボルテーブル */
-    .slot-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .slot-table-wrapper table { width: 100%; min-width: 600px; border-collapse: collapse; }
-    .slot-table-wrapper th, .slot-table-wrapper td { padding: 8px 10px; border: 1px solid #e5e7eb; font-size: 14px; }
-    .slot-table-wrapper thead th { background: #f9fafb; font-weight: 600; color: #374151; }
+    .admin-header {
+      background: white;
+      padding: 16px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-header h1 {
+      font-size: 20px;
+      margin: 0;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 800px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+    .section {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 24px;
+    }
+    .section h2 {
+      font-size: 18px;
+      margin: 0 0 20px 0;
+      color: #1f2937;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .form-group .help-text {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+    .btn-primary {
+      padding: 12px 24px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-secondary {
+      padding: 12px 24px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      margin-left: 12px;
+    }
+    .prize-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 2fr auto;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: start;
+    }
+    .prize-row input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .btn-remove {
+      padding: 10px 16px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .prize-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 2fr auto;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    
+    /* スマホ用レイアウト */
     @media (max-width: 768px) {
-      .prize-header { display: none; }
-      .prize-row { grid-template-columns: 1fr; gap: 8px; padding: 12px; background: #f9fafb; border-radius: 8px; margin-bottom: 16px; }
-      .prize-row input { padding: 12px; }
-      .btn-danger { width: 100%; }
+      .container {
+        padding: 0 12px;
+        margin: 16px auto;
+      }
+      
+      .section {
+        padding: 16px;
+      }
+      
+      .prize-header {
+        display: none;
+      }
+      
+      .prize-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 8px;
+        margin-bottom: 16px;
+      }
+      
+      .prize-row input {
+        padding: 12px;
+      }
+      
+      .prize-row input::placeholder {
+        font-size: 13px;
+      }
+      
+      .btn-remove {
+        width: 100%;
+      }
+      
+      /* 確率計算ツールのスマホ用レイアウト */
+      .calc-tool-inputs {
+        flex-direction: column !important;
+        align-items: stretch !important;
+      }
+      
+      .calc-tool-inputs > div {
+        width: 100%;
+      }
+      
+      .calc-tool-inputs input {
+        width: 100% !important;
+      }
+      
+      .calc-tool-inputs button {
+        width: 100%;
+        margin-left: 0 !important;
+      }
+      
+      /* スロットテーブルのID列固定と横スクロール */
+      .slot-table-wrapper {
+        position: relative;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      .slot-table-wrapper table {
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+      
+      .slot-table-wrapper th:first-child,
+      .slot-table-wrapper td:first-child {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 2;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+      }
+      
+      .slot-table-wrapper thead th:first-child {
+        z-index: 3;
+      }
     }
   </style>
   <script>
     let prizeData = {{ prizes|tojson|safe }};
-    const STORE_ID = {{ store_id }};
-    const STORE_SLUG = "{{ store_slug or '' }}";
-
+    let targetProbabilities = {{ slot_cfg.target_probabilities|tojson|safe }};
+    
     function renderPrizes() {
       const container = document.getElementById('prize-list');
-      if (!container) return;
+      if (!container) return; // 要素が存在しない場合は何もしない
       container.innerHTML = `
         <div class="prize-header">
-          <div>最低点数</div><div>最高点数</div><div>等級名</div><div>景品名</div><div></div>
-        </div>`;
+          <div>最低点数</div>
+          <div>最高点数</div>
+          <div>等級名</div>
+          <div>景品名</div>
+          <div></div>
+        </div>
+      `;
+      
       prizeData.forEach((prize, index) => {
-        const maxScore = prize.max_score !== undefined && prize.max_score !== null ? prize.max_score : '';
+        const maxScore = prize.max_score !== undefined ? prize.max_score : '';
         container.innerHTML += `
           <div class="prize-row">
             <input type="number" name="prize_min_score_${index}" value="${prize.min_score}" placeholder="0" min="0">
             <input type="number" name="prize_max_score_${index}" value="${maxScore}" placeholder="無制限" min="0">
-            <input type="text" name="prize_rank_${index}" value="${prize.rank || ''}" placeholder="1等">
-            <input type="text" name="prize_name_${index}" value="${prize.name || ''}" placeholder="ランチ無料券">
-            <button type="button" class="btn-danger" onclick="removePrize(${index})">削除</button>
-          </div>`;
+            <input type="text" name="prize_rank_${index}" value="${prize.rank}" placeholder="1等">
+            <input type="text" name="prize_name_${index}" value="${prize.name}" placeholder="ランチ無料券">
+            <button type="button" class="btn-remove" onclick="removePrize(${index})">削除</button>
+          </div>
+        `;
       });
+      
+      // 隠しフィールドで景品数を送信
+      const form = container.closest('form');
+      if (!form) return; // フォームが見つからない場合は終了
+      let countInput = form.querySelector('input[name="prize_count"]');
+      if (!countInput) {
+        countInput = document.createElement('input');
+        countInput.type = 'hidden';
+        countInput.name = 'prize_count';
+        form.appendChild(countInput);
+      }
+      countInput.value = prizeData.length;
     }
-
+    
     function updatePrizeDataFromInputs() {
+      // 現在の入力値をprizeDataに反映
       const container = document.getElementById('prize-list');
       if (!container) return;
+      
       const rows = container.querySelectorAll('.prize-row');
       rows.forEach((row, index) => {
         if (index < prizeData.length) {
@@ -80,52 +255,84 @@
           const maxInput = row.querySelector('input[name^="prize_max_score_"]');
           const rankInput = row.querySelector('input[name^="prize_rank_"]');
           const nameInput = row.querySelector('input[name^="prize_name_"]');
+          
           if (minInput) prizeData[index].min_score = parseInt(minInput.value) || 0;
-          if (maxInput && maxInput.value) { prizeData[index].max_score = parseInt(maxInput.value); }
-          else { prizeData[index].max_score = undefined; }
+          if (maxInput && maxInput.value) {
+            prizeData[index].max_score = parseInt(maxInput.value);
+          } else {
+            prizeData[index].max_score = undefined;
+          }
           if (rankInput) prizeData[index].rank = rankInput.value || '';
           if (nameInput) prizeData[index].name = nameInput.value || '';
         }
       });
     }
-
+    
     function addPrizeRow() {
+      // 現在の入力値をprizeDataに反映
       updatePrizeDataFromInputs();
+      // 新しい行を追加
       prizeData.push({ min_score: 0, rank: '', name: '' });
       renderPrizes();
     }
-
+    
     function removePrize(index) {
+      // 現在の入力値をprizeDataに反映
       updatePrizeDataFromInputs();
+      // 指定された行を削除
       prizeData.splice(index, 1);
       renderPrizes();
     }
-
+    
     async function savePrizes() {
+      // 現在の入力値をprizeDataに反映
       const container = document.getElementById('prize-list');
       const rows = container.querySelectorAll('.prize-row');
+      
       const prizes = [];
-      rows.forEach((row) => {
-        const minScore = parseInt(row.querySelector('input[name^="prize_min_score_"]').value) || 0;
-        const maxScoreInput = row.querySelector('input[name^="prize_max_score_"]').value;
+      rows.forEach((row, index) => {
+        const minScore = parseInt(row.querySelector(`input[name^="prize_min_score_"]`).value) || 0;
+        const maxScoreInput = row.querySelector(`input[name^="prize_max_score_"]`).value;
         const maxScore = maxScoreInput ? parseInt(maxScoreInput) : null;
-        const rank = row.querySelector('input[name^="prize_rank_"]').value;
-        const name = row.querySelector('input[name^="prize_name_"]').value;
+        const rank = row.querySelector(`input[name^="prize_rank_"]`).value;
+        const name = row.querySelector(`input[name^="prize_name_"]`).value;
         const prize = { min_score: minScore, rank: rank, name: name };
-        if (maxScore !== null) prize.max_score = maxScore;
+        if (maxScore !== null) {
+          prize.max_score = maxScore;
+        }
         prizes.push(prize);
       });
+      
       try {
-        const response = await fetch(`/apps/survey/store/${STORE_ID}/save_prizes`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+        const response = await fetch('/admin/save_prizes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({ prizes: prizes })
         });
+        
         const data = await response.json();
-        if (data.ok) { alert('景品設定を保存しました！'); prizeData = prizes; }
-        else { alert('景品設定の保存に失敗しました: ' + (data.error || '不明なエラー')); }
-      } catch (error) { alert('景品設定の保存中にエラーが発生しました。'); }
+        
+        if (data.ok) {
+          alert('景品設定を保存しました！');
+          prizeData = prizes;
+        } else {
+          alert('景品設定の保存に失敗しました: ' + (data.error || '不明なエラー'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('景品設定の保存中にエラーが発生しました。');
+      }
     }
-
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      // prize-list要素が存在する場合のみrenderPrizesを実行
+      if (document.getElementById('prize-list')) {
+        renderPrizes();
+      }
+    });
+    
     // スロットシンボル管理
     function addSlotSymbol() {
       const tbody = document.getElementById('slot-symbols');
@@ -137,23 +344,53 @@
         <td><input type="text" name="symbol_label_${count}" value="★" style="width: 90px;"></td>
         <td><input type="number" name="symbol_payout_${count}" value="10" step="0.01" min="0" style="width: 110px;"></td>
         <td><input type="number" name="symbol_prob_${count}" value="10.0000" step="0.0001" min="0" max="100" style="width: 110px;"></td>
-        <td><input type="color" name="symbol_color_${count}" value="#888888" style="width: 60px; height: 36px;"></td>
-        <td style="text-align:center;">
-          <input type="checkbox" name="symbol_disabled_${count}">
+        <td>
+          <input type="color" name="symbol_color_${count}" value="#888888" style="width: 60px; height: 36px;">
+        </td>
+        <td style="text-align: center;">
+          <input type="checkbox" name="symbol_disabled_${count}" disabled>
           <input type="hidden" name="symbol_is_default_${count}" value="false">
         </td>
-        <td><button type="button" class="btn-danger" onclick="removeSlotSymbol(this)">削除</button></td>`;
+        <td>
+          <button type="button" class="btn-remove" onclick="removeSlotSymbol(this)">削除</button>
+        </td>
+      `;
       tbody.appendChild(newRow);
       document.getElementById('symbol_count').value = count + 1;
     }
-
+    
     function removeSlotSymbol(btn) {
-      btn.closest('tr').remove();
-      document.getElementById('symbol_count').value = document.getElementById('slot-symbols').querySelectorAll('tr').length;
+      const row = btn.closest('tr');
+      row.remove();
+      const count = document.getElementById('slot-symbols').querySelectorAll('tr').length;
+      document.getElementById('symbol_count').value = count;
     }
-
+    
     async function autoAdjustProb() {
       const rows = document.getElementById('slot-symbols').querySelectorAll('tr');
+      const symbols = [];
+      
+      rows.forEach(row => {
+        const id = row.querySelector('input[name^="symbol_id_"]').value;
+        const label = row.querySelector('input[name^="symbol_label_"]').value;
+        const payout = parseFloat(row.querySelector('input[name^="symbol_payout_"]').value) || 0;
+        const prob = parseFloat(row.querySelector('input[name^="symbol_prob_"]').value) || 0;
+        const color = row.querySelector('input[name^="symbol_color_"]').value;
+        
+        symbols.push({
+          id: id,
+          label: label,
+          payout_3: payout,
+          prob: prob,
+          color: color
+        });
+      });
+      
+      // 5回スピンの期待値とハズレ確率を取得
+      const targetExpected = parseFloat(document.getElementById('expected_total_5').value) || 100.0;
+      const missProbability = parseFloat(document.getElementById('miss_probability').value) || 0.0;
+      
+      // 不使用フラグを含めてシンボルデータを収集
       const symbolsWithFlags = [];
       rows.forEach(row => {
         const id = row.querySelector('input[name^="symbol_id_"]').value;
@@ -161,269 +398,463 @@
         const payout = parseFloat(row.querySelector('input[name^="symbol_payout_"]').value) || 0;
         const prob = parseFloat(row.querySelector('input[name^="symbol_prob_"]').value) || 0;
         const color = row.querySelector('input[name^="symbol_color_"]').value;
-        const isDisabledInput = row.querySelector('input[name^="symbol_disabled_"]');
-        const isDisabled = isDisabledInput ? isDisabledInput.checked : false;
+        const disabledCheckbox = row.querySelector('input[name^="symbol_disabled_"]');
+        const isDisabled = disabledCheckbox ? disabledCheckbox.checked : false;
         const isDefaultInput = row.querySelector('input[name^="symbol_is_default_"]');
         const isDefault = isDefaultInput ? isDefaultInput.value === 'true' : false;
-        symbolsWithFlags.push({ id, label, payout_3: payout, prob, color, is_disabled: isDisabled, is_default: isDefault });
-      });
-      const targetExpected = parseFloat(document.getElementById('expected_total_5').value) || 100.0;
-      try {
-        const response = await fetch(`/apps/survey/store/${STORE_ID}/optimize_probabilities`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbols: symbolsWithFlags, expected_total_5: targetExpected })
+        const isReachInput = row.querySelector('input[name^="symbol_is_reach_"]');
+        const isReach = isReachInput ? isReachInput.value === 'true' : false;
+        const reachSymbolInput = row.querySelector('input[name^="symbol_reach_symbol_"]');
+        const reachSymbol = reachSymbolInput ? reachSymbolInput.value : null;
+        
+        symbolsWithFlags.push({
+          id: id,
+          label: label,
+          payout_3: payout,
+          prob: prob,
+          color: color,
+          is_disabled: isDisabled,
+          is_default: isDefault,
+          is_reach: isReach,
+          reach_symbol: reachSymbol
         });
+      });
+      
+      const storeId = {{ store_id if store else 'null' }};
+      
+      try {
+        const response = await fetch(`/admin/store/${storeId}/optimize_probabilities`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            symbols: symbolsWithFlags,
+            expected_total_5: targetExpected
+          })
+        });
+        
         const data = await response.json();
+        
         if (data.ok) {
-          rows.forEach(row => {
+          // 確率を更新（IDで照合）
+          rows.forEach((row) => {
             const symbolId = row.querySelector('input[name^="symbol_id_"]').value;
             const probInput = row.querySelector('input[name^="symbol_prob_"]');
-            const matched = data.symbols.find(s => s.id === symbolId);
-            if (matched) probInput.value = matched.prob.toFixed(4);
+            
+            // data.symbolsから対応するシンボルを探す
+            const matchedSymbol = data.symbols.find(s => s.id === symbolId);
+            if (matchedSymbol) {
+              probInput.value = matchedSymbol.prob.toFixed(4);
+            }
           });
+          
           alert('確率を自動調整しました！期待値: ' + targetExpected + '点（5回スピン）');
-        } else { alert('確率の自動調整に失敗しました: ' + (data.error || '不明なエラー')); }
-      } catch (error) { alert('確率の自動調整中にエラーが発生しました。'); }
+        } else {
+          alert('確率の自動調整に失敗しました: ' + (data.error || '不明なエラー'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('確率の自動調整中にエラーが発生しました。');
+      }
     }
-
+    
     async function calculateProbability() {
       const min = parseInt(document.getElementById('calc_min').value) || 0;
       const max = parseInt(document.getElementById('calc_max').value) || 0;
-      if (min > max) { alert('最小点数は最大点数以下である必要があります。'); return; }
+      
+      if (min > max) {
+        alert('最小点数は最大点数以下である必要があります。');
+        return;
+      }
+      
+      // 現在のシンボル設定を収集
       const rows = document.getElementById('slot-symbols').querySelectorAll('tr');
       const symbols = [];
-      rows.forEach(row => {
+      
+      rows.forEach((row, index) => {
+        const id = row.querySelector('input[name^="symbol_id_"]').value;
+        const label = row.querySelector('input[name^="symbol_label_"]').value;
+        const payout = parseFloat(row.querySelector('input[name^="symbol_payout_"]').value) || 0;
+        const prob = parseFloat(row.querySelector('input[name^="symbol_prob_"]').value) || 0;
+        const color = row.querySelector('input[name^="symbol_color_"]').value;
+        
         symbols.push({
-          id: row.querySelector('input[name^="symbol_id_"]').value,
-          label: row.querySelector('input[name^="symbol_label_"]').value,
-          payout_3: parseFloat(row.querySelector('input[name^="symbol_payout_"]').value) || 0,
-          prob: parseFloat(row.querySelector('input[name^="symbol_prob_"]').value) || 0,
-          color: row.querySelector('input[name^="symbol_color_"]').value,
+          id: id,
+          label: label,
+          payout_3: payout,
+          prob: prob,
+          color: color
         });
       });
+      
+      // ハズレ確率を取得
       const missProbability = parseFloat(document.getElementById('miss_probability').value) || 0.0;
+      
       try {
-        const response = await fetch(`/apps/survey/store/${STORE_SLUG}/calc_prob`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbols, miss_probability: missProbability, threshold_min: min, threshold_max: max, spins: 5 })
+        const response = await fetch('/calc_prob', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            symbols: symbols,
+            miss_probability: missProbability,
+            threshold_min: min,
+            threshold_max: max,
+            spins: 5
+          })
         });
+        
         const data = await response.json();
+        
         if (data.prob_range !== undefined) {
-          document.getElementById('calc_prob_text').textContent = (data.prob_range * 100).toFixed(2) + '%';
+          const prob = (data.prob_range * 100).toFixed(2);
+          document.getElementById('calc_prob_text').textContent = prob + '%';
           document.getElementById('calc_result').style.display = 'block';
-        } else { alert('確率の計算に失敗しました。'); }
-      } catch (error) { alert('確率の計算中にエラーが発生しました。'); }
+        } else {
+          alert('確率の計算に失敗しました。');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('確率の計算中にエラーが発生しました。');
+      }
     }
+    
 
-    document.addEventListener('DOMContentLoaded', function() {
-      if (document.getElementById('prize-list')) renderPrizes();
-    });
   </script>
 </head>
 <body>
   <div class="admin-header">
     <h1>📋 アンケートアプリ設定</h1>
+    {% if store_id %}
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
       <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">🏠 店舗アプリ一覧</a>
-      {% if store_slug %}
+      <a href="/admin/store/{{ store_id }}/qr_print" target="_blank" style="padding: 8px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">📱 QR印刷</a>
+      <a href="/admin/store/{{ store_id }}/print_prizes" target="_blank" style="padding: 8px 16px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎁 景品一覧印刷</a>
       <a href="/apps/survey/store/{{ store_id }}/slot?demo=true" target="_blank" style="padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎰 デモプレイ</a>
-      {% endif %}
     </div>
+    {% endif %}
   </div>
+
   <div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}
-    <div class="flash-{{ category }}">{{ message }}</div>
-    {% endfor %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}" style="margin-bottom: 20px;">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
     {% endwith %}
 
-    <!-- Google口コミ・AI設定 -->
-    <form method="POST">
-      <div class="card">
-        <h2>🔗 Google口コミ設定</h2>
-        <div class="form-group">
-          <label for="google_review_url">Google口コミURL</label>
-          <input type="url" id="google_review_url" name="google_review_url"
-                 value="{{ settings.google_review_url or '' }}"
-                 placeholder="https://g.page/r/xxxxx/review">
-          <p class="hint">Googleマップの「口コミを書く」ボタンのURLを入力してください。</p>
-        </div>
+    <div class="section">
+      <h2>📝 アンケート設定</h2>
+      <p class="help-text" style="margin-bottom: 20px;">アンケートの質問項目を設定できます。</p>
+      <div style="margin-bottom: 20px;">
+        <a href="{{ url_for('survey_app.survey_editor', store_id=store_id) }}" class="btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px;">📝 アンケートを編集</a>
       </div>
-
-      <div class="card">
-        <h2>🤖 AI口コミ生成設定</h2>
-        <div class="form-group">
-          <label>口コミ投稿促進モード</label>
-          <div class="radio-group">
-            <label>
-              <input type="radio" name="ai_review_mode" value="all"
-                     {% if settings.ai_review_mode != 'high_rating_only' %}checked{% endif %}>
-              全ての評価に投稿を促す
-            </label>
-            <label>
-              <input type="radio" name="ai_review_mode" value="high_rating_only"
-                     {% if settings.ai_review_mode == 'high_rating_only' %}checked{% endif %}>
-              星4以上のみ投稿を促す
-            </label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="business_type">業種</label>
-          <select id="business_type" name="business_type">
-            <option value="" {% if not settings.business_type %}selected{% endif %}>未設定（汎用）</option>
-            <option value="飲食店（レストラン）" {% if settings.business_type == '飲食店（レストラン）' %}selected{% endif %}>飲食店（レストラン）</option>
-            <option value="カフェ・喫茶店" {% if settings.business_type == 'カフェ・喫茶店' %}selected{% endif %}>カフェ・喫茶店</option>
-            <option value="居酒屋・バー" {% if settings.business_type == '居酒屋・バー' %}selected{% endif %}>居酒屋・バー</option>
-            <option value="美容室・美容院" {% if settings.business_type == '美容室・美容院' %}selected{% endif %}>美容室・美容院</option>
-            <option value="エステ・マッサージサロン" {% if settings.business_type == 'エステ・マッサージサロン' %}selected{% endif %}>エステ・マッサージサロン</option>
-            <option value="小売店・ショップ" {% if settings.business_type == '小売店・ショップ' %}selected{% endif %}>小売店・ショップ</option>
-            <option value="医院・クリニック" {% if settings.business_type == '医院・クリニック' %}selected{% endif %}>医院・クリニック</option>
-            <option value="歯科医院" {% if settings.business_type == '歯科医院' %}selected{% endif %}>歯科医院</option>
-            <option value="フィットネスジム・スポーツクラブ" {% if settings.business_type == 'フィットネスジム・スポーツクラブ' %}selected{% endif %}>フィットネスジム・スポーツクラブ</option>
-            <option value="宿泊施設・ホテル" {% if settings.business_type == '宿泊施設・ホテル' %}selected{% endif %}>宿泊施設・ホテル</option>
-            <option value="その他" {% if settings.business_type and settings.business_type not in ['', '飲食店（レストラン）', 'カフェ・喫茶店', '居酒屋・バー', '美容室・美容院', 'エステ・マッサージサロン', '小売店・ショップ', '医院・クリニック', '歯科医院', 'フィットネスジム・スポーツクラブ', '宿泊施設・ホテル'] %}selected{% endif %}>その他</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="ai_instruction">AI追加指示（任意）</label>
-          <textarea id="ai_instruction" name="ai_instruction" placeholder="例：スタッフの名前を必ず入れてください">{{ settings.ai_instruction or '' }}</textarea>
-          <p class="hint">AIが口コミ文を生成する際の追加指示を入力できます。</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>🔑 OpenAI APIキー（任意）</h2>
-        <div class="form-group">
-          <label for="openai_api_key">OpenAI APIキー</label>
-          <input type="password" id="openai_api_key" name="openai_api_key"
-                 value="{{ settings.openai_api_key or '' }}"
-                 placeholder="sk-...（空の場合は店舗・テナント設定のキーを使用）">
-          <p class="hint">空の場合は店舗またはテナントに設定されたAPIキーを使用します。</p>
-        </div>
-      </div>
-
-      <div style="display:flex; gap:12px; margin-bottom:32px;">
-        <button type="submit" class="btn-primary">💾 基本設定を保存</button>
-        <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" class="btn-secondary">キャンセル</a>
-      </div>
-    </form>
-
-    <!-- スロット基本設定 -->
-    <form method="POST" action="{{ url_for('survey_app.save_slot_settings', store_id=store_id) }}">
-      <div class="card">
-        <h2>🎰 スロット基本設定</h2>
-        <div class="form-group">
-          <label for="survey_complete_message">アンケート完了後メッセージ</label>
-          <input type="text" id="survey_complete_message" name="survey_complete_message"
-                 value="{{ slot_settings.survey_complete_message or '' }}"
-                 placeholder="アンケートにご協力いただきありがとうございます！スロットをお楽しみください。">
-          <p class="hint">アンケート完了後、スロットページの上部に表示されるメッセージです。</p>
-        </div>
-        <div class="form-group">
-          <label for="slot_spin_count">プレイ可能セット数（1〜5）</label>
-          <input type="number" id="slot_spin_count" name="slot_spin_count"
-                 value="{{ slot_settings.slot_spin_count or 1 }}" min="1" max="5" step="1"
-                 style="width: 120px;">
-          <p class="hint">アンケート完了後に5回スピンのワンセットを何回プレイできるかを設定します。</p>
-        </div>
-        <button type="submit" class="btn-primary">💾 スロット基本設定を保存</button>
-      </div>
-    </form>
-
-    <!-- 景品設定 -->
-    <div class="card">
-      <h2>🎁 景品設定</h2>
-      <p class="hint" style="margin-bottom:16px;">スロットの合計点数に応じた等級と景品を設定できます。</p>
-      <div id="prize-list"></div>
-      <div style="display:flex; gap:12px; margin-top:8px;">
-        <button type="button" class="btn-secondary" onclick="addPrizeRow()">+ 景品を追加</button>
-        <button type="button" class="btn-primary" onclick="savePrizes()">💾 景品設定を保存</button>
+      <div class="help-text">
+        アンケートの質問内容、選択肢、必須項目などを詳細に設定できます。
       </div>
     </div>
 
-    <!-- スロット確率設定 -->
-    <form method="POST" action="{{ url_for('survey_app.save_slot_config', store_id=store_id) }}">
-      <div class="card">
-        <h2>🎰 スロット確率設定</h2>
-        <p class="hint" style="margin-bottom:16px;">スロットのシンボルと配当、確率を設定できます。確率は自動調整できます。</p>
+    <div class="section">
+      <h2>アンケート完了メッセージ</h2>
+      <form method="post">
         <div class="form-group">
-          <label for="expected_total_5">5回スピン期待値（点）</label>
-          <input type="number" id="expected_total_5" name="expected_total_5"
-                 value="{{ slot_cfg.expected_total_5 }}" step="0.01" min="0" style="width: 200px;">
-          <p class="hint">5回スピンで得られる期待合計点数です。「確率を自動調整」ボタンで使用されます。</p>
+          <label for="survey_complete_message">スロットページ表示メッセージ</label>
+          <input 
+            type="text" 
+            id="survey_complete_message" 
+            name="survey_complete_message" 
+            value="{{ slot_settings.survey_complete_message or '' }}"
+            placeholder="アンケートにご協力いただきありがとうございます！スロットをお楽しみください。"
+          >
+          <div class="help-text">
+            アンケート完了後、スロットページの緑色バナーに表示されるメッセージです。
+          </div>
         </div>
+
         <div class="form-group">
-          <label for="miss_probability">ハズレ確率（%）</label>
-          <input type="number" id="miss_probability" name="miss_probability"
-                 value="{{ slot_cfg.miss_probability }}" step="0.01" min="0" max="100" style="width: 200px;">
-          <p class="hint">1回のスピンでハズレになる確率です。</p>
+          <label for="google_review_url">Google口コミURL</label>
+          <input 
+            type="url" 
+            id="google_review_url" 
+            name="google_review_url" 
+            value="{{ settings.google_review_url or '' }}"
+            placeholder="https://search.google.com/local/writereview?placeid=YOUR_PLACE_ID"
+          >
+          <div class="help-text">
+            お店のGoogle Place IDを含むURLを設定してください。<br>
+            Place IDの取得方法: <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank">Google Places API ドキュメント</a>
+          </div>
         </div>
-        <div class="slot-table-wrapper">
-          <table>
+
+        <div class="form-group">
+          <label for="slot_spin_count">プレイ可能セット数</label>
+          <input 
+            type="number" 
+            id="slot_spin_count" 
+            name="slot_spin_count" 
+            value="{{ slot_settings.slot_spin_count or 1 }}"
+            min="1"
+            max="5"
+            step="1"
+            style="width: 200px;"
+          >
+          <div class="help-text">
+            アンケート完了後に5回スピンのワンセットを何回プレイできるかを設定します（1～5セット）。
+          </div>
+        </div>
+
+
+
+        <div class="form-group">
+          <label>⭐ 口コミ投稿促進設定</label>
+          <div style="margin-top: 12px;">
+            <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; background: #f9fafb;">
+              <input type="radio" name="review_prompt_mode" value="all" {{ 'checked' if settings.ai_review_mode != 'high_rating_only' or not review_prompt_mode else '' }} style="margin-right: 12px; width: 20px; height: 20px;">
+              <div>
+                <div style="font-weight: 600; color: #059669; margin-bottom: 4px;">✅ 全ての評価に投稿を促す（推奨）</div>
+                <div style="font-size: 13px; color: #6b7280;">
+                  Googleポリシーに準拠・リスクなし・持続可能
+                </div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; border: 2px solid #fbbf24; border-radius: 8px; background: #fffbeb;">
+              <input type="radio" name="review_prompt_mode" value="high_rating_only" {{ 'checked' if settings.ai_review_mode == 'high_rating_only' else '' }} style="margin-right: 12px; width: 20px; height: 20px;">
+              <div>
+                <div style="font-weight: 600; color: #d97706; margin-bottom: 4px;">⚠️ 星4以上のみ投稿を促す（非推奨・リスクあり）</div>
+                <div style="font-size: 13px; color: #92400e;">
+                  Googleポリシー違反・ペナルティのリスク・法的リスク
+                </div>
+              </div>
+            </label>
+          </div>
+          <div class="help-text" style="margin-top: 12px;">
+            <strong>⚠️ 重要な注意事項：</strong><br>
+            「星4以上のみ投稿を促す」設定は、Googleポリシー「<a href="https://support.google.com/contributionpolicy/answer/7400114#zippy=%2C%E8%99%9A%E5%81%BD%E3%81%AE%E3%82%A8%E3%83%B3%E3%82%B2%E3%83%BC%E3%82%B8%E3%83%A1%E3%83%B3%E3%83%88" target="_blank" style="text-decoration: underline;">虚偽のエンゲージメント</a>」に該当します。<br>
+            <strong>違反条項：</strong>「顧客からの否定的なクチコミの投稿を妨げたり禁止したり、<span style="background-color: #fff3cd; padding: 2px 4px;">肯定的なクチコミを選択的に募ったりする行為</span>」<br>
+            <strong>ペナルティ：</strong>全レビュー削除、新規レビュー受付停止、ビジネスプロフィール停止、警告表示など。<br>
+            <strong>法的リスク：</strong>景品表示法違反（優良誤認・有利誤認）により、罰金最大300万円、社名公表の恐れ。<br>
+            この行為は「レビューゲーティング」と呼ばれ、2024年には実際に行政処分の事例があります。
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary">保存</button>
+        <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" class="btn-secondary">キャンセル</a>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>🎁 景品設定</h2>
+      <p class="help-text" style="margin-bottom: 20px;">スロットの点数に応じた等級と景品を設定できます。0点の景品を設定すると「ハズレなし」になります。</p>
+      <div id="prize-list">
+        <!-- 景品設定がここに動的に追加されます -->
+      </div>
+      <button type="button" class="btn-secondary" onclick="addPrizeRow()">+ 景品を追加</button>
+      <button type="button" class="btn-primary" onclick="savePrizes()" style="margin-left: 10px;">景品設定を保存</button>
+    </div>
+
+    <div class="section">
+      <h2>🎰 スロット確率設定</h2>
+      <p class="help-text" style="margin-bottom: 20px;">スロットのシンボルと配当、確率を設定できます。確率は自動調整されますが、手動でも調整可能です。</p>
+      
+
+      <form method="post" action="{{ url_for('survey_app.save_slot_config', store_id=store_id) }}">
+        <div class="form-group">
+          <label>5回スピンの期待値</label>
+          <input type="number" id="expected_total_5" name="expected_total_5" value="{{ slot_cfg.expected_total_5 }}" step="0.01" min="0" style="width: 200px;">
+          <div class="help-text">スロットを5回スピンしたときの平均合計点数です。</div>
+        </div>
+        
+        <div class="form-group">
+          <label>ハズレ確率 (%)</label>
+          <input type="number" id="miss_probability" name="miss_probability" value="{{ slot_cfg.miss_probability }}" step="0.01" min="0" max="100" style="width: 200px;">
+          <div class="help-text">1回のスピンでハズレになる確率です。「確率を自動調整」を押すと、ハズレ確率と期待値に基づいて各シンボルが3つ揃う確率が自動計算されます。</div>
+        </div>
+        
+        <div class="slot-table-wrapper" style="overflow-x: auto;">
+          <table class="grid" style="width: 100%; min-width: 700px;">
             <thead>
               <tr>
-                <th style="width:100px;">ID</th>
-                <th style="width:100px;">表示</th>
-                <th style="width:120px;">配当</th>
-                <th style="width:120px;">抽選確率(%)</th>
-                <th style="width:80px;">色</th>
-                <th style="width:70px;">不使用</th>
-                <th style="width:60px;"></th>
+                <th style="width: 100px;">ID</th>
+                <th style="width: 100px;">表示</th>
+                <th style="width: 120px;">配当</th>
+                <th style="width: 120px;">抽選確率(%)*</th>
+                <th style="width: 100px;">色</th>
+                <th style="width: 80px;">不使用</th>
               </tr>
             </thead>
             <tbody id="slot-symbols">
               {% for symbol in slot_cfg.symbols %}
               <tr data-is-default="{{ symbol.is_default|default(false)|lower }}">
-                <td><input type="text" name="symbol_id_{{ loop.index0 }}" value="{{ symbol.id }}" style="width:90px;" {% if symbol.is_default %}readonly{% endif %}></td>
-                <td><input type="text" name="symbol_label_{{ loop.index0 }}" value="{{ symbol.label }}" style="width:90px;"></td>
-                <td><input type="number" name="symbol_payout_{{ loop.index0 }}" value="{{ symbol.payout_3 }}" step="0.01" min="0" style="width:110px;"></td>
-                <td><input type="number" name="symbol_prob_{{ loop.index0 }}" value="{{ '%.4f'|format(symbol.prob) }}" step="0.0001" min="0" max="100" style="width:110px;"></td>
-                <td><input type="color" name="symbol_color_{{ loop.index0 }}" value="{{ symbol.color }}" style="width:60px;height:36px;"></td>
-                <td style="text-align:center;">
+                <td><input type="text" name="symbol_id_{{ loop.index0 }}" value="{{ symbol.id }}" style="width: 90px;" {% if symbol.is_default %}readonly{% endif %}></td>
+                <td><input type="text" name="symbol_label_{{ loop.index0 }}" value="{{ symbol.label }}" style="width: 90px;"></td>
+                <td><input type="number" name="symbol_payout_{{ loop.index0 }}" value="{{ symbol.payout_3 }}" step="0.01" min="0" style="width: 110px;"></td>
+                <td><input type="number" name="symbol_prob_{{ loop.index0 }}" value="{{ '%.4f'|format(symbol.prob) }}" step="0.0001" min="0" max="100" style="width: 110px;"></td>
+                <td>
+                  <input type="color" name="symbol_color_{{ loop.index0 }}" value="{{ symbol.color }}" style="width: 60px; height: 36px;">
+                </td>
+                <td style="text-align: center;">
                   <input type="checkbox" name="symbol_disabled_{{ loop.index0 }}" {% if symbol.is_disabled %}checked{% endif %}>
                   <input type="hidden" name="symbol_is_default_{{ loop.index0 }}" value="{{ symbol.is_default|default(false)|lower }}">
-                </td>
-                <td>
-                  {% if not symbol.is_default %}
-                  <button type="button" class="btn-danger" onclick="removeSlotSymbol(this)">削除</button>
-                  {% endif %}
+                  <input type="hidden" name="symbol_is_reach_{{ loop.index0 }}" value="{{ symbol.is_reach|default(false)|lower }}">
+                  <input type="hidden" name="symbol_reach_symbol_{{ loop.index0 }}" value="{{ symbol.reach_symbol|default('') }}">
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p class="hint" style="margin-top:12px;">* 抽選確率：ハズレでなかった場合の各シンボルの抽選確率です。実際の発生確率は「抽選確率 × (100% - ハズレ確率)」になります。</p>
-        <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap;">
+        
+        <div class="help-text" style="margin-top: 12px;">
+          * 抽選確率：ハズレでなかった場合の各シンボルの抽選確率です。実際の発生確率は「抽選確率 × (100% - ハズレ確率)」になります。<br>
+          例：抽選確率10%、ハズレ確率20%の場合、実際の発生確率は 10% × 80% = 8% です。
+        </div>
+        
+        <div style="margin-top: 16px; display: flex; gap: 12px;">
           <button type="button" class="btn-secondary" onclick="addSlotSymbol()">+ シンボルを追加</button>
-          <button type="button" class="btn-secondary" onclick="autoAdjustProb()">⚙️ 確率を自動調整</button>
+          <button type="button" class="btn-secondary" onclick="autoAdjustProb()">確率を自動調整</button>
           <input type="hidden" name="symbol_count" id="symbol_count" value="{{ slot_cfg.symbols|length }}">
         </div>
-        <div style="margin-top:20px;">
-          <button type="submit" class="btn-primary">💾 スロット設定を保存</button>
+        
+        <div style="margin-top: 20px;">
+          <button type="submit" class="btn-primary">スロット設定を保存</button>
+        </div>
+      </form>
+      
+      <!-- 確率計算ツール -->
+      <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+        <h3 style="margin-top: 0;">📊 確率計算ツール</h3>
+        <p class="help-text">特定の点数範囲になる確率を計算します。</p>
+        
+        <div class="calc-tool-inputs" style="display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px;">
+          <div>
+            <label>最小点数</label>
+            <input type="number" id="calc_min" value="100" min="0" style="width: 120px;">
+          </div>
+          <div>
+            <label>最大点数</label>
+            <input type="number" id="calc_max" value="200" min="0" style="width: 120px;">
+          </div>
+          <div>
+            <button type="button" class="btn-secondary" onclick="calculateProbability()">確率を計算</button>
+          </div>
+        </div>
+        
+        <div id="calc_result" style="display: none; padding: 16px; background: white; border-radius: 4px; border: 1px solid #ddd;">
+          <p style="margin: 0; font-size: 16px;"><strong>結果:</strong> <span id="calc_prob_text"></span></p>
+          <p style="margin: 8px 0 0 0; color: #666; font-size: 14px;">5回スピンで合計点数が指定範囲内になる確率です。<br>
+          ※ ハズレ確率も考慮された実際の発生確率です。</p>
         </div>
       </div>
-    </form>
+    </div>
 
-    <!-- 確率計算ツール -->
-    <div class="card">
-      <h2>📊 確率計算ツール</h2>
-      <p class="hint" style="margin-bottom:16px;">特定の点数範囲になる確率を計算します（シンボルテーブルの現在の値を使用）。</p>
-      <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
-        <div>
-          <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">最小点数</label>
-          <input type="number" id="calc_min" value="100" min="0" style="width:120px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;">
+    <div class="section">
+      <h2>🏢 業種・AIコメント設定</h2>
+      <p class="help-text" style="margin-bottom: 20px;">業種を設定すると、AIが生成する口コミ文章をその業種に合わせた内容に調整します。追加の指示文でさらに細かくカスタマイズできます。</p>
+      <form method="post" action="/admin/save_ai_review_settings">
+        <input type="hidden" name="store_id" value="{{ store_id }}">
+        <div class="form-group">
+          <label for="business_type">業種</label>
+          <select id="business_type" name="business_type" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box; background: white;">
+            <option value="" {% if not settings.business_type %}selected{% endif %}>未設定（汎用）</option>
+            <option value="飲食店（レストラン）" {% if settings.business_type == '飲食店（レストラン）' %}selected{% endif %}>飲食店（レストラン）</option>
+            <option value="カフェ・喫茶店" {% if settings.business_type == 'カフェ・喫茶店' %}selected{% endif %}>カフェ・喫茶店</option>
+            <option value="居酒屋・バー" {% if settings.business_type == '居酒屋・バー' %}selected{% endif %}>居酒屋・バー</option>
+            <option value="美容室・美容院" {% if settings.business_type == '美容室・美容院' %}selected{% endif %}>美容室・美容院</option>
+            <option value="美容室（ヘアサロン）" {% if settings.business_type == '美容室（ヘアサロン）' %}selected{% endif %}>美容室（ヘアサロン）</option>
+            <option value="エステ・マッサージサロン" {% if settings.business_type == 'エステ・マッサージサロン' %}selected{% endif %}>エステ・マッサージサロン</option>
+            <option value="小売店・ショップ" {% if settings.business_type == '小売店・ショップ' %}selected{% endif %}>小売店・ショップ</option>
+            <option value="医院・クリニック" {% if settings.business_type == '医院・クリニック' %}selected{% endif %}>医院・クリニック</option>
+            <option value="歯科医院" {% if settings.business_type == '歯科医院' %}selected{% endif %}>歯科医院</option>
+            <option value="フィットネスジム・スポーツクラブ" {% if settings.business_type == 'フィットネスジム・スポーツクラブ' %}selected{% endif %}>フィットネスジム・スポーツクラブ</option>
+            <option value="学習塔・教育施設" {% if settings.business_type == '学習塔・教育施設' %}selected{% endif %}>学習塔・教育施設</option>
+            <option value="宿泊施設・ホテル" {% if settings.business_type == '宿泊施設・ホテル' %}selected{% endif %}>宿泊施設・ホテル</option>
+            <option value="自動車・バイク関連" {% if settings.business_type == '自動車・バイク関連' %}selected{% endif %}>自動車・バイク関連</option>
+            <option value="ペットショップ・トリミング" {% if settings.business_type == 'ペットショップ・トリミング' %}selected{% endif %}>ペットショップ・トリミング</option>
+            <option value="その他" {% if settings.business_type == 'その他' or (settings.business_type and settings.business_type not in ['', '飲食店（レストラン）', 'カフェ・喫茶店', '居酒屋・バー', '美容室・美容院', '美容室（ヘアサロン）', 'エステ・マッサージサロン', '小売店・ショップ', '医院・クリニック', '歯科医院', 'フィットネスジム・スポーツクラブ', '学習塔・教育施設', '宿泊施設・ホテル', '自動車・バイク関連', 'ペットショップ・トリミング']) %}selected{% endif %}>その他（自由入力）</option>
+          </select>
+          {# 「その他」選択時の自由入力欄 #}
+          {% set _known = ['', '飲食店（レストラン）', 'カフェ・喫茶店', '居酒屋・バー', '美容室・美容院', '美容室（ヘアサロン）', 'エステ・マッサージサロン', '小売店・ショップ', '医院・クリニック', '歯科医院', 'フィットネスジム・スポーツクラブ', '学習塔・教育施設', '宿泊施設・ホテル', '自動車・バイク関連', 'ペットショップ・トリミング', 'その他'] %}
+          <div id="business_type_custom_wrap" style="margin-top: 10px; display: {% if settings.business_type and settings.business_type not in _known %}block{% else %}none{% endif %};">
+            <input
+              type="text"
+              id="business_type_custom"
+              name="business_type_custom"
+              value="{{ settings.business_type if settings.business_type and settings.business_type not in _known else '' }}"
+              placeholder="業種を自由に入力してください（例：フラワーショップ、写真館など）"
+              style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box;"
+            >
+          </div>
+          <p class="help-text">業種を選択すると、AIがその業種に合った口コミ文章を生成します。</p>
         </div>
-        <div>
-          <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">最大点数</label>
-          <input type="number" id="calc_max" value="200" min="0" style="width:120px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;">
+        <script>
+        (function() {
+          var sel = document.getElementById('business_type');
+          var wrap = document.getElementById('business_type_custom_wrap');
+          var customInput = document.getElementById('business_type_custom');
+          function toggleCustom() {
+            if (sel.value === 'その他') {
+              wrap.style.display = 'block';
+              customInput.focus();
+            } else {
+              wrap.style.display = 'none';
+            }
+          }
+          sel.addEventListener('change', toggleCustom);
+
+          // フォーム送信時に「その他」の場合は自由入力値をbusiness_typeにセット
+          var form = sel.closest('form');
+          form.addEventListener('submit', function() {
+            if (sel.value === 'その他' && customInput.value.trim()) {
+              // hiddenフィールドで上書き
+              var hidden = document.createElement('input');
+              hidden.type = 'hidden';
+              hidden.name = 'business_type';
+              hidden.value = customInput.value.trim();
+              form.appendChild(hidden);
+              sel.removeAttribute('name'); // 元のselectのnameを無効化
+            }
+          });
+        })();
+        </script>
+        <div class="form-group">
+          <label for="ai_instruction">AIへの追加指示文（任意）</label>
+          <textarea
+            id="ai_instruction"
+            name="ai_instruction"
+            rows="4"
+            placeholder="例：カジュアルで親しみやすい雰囲気を強調してください。スタッフの丁寧な対応をアピールしてください。"
+            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box; resize: vertical;"
+          >{{ settings.ai_instruction or '' }}</textarea>
+          <p class="help-text">AIが口コミを生成する際の追加指示を自由に入力できます。強調したいポイントや雰囲気などを記載してください。</p>
         </div>
-        <button type="button" class="btn-secondary" onclick="calculateProbability()">確率を計算</button>
-      </div>
-      <div id="calc_result" style="display:none;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
-        <p style="margin:0;font-size:16px;"><strong>結果:</strong> <span id="calc_prob_text"></span></p>
-        <p style="margin:8px 0 0;color:#666;font-size:14px;">5回スピンで合計点数が指定範囲内になる確率です。</p>
-      </div>
+        <button type="submit" class="btn-primary">💾 業種・AI指示文を保存</button>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>🤖 OpenAI API設定（アプリ個別）</h2>
+      <p class="help-text" style="margin-bottom: 20px;">このアプリ専用のOpenAI APIキーを設定できます。未設定の場合は店舗設定またはテナント設定のキーが使用されます。</p>
+      <form method="post" action="{{ url_for('survey_app.survey_settings_view', store_id=store_id) }}">
+        <input type="hidden" name="store_id" value="{{ store_id }}">
+        <div class="form-group">
+          <label for="openai_api_key">OpenAI APIキー</label>
+          <input type="password" id="openai_api_key" name="openai_api_key" value="{{ settings.openai_api_key or '' }}" placeholder="sk-...">
+          <p class="help-text">APIキーは <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a> で取得できます。<br>優先順位: <strong>アプリ設定 > 店舗設定 > テナント設定 > 環境変数</strong></p>
+        </div>
+        <button type="submit" class="btn-primary">💾 APIキーを保存</button>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>アカウント情報</h2>
+      <p><strong>店舗コード:</strong> {{ store_slug or '' }}</p>
+      <p><strong>ログインID:</strong> {{ admin.login_id if admin else '' }}</p>
+      <p><strong>名前:</strong> {{ admin.name if admin else '' }}</p>
+      <p><strong>メールアドレス:</strong> {{ admin.email if admin else '' }}</p>
+      <p><strong>最終ログイン:</strong> {{ admin.last_login if admin and admin.last_login else '未記録' }}</p>
     </div>
   </div>
 </body>

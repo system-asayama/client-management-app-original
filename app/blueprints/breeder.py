@@ -4675,7 +4675,6 @@ def plan_upgrade():
 
     return render_template('breeder/plan_upgrade.html',
                            subscription=subscription,
-                           plan_features=PLAN_FEATURES,
                            **plan_ctx)
 
 

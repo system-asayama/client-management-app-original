@@ -379,7 +379,10 @@ def responses(store_id):
     rows = cur.fetchall()
     conn.close()
     responses_list = [{'id': r[0], 'rating': r[1], 'visit_purpose': r[2], 'atmosphere': r[3], 'recommend': r[4], 'comment': r[5], 'generated_review': r[6], 'response_json': r[7], 'created_at': r[8]} for r in rows]
-    return render_template('survey_app_responses.html', admin=admin, store_id=store_id, store_name=store_name, responses=responses_list)
+    class _Store:
+        def __init__(self, id, name): self.id = id; self.store_name = name
+    store = _Store(store_id, store_name)
+    return render_template('survey_app_responses.html', admin=admin, store_id=store_id, store_name=store_name, store=store, responses=responses_list)
 
 
 @bp.route('/store/<int:store_id>/export_csv')

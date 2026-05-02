@@ -546,3 +546,26 @@ class PedigreeAncestor(Base):
     color = Column(String(100), nullable=True, comment='毛色')
     country_prefix = Column(String(20), nullable=True, comment='国プレフィックス')
     created_at = Column(DateTime, server_default=func.now())
+
+# ─────────────────────────────────────────────
+# 交配評価結果
+# ─────────────────────────────────────────────
+class MatingEvaluation(Base):
+    """交配評価結果テーブル
+    evaluate_mating_compatibility の結果を保存する。
+    result_json に出力 JSON 全体を格納する。
+    """
+    __tablename__ = 'mating_evaluations'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=True, index=True, comment='テナントID')
+    store_id  = Column(Integer, nullable=True, index=True, comment='店舗ID')
+    sire_id   = Column(Integer, ForeignKey('dogs.id'), nullable=False, comment='父犬ID')
+    dam_id    = Column(Integer, ForeignKey('dogs.id'), nullable=False, comment='母犬ID')
+    coi       = Column(Numeric(10, 8), nullable=True, comment='近交係数（小数）')
+    coi_percent = Column(Numeric(8, 4), nullable=True, comment='近交係数（%）')
+    rank      = Column(String(2), nullable=True, comment='ランク A〜E')
+    recommendation = Column(String(100), nullable=True, comment='推奨/非推奨')
+    result_json = Column(Text, nullable=True, comment='評価結果 JSON 全体')
+    max_depth = Column(Integer, nullable=False, default=5, comment='探索世代数')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

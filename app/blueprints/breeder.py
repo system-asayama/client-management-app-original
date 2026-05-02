@@ -2084,48 +2084,43 @@ def simulation():
 
     result = None
     sire_id = dam_id = None
+    max_depth = 5
     if request.method == 'POST':
-        sire_id = request.form.get('sire_id', type=int)
-        dam_id  = request.form.get('dam_id',  type=int)
+        sire_id   = request.form.get('sire_id',   type=int)
+        dam_id    = request.form.get('dam_id',    type=int)
+        max_depth = request.form.get('max_depth', type=int, default=5) or 5
         if sire_id and dam_id:
-            coi = _calc_coi_pair(sire_id, dam_id, db)
-            sire = db.query(Dog).filter(Dog.id == sire_id).first()
-            dam  = db.query(Dog).filter(Dog.id == dam_id).first()
-            # 遺伝疾患リスク評価
-            from app.models_breeder import GeneticTestResult
-            sire_genes = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == sire_id).all()
-            dam_genes  = db.query(GeneticTestResult).filter(GeneticTestResult.dog_id == dam_id).all()
-            gene_risks = []
-            sire_map = {g.disease_name: g.result for g in sire_genes}
-            dam_map  = {g.disease_name: g.result for g in dam_genes}
-            all_diseases = set(list(sire_map.keys()) + list(dam_map.keys()))
-            for disease in all_diseases:
-                s_res = sire_map.get(disease, 'unknown')
-                d_res = dam_map.get(disease,  'unknown')
-                risk = 'low'
-                if s_res == 'affected' or d_res == 'affected':
-                    risk = 'high'
-                elif s_res == 'carrier' and d_res == 'carrier':
-                    risk = 'medium'
-                elif s_res == 'carrier' or d_res == 'carrier':
-                    risk = 'low_carrier'
-                gene_risks.append({
-                    'disease': disease,
-                    'sire': s_res,
-                    'dam': d_res,
-                    'risk': risk,
-                })
-            result = {
-                'coi': coi,
-                'coi_level': 'low' if coi < 6.25 else ('medium' if coi < 12.5 else 'high'),
-                'sire': sire,
-                'dam': dam,
-                'gene_risks': gene_risks,
-            }
+            try:
+                from app.services.breeding_logic import evaluate_mating_compatibility
+                from app.models_breeder import MatingEvaluation
+                result = evaluate_mating_compatibility(
+                    sire_id, dam_id, max_depth=max_depth, db=db, use_ai_comment=True
+                )
+                # 評価結果を DB に保存
+                try:
+                    eval_rec = MatingEvaluation(
+                        tenant_id=tenant_id,
+                        store_id=store_id,
+                        sire_id=sire_id,
+                        dam_id=dam_id,
+                        coi=result['coi'],
+                        coi_percent=result['coi_percent'],
+                        rank=result['rank'],
+                        recommendation=result['recommendation'],
+                        result_json=json.dumps(result, ensure_ascii=False, default=str),
+                        max_depth=max_depth,
+                    )
+                    db.add(eval_rec)
+                    db.commit()
+                except Exception:
+                    db.rollback()
+            except Exception as e:
+                result = {'error': str(e)}
 
     return render_template('breeder/simulation.html',
                            males=males, females=females,
-                           result=result, sire_id=sire_id, dam_id=dam_id)
+                           result=result, sire_id=sire_id, dam_id=dam_id,
+                           max_depth=max_depth)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -2150,14 +2145,25 @@ def mating_bulk():
     males   = _tf(db.query(Dog).filter(Dog.status == 'active', Dog.gender == 'male')).all()
     females = _tf(db.query(Dog).filter(Dog.status == 'active', Dog.gender == 'female')).all()
 
-    # 全ペアのCOIを計算
+    # 全ペアのCOIを breeding_logic で計算（数式ロジック）
+    from app.services.breeding_logic import calculate_coi, get_coi_rank
     matrix = []
     for dam in females:
         row = {'dam': dam, 'pairs': []}
         for sire in males:
-            coi = _calc_coi_pair(sire.id, dam.id, db)
-            level = 'low' if coi < 6.25 else ('medium' if coi < 12.5 else 'high')
-            row['pairs'].append({'sire': sire, 'coi': coi, 'level': level})
+            try:
+                coi_result = calculate_coi(sire.id, dam.id, max_depth=5, db=db)
+                coi_pct = coi_result['coi_percent']
+                rank_info = get_coi_rank(coi_pct)
+                row['pairs'].append({
+                    'sire': sire,
+                    'coi': coi_pct,
+                    'rank': rank_info['rank'],
+                    'risk_level': rank_info['risk_level'],
+                    'level': 'low' if coi_pct < 5 else ('medium' if coi_pct < 10 else 'high'),
+                })
+            except Exception:
+                row['pairs'].append({'sire': sire, 'coi': None, 'rank': '-', 'risk_level': '-', 'level': 'unknown'})
         matrix.append(row)
 
     return render_template('breeder/mating_bulk.html',

@@ -1,10 +1,11 @@
 {% extends "breeder/base.html" %}
 {% block topbar_title %}交配シミュレーション{% endblock %}
-
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">🧬 交配シミュレーション</h1>
-  <p class="page-desc">父犬・母犬を選択して、仮想子犬の近交係数（COI）と遺伝疾患リスクをシミュレーションします。</p>
+  <p class="page-desc">父犬・母犬を選択して、仮想子犬の近交係数（COI）と遺伝疾患リスクをシミュレーションします。<br>
+    <small style="color:var(--text-dim);">COIはライトの近交係数公式（数式ロジック）で厳密計算しています。AIによる推測は行いません。</small>
+  </p>
 </div>
 
 <div class="card" style="margin-bottom:1.5rem;">
@@ -35,7 +36,15 @@
           </select>
         </div>
       </div>
-      <div style="margin-top:1rem;">
+      <div style="margin-top:0.75rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;display:flex;align-items:center;gap:0.5rem;">
+          <label class="form-label" style="margin:0;white-space:nowrap;">探索世代数</label>
+          <select name="max_depth" class="form-control" style="width:auto;">
+            {% for d in [3,4,5,6,7] %}
+            <option value="{{ d }}" {% if max_depth == d %}selected{% endif %}>{{ d }}世代</option>
+            {% endfor %}
+          </select>
+        </div>
         <button type="submit" class="btn btn-primary">シミュレーション実行</button>
       </div>
     </form>
@@ -43,46 +52,146 @@
 </div>
 
 {% if result %}
+  {% if result.error is defined %}
+  <div class="alert alert-danger">エラーが発生しました: {{ result.error }}</div>
+  {% else %}
+
 <div class="card" style="margin-bottom:1.5rem;">
-  <div class="card-header">
-    <h2 class="card-title">シミュレーション結果</h2>
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+    <h2 class="card-title" style="margin:0;">シミュレーション結果</h2>
     <span style="color:var(--text-dim);font-size:0.9rem;">
-      {{ result.sire.name }} × {{ result.dam.name }}
+      {{ result.sire.name }} × {{ result.dam.name }}（{{ result.max_depth }}世代探索）
     </span>
   </div>
   <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+      {% set rank = result.rank %}
+      {% if rank == 'A' %}{% set bg='#d1fae5' %}{% set border='#6ee7b7' %}{% set fg='#065f46' %}
+      {% elif rank == 'B' %}{% set bg='#ecfdf5' %}{% set border='#a7f3d0' %}{% set fg='#065f46' %}
+      {% elif rank == 'C' %}{% set bg='#fef3c7' %}{% set border='#fcd34d' %}{% set fg='#92400e' %}
+      {% elif rank == 'D' %}{% set bg='#ffedd5' %}{% set border='#fdba74' %}{% set fg='#9a3412' %}
+      {% else %}{% set bg='#fee2e2' %}{% set border='#fca5a5' %}{% set fg='#991b1b' %}{% endif %}
 
-    <!-- COI表示 -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem;">
-      <div class="stat-card {% if result.coi_level == 'low' %}stat-card-success{% elif result.coi_level == 'medium' %}stat-card-warning{% else %}stat-card-danger{% endif %}"
-           style="padding:1.5rem;border-radius:12px;text-align:center;
-                  background:{% if result.coi_level == 'low' %}#d1fae5{% elif result.coi_level == 'medium' %}#fef3c7{% else %}#fee2e2{% endif %};
-                  border:1px solid {% if result.coi_level == 'low' %}#6ee7b7{% elif result.coi_level == 'medium' %}#fcd34d{% else %}#fca5a5{% endif %};">
-        <div style="font-size:2.5rem;font-weight:700;color:{% if result.coi_level == 'low' %}#065f46{% elif result.coi_level == 'medium' %}#92400e{% else %}#991b1b{% endif %};">
-          {{ result.coi }}%
-        </div>
-        <div style="font-size:0.9rem;margin-top:0.25rem;color:var(--text-dim);">近交係数（COI）</div>
-        <div style="margin-top:0.5rem;font-size:0.85rem;font-weight:600;
-                    color:{% if result.coi_level == 'low' %}#065f46{% elif result.coi_level == 'medium' %}#92400e{% else %}#991b1b{% endif %};">
-          {% if result.coi_level == 'low' %}✅ 低リスク（6.25%未満）
-          {% elif result.coi_level == 'medium' %}⚠️ 中リスク（6.25〜12.5%）
-          {% else %}🚨 高リスク（12.5%以上）{% endif %}
+      <div style="padding:1.5rem;border-radius:12px;text-align:center;background:{{ bg }};border:1px solid {{ border }};">
+        <div style="font-size:2.5rem;font-weight:700;color:{{ fg }};">{{ result.coi_percent }}%</div>
+        <div style="font-size:0.85rem;color:var(--text-dim);">近交係数（COI）</div>
+        <div style="margin-top:0.5rem;font-size:1.1rem;font-weight:700;color:{{ fg }};">ランク {{ rank }}</div>
+        <div style="font-size:0.8rem;color:{{ fg }};">{{ result.risk_level }}</div>
+      </div>
+
+      <div style="padding:1.5rem;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);">
+        <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">推奨判定</div>
+        <div style="font-size:1.1rem;font-weight:700;color:{{ fg }};">{{ result.recommendation }}</div>
+        <div style="font-size:0.8rem;margin-top:0.5rem;color:var(--text-dim);">
+          共通祖先: {{ result.common_ancestors | length }}頭<br>
+          近親パターン: {{ result.close_inbreeding_patterns | length }}件
         </div>
       </div>
 
       <div style="padding:1.5rem;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);">
-        <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">COIの目安</div>
-        <div style="font-size:0.8rem;line-height:1.8;">
-          <span style="color:#065f46;">● 0〜6.25%</span>：低リスク（推奨範囲）<br>
-          <span style="color:#92400e;">● 6.25〜12.5%</span>：中リスク（要注意）<br>
-          <span style="color:#991b1b;">● 12.5%以上</span>：高リスク（避けることを推奨）
+        <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.5rem;">COIランク目安</div>
+        <div style="font-size:0.78rem;line-height:1.9;">
+          <span style="color:#065f46;font-weight:600;">A</span> 0〜5%：安全寄り<br>
+          <span style="color:#065f46;font-weight:600;">B</span> 5〜10%：軽いラインブリード<br>
+          <span style="color:#92400e;font-weight:600;">C</span> 10〜15%：注意<br>
+          <span style="color:#9a3412;font-weight:600;">D</span> 15〜20%：高リスク<br>
+          <span style="color:#991b1b;font-weight:600;">E</span> 20%〜：非常に高リスク
         </div>
       </div>
     </div>
 
-    <!-- 遺伝疾患リスク -->
-    {% if result.gene_risks %}
-    <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">遺伝疾患リスク評価</h3>
+    {% if result.comment %}
+    <div style="padding:1rem;border-radius:8px;background:#f0f9ff;border:1px solid #bae6fd;margin-bottom:1rem;">
+      <div style="font-size:0.78rem;color:#0369a1;margin-bottom:0.25rem;font-weight:600;">🤖 AIアドバイス（参考）</div>
+      <div style="font-size:0.9rem;color:#0c4a6e;">{{ result.comment }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if result.warnings %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">⚠️ 警告</h2></div>
+  <div class="card-body">
+    {% for w in result.warnings %}
+    <div style="padding:0.5rem 0.75rem;border-radius:6px;background:#fef3c7;border-left:4px solid #f59e0b;margin-bottom:0.5rem;font-size:0.88rem;color:#78350f;">{{ w }}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if result.close_inbreeding_patterns %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">🚨 近親交配パターン検出</h2></div>
+  <div class="card-body">
+    {% for p in result.close_inbreeding_patterns %}
+    {% if p.severity == 'critical' %}{% set sev_bg='#fee2e2' %}{% set sev_fg='#991b1b' %}
+    {% elif p.severity == 'high' %}{% set sev_bg='#ffedd5' %}{% set sev_fg='#9a3412' %}
+    {% else %}{% set sev_bg='#fef3c7' %}{% set sev_fg='#92400e' %}{% endif %}
+    <div style="padding:0.5rem 0.75rem;border-radius:6px;background:{{ sev_bg }};border-left:4px solid {{ sev_fg }};margin-bottom:0.5rem;font-size:0.88rem;color:{{ sev_fg }};">
+      <strong>{{ p.type }}</strong>{% if p.ancestor_name %} — {{ p.ancestor_name }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if result.common_ancestors %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">🐾 共通祖先（{{ result.common_ancestors | length }}頭）</h2></div>
+  <div class="card-body">
+    <div style="overflow-x:auto;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>祖先名</th>
+            <th>父犬側世代</th>
+            <th>母犬側世代</th>
+            <th>出現パターン</th>
+            <th>寄与率</th>
+            <th>祖先自身のCOI</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ca in result.common_ancestors %}
+          <tr>
+            <td><strong>{{ ca.name }}</strong></td>
+            <td>{{ ca.sire_generations | join(', ') }}世代</td>
+            <td>{{ ca.dam_generations | join(', ') }}世代</td>
+            <td>{{ ca.patterns | join(', ') }}</td>
+            <td><strong>{{ ca.contribution_percent }}%</strong></td>
+            <td>{{ ca.ancestor_inbreeding_percent }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <details style="margin-top:0.75rem;">
+      <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-dim);">計算式の詳細を表示</summary>
+      <div style="margin-top:0.5rem;font-size:0.82rem;color:var(--text-dim);padding:0.75rem;background:var(--surface-2);border-radius:6px;">
+        <p>ライトの近交係数公式：<code>F_X = Σ_A Σ (1/2)^(n1+n2+1) × (1 + F_A)</code></p>
+        {% for ca in result.common_ancestors %}
+        <p><strong>{{ ca.name }}</strong></p>
+        <ul>{% for path in ca.paths %}<li>{{ path.formula }} = {{ path.contribution_percent }}%</li>{% endfor %}</ul>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+</div>
+{% else %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-body">
+    <div style="padding:0.75rem;border-radius:6px;background:#d1fae5;border-left:4px solid #6ee7b7;font-size:0.88rem;color:#065f46;">
+      ✅ 共通祖先は見つかりませんでした（{{ result.max_depth }}世代以内）。
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">🧪 遺伝疾患リスク評価</h2></div>
+  <div class="card-body">
+    {% if result.genetic_disease_risks %}
     <div style="overflow-x:auto;">
       <table class="table">
         <thead>
@@ -91,30 +200,33 @@
             <th>父犬（{{ result.sire.name }}）</th>
             <th>母犬（{{ result.dam.name }}）</th>
             <th>子犬リスク</th>
+            <th>説明</th>
           </tr>
         </thead>
         <tbody>
-          {% for gr in result.gene_risks %}
+          {% for gr in result.genetic_disease_risks %}
           <tr>
-            <td>{{ gr.disease }}</td>
+            <td>{{ gr.disease_name }}</td>
             <td>
-              {% if gr.sire == 'clear' %}<span class="badge badge-success">クリア</span>
-              {% elif gr.sire == 'carrier' %}<span class="badge badge-warning">キャリア</span>
-              {% elif gr.sire == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
+              {% if gr.sire_status == 'clear' %}<span class="badge badge-success">クリア</span>
+              {% elif gr.sire_status == 'carrier' %}<span class="badge badge-warning">キャリア</span>
+              {% elif gr.sire_status == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
               {% else %}<span class="badge badge-secondary">不明</span>{% endif %}
             </td>
             <td>
-              {% if gr.dam == 'clear' %}<span class="badge badge-success">クリア</span>
-              {% elif gr.dam == 'carrier' %}<span class="badge badge-warning">キャリア</span>
-              {% elif gr.dam == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
+              {% if gr.dam_status == 'clear' %}<span class="badge badge-success">クリア</span>
+              {% elif gr.dam_status == 'carrier' %}<span class="badge badge-warning">キャリア</span>
+              {% elif gr.dam_status == 'affected' %}<span class="badge badge-danger">アフェクテッド</span>
               {% else %}<span class="badge badge-secondary">不明</span>{% endif %}
             </td>
             <td>
-              {% if gr.risk == 'high' %}<span class="badge badge-danger">🚨 高リスク</span>
-              {% elif gr.risk == 'medium' %}<span class="badge badge-warning">⚠️ 中リスク（25%発症）</span>
-              {% elif gr.risk == 'low_carrier' %}<span class="badge badge-info">キャリア可能性あり</span>
-              {% else %}<span class="badge badge-success">✅ 低リスク</span>{% endif %}
+              {% if gr.risk == 'very_high' %}<span class="badge badge-danger">🚨 非常に高リスク</span>
+              {% elif gr.risk == 'high' %}<span class="badge badge-danger">🚨 高リスク</span>
+              {% elif gr.risk == 'low_carrier' %}<span class="badge badge-warning">⚠️ キャリア可能性</span>
+              {% elif gr.risk == 'unknown_warning' %}<span class="badge badge-secondary">❓ 検査未確認</span>
+              {% else %}<span class="badge badge-success">✅ クリア</span>{% endif %}
             </td>
+            <td style="font-size:0.82rem;color:var(--text-dim);">{{ gr.message }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -123,17 +235,52 @@
     {% else %}
     <div class="alert alert-info">遺伝疾患検査データが登録されていません。犬の詳細ページから遺伝疾患検査結果を登録してください。</div>
     {% endif %}
+  </div>
+</div>
 
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">📋 評価サマリー</h2></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div>
+        <h3 style="font-size:0.9rem;font-weight:600;color:#065f46;margin-bottom:0.5rem;">✅ ポジティブポイント</h3>
+        {% for p in result.positive_points %}
+        <div style="padding:0.4rem 0.6rem;border-radius:5px;background:#d1fae5;margin-bottom:0.35rem;font-size:0.85rem;color:#065f46;">{{ p }}</div>
+        {% endfor %}
+      </div>
+      <div>
+        <h3 style="font-size:0.9rem;font-weight:600;color:#991b1b;margin-bottom:0.5rem;">❌ ネガティブポイント</h3>
+        {% for p in result.negative_points %}
+        <div style="padding:0.4rem 0.6rem;border-radius:5px;background:#fee2e2;margin-bottom:0.35rem;font-size:0.85rem;color:#991b1b;">{{ p }}</div>
+        {% else %}
+        <div style="font-size:0.85rem;color:var(--text-dim);">特になし</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if result.improvement_suggestions %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">💡 改善提案</h2></div>
+  <div class="card-body">
+    {% for s in result.improvement_suggestions %}
+    <div style="padding:0.5rem 0.75rem;border-radius:6px;background:#f0f9ff;border-left:4px solid #38bdf8;margin-bottom:0.5rem;font-size:0.88rem;color:#0c4a6e;">{{ s }}</div>
+    {% endfor %}
   </div>
 </div>
 {% endif %}
 
+  {% endif %}
+{% endif %}
+
 <style>
 .badge { display:inline-block;padding:0.2rem 0.6rem;border-radius:99px;font-size:0.78rem;font-weight:600; }
-.badge-success { background:#d1fae5;color:#065f46; }
-.badge-warning { background:#fef3c7;color:#92400e; }
-.badge-danger  { background:#fee2e2;color:#991b1b; }
-.badge-info    { background:#dbeafe;color:#1e40af; }
+.badge-success   { background:#d1fae5;color:#065f46; }
+.badge-warning   { background:#fef3c7;color:#92400e; }
+.badge-danger    { background:#fee2e2;color:#991b1b; }
+.badge-info      { background:#dbeafe;color:#1e40af; }
 .badge-secondary { background:var(--surface-3);color:var(--text-dim); }
+details summary::-webkit-details-marker { display:none; }
 </style>
 {% endblock %}

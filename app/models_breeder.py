@@ -919,7 +919,7 @@ class Subscription(Base):
 
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'),
                        nullable=False, index=True)
     plan_id = Column(Integer, ForeignKey('plans.id'), nullable=False)
     status = Column(
@@ -943,7 +943,7 @@ class StripeCustomer(Base):
 
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'),
                        nullable=False, unique=True, index=True)
     stripe_customer_id = Column(String(255), nullable=False, unique=True, comment='Stripe Customer ID')
     email = Column(String(255), nullable=True)
@@ -957,7 +957,7 @@ class FeatureUsage(Base):
 
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'),
                        nullable=False, index=True)
     feature_key = Column(String(100), nullable=False, comment='機能キー (coi_calc/avk_calc/report_pdf等)')
     used_at = Column(DateTime, server_default=func.now(), index=True)
@@ -974,7 +974,7 @@ class BreederProfile(Base):
 
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'),
                        nullable=False, unique=True, index=True)
     kennel_name = Column(String(200), nullable=True, comment='ケネル名')
     location_prefecture = Column(String(50), nullable=True, comment='都道府県')
@@ -995,7 +995,7 @@ class BreederScore(Base):
 
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'),
                        nullable=False, index=True)
     calculated_at = Column(DateTime, server_default=func.now(), index=True)
     total_score = Column(Integer, nullable=False, default=0, comment='総合スコア（0-100）')
@@ -1041,7 +1041,7 @@ class BreederSearchIndex(Base):
 
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'),
                        nullable=False, unique=True, index=True)
     kennel_name = Column(String(200), nullable=True, index=True)
     location_prefecture = Column(String(50), nullable=True, index=True)
@@ -1058,7 +1058,7 @@ class PlanChangeLog(Base):
     __tablename__ = 'plan_change_logs'
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False, index=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id', ondelete='CASCADE'), nullable=False, index=True)
     from_plan_id = Column(Integer, ForeignKey('plans.id'), nullable=True)
     to_plan_id = Column(Integer, ForeignKey('plans.id'), nullable=False)
     status = Column(String(50), nullable=True, comment='変更後のステータス')

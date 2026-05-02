@@ -5010,7 +5010,7 @@ def _sync_plan_guard_cache(db):
     try:
         from app.models_breeder import Plan
         from app.services import plan_guard
-        plans = db.query(Plan).filter(Plan.is_active == True).all()
+        plans = db.query(Plan).filter(Plan.is_active == 1).all()
         for p in plans:
             if p.name in plan_guard.PLAN_FEATURES:
                 plan_guard.PLAN_FEATURES[p.name]['display_name'] = p.display_name
@@ -5036,7 +5036,7 @@ def admin_tenant_plans():
     from app.models_breeder import Plan, Subscription
     from app.models_login import TTenant
 
-    plans = db.query(Plan).filter(Plan.is_active == True).order_by(Plan.sort_order, Plan.id).all()
+    plans = db.query(Plan).filter(Plan.is_active == 1).order_by(Plan.sort_order, Plan.id).all()
     plans_map = {p.id: p for p in plans}
 
     tenants = db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()

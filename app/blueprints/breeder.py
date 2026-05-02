@@ -4736,7 +4736,7 @@ def admin_kpi_dashboard():
 
 
 @bp.route('/api/admin/kpi/snapshot', methods=['POST'])
-@require_roles('owner', 'system_admin')
+@require_roles('owner', 'system_admin', 'tenant_admin')
 def api_create_kpi_snapshot():
     """KPIスナップショットを手動作成するAPI"""
     from app.models_breeder import KpiSnapshot
@@ -4778,7 +4778,7 @@ def api_create_kpi_snapshot():
 
 
 @bp.route('/api/admin/kpi/summary')
-@require_roles('owner', 'system_admin')
+@require_roles('owner', 'system_admin', 'tenant_admin')
 def api_kpi_summary():
     """KPIサマリーを返すAPI"""
     from app.models_breeder import KpiSnapshot

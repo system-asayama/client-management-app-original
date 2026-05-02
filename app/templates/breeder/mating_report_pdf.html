@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>交配評価レポート #{{ evaluation.id }}</title>
+<style>
+body { font-family: sans-serif; font-size: 12px; color: #333; margin: 20px; }
+h1 { font-size: 18px; border-bottom: 2px solid #333; padding-bottom: 5px; }
+h2 { font-size: 14px; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-top: 15px; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+th { background: #f0f0f0; }
+.score-big { font-size: 36px; font-weight: bold; }
+.warning { color: orange; }
+.good { color: green; }
+.bad { color: red; }
+.section { margin-bottom: 15px; }
+.caution { background: #fff3cd; padding: 8px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<h1>交配評価レポート #{{ evaluation.id }}</h1>
+<div class="section">
+  <table>
+    <tr><th>父犬</th><td>{{ sire.name if sire else '-' }}{% if sire and sire.breed %} ({{ sire.breed }}){% endif %}</td>
+        <th>母犬</th><td>{{ dam.name if dam else '-' }}{% if dam and dam.breed %} ({{ dam.breed }}){% endif %}</td></tr>
+  </table>
+</div>
+<h2>総合評価</h2>
+<div class="section">
+  <span class="score-big">{{ result.total_score or '-' }}点</span>
+  <strong style="font-size:16px;margin-left:10px;">{{ result.judgment or '-' }}</strong>
+  <table style="margin-top:10px;">
+    <tr><th>COI</th><td>{{ result.coi_percent|round(2) if result.coi_percent is not none else '-' }}%（ランク {{ result.rank or '-' }}）</td>
+        <th>AVK</th><td>{{ result.avk.avk_percent|round(1) if result.avk else '-' }}%</td></tr>
+  </table>
+  {% if report_text.summary %}<p>{{ report_text.summary }}</p>{% endif %}
+  {% if report_text.detail %}<p>{{ report_text.detail }}</p>{% endif %}
+</div>
+{% if result.score_breakdown %}
+<h2>スコア内訳</h2>
+<table>
+  <tr><th>COI（25点）</th><td>{{ result.score_breakdown.coi or 0 }}</td>
+      <th>AVK（15点）</th><td>{{ result.score_breakdown.avk or 0 }}</td></tr>
+  <tr><th>遺伝病リスク（20点）</th><td>{{ result.score_breakdown.genetic_disease or 0 }}</td>
+      <th>健康履歴（15点）</th><td>{{ result.score_breakdown.health_history or 0 }}</td></tr>
+  <tr><th>繁殖履歴（10点）</th><td>{{ result.score_breakdown.breeding_history or 0 }}</td>
+      <th>産子実績（10点）</th><td>{{ result.score_breakdown.offspring_performance or 0 }}</td></tr>
+  <tr><th>犬種別検査充足度（5点）</th><td>{{ result.score_breakdown.breed_risk or 0 }}</td><td colspan="2"></td></tr>
+</table>
+{% if result.forced_deductions %}
+{% for d in result.forced_deductions %}<p class="bad">強制減点: {{ d.reason }}（{{ d.deduction }}点）</p>{% endfor %}
+{% endif %}
+{% endif %}
+{% if result.genetic_disease_risks %}
+<h2>遺伝病リスク</h2>
+<table>
+  <tr><th>疾患名</th><th>リスク</th></tr>
+  {% for r in result.genetic_disease_risks %}
+  <tr><td>{{ r.disease_name }}</td><td>{{ r.risk_label or r.risk }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% if result.warnings %}
+<h2>警告</h2>
+{% for ww in result.warnings %}<p class="warning">⚠ {{ ww }}</p>{% endfor %}
+{% endif %}
+{% if report_text.improvements %}
+<h2>改善提案</h2>
+{% for s in report_text.improvements %}<p>→ {{ s }}</p>{% endfor %}
+{% endif %}
+<div class="caution">
+  <strong>注意事項：</strong>{{ report_text.caution or '本評価は参考情報です。最終的な交配判断は必ず獣医師にご相談ください。' }}
+</div>
+</body>
+</html>

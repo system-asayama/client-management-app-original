@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>口コミ投稿確認</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='slot.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='survey.css') }}">
+  <style>
+    .review-box {
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      position: relative;
+    }
+    .review-header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.75rem;
+    }
+    .review-text {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #1f2937;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .copy-btn {
+      padding: 0.5rem 1rem;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover {
+      background: #4f46e5;
+    }
+    .copy-btn.copied {
+      background: #10b981;
+    }
+    .regenerate-section {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #fef3c7;
+      border-radius: 8px;
+      border: 1px solid #fbbf24;
+    }
+    .taste-selector {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0;
+    }
+    .taste-btn {
+      padding: 0.5rem 1rem;
+      background: white;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .taste-btn:hover {
+      border-color: #6366f1;
+      background: #f0f0ff;
+    }
+    .taste-btn.active {
+      background: #6366f1;
+      color: white;
+      border-color: #6366f1;
+    }
+    .regenerate-btn {
+      padding: 0.75rem 1.5rem;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .regenerate-btn:hover {
+      background: #d97706;
+    }
+    .regenerate-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .rating-display {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    }
+    .star-filled {
+      color: #fbbf24;
+    }
+    .star-empty {
+      color: #d1d5db;
+    }
+    .info-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+    .info-box.success {
+      background: #f0fdf4;
+      border-left-color: #10b981;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .action-buttons button,
+    .action-buttons a.primary {
+      flex: 1;
+      min-width: 200px;
+      padding: 1rem;
+      font-size: 1.1rem;
+    }
+    .action-buttons a.primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    @media (max-width: 640px) {
+      .action-buttons {
+        flex-direction: column;
+      }
+      .action-buttons button,
+      .action-buttons a.primary {
+        width: 100%;
+      }
+      .review-header {
+        justify-content: center;
+      }
+      .copy-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <h1>📝 口コミ投稿確認</h1>
+  </header>
+
+  <main class="wrap survey-container">
+    <section class="survey-card">
+      <h2 style="text-align:center;margin-bottom:1rem">アンケートありがとうございます！</h2>
+      
+      <!-- 評価表示 -->
+      <div class="rating-display">
+        <span style="color:#6b7280;font-weight:600">あなたの評価:</span>
+        {% for i in range(1, 6) %}
+          {% if i <= rating %}
+            <span class="star-filled">★</span>
+          {% else %}
+            <span class="star-empty">★</span>
+          {% endif %}
+        {% endfor %}
+        <span style="color:#1f2937;font-weight:600">({{ rating }}つ星)</span>
+      </div>
+
+      <!-- AIが生成した口コミ文 -->
+      <h3 style="margin-top:1.5rem;margin-bottom:0.75rem">AIが作成した口コミ投稿文</h3>
+      <div class="review-box">
+        <div class="review-header">
+          <button class="copy-btn" id="copy-btn" onclick="copyReview()">コピー</button>
+        </div>
+        <div class="review-text" id="review-text">{{ generated_review }}</div>
+      </div>
+
+      <!-- 口コミ再生成セクション -->
+      <div class="regenerate-section">
+        <p style="margin:0 0 0.5rem 0;font-weight:600;color:#92400e">
+          🔄 口コミを再作成する
+        </p>
+        <p style="margin:0 0 0.75rem 0;font-size:0.9rem;color:#78350f">
+          お好みのテイストを選んで、口コミを再生成できます
+        </p>
+        <div class="taste-selector">
+          <button class="taste-btn" data-taste="polite" onclick="selectTaste('polite')">丁寧</button>
+          <button class="taste-btn" data-taste="casual" onclick="selectTaste('casual')">カジュアル</button>
+          <button class="taste-btn active" data-taste="balanced" onclick="selectTaste('balanced')">バランス型</button>
+          <button class="taste-btn" data-taste="enthusiastic" onclick="selectTaste('enthusiastic')">熱量高め</button>
+          <button class="taste-btn" data-taste="concise" onclick="selectTaste('concise')">簡潔</button>
+        </div>
+        <button class="regenerate-btn" id="regenerate-btn" onclick="regenerateReview()">
+          <span id="regenerate-text">口コミを再作成</span>
+        </button>
+      </div>
+
+      {% if show_review_button %}
+        <!-- 設定に基づいてGoogle口コミへの誘導を表示 -->
+        {% if rating >= 4 %}
+          <div class="info-box">
+            <p style="margin:0;font-weight:600;color:#1f2937">
+              ⭐ 高評価をありがとうございます！<br>
+              よろしければGoogle口コミへの投稿にご協力ください。
+            </p>
+          </div>
+        {% else %}
+          <div class="info-box">
+            <p style="margin:0;font-weight:600;color:#1f2937">
+              💬 貴重なご意見ありがとうございます！<br>
+              よろしければGoogle口コミへの投稿にもご協力ください。
+            </p>
+          </div>
+        {% endif %}
+
+        <div class="action-buttons">
+          <a class="primary big" href="{{ google_review_url }}" target="_blank" onclick="copyReview()">
+            🌐 Google口コミに投稿する
+          </a>
+          <button class="sub big" onclick="goToSlot()">
+            🎰 スロットへ進む
+          </button>
+        </div>
+
+        <p style="text-align:center;color:#6b7280;margin-top:1rem;font-size:0.9rem">
+          ※「コピー」ボタンで投稿文をコピーしてからGoogle口コミページへ移動します
+        </p>
+
+      {% else %}
+        <!-- 設定によりGoogle口コミへの誘導を表示しない -->
+        <div class="info-box success">
+          <p style="margin:0;font-weight:600;color:#1f2937">
+            ✅ 貴重なご意見ありがとうございます！<br>
+            いただいたフィードバックは社内で改善に活用させていただきます。
+          </p>
+        </div>
+
+        <div class="action-buttons">
+          <button class="primary big" onclick="goToSlot()" style="width:100%">
+            🎰 スロットへ進む
+          </button>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+
+  <script>
+    const generatedReview = {{ generated_review|tojson }};
+    const rating = {{ rating }};
+    const storeSlug = "{{ store_slug }}";
+    const storeId = {{ store.id }};
+    // Google口コミのURL（実際のお店のPlace IDに置き換える必要があります）
+    // 例: https://search.google.com/local/writereview?placeid=YOUR_PLACE_ID
+    const googleReviewUrl = "{{ google_review_url }}";
+    
+    let selectedTaste = 'balanced';
+
+    function copyReview() {
+      const reviewText = document.getElementById('review-text').innerText;
+      navigator.clipboard.writeText(reviewText).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'コピー完了！';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'コピー';
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        alert('コピーに失敗しました: ' + err);
+      });
+    }
+
+    function goToGoogleReview() {
+      // 投稿文を自動コピー
+      copyReview();
+      
+      // 少し待ってからGoogle口コミページを新しいタブで開く
+      setTimeout(() => {
+        if (googleReviewUrl && googleReviewUrl !== '#') {
+          window.open(googleReviewUrl, '_blank');
+        } else {
+          alert('Google口コミのURLが設定されていません。管理者にお問い合わせください。');
+        }
+        // 自動遷移を削除：お客様が自分で「スロットへ進む」ボタンを押すまで待つ
+      }, 500);
+    }
+
+    function goToSlot() {
+      // 投稿文を自動コピー
+      copyReview();
+      
+      // 少し待ってからスロットページに遷移
+      setTimeout(() => {
+        window.location.href = '/apps/survey/store/{{ store.id }}/thanks';
+      }, 500);
+    }
+
+    function selectTaste(taste) {
+      selectedTaste = taste;
+      // すべてのボタンからactiveクラスを削除
+      document.querySelectorAll('.taste-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      // 選択されたボタンにactiveクラスを追加
+      document.querySelector(`[data-taste="${taste}"]`).classList.add('active');
+    }
+
+    async function regenerateReview() {
+      const btn = document.getElementById('regenerate-btn');
+      const btnText = document.getElementById('regenerate-text');
+      
+      // ボタンを無効化してローディング表示
+      btn.disabled = true;
+      btnText.innerHTML = '<span class="loading-spinner"></span> 生成中...';
+      
+      try {
+        const response = await fetch(`/apps/survey/store/${storeId}/regenerate_review`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            taste: selectedTaste
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          // 口コミテキストを更新
+          document.getElementById('review-text').innerText = data.generated_review;
+          
+          // 成功メッセージを表示
+          btnText.textContent = '再作成完了！';
+          setTimeout(() => {
+            btnText.textContent = '口コミを再作成';
+          }, 2000);
+        } else {
+          alert('口コミの再生成に失敗しました: ' + (data.error || '不明なエラー'));
+          btnText.textContent = '口コミを再作成';
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('口コミの再生成に失敗しました: ' + error.message);
+        btnText.textContent = '口コミを再作成';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QRコード印刷 - {{ store.name }}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f3f4f6;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .tab:hover {
+      background: #f9fafb;
+    }
+    .tab.active {
+      background: #3b82f6;
+      color: white;
+      border-color: #3b82f6;
+    }
+    .print-version {
+      display: none;
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .print-version.active {
+      display: block;
+    }
+    .print-actions {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      padding: 10px 20px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .btn:hover {
+      background: #2563eb;
+    }
+    
+    /* シンプル版 */
+    .simple-version {
+      text-align: center;
+    }
+    .simple-version h2 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+    .simple-version .qr-container {
+      display: inline-block;
+      padding: 40px;
+      background: white;
+    }
+    
+    /* ポスター版 */
+    .poster-version {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+      padding: 60px 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+    }
+    .poster-version h2 {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+    .poster-version .subtitle {
+      font-size: 24px;
+      margin-bottom: 40px;
+      opacity: 0.9;
+    }
+    .poster-version .qr-container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-bottom: 30px;
+    }
+    .poster-version .instructions {
+      font-size: 20px;
+      line-height: 1.6;
+    }
+    
+    /* カード版 */
+    .cards-version {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .card {
+      border: 2px dashed #cbd5e1;
+      padding: 30px;
+      text-align: center;
+      background: white;
+      border-radius: 8px;
+    }
+    .card h3 {
+      font-size: 20px;
+      margin-bottom: 15px;
+      color: #1f2937;
+    }
+    .card .qr-container {
+      margin-bottom: 15px;
+    }
+    .card .url {
+      font-size: 12px;
+      color: #6b7280;
+      word-break: break-all;
+    }
+    
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .header, .tabs, .print-actions {
+        display: none !important;
+      }
+      .print-version {
+        box-shadow: none;
+        padding: 0;
+      }
+      .cards-version {
+        page-break-inside: avoid;
+      }
+      .card {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📱 QRコード印刷</h1>
+      <p>店舗: {{ store.name }}</p>
+      <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">アンケートURL: {{ survey_url }}</p>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('simple')">シンプル版</div>
+      <div class="tab" onclick="switchTab('poster')">ポスター版</div>
+      <div class="tab" onclick="switchTab('cards')">カード版</div>
+    </div>
+    
+    <!-- シンプル版 -->
+    <div id="simple" class="print-version active">
+      <div class="print-actions">
+        <button class="btn" onclick="window.print()">🖨️ 印刷</button>
+      </div>
+      <div class="simple-version">
+        <h2>{{ store.name }}</h2>
+        <p style="font-size: 18px; margin-bottom: 30px; color: #6b7280;">アンケートにご協力ください</p>
+        <div class="qr-container">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data={{ survey_url|urlencode }}" alt="QR Code" style="width: 400px; height: 400px;">
+        </div>
+        <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">{{ survey_url }}</p>
+      </div>
+    </div>
+    
+    <!-- ポスター版 -->
+    <div id="poster" class="print-version">
+      <div class="print-actions">
+        <button class="btn" onclick="window.print()">🖨️ 印刷</button>
+      </div>
+      <div class="poster-version">
+        <h2>🎁 アンケートに答えて<br>スロットに挑戦！</h2>
+        <p class="subtitle">{{ store.name }}</p>
+        <div class="qr-container">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={{ survey_url|urlencode }}" alt="QR Code" style="width: 300px; height: 300px;">
+        </div>
+        <div class="instructions">
+          📱 スマホでQRコードを読み取って<br>
+          アンケートにご協力ください！<br>
+          <strong style="font-size: 24px; display: block; margin-top: 20px;">豪華景品が当たるチャンス！</strong>
+        </div>
+      </div>
+    </div>
+    
+    <!-- カード版 -->
+    <div id="cards" class="print-version">
+      <div class="print-actions">
+        <button class="btn" onclick="window.print()">🖨️ 印刷</button>
+      </div>
+      <div class="cards-version">
+        <div class="card">
+          <h3>{{ store.name }}</h3>
+          <p style="font-size: 14px; margin-bottom: 15px;">アンケートにご協力ください</p>
+          <div class="qr-container">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ survey_url|urlencode }}" alt="QR Code" style="width: 150px; height: 150px;">
+          </div>
+          <p class="url">{{ survey_url }}</p>
+        </div>
+        <div class="card">
+          <h3>{{ store.name }}</h3>
+          <p style="font-size: 14px; margin-bottom: 15px;">アンケートにご協力ください</p>
+          <div class="qr-container">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ survey_url|urlencode }}" alt="QR Code" style="width: 150px; height: 150px;">
+          </div>
+          <p class="url">{{ survey_url }}</p>
+        </div>
+        <div class="card">
+          <h3>{{ store.name }}</h3>
+          <p style="font-size: 14px; margin-bottom: 15px;">アンケートにご協力ください</p>
+          <div class="qr-container">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ survey_url|urlencode }}" alt="QR Code" style="width: 150px; height: 150px;">
+          </div>
+          <p class="url">{{ survey_url }}</p>
+        </div>
+        <div class="card">
+          <h3>{{ store.name }}</h3>
+          <p style="font-size: 14px; margin-bottom: 15px;">アンケートにご協力ください</p>
+          <div class="qr-container">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ survey_url|urlencode }}" alt="QR Code" style="width: 150px; height: 150px;">
+          </div>
+          <p class="url">{{ survey_url }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script>
+    const surveyUrl = "{{ survey_url }}";
+    
+    // タブ切り替え
+    function switchTab(version) {
+      // タブのアクティブ状態を更新
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // コンテンツの表示切り替え
+      document.querySelectorAll('.print-version').forEach(div => div.classList.remove('active'));
+      document.getElementById(version).classList.add('active');
+    }
+    
+    // QRコード生成
+    function generateQR(elementId, size) {
+      const canvas = document.getElementById(elementId);
+      new QRCode(canvas, {
+        text: surveyUrl,
+        width: size,
+        height: size,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+    
+    // ページ読み込み時にQRコードを生成
+    document.addEventListener('DOMContentLoaded', () => {
+      // QRCodeライブラリが読み込まれるまで少し待つ
+      setTimeout(() => {
+        generateQR('qr-simple', 400);
+        generateQR('qr-poster', 300);
+        generateQR('qr-card-1', 150);
+        generateQR('qr-card-2', 150);
+        generateQR('qr-card-3', 150);
+        generateQR('qr-card-4', 150);
+      }, 100);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+{% extends "breeder/base.html" %}
+{% block title %}健康ダッシュボード - {{ dog.name }}{% endblock %}
+{% block content %}
+<div class="owner-dashboard">
+  <!-- ヘッダー -->
+  <div class="dog-header card">
+    <div class="dog-avatar">🐕</div>
+    <div class="dog-info">
+      <h2>{{ dog.nickname or dog.name }}</h2>
+      <p class="breed">{{ dog.breed or '犬種未登録' }}</p>
+      {% if dog.birth_date %}
+      <p class="age">{{ dog.birth_date }} 生まれ</p>
+      {% endif %}
+    </div>
+    <span class="status-badge status-{{ current_status }}">
+      {% if current_status == 'healthy' %}健康
+      {% elif current_status == 'under_treatment' %}通院中
+      {% elif current_status == 'chronic_condition' %}持病あり
+      {% elif current_status == 'deceased' %}虹の橋
+      {% else %}不明{% endif %}
+    </span>
+  </div>
+
+  <!-- シニア通知 -->
+  {% if senior_info and senior_info.notification %}
+  <div class="alert alert-senior">
+    <span class="alert-icon">🐾</span>
+    {{ senior_info.notification }}
+  </div>
+  {% endif %}
+
+  <!-- ワクチンアラート -->
+  {% if vaccine_alerts %}
+  <div class="section">
+    <h3>💉 予防・ワクチンアラート</h3>
+    {% for alert in vaccine_alerts %}
+    <div class="alert alert-{{ alert.urgency }}">
+      <strong>{{ alert.vaccine_type }}</strong>
+      {% if alert.urgency == 'overdue' %}
+        <span class="badge badge-danger">期限切れ</span>
+      {% elif alert.urgency == 'urgent' %}
+        <span class="badge badge-warning">あと{{ alert.days_until }}日</span>
+      {% else %}
+        <span class="badge badge-info">あと{{ alert.days_until }}日</span>
+      {% endif %}
+      <small>{{ alert.scheduled_date }}</small>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- 体重グラフ -->
+  <div class="section">
+    <h3>⚖️ 体重推移</h3>
+    {% if weight_trend.current_weight %}
+    <div class="weight-summary">
+      <div class="weight-current">
+        <span class="weight-value">{{ weight_trend.current_weight }}</span>
+        <span class="weight-unit">kg</span>
+      </div>
+      <div class="weight-trend trend-{{ weight_trend.trend }}">
+        {% if weight_trend.trend == 'increasing' %}↑ 増加傾向
+        {% elif weight_trend.trend == 'decreasing' %}↓ 減少傾向
+        {% else %}→ 安定{% endif %}
+      </div>
+    </div>
+    <canvas id="weightChart" height="200"></canvas>
+    {% else %}
+    <p class="empty-message">体重記録がありません。<a href="{{ url_for('breeder.owner_health_log_new', owner_dog_id=owner_dog_id) }}">記録する</a></p>
+    {% endif %}
+  </div>
+
+  <!-- 最近の医療イベント -->
+  <div class="section">
+    <h3>🏥 最近の通院・病気</h3>
+    {% if recent_medical_events %}
+    {% for ev in recent_medical_events %}
+    <div class="medical-event-card {% if not ev.resolved %}active{% endif %}">
+      <div class="event-header">
+        <span class="event-category">
+          {% if ev.category == 'illness' %}🤒
+          {% elif ev.category == 'vaccine' %}💉
+          {% elif ev.category == 'checkup' %}🩺
+          {% elif ev.category == 'surgery' %}🔪
+          {% else %}📋{% endif %}
+        </span>
+        <span class="event-title">{{ ev.title }}</span>
+        {% if not ev.resolved %}<span class="badge badge-warning">対応中</span>{% endif %}
+      </div>
+      <small class="event-date">{{ ev.event_date }}</small>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="empty-message">記録なし</p>
+    {% endif %}
+    <a href="{{ url_for('breeder.owner_medical_event_new', owner_dog_id=owner_dog_id) }}" class="btn btn-outline btn-block">+ 通院・病気を記録</a>
+  </div>
+
+  <!-- クイックアクション -->
+  <div class="quick-actions">
+    <a href="{{ url_for('breeder.owner_health_log_new', owner_dog_id=owner_dog_id) }}" class="quick-btn">
+      <span class="quick-icon">📊</span>
+      <span>健康記録</span>
+    </a>
+    <a href="{{ url_for('breeder.owner_status_update', owner_dog_id=owner_dog_id) }}" class="quick-btn">
+      <span class="quick-icon">🔄</span>
+      <span>状態更新</span>
+    </a>
+    <a href="{{ url_for('breeder.owner_vaccine_list', owner_dog_id=owner_dog_id) }}" class="quick-btn">
+      <span class="quick-icon">💉</span>
+      <span>予防管理</span>
+    </a>
+    <a href="{{ url_for('breeder.owner_medical_event_list', owner_dog_id=owner_dog_id) }}" class="quick-btn">
+      <span class="quick-icon">🏥</span>
+      <span>通院履歴</span>
+    </a>
+  </div>
+</div>
+
+<style>
+.owner-dashboard { max-width: 480px; margin: 0 auto; padding: 12px; }
+.card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.dog-header { display: flex; align-items: center; gap: 12px; }
+.dog-avatar { font-size: 48px; }
+.dog-info h2 { margin: 0; font-size: 20px; }
+.dog-info p { margin: 2px 0; color: #666; font-size: 13px; }
+.status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-left: auto; }
+.status-healthy { background: #e8f5e9; color: #2e7d32; }
+.status-under_treatment { background: #fff3e0; color: #e65100; }
+.status-chronic_condition { background: #fce4ec; color: #c62828; }
+.status-deceased { background: #ede7f6; color: #4527a0; }
+.section { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.section h3 { margin: 0 0 12px; font-size: 16px; }
+.alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.alert-senior { background: #e3f2fd; color: #1565c0; }
+.alert-overdue { background: #ffebee; color: #c62828; }
+.alert-urgent { background: #fff3e0; color: #e65100; }
+.alert-upcoming { background: #e8f5e9; color: #2e7d32; }
+.badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.badge-danger { background: #ffcdd2; color: #c62828; }
+.badge-warning { background: #ffe0b2; color: #e65100; }
+.badge-info { background: #e3f2fd; color: #1565c0; }
+.weight-summary { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.weight-value { font-size: 32px; font-weight: bold; color: #1a237e; }
+.weight-unit { font-size: 14px; color: #666; }
+.trend-increasing { color: #e65100; }
+.trend-decreasing { color: #1565c0; }
+.trend-stable { color: #2e7d32; }
+.medical-event-card { padding: 10px; border-radius: 8px; background: #f5f5f5; margin-bottom: 8px; }
+.medical-event-card.active { background: #fff8e1; border-left: 3px solid #ffa000; }
+.event-header { display: flex; align-items: center; gap: 8px; }
+.event-title { font-size: 14px; font-weight: 500; flex: 1; }
+.event-date { color: #888; font-size: 12px; }
+.empty-message { color: #999; font-size: 13px; text-align: center; padding: 12px 0; }
+.btn-outline { display: block; text-align: center; padding: 8px; border: 1px solid #1a237e; color: #1a237e; border-radius: 8px; margin-top: 8px; font-size: 14px; text-decoration: none; }
+.btn-block { width: 100%; box-sizing: border-box; }
+.quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.quick-btn { background: #fff; border-radius: 12px; padding: 12px 4px; text-align: center; text-decoration: none; color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.08); font-size: 12px; }
+.quick-icon { display: block; font-size: 24px; margin-bottom: 4px; }
+</style>
+
+<script>
+{% if weight_trend.data_points %}
+const ctx = document.getElementById('weightChart').getContext('2d');
+const labels = {{ weight_trend.data_points | map(attribute='date') | list | tojson }};
+const data = {{ weight_trend.data_points | map(attribute='weight') | list | tojson }};
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: '体重 (kg)',
+      data: data,
+      borderColor: '#1a237e',
+      backgroundColor: 'rgba(26,35,126,0.1)',
+      tension: 0.3,
+      pointRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: false, title: { display: true, text: 'kg' } }
+    }
+  }
+});
+{% endif %}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}

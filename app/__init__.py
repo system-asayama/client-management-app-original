@@ -22,7 +22,7 @@ try:
     
     # ログインシステムの自動マイグレーション実行
     try:
-        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration, run_truck_schedule_migration, run_truck_store_id_migration
+        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration, run_truck_schedule_migration, run_truck_store_id_migration, run_platform_table_migrations
         run_auto_migrations()
         print("✅ ログインシステム自動マイグレーション完了")
         run_truck_doc_migrations()
@@ -35,6 +35,8 @@ try:
         print("✅ 運行スケジュールテーブルマイグレーション完了")
         run_truck_store_id_migration()
         print("✅ トラック・ドライバー store_id マイグレーション完了")
+        run_platform_table_migrations()
+        print("✅ プラットフォームテーブルマイグレーション完了")
     except Exception as e:
         print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
 except Exception as e:
@@ -569,6 +571,21 @@ def create_app() -> Flask:
         print("✅ survey_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ survey_app blueprint 登録エラー: {e}")
+    # QR印刷・景品印刷ルート登録
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+        from qr_print_routes import register_qr_print_routes
+        register_qr_print_routes(app)
+        print("✅ qr_print_routes 登録完了")
+    except Exception as e:
+        print(f"⚠️ qr_print_routes 登録エラー: {e}")
+    try:
+        from prize_print_routes import register_prize_print_routes
+        register_prize_print_routes(app)
+        print("✅ prize_print_routes 登録完了")
+    except Exception as e:
+        print(f"⚠️ prize_print_routes 登録エラー: {e}")
     # スタンプカード blueprint登録
     try:
         from .blueprints.stampcard_app import bp as stampcard_app_bp
@@ -590,6 +607,13 @@ def create_app() -> Flask:
         print("✅ shortstay blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ shortstay blueprint 登録エラー: {e}")
+    # 飼い主アプリ blueprint登録
+    try:
+        from .blueprints.owner import bp as owner_bp
+        app.register_blueprint(owner_bp)
+        print("✅ owner blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ owner blueprint 登録エラー: {e}")
     # カスタムJinja2フィルター
     import json as _json
     @app.template_filter('from_json')

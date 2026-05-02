@@ -208,3 +208,4 @@ __marimo__/
 
 # SQLite database directory
 database/
+*.bak

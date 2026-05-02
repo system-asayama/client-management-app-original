@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ブリーダー検索 | BreederOS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f13; --bg-card: #16161e; --border: #2a2a38; --border-light: #333344;
+      --text: #e8e8f0; --text-muted: #8888a8;
+      --accent: #c9a96e; --accent-light: #e0c48a;
+      --green: #4caf7d; --blue: #5b8dee;
+      --font-sans: 'Noto Sans JP', system-ui, sans-serif;
+    }
+    body { font-family: var(--font-sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+    .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+    .header-logo { font-size: 1.2rem; font-weight: 700; color: var(--accent-light); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+    .search-hero { text-align: center; padding: 3rem 1rem 2rem; }
+    .search-hero h1 { font-size: 2rem; color: var(--accent-light); margin-bottom: 0.5rem; }
+    .search-hero p { color: var(--text-muted); }
+    .search-form {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;
+      display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 160px; }
+    .form-label { font-size: 0.8rem; color: var(--text-muted); }
+    .form-control {
+      background: #1e1e2a; border: 1px solid var(--border-light);
+      color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.9rem;
+    }
+    .form-control:focus { outline: none; border-color: var(--accent); }
+    .btn {
+      padding: 0.55rem 1.25rem; border-radius: 6px; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; border: none; transition: 0.18s ease;
+    }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent-light); }
+    .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .results-count { color: var(--text-muted); font-size: 0.9rem; }
+    .breeder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
+    .breeder-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.25rem;
+      transition: border-color 0.18s ease, transform 0.18s ease;
+      text-decoration: none; color: var(--text); display: block;
+    }
+    .breeder-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .breeder-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .breeder-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--accent); color: #000;
+      font-size: 1.1rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .breeder-name { font-weight: 600; font-size: 1rem; }
+    .breeder-location { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .score-bar { margin: 0.75rem 0; }
+    .score-bar-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .score-bar-track { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .score-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; }
+    .breeds-list { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+    .breed-tag {
+      background: rgba(91,141,238,0.1); color: var(--blue);
+      border: 1px solid rgba(91,141,238,0.25);
+      padding: 0.15rem 0.5rem; border-radius: 99px; font-size: 0.72rem;
+    }
+    .empty-state { text-align: center; padding: 4rem 1rem; color: var(--text-muted); }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 99px; font-size: 0.7rem; font-weight: 600; }
+    .badge-gold { background: rgba(201,169,110,0.2); color: var(--accent-light); border: 1px solid var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-logo">🐾 BreederOS</div>
+    <span style="color:var(--text-muted);font-size:0.85rem;">ブリーダー検索</span>
+  </div>
+
+  <div class="container">
+    <div class="search-hero">
+      <h1>ブリーダーを探す</h1>
+      <p>信頼できるブリーダーを地域・犬種から検索できます</p>
+    </div>
+
+    <form class="search-form" method="GET" action="{{ url_for('breeder.breeder_search') }}">
+      <div class="form-group">
+        <label class="form-label">キーワード</label>
+        <input type="text" name="q" class="form-control" value="{{ keyword }}" placeholder="ケンネル名など">
+      </div>
+      <div class="form-group">
+        <label class="form-label">都道府県</label>
+        <select name="prefecture" class="form-control">
+          <option value="">すべて</option>
+          {% for pref in prefectures %}
+            <option value="{{ pref }}" {{ 'selected' if prefecture == pref }}>{{ pref }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">検索</button>
+    </form>
+
+    <div class="results-header">
+      <div class="results-count">{{ results|length }}件のブリーダーが見つかりました</div>
+    </div>
+
+    {% if results %}
+    <div class="breeder-grid">
+      {% for item in results %}
+      {% set p = item.profile %}
+      {% set s = item.score %}
+      <a href="{{ url_for('breeder.public_breeder_profile', tenant_id=p.tenant_id) }}" class="breeder-card">
+        <div class="breeder-card-header">
+          <div class="breeder-avatar">{{ p.kennel_name[0] if p.kennel_name else '?' }}</div>
+          <div>
+            <div class="breeder-name">
+              {{ p.kennel_name }}
+              {% if p.is_verified %}<span class="badge badge-gold">✓</span>{% endif %}
+            </div>
+            <div class="breeder-location">
+              {% if p.location_prefecture %}📍 {{ p.location_prefecture }}{% endif %}
+              {% if p.years_experience %} ・ {{ p.years_experience }}年{% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if s %}
+        <div class="score-bar">
+          <div class="score-bar-label">
+            <span>総合スコア</span>
+            <span>{{ "%.0f"|format(s.total_score) }} / 100</span>
+          </div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width:{{ s.total_score }}%"></div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if p.main_breeds %}
+        <div class="breeds-list">
+          {% for breed in p.main_breeds[:3] %}
+            <span class="breed-tag">{{ breed }}</span>
+          {% endfor %}
+          {% if p.main_breeds|length > 3 %}
+            <span class="breed-tag">+{{ p.main_breeds|length - 3 }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>条件に一致するブリーダーが見つかりませんでした。</p>
+      <p style="margin-top:0.5rem;font-size:0.85rem;">検索条件を変えてお試しください。</p>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

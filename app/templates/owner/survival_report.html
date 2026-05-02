@@ -1,0 +1,153 @@
+{% extends "breeder/base.html" %}
+{% block title %}生存分析レポート{% endblock %}
+{% block content %}
+<div class="report-container">
+  <h2>📈 生存分析レポート</h2>
+  <p class="subtitle">カプランマイヤー推定による生存曲線（実データ基づく）</p>
+
+  <div class="filter-bar">
+    <form method="GET">
+      <label>犬種：</label>
+      <input type="text" name="breed" value="{{ breed or '' }}" placeholder="全犬種">
+      <button type="submit" class="btn-sm">絞り込み</button>
+    </form>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ km.n_total }}</div>
+      <div class="stat-label">対象頭数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ km.n_events }}</div>
+      <div class="stat-label">死亡確認</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ km.n_censored }}</div>
+      <div class="stat-label">生存中（打ち切り）</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">
+        {% if km.median_lifespan_months %}
+          {{ (km.median_lifespan_months / 12) | round(1) }}歳
+        {% else %}未達{% endif %}
+      </div>
+      <div class="stat-label">中央生存期間</div>
+    </div>
+  </div>
+
+  <div class="confidence-badge confidence-{{ km.confidence_level }}">
+    データ信頼度: {{ km.confidence_level }}
+    {% if km.confidence_level == 'insufficient' %}（データ不足）
+    {% elif km.confidence_level == 'very_low' %}（非常に低い・参考値）
+    {% elif km.confidence_level == 'low' %}（低い・参考値）
+    {% elif km.confidence_level == 'medium' %}（中程度）
+    {% elif km.confidence_level == 'high' %}（高い）{% endif %}
+  </div>
+
+  {% if km.survival_curve %}
+  <div class="chart-section">
+    <h3>生存曲線</h3>
+    <canvas id="survivalChart" height="250"></canvas>
+  </div>
+
+  <div class="table-section">
+    <h3>生存率テーブル</h3>
+    <table class="survival-table">
+      <thead>
+        <tr>
+          <th>月齢</th>
+          <th>年齢</th>
+          <th>生存率</th>
+          <th>95%CI</th>
+          <th>リスク集合</th>
+          <th>死亡数</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for point in km.survival_curve %}
+        <tr>
+          <td>{{ point.age_months }}ヶ月</td>
+          <td>{{ (point.age_months / 12) | round(1) }}歳</td>
+          <td><strong>{{ (point.survival_rate * 100) | round(1) }}%</strong></td>
+          <td>
+            {% if point.ci_lower is defined %}
+              {{ (point.ci_lower * 100) | round(1) }}% - {{ (point.ci_upper * 100) | round(1) }}%
+            {% else %}-{% endif %}
+          </td>
+          <td>{{ point.n_at_risk }}</td>
+          <td>{{ point.n_events }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>📊 生存分析データがまだありません。</p>
+    <p>飼い主が健康データを共有することで自動的に蓄積されます。</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.report-container { max-width: 800px; margin: 0 auto; padding: 16px; }
+.report-container h2 { font-size: 22px; margin-bottom: 4px; }
+.subtitle { color: #666; font-size: 13px; margin-bottom: 16px; }
+.filter-bar { background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.filter-bar input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+.btn-sm { padding: 6px 12px; background: #1a237e; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #fff; border-radius: 10px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.stat-value { font-size: 24px; font-weight: bold; color: #1a237e; }
+.stat-label { font-size: 11px; color: #666; margin-top: 4px; }
+.confidence-badge { padding: 6px 14px; border-radius: 20px; font-size: 13px; display: inline-block; margin-bottom: 16px; }
+.confidence-insufficient, .confidence-very_low { background: #ffebee; color: #c62828; }
+.confidence-low { background: #fff3e0; color: #e65100; }
+.confidence-medium { background: #e8f5e9; color: #2e7d32; }
+.confidence-high { background: #e3f2fd; color: #1565c0; }
+.chart-section, .table-section { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.chart-section h3, .table-section h3 { font-size: 15px; margin-bottom: 12px; }
+.survival-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.survival-table th { background: #f5f5f5; padding: 8px; text-align: center; border-bottom: 2px solid #ddd; }
+.survival-table td { padding: 7px 8px; text-align: center; border-bottom: 1px solid #eee; }
+.empty-state { text-align: center; padding: 40px; color: #999; }
+@media (max-width: 480px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if km.survival_curve %}
+const labels = {{ km.survival_curve | map(attribute='age_months') | list | tojson }};
+const survivalData = {{ km.survival_curve | map(attribute='survival_rate') | list | tojson }};
+{% if km.survival_curve[0].ci_lower is defined %}
+const ciLower = {{ km.survival_curve | map(attribute='ci_lower') | list | tojson }};
+const ciUpper = {{ km.survival_curve | map(attribute='ci_upper') | list | tojson }};
+{% endif %}
+new Chart(document.getElementById('survivalChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: labels.map(m => m + 'ヶ月'),
+    datasets: [
+      {
+        label: '生存率',
+        data: survivalData.map(v => (v * 100).toFixed(1)),
+        borderColor: '#1a237e',
+        backgroundColor: 'rgba(26,35,126,0.1)',
+        stepped: 'before',
+        tension: 0,
+        pointRadius: 3,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: { min: 0, max: 100, title: { display: true, text: '生存率 (%)' } },
+      x: { title: { display: true, text: '月齢' } }
+    }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

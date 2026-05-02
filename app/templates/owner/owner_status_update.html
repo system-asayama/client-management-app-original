@@ -1,0 +1,104 @@
+{% extends "breeder/base.html" %}
+{% block title %}状態更新 - {{ dog.name }}{% endblock %}
+{% block content %}
+<div class="form-container">
+  <h2>🔄 現在の状態を教えてください</h2>
+  <p class="subtitle">{{ dog.nickname or dog.name }} の現在の状態を選択してください</p>
+  <form method="POST" action="{{ url_for('breeder.owner_status_update_create', owner_dog_id=owner_dog_id) }}">
+    <input type="hidden" name="owner_dog_id" value="{{ owner_dog_id }}">
+    <input type="hidden" name="status_date" value="{{ today }}">
+    <div class="status-options">
+      <label class="status-option status-healthy">
+        <input type="radio" name="status" value="healthy" {% if current_status == 'healthy' %}checked{% endif %}>
+        <span class="status-icon">😊</span>
+        <span class="status-label">元気・健康</span>
+        <span class="status-desc">特に問題なし</span>
+      </label>
+      <label class="status-option status-under_treatment">
+        <input type="radio" name="status" value="under_treatment" {% if current_status == 'under_treatment' %}checked{% endif %}>
+        <span class="status-icon">🏥</span>
+        <span class="status-label">通院・治療中</span>
+        <span class="status-desc">現在治療を受けている</span>
+      </label>
+      <label class="status-option status-chronic">
+        <input type="radio" name="status" value="chronic_condition" {% if current_status == 'chronic_condition' %}checked{% endif %}>
+        <span class="status-icon">💊</span>
+        <span class="status-label">持病あり</span>
+        <span class="status-desc">継続的な管理が必要</span>
+      </label>
+      <label class="status-option status-deceased">
+        <input type="radio" name="status" value="deceased" {% if current_status == 'deceased' %}checked{% endif %}>
+        <span class="status-icon">🌈</span>
+        <span class="status-label">虹の橋を渡った</span>
+        <span class="status-desc">お別れしました</span>
+      </label>
+    </div>
+    <!-- 死亡時の追加情報（選択式のみ・個人情報なし） -->
+    <div id="deceased-section" style="display:none;">
+      <div class="form-group">
+        <label>おおよその年齢（選択してください）</label>
+        <div class="age-options">
+          {% for r in ['0-1歳','1-3歳','3-7歳','7-10歳','10歳以上'] %}
+          <label class="age-option">
+            <input type="radio" name="estimated_age_range" value="{{ r }}">
+            <span>{{ r }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-group">
+        <label>原因（任意・選択式）</label>
+        <select name="cause_category">
+          <option value="unknown">わからない</option>
+          <option value="natural">老衰</option>
+          <option value="illness">病気</option>
+          <option value="accident">事故</option>
+          <option value="euthanasia">安楽死</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>メモ（任意）</label>
+      <textarea name="notes" rows="2" placeholder="気になることがあれば..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">更新する</button>
+    <a href="{{ url_for('breeder.owner_dashboard', owner_dog_id=owner_dog_id) }}" class="btn btn-outline btn-block">キャンセル</a>
+  </form>
+</div>
+<style>
+.form-container { max-width: 480px; margin: 0 auto; padding: 16px; }
+.form-container h2 { font-size: 20px; margin-bottom: 4px; }
+.subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+.status-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.status-option { display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid #eee; border-radius: 12px; cursor: pointer; }
+.status-option input { display: none; }
+.status-option:has(input:checked) { border-color: #1a237e; background: #e8eaf6; }
+.status-icon { font-size: 28px; }
+.status-label { font-weight: 600; font-size: 15px; }
+.status-desc { font-size: 12px; color: #888; margin-left: auto; }
+.age-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.age-option { padding: 8px 14px; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 13px; }
+.age-option:has(input:checked) { background: #e8eaf6; border-color: #1a237e; color: #1a237e; }
+.age-option input { display: none; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+.btn { padding: 12px; border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center; text-decoration: none; display: block; margin-bottom: 8px; }
+.btn-primary { background: #1a237e; color: #fff; border: none; }
+.btn-outline { background: #fff; color: #1a237e; border: 1px solid #1a237e; }
+.btn-block { width: 100%; box-sizing: border-box; }
+</style>
+<script>
+document.querySelectorAll('input[name="status"]').forEach(r => {
+  r.addEventListener('change', function() {
+    document.getElementById('deceased-section').style.display =
+      this.value === 'deceased' ? 'block' : 'none';
+  });
+});
+// 初期表示
+const checked = document.querySelector('input[name="status"]:checked');
+if (checked && checked.value === 'deceased') {
+  document.getElementById('deceased-section').style.display = 'block';
+}
+</script>
+{% endblock %}

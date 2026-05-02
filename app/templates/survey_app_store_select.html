@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店舗選択 - アンケートシステム</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='survey.css') }}">
+    <style>
+        body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .header { background: #2563a8; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+        .header h1 { margin: 0; font-size: 1.2rem; }
+        .container { max-width: 600px; margin: 40px auto; padding: 0 16px; }
+        .card { background: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .card h2 { margin: 0 0 8px; font-size: 1.3rem; color: #1a1a1a; }
+        .card p { color: #666; margin: 0 0 24px; }
+        .store-list { display: flex; flex-direction: column; gap: 12px; }
+        .store-btn {
+            display: block;
+            padding: 16px 20px;
+            background: #f0f7ff;
+            border: 2px solid #2563a8;
+            border-radius: 8px;
+            color: #2563a8;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            text-align: center;
+            transition: background 0.2s, color 0.2s;
+        }
+        .store-btn:hover { background: #2563a8; color: white; }
+        .no-stores { color: #888; text-align: center; padding: 24px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span style="font-size:1.5rem;">📝</span>
+        <h1>アンケートシステム</h1>
+        <span style="margin-left:auto; font-size:0.9rem;">{{ admin.name }}</span>
+    </div>
+    <div class="container">
+        <div class="card">
+            <h2>店舗を選択してください</h2>
+            <p>アンケートを管理する店舗を選択してください。</p>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" style="padding:10px;margin-bottom:12px;border-radius:6px;background:{% if category=='error' %}#fee2e2{% else %}#d1fae5{% endif %};color:{% if category=='error' %}#dc2626{% else %}#065f46{% endif %};">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            {% endwith %}
+            {% if stores %}
+            <div class="store-list">
+                {% for store in stores %}
+                <a class="store-btn" href="{{ url_for('survey_app.dashboard', store_id=store.id) }}">
+                    🏪 {{ store.name }}
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-stores">
+                <p>利用可能な店舗がありません。</p>
+                <p>テナント管理者に店舗の登録を依頼してください。</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,80 @@
+{% extends "breeder/base.html" %}
+{% block title %}通院・病気記録 - {{ dog.name }}{% endblock %}
+{% block content %}
+<div class="form-container">
+  <h2>🏥 通院・病気を記録</h2>
+  <p class="subtitle">{{ dog.nickname or dog.name }} の医療記録を追加します</p>
+  <form method="POST" action="{{ url_for('breeder.owner_medical_event_create', owner_dog_id=owner_dog_id) }}">
+    <input type="hidden" name="owner_dog_id" value="{{ owner_dog_id }}">
+    <div class="form-group">
+      <label>日付</label>
+      <input type="date" name="event_date" value="{{ today }}" required>
+    </div>
+    <div class="form-group">
+      <label>種類</label>
+      <div class="category-options">
+        <label class="cat-btn"><input type="radio" name="category" value="illness" checked> 🤒 病気</label>
+        <label class="cat-btn"><input type="radio" name="category" value="injury"> 🩹 怪我</label>
+        <label class="cat-btn"><input type="radio" name="category" value="vaccine"> 💉 ワクチン</label>
+        <label class="cat-btn"><input type="radio" name="category" value="checkup"> 🩺 健診</label>
+        <label class="cat-btn"><input type="radio" name="category" value="surgery"> 🔪 手術</label>
+        <label class="cat-btn"><input type="radio" name="category" value="dental"> 🦷 歯科</label>
+        <label class="cat-btn"><input type="radio" name="category" value="other"> 📋 その他</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>病名・内容 <span class="required">*</span></label>
+      <input type="text" name="title" required placeholder="例: 胃腸炎、混合ワクチン接種">
+    </div>
+    <div class="form-group">
+      <label>重症度</label>
+      <select name="severity">
+        <option value="">選択してください</option>
+        <option value="mild">軽度</option>
+        <option value="moderate">中程度</option>
+        <option value="severe">重度</option>
+        <option value="critical">重篤</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>
+        <input type="checkbox" name="diagnosed_by_vet" value="1"> 獣医師に診てもらった
+      </label>
+    </div>
+    <div class="form-group">
+      <label>治療内容</label>
+      <textarea name="treatment" rows="2" placeholder="処方薬・処置内容など"></textarea>
+    </div>
+    <div class="form-group">
+      <label>
+        <input type="checkbox" name="resolved" value="1"> 回復・解決済み
+      </label>
+    </div>
+    <div class="form-group">
+      <label>メモ</label>
+      <textarea name="notes" rows="2" placeholder="その他気になること..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">記録する</button>
+    <a href="{{ url_for('breeder.owner_dashboard', owner_dog_id=owner_dog_id) }}" class="btn btn-outline btn-block">キャンセル</a>
+  </form>
+</div>
+<style>
+.form-container { max-width: 480px; margin: 0 auto; padding: 16px; }
+.form-container h2 { font-size: 20px; margin-bottom: 4px; }
+.subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.form-group input[type="date"], .form-group input[type="text"], .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;
+}
+.category-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-btn { padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 13px; }
+.cat-btn:has(input:checked) { background: #e8eaf6; border-color: #1a237e; color: #1a237e; }
+.cat-btn input { display: none; }
+.required { color: #c62828; }
+.btn { padding: 12px; border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center; text-decoration: none; display: block; margin-bottom: 8px; }
+.btn-primary { background: #1a237e; color: #fff; border: none; }
+.btn-outline { background: #fff; color: #1a237e; border: 1px solid #1a237e; }
+.btn-block { width: 100%; box-sizing: border-box; }
+</style>
+{% endblock %}

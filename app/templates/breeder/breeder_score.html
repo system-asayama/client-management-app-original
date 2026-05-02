@@ -1,0 +1,127 @@
+{% extends "breeder/base.html" %}
+{% block title %}評価スコア{% endblock %}
+{% block topbar_title %}ブリーダー評価スコア{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">ブリーダー評価スコア</h1>
+  <p class="page-desc">繁殖データの質・健康管理・遺伝多様性などを総合的に評価したスコアです。</p>
+</div>
+
+{% if score %}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="card stat-card">
+    <div class="stat-value" style="font-size:2.5rem;color:var(--accent-light);">{{ "%.0f"|format(score.total_score) }}</div>
+    <div class="stat-label">総合スコア</div>
+    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">/ 100点</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-value" style="color:var(--green);">{{ "%.0f"|format(score.health_score) }}</div>
+    <div class="stat-label">健康管理スコア</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-value" style="color:var(--blue);">{{ "%.0f"|format(score.coi_score) }}</div>
+    <div class="stat-label">遺伝多様性スコア</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-value" style="color:var(--purple);">{{ "%.0f"|format(score.data_score) }}</div>
+    <div class="stat-label">データ品質スコア</div>
+  </div>
+</div>
+
+<div class="card" style="max-width:720px;">
+  <div class="card-header">
+    <h2 class="card-title">スコア詳細</h2>
+    <span style="font-size:0.8rem;color:var(--text-muted);">最終更新: {{ score.calculated_at.strftime('%Y/%m/%d') if score.calculated_at else '-' }}</span>
+  </div>
+  <div class="card-body">
+    {% set items = [
+      ('健康管理スコア', score.health_score, 'var(--green)', '健康ログ・通院記録・ワクチン管理の充実度'),
+      ('遺伝多様性スコア', score.coi_score, 'var(--blue)', 'COI値の適切さ・遺伝的多様性の維持'),
+      ('データ品質スコア', score.data_score, 'var(--purple)', 'プロフィール・犬籍情報の完成度'),
+      ('繁殖実績スコア', score.breeding_score, 'var(--orange)', '繁殖頭数・産子数・生存率'),
+      ('オーナー評価スコア', score.owner_feedback_score, 'var(--accent)', '飼い主からのフィードバック'),
+    ] %}
+    {% for label, val, color, desc in items %}
+    <div style="margin-bottom:1.25rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+        <div>
+          <span style="font-weight:600;">{{ label }}</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem;">{{ desc }}</span>
+        </div>
+        <span style="font-weight:700;color:{{ color }};">{{ "%.0f"|format(val or 0) }}</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:{{ val or 0 }}%;background:{{ color }};border-radius:99px;transition:width 0.6s ease;"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card" style="max-width:720px;margin-top:1rem;">
+  <div class="card-header">
+    <h2 class="card-title">スコア向上のヒント</h2>
+  </div>
+  <div class="card-body">
+    <ul style="list-style:none;display:flex;flex-direction:column;gap:0.75rem;">
+      {% if score.health_score < 70 %}
+      <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+        <span style="color:var(--green);flex-shrink:0;">💊</span>
+        <span>健康ログを定期的に記録し、ワクチンスケジュールを管理するとスコアが向上します。</span>
+      </li>
+      {% endif %}
+      {% if score.coi_score < 70 %}
+      <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+        <span style="color:var(--blue);flex-shrink:0;">🧬</span>
+        <span>COI値が低い交配を選択することで遺伝多様性スコアが向上します。交配シミュレーションをご活用ください。</span>
+      </li>
+      {% endif %}
+      {% if score.data_score < 70 %}
+      <li style="display:flex;gap:0.75rem;align-items:flex-start;">
+        <span style="color:var(--purple);flex-shrink:0;">📋</span>
+        <span>プロフィールを充実させ、犬の基本情報（生年月日・血統情報）を入力するとスコアが向上します。</span>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+</div>
+
+{% else %}
+<div class="card" style="max-width:720px;">
+  <div class="card-body" style="text-align:center;padding:3rem 1rem;">
+    <div style="font-size:3rem;margin-bottom:1rem;">⭐</div>
+    <h3 style="color:var(--text-muted);margin-bottom:0.75rem;">スコアがまだ計算されていません</h3>
+    <p style="color:var(--text-muted);margin-bottom:1.5rem;">ボタンをクリックしてスコアを計算してください。</p>
+    <button onclick="recalculate()" class="btn btn-primary">スコアを計算する</button>
+  </div>
+</div>
+{% endif %}
+
+<div style="margin-top:1rem;">
+  <button onclick="recalculate()" class="btn btn-outline">スコアを再計算</button>
+</div>
+
+<script>
+async function recalculate() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '計算中...';
+  try {
+    const res = await fetch('{{ url_for("breeder.api_recalculate_score") }}', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert(data.message || 'エラーが発生しました');
+      btn.disabled = false;
+      btn.textContent = 'スコアを再計算';
+    }
+  } catch(e) {
+    alert('通信エラーが発生しました');
+    btn.disabled = false;
+    btn.textContent = 'スコアを再計算';
+  }
+}
+</script>
+{% endblock %}

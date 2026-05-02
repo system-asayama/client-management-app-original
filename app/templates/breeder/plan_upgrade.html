@@ -1,0 +1,110 @@
+{% extends "breeder/base.html" %}
+{% block title %}プラン管理{% endblock %}
+{% block topbar_title %}プラン管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">プラン管理</h1>
+  <p class="page-desc">現在のプランと利用可能な機能を確認できます。</p>
+</div>
+
+<div class="card" style="max-width:900px;margin-bottom:1.5rem;">
+  <div class="card-header">
+    <h2 class="card-title">現在のプラン</h2>
+    <span class="badge badge-gold" style="font-size:1rem;padding:0.3rem 0.8rem;">{{ current_plan_display }}</span>
+  </div>
+  <div class="card-body">
+    {% if subscription %}
+    <p>ステータス: <strong>{{ subscription.status }}</strong></p>
+    {% if subscription.current_period_end %}
+    <p style="margin-top:0.5rem;color:var(--text-muted);">次回更新日: {{ subscription.current_period_end.strftime('%Y/%m/%d') }}</p>
+    {% endif %}
+    {% else %}
+    <p style="color:var(--text-muted);">現在フリープランをご利用中です。</p>
+    {% endif %}
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;max-width:900px;">
+  {% for plan_key, plan_info in plan_features.items() %}
+  <div class="card" style="{{ 'border-color:var(--accent);' if plan_key == current_plan else '' }}">
+    <div class="card-header" style="flex-direction:column;align-items:flex-start;gap:0.25rem;">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+        <h3 style="font-size:1.1rem;font-weight:700;color:{{ 'var(--accent-light)' if plan_key == current_plan else 'var(--text)' }};">
+          {{ plan_info.display_name }}
+        </h3>
+        {% if plan_key == current_plan %}
+          <span class="badge badge-gold">現在のプラン</span>
+        {% endif %}
+      </div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--text);">
+        {% if plan_info.price_monthly == 0 and plan_key == 'free' %}
+          無料
+        {% elif plan_info.price_monthly == 0 %}
+          要見積もり
+        {% else %}
+          ¥{{ "{:,}".format(plan_info.price_monthly) }}<span style="font-size:0.75rem;color:var(--text-muted);">/月</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:0.4rem;">
+        {% for feat in plan_info.features[:8] %}
+        <li style="font-size:0.82rem;display:flex;gap:0.4rem;align-items:flex-start;">
+          <span style="color:var(--green);flex-shrink:0;">✓</span>
+          <span>{{ feature_names.get(feat, feat) }}</span>
+        </li>
+        {% endfor %}
+        {% if plan_info.features|length > 8 %}
+        <li style="font-size:0.8rem;color:var(--text-muted);">他 {{ plan_info.features|length - 8 }} 機能...</li>
+        {% endif %}
+      </ul>
+      {% if plan_key != current_plan and plan_key != 'free' %}
+      <div style="margin-top:1rem;">
+        <a href="mailto:support@samurai-hub.com?subject=プランアップグレード申請（{{ plan_info.display_name }}）"
+           class="btn btn-primary" style="width:100%;text-align:center;display:block;">
+          {% if plan_key == 'enterprise' %}お問い合わせ{% else %}アップグレード{% endif %}
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card" style="max-width:900px;margin-top:1.5rem;">
+  <div class="card-header">
+    <h2 class="card-title">機能比較表</h2>
+  </div>
+  <div class="card-body" style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);">
+          <th style="text-align:left;padding:0.5rem 0.75rem;color:var(--text-muted);">機能</th>
+          {% for plan_key, plan_info in plan_features.items() %}
+          <th style="text-align:center;padding:0.5rem 0.75rem;color:{{ 'var(--accent-light)' if plan_key == current_plan else 'var(--text-muted)' }};">
+            {{ plan_info.display_name }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for feat_key, feat_name in feature_names.items() %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.5rem 0.75rem;">{{ feat_name }}</td>
+          {% for plan_key, plan_info in plan_features.items() %}
+          <td style="text-align:center;padding:0.5rem 0.75rem;">
+            {% if feat_key in plan_info.features %}
+              <span style="color:var(--green);">✓</span>
+            {% else %}
+              <span style="color:var(--border-light);">—</span>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

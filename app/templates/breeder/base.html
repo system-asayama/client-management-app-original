@@ -726,6 +726,43 @@
     </div>
 
     <div class="sidebar-section">
+      <div class="sidebar-section-label">飼い主管理</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.owner_list') }}" class="{{ 'active' if 'owner' in request.endpoint }}">
+          <span class="nav-icon">🏠</span>飼い主一覧
+        </a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">プラットフォーム</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.breeder_profile') }}" class="{{ 'active' if request.endpoint == 'breeder.breeder_profile' }}">
+          <span class="nav-icon">👤</span>プロフィール
+        </a></li>
+        <li><a href="{{ url_for('breeder.breeder_score_page') }}" class="{{ 'active' if request.endpoint == 'breeder.breeder_score_page' }}">
+          <span class="nav-icon">⭐</span>評価スコア
+        </a></li>
+        <li><a href="{{ url_for('breeder.plan_upgrade') }}" class="{{ 'active' if request.endpoint == 'breeder.plan_upgrade' }}">
+          <span class="nav-icon">💎</span>プラン管理
+        </a></li>
+        {% if session.get('role') in ('owner', 'system_admin', 'tenant_admin') %}
+        <li><a href="{{ url_for('breeder.admin_kpi_dashboard') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_kpi_dashboard' }}">
+          <span class="nav-icon">📊</span>管理KPI
+        </a></li>
+        {% endif %}
+        {% if session.get('role') in ('system_admin', 'app_manager') %}
+        <li><a href="{{ url_for('breeder.admin_plan_settings') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_plan_settings' }}">
+          <span class="nav-icon">⚙️</span>プラン設定
+        </a></li>
+        <li><a href="{{ url_for('breeder.admin_tenant_plans') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_tenant_plans' }}">
+          <span class="nav-icon">🏷️</span>テナントプラン管理
+        </a></li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
       <div class="sidebar-section-label">設定</div>
       <ul class="sidebar-nav">
         <li><a href="{{ url_for('breeder.settings') }}" class="{{ 'active' if request.endpoint == 'breeder.settings' }}">

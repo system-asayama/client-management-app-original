@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root { --primary: #2563eb; --primary-dark: #1d4ed8; --bg: #f8fafc; --card: #fff;
+    --text: #1e293b; --muted: #64748b; --border: #e2e8f0; --success: #22c55e;
+    --warning: #f59e0b; --danger: #ef4444; --radius: 12px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; }
+  .topbar { background: var(--primary); color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { font-size: 17px; font-weight: 700; }
+  .topbar a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 14px; }
+  .container { padding: 16px; max-width: 480px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px;
+    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .card-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .btn { display: inline-block; padding: 12px 20px; border-radius: 8px;
+    font-size: 15px; font-weight: 600; text-decoration: none; border: none;
+    cursor: pointer; text-align: center; width: 100%; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600;
+    color: var(--muted); margin-bottom: 5px; }
+  .form-control { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 15px; outline: none; }
+  .form-control:focus { border-color: var(--primary); }
+  select.form-control { appearance: none; }
+  .alert { padding: 12px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 14px; }
+  .alert-success { background: #dcfce7; color: #166534; }
+  .alert-error { background: #fee2e2; color: #991b1b; }
+  .alert-info { background: #dbeafe; color: #1e40af; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-yellow { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .dog-card { display: flex; align-items: center; gap: 12px; padding: 14px;
+    background: var(--card); border-radius: var(--radius); margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-decoration: none; color: inherit; }
+  .dog-avatar { width: 52px; height: 52px; border-radius: 50%; background: #e0e7ff;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+    flex-shrink: 0; }
+  .dog-info { flex: 1; }
+  .dog-name { font-size: 16px; font-weight: 700; }
+  .dog-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stat-box { background: var(--card); border-radius: 10px; padding: 14px;
+    text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .stat-num { font-size: 26px; font-weight: 800; color: var(--primary); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .section-title { font-size: 14px; font-weight: 700; color: var(--muted);
+    margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .list-item { display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .list-item:last-child { border-bottom: none; }
+  .vaccine-item { display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); }
+  .vaccine-item:last-child { border-bottom: none; }
+  .chart-container { height: 180px; position: relative; }
+</style>
+<title>通院記録</title></head>
+<body>
+<div class="topbar">
+  <a href="/owner/dog/{{ owner_dog.id }}" style="color:#fff; font-size:20px;">‹</a>
+  <h1>通院・医療記録</h1>
+  <span></span>
+</div>
+<div class="container">
+  <form method="POST" action="/owner/dog/{{ owner_dog.id }}/medical">
+    <div class="form-group">
+      <label>受診日</label>
+      <input type="date" name="event_date" class="form-control" value="{{ today }}" required>
+    </div>
+    <div class="form-group">
+      <label>カテゴリ</label>
+      <select name="category" class="form-control">
+        <option value="checkup">健康診断</option>
+        <option value="vaccination">ワクチン接種</option>
+        <option value="illness">病気・体調不良</option>
+        <option value="injury">怪我</option>
+        <option value="surgery">手術</option>
+        <option value="grooming">トリミング</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>タイトル（症状・内容）</label>
+      <input type="text" name="title" class="form-control" placeholder="例: 嘔吐・食欲不振" required>
+    </div>
+    <div class="form-group">
+      <label>重症度</label>
+      <select name="severity" class="form-control">
+        <option value="mild">軽症</option>
+        <option value="moderate">中等症</option>
+        <option value="severe">重症</option>
+        <option value="critical">重篤</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" name="diagnosed_by_vet" value="1">
+        獣医師による診断あり
+      </label>
+    </div>
+    <div class="form-group">
+      <label>治療内容</label>
+      <textarea name="treatment" class="form-control" rows="2" placeholder="処方薬・処置など"></textarea>
+    </div>
+    <div class="form-group">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" name="resolved" value="1">
+        完治・解決済み
+      </label>
+    </div>
+    <div class="form-group">
+      <label>メモ</label>
+      <textarea name="notes" class="form-control" rows="2" placeholder="気になることがあれば..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">記録する</button>
+  </form>
+</div>
+</body></html>

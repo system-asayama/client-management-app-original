@@ -151,6 +151,14 @@
         font-size: 13px;
       }
       
+      .prize-field-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7280;
+        margin-bottom: 2px;
+        margin-top: 4px;
+      }
+      
       .btn-remove {
         width: 100%;
       }
@@ -219,12 +227,17 @@
       
       prizeData.forEach((prize, index) => {
         const maxScore = prize.max_score !== undefined ? prize.max_score : '';
+        const minScore = (prize.min_score !== undefined && prize.min_score !== null && prize.min_score !== '') ? prize.min_score : '';
         container.innerHTML += `
           <div class="prize-row">
-            <input type="number" name="prize_min_score_${index}" value="${prize.min_score}" placeholder="0" min="0">
-            <input type="number" name="prize_max_score_${index}" value="${maxScore}" placeholder="無制限" min="0">
-            <input type="text" name="prize_rank_${index}" value="${prize.rank}" placeholder="1等">
-            <input type="text" name="prize_name_${index}" value="${prize.name}" placeholder="ランチ無料券">
+            <div class="prize-field-label">最低点</div>
+            <input type="number" name="prize_min_score_${index}" value="${minScore}" placeholder="例: 100" min="0">
+            <div class="prize-field-label">最高点</div>
+            <input type="number" name="prize_max_score_${index}" value="${maxScore}" placeholder="例: 499（空欄の場合は無制限）" min="0">
+            <div class="prize-field-label">○等</div>
+            <input type="text" name="prize_rank_${index}" value="${prize.rank}" placeholder="例: 1等">
+            <div class="prize-field-label">景品内容</div>
+            <input type="text" name="prize_name_${index}" value="${prize.name}" placeholder="例: ランチ無料券">
             <button type="button" class="btn-remove" onclick="removePrize(${index})">削除</button>
           </div>
         `;
@@ -304,7 +317,8 @@
       });
       
       try {
-        const response = await fetch('/admin/save_prizes', {
+        const storeIdForPrize = {{ store_id if store_id else 'null' }};
+        const response = await fetch('/apps/survey/store/' + storeIdForPrize + '/save_prizes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -420,10 +434,10 @@
         });
       });
       
-      const storeId = {{ store_id if store else 'null' }};
+      const storeId = {{ store_id if store_id else 'null' }};
       
       try {
-        const response = await fetch(`/admin/store/${storeId}/optimize_probabilities`, {
+        const response = await fetch(`/apps/survey/store/${storeId}/optimize_probabilities`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -492,7 +506,8 @@
       const missProbability = parseFloat(document.getElementById('miss_probability').value) || 0.0;
       
       try {
-        const response = await fetch('/calc_prob', {
+        const storeSlug = '{{ store_slug or "" }}';
+        const response = await fetch('/apps/survey/store/' + storeSlug + '/calc_prob', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

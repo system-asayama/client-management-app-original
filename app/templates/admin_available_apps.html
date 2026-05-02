@@ -174,19 +174,12 @@
 <div class="apps-grid">
   {% for app in apps %}
   {% if app.name == 'survey' and store %}
-  <div style="background:white;border:2px solid #e0e0e0;border-radius:12px;padding:24px;transition:all 0.3s ease;">
-    <div style="font-size:48px;text-align:center;margin-bottom:16px;">📋</div>
-    <h3 style="margin:0 0 12px 0;color:#333;font-size:20px;">アンケートアプリ</h3>
-    <p style="color:#666;font-size:14px;line-height:1.6;margin-bottom:20px;min-height:60px;">アンケート回答後にスロットゲームを提供し、景品を獲得できるアプリです。アンケート設定もここから行えます。</p>
-    <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <a href="/apps/survey/store/{{ store.id }}/settings" style="flex:1;padding:10px 16px;border-radius:6px;text-decoration:none;text-align:center;font-weight:500;background:#4CAF50;color:white;">設定</a>
-      <a href="/apps/survey/store/{{ store.id }}/answer" target="_blank" style="flex:1;padding:10px 16px;border-radius:6px;text-decoration:none;text-align:center;font-weight:500;background:#2196F3;color:white;">プレビュー</a>
-    </div>
-    <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <a href="/apps/survey/store/{{ store.id }}/responses" style="flex:1;padding:10px 16px;border-radius:6px;text-decoration:none;text-align:center;font-weight:500;background:#FF9800;color:white;">アンケート結果</a>
-    </div>
-    <div style="text-align:center;"><span style="display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500;background:#e8f5e9;color:#2e7d32;">有効</span></div>
-  </div>
+  <a href="/apps/survey/store/{{ store.id }}/" class="app-card" style="--app-color: #4CAF50; text-decoration:none;">
+    <div class="app-card-icon">📋</div>
+    <div class="app-card-name">アンケートアプリ</div>
+    <div class="app-card-desc">アンケート回答後にスロットゲームを提供し、景品を獲得できるアプリです。アンケート設定もここから行えます。</div>
+    <div class="app-card-arrow">開く →</div>
+  </a>
   {% else %}
   <a class="app-card" href="{{ app.url }}" {% if app.external %}target="_blank" rel="noopener noreferrer"{% endif %} style="--app-color: {{ color_map.get(app.name, app.color if app.color else '#2563a8') }}">
     <div class="app-card-icon">{{ app.icon if app.icon else icon_map.get(app.name, '📦') }}</div>

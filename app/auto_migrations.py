@@ -1333,3 +1333,285 @@ def run_truck_store_id_migration():
         logger.error(traceback.format_exc())
     finally:
         conn.close()
+
+
+def run_platform_table_migrations():
+    """
+    収益化・プラットフォーム機能に必要なテーブルを作成するマイグレーション。
+    plans / subscriptions / stripe_customers / feature_usages /
+    breeder_profiles / breeder_scores / kpi_snapshots / breeder_reviews
+    """
+    from sqlalchemy import text, inspect as sa_inspect
+    session = SessionLocal()
+    try:
+        bind = session.get_bind()
+        is_pg = bind.dialect.name == 'postgresql'
+
+        def _tbl_exists(name):
+            insp = sa_inspect(bind)
+            return name in insp.get_table_names()
+
+        def _create(tname, pg_ddl, my_ddl=None):
+            if _tbl_exists(tname):
+                logger.info(f"- {tname} は既に存在します（スキップ）")
+                return
+            ddl = pg_ddl if is_pg else (my_ddl or pg_ddl)
+            try:
+                session.execute(text(ddl))
+                session.commit()
+                logger.info(f"✓ {tname} テーブルを作成しました")
+            except Exception as e:
+                session.rollback()
+                logger.error(f"✗ {tname} 作成エラー: {e}")
+
+        _create('plans', """
+            CREATE TABLE plans (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) NOT NULL UNIQUE,
+                display_name VARCHAR(100),
+                price_monthly INTEGER DEFAULT 0,
+                max_dogs INTEGER,
+                max_owners INTEGER,
+                features JSONB DEFAULT '[]',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `plans` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `name` VARCHAR(50) NOT NULL UNIQUE,
+                `display_name` VARCHAR(100),
+                `price_monthly` INT DEFAULT 0,
+                `max_dogs` INT,
+                `max_owners` INT,
+                `features` JSON,
+                `is_active` TINYINT(1) DEFAULT 1,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        if _tbl_exists('plans'):
+            try:
+                result = session.execute(text("SELECT COUNT(*) FROM plans")).scalar()
+                if result == 0:
+                    session.execute(text("""
+                        INSERT INTO plans (name, display_name, price_monthly, max_dogs, max_owners, features)
+                        VALUES
+                        ('free','フリープラン',0,5,3,'["basic_coi","basic_mating_eval","owner_app","health_log"]'),
+                        ('standard','スタンダード',4980,NULL,NULL,'["basic_coi","advanced_coi","avk_analysis","genetic_disease","basic_mating_eval","advanced_mating_eval","basic_report","owner_app","health_log","medical_event","vaccine_schedule"]'),
+                        ('pro','プロ',9800,NULL,NULL,'["basic_coi","advanced_coi","avk_analysis","genetic_disease","basic_mating_eval","advanced_mating_eval","breeding_history","puppy_data","line_analysis","candidate_ranking","basic_report","advanced_report","pdf_report","survival_analysis","breeder_score","owner_app","health_log","medical_event","vaccine_schedule","priority_support"]'),
+                        ('enterprise','エンタープライズ',0,NULL,NULL,'["basic_coi","advanced_coi","avk_analysis","genetic_disease","basic_mating_eval","advanced_mating_eval","breeding_history","puppy_data","line_analysis","candidate_ranking","basic_report","advanced_report","pdf_report","survival_analysis","breeder_score","owner_app","health_log","medical_event","vaccine_schedule","priority_support","api_access","data_export","custom_analysis"]')
+                    """))
+                    session.commit()
+                    logger.info("✓ デフォルトプランを挿入しました")
+            except Exception as e:
+                session.rollback()
+                logger.error(f"plans 初期データ挿入エラー: {e}")
+
+        _create('subscriptions', """
+            CREATE TABLE subscriptions (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL,
+                plan_id INTEGER REFERENCES plans(id),
+                status VARCHAR(50) DEFAULT 'active',
+                stripe_subscription_id VARCHAR(255),
+                current_period_start TIMESTAMP,
+                current_period_end TIMESTAMP,
+                cancel_at_period_end BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `subscriptions` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT NOT NULL,
+                `plan_id` INT,
+                `status` VARCHAR(50) DEFAULT 'active',
+                `stripe_subscription_id` VARCHAR(255),
+                `current_period_start` DATETIME,
+                `current_period_end` DATETIME,
+                `cancel_at_period_end` TINYINT(1) DEFAULT 0,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        _create('stripe_customers', """
+            CREATE TABLE stripe_customers (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL UNIQUE,
+                stripe_customer_id VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `stripe_customers` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT NOT NULL UNIQUE,
+                `stripe_customer_id` VARCHAR(255) NOT NULL,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        _create('feature_usages', """
+            CREATE TABLE feature_usages (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL,
+                feature_key VARCHAR(100) NOT NULL,
+                user_id INTEGER,
+                meta JSONB,
+                used_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `feature_usages` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT NOT NULL,
+                `feature_key` VARCHAR(100) NOT NULL,
+                `user_id` INT,
+                `meta` JSON,
+                `used_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX `idx_fu_tenant_feature` (`tenant_id`, `feature_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        _create('breeder_profiles', """
+            CREATE TABLE breeder_profiles (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL UNIQUE,
+                kennel_name VARCHAR(200),
+                location_prefecture VARCHAR(50),
+                location_city VARCHAR(100),
+                website VARCHAR(500),
+                description TEXT,
+                main_breeds JSONB DEFAULT '[]',
+                years_experience INTEGER DEFAULT 0,
+                is_public SMALLINT DEFAULT 0,
+                is_verified SMALLINT DEFAULT 0,
+                avatar_url VARCHAR(500),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `breeder_profiles` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT NOT NULL UNIQUE,
+                `kennel_name` VARCHAR(200),
+                `location_prefecture` VARCHAR(50),
+                `location_city` VARCHAR(100),
+                `website` VARCHAR(500),
+                `description` TEXT,
+                `main_breeds` JSON,
+                `years_experience` INT DEFAULT 0,
+                `is_public` TINYINT(1) DEFAULT 0,
+                `is_verified` TINYINT(1) DEFAULT 0,
+                `avatar_url` VARCHAR(500),
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        _create('breeder_scores', """
+            CREATE TABLE breeder_scores (
+                id SERIAL PRIMARY KEY,
+                tenant_id INTEGER NOT NULL,
+                total_score FLOAT DEFAULT 0,
+                rank VARCHAR(5) DEFAULT 'D',
+                health_score FLOAT DEFAULT 0,
+                coi_score FLOAT DEFAULT 0,
+                data_score FLOAT DEFAULT 0,
+                breeding_score FLOAT DEFAULT 0,
+                owner_feedback_score FLOAT DEFAULT 0,
+                avg_coi FLOAT,
+                puppy_survival_rate FLOAT,
+                disease_incidence_rate FLOAT,
+                breeding_success_rate FLOAT,
+                data_completeness_rate FLOAT,
+                owner_retention_rate FLOAT,
+                strengths JSONB DEFAULT '[]',
+                weaknesses JSONB DEFAULT '[]',
+                improvement_tips JSONB DEFAULT '[]',
+                calculated_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `breeder_scores` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `tenant_id` INT NOT NULL,
+                `total_score` FLOAT DEFAULT 0,
+                `rank` VARCHAR(5) DEFAULT 'D',
+                `health_score` FLOAT DEFAULT 0,
+                `coi_score` FLOAT DEFAULT 0,
+                `data_score` FLOAT DEFAULT 0,
+                `breeding_score` FLOAT DEFAULT 0,
+                `owner_feedback_score` FLOAT DEFAULT 0,
+                `avg_coi` FLOAT,
+                `puppy_survival_rate` FLOAT,
+                `disease_incidence_rate` FLOAT,
+                `breeding_success_rate` FLOAT,
+                `data_completeness_rate` FLOAT,
+                `owner_retention_rate` FLOAT,
+                `strengths` JSON,
+                `weaknesses` JSON,
+                `improvement_tips` JSON,
+                `calculated_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX `idx_bs_tenant` (`tenant_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        _create('kpi_snapshots', """
+            CREATE TABLE kpi_snapshots (
+                id SERIAL PRIMARY KEY,
+                snapshot_date DATE NOT NULL UNIQUE,
+                active_breeders INTEGER DEFAULT 0,
+                active_owners INTEGER DEFAULT 0,
+                total_dogs INTEGER DEFAULT 0,
+                total_health_logs INTEGER DEFAULT 0,
+                total_coi_calcs INTEGER DEFAULT 0,
+                paying_tenants INTEGER DEFAULT 0,
+                mrr FLOAT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `kpi_snapshots` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `snapshot_date` DATE NOT NULL UNIQUE,
+                `active_breeders` INT DEFAULT 0,
+                `active_owners` INT DEFAULT 0,
+                `total_dogs` INT DEFAULT 0,
+                `total_health_logs` INT DEFAULT 0,
+                `total_coi_calcs` INT DEFAULT 0,
+                `paying_tenants` INT DEFAULT 0,
+                `mrr` FLOAT DEFAULT 0,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        _create('breeder_reviews', """
+            CREATE TABLE breeder_reviews (
+                id SERIAL PRIMARY KEY,
+                breeder_tenant_id INTEGER NOT NULL,
+                reviewer_owner_id INTEGER,
+                rating FLOAT NOT NULL,
+                comment TEXT,
+                is_anonymous BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """, """
+            CREATE TABLE `breeder_reviews` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `breeder_tenant_id` INT NOT NULL,
+                `reviewer_owner_id` INT,
+                `rating` FLOAT NOT NULL,
+                `comment` TEXT,
+                `is_anonymous` TINYINT(1) DEFAULT 1,
+                `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX `idx_br_breeder` (`breeder_tenant_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
+        logger.info("✓ run_platform_table_migrations 完了")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"✗ run_platform_table_migrations エラー: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+    finally:
+        session.close()

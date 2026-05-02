@@ -22,7 +22,7 @@ try:
     
     # ログインシステムの自動マイグレーション実行
     try:
-        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration, run_truck_schedule_migration, run_truck_store_id_migration
+        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration, run_truck_schedule_migration, run_truck_store_id_migration, run_platform_table_migrations
         run_auto_migrations()
         print("✅ ログインシステム自動マイグレーション完了")
         run_truck_doc_migrations()
@@ -35,6 +35,8 @@ try:
         print("✅ 運行スケジュールテーブルマイグレーション完了")
         run_truck_store_id_migration()
         print("✅ トラック・ドライバー store_id マイグレーション完了")
+        run_platform_table_migrations()
+        print("✅ プラットフォームテーブルマイグレーション完了")
     except Exception as e:
         print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
 except Exception as e:

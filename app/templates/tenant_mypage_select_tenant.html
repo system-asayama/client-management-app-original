@@ -1,15 +1,131 @@
 {% extends "base.html" %}
 {% block title %}テナントを選択{% endblock %}
+{% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
-<div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;border-radius:16px;padding:2rem 2rem 1.5rem;margin-bottom:2rem;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem">
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .search-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .search-box {
+    position: relative;
+    margin-bottom: 1.25rem;
+  }
+  .search-box input {
+    width: 100%;
+    padding: 0.7rem 1rem 0.7rem 2.5rem;
+    border: 1.5px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 1rem;
+    color: #1f2937;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .search-box input:focus {
+    outline: none;
+    border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .search-box .search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 1rem;
+    pointer-events: none;
+  }
+  .result-count {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 0.75rem;
+  }
+  .item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .item-card {
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.9rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-decoration: none;
+    color: inherit;
+    width: 100%;
+    text-align: left;
+  }
+  .item-card:hover {
+    border-color: #2563a8;
+    background: #eff6ff;
+    box-shadow: 0 2px 8px rgba(37,99,168,0.1);
+  }
+  .item-card .item-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a3a5c;
+  }
+  .item-card .item-arrow {
+    color: #9ca3af;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-left: 0.75rem;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #9ca3af;
+    font-size: 0.95rem;
+  }
+</style>
+
+<div class="page-header">
   <div>
-    <div style="font-size:0.85rem;opacity:0.75;margin-bottom:0.25rem;letter-spacing:0.05em">TENANT ADMIN</div>
-    <h1 style="font-size:1.75rem;font-weight:700;margin:0;color:#fff">🏬 テナントを選択</h1>
+    <div class="page-subtitle">TENANT ADMIN</div>
+    <h1>🏬 テナントを選択</h1>
   </div>
-  <div style="display:flex;gap:0.75rem">
-    <a href="{{ url_for('tenant_admin.mypage') }}" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:0.45rem 1rem;border-radius:8px;text-decoration:none;font-size:0.875rem">← マイページへ戻る</a>
+  <div class="header-actions">
+    <a href="{{ url_for('tenant_admin.mypage') }}">← マイページへ戻る</a>
   </div>
 </div>
+
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
     {% for category, message in messages %}
@@ -17,36 +133,60 @@
     {% endfor %}
   {% endif %}
 {% endwith %}
-<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:1.5rem 1.75rem;box-shadow:0 2px 6px rgba(0,0,0,0.04)">
-  <p style="font-size:0.875rem;font-weight:700;color:#1a3a5c;border-left:4px solid #2563a8;padding-left:0.75rem;margin:0 0 1rem">テナントを選択してダッシュボードへ進む</p>
-  {% if tenant_list %}
-    <form method="POST" action="{{ url_for('tenant_admin.select_tenant_from_mypage') }}">
-      <div style="margin-bottom:1rem">
-        <input type="text" placeholder="テナント名で検索..." oninput="filterTenants(this.value)" style="width:100%;max-width:400px;padding:0.55rem 0.75rem;border:1px solid #d1d5db;border-radius:8px;font-size:0.9rem;box-sizing:border-box">
-      </div>
-      <div id="tenant-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem">
-        {% for tenant in tenant_list %}
-          <label style="display:flex;align-items:center;gap:0.75rem;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:10px;padding:0.85rem 1rem;cursor:pointer;transition:all 0.15s" data-name="{{ tenant.name|lower }}">
-            <input type="radio" name="tenant_id" value="{{ tenant.id }}" style="accent-color:#2563a8">
-            <span style="font-weight:600;color:#1a3a5c">{{ tenant.name }}</span>
-          </label>
-        {% endfor %}
-      </div>
-      <button type="submit" style="background:#2563a8;color:#fff;border:none;padding:0.6rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.9rem">テナントダッシュボードへ進む</button>
+
+<div class="search-card">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search_input" placeholder="テナント名で検索..." oninput="filterItems()" autofocus>
+  </div>
+  <div class="result-count" id="result_count">{{ tenant_list|length }} 件</div>
+  <div class="item-list" id="item_list">
+    {% for tenant in tenant_list %}
+    <form method="POST" action="{{ url_for('tenant_admin.select_tenant_from_mypage') }}" style="margin:0">
+      <input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+      <button type="submit" class="item-card" data-name="{{ tenant.name }}">
+        <div>
+          <div class="item-name">{{ tenant.name }}</div>
+        </div>
+        <span class="item-arrow">›</span>
+      </button>
     </form>
-  {% else %}
-    <div style="text-align:center;padding:3rem 1rem;color:#9ca3af">
+    {% else %}
+    <div class="empty-state">
       <div style="font-size:2.5rem;margin-bottom:0.75rem">🏬</div>
       <p style="margin:0">管理するテナントがありません</p>
     </div>
-  {% endif %}
+    {% endfor %}
+  </div>
 </div>
+
 <script>
-function filterTenants(text) {
-  const items = document.querySelectorAll('#tenant-list label');
-  items.forEach(item => {
-    item.style.display = item.dataset.name.includes(text.toLowerCase()) ? '' : 'none';
+function filterItems() {
+  const q = document.getElementById('search_input').value.toLowerCase();
+  const cards = document.querySelectorAll('#item_list form');
+  let count = 0;
+  cards.forEach(form => {
+    const btn = form.querySelector('button');
+    const name = btn.dataset.name.toLowerCase();
+    const match = name.includes(q);
+    form.style.display = match ? '' : 'none';
+    if (match) count++;
   });
+  document.getElementById('result_count').textContent = count + ' 件';
+  const empty = document.querySelector('#item_list .empty-state');
+  if (empty) return;
+  let noResult = document.getElementById('no_result');
+  if (count === 0 && q) {
+    if (!noResult) {
+      noResult = document.createElement('div');
+      noResult.id = 'no_result';
+      noResult.className = 'empty-state';
+      noResult.textContent = '「' + q + '」に一致するテナントが見つかりません';
+      document.getElementById('item_list').appendChild(noResult);
+    }
+  } else if (noResult) {
+    noResult.remove();
+  }
 }
 </script>
 {% endblock %}

@@ -4510,6 +4510,7 @@ def owner_add_dog(owner_id: int):
 @require_roles(*BREEDER_ROLES)
 def breeder_profile():
     """ブリーダープロフィール編集"""
+    db = _get_db()
     from app.models_breeder import BreederProfile
     from app.services.plan_guard import get_plan_context
 
@@ -4542,6 +4543,7 @@ def breeder_profile():
 @bp.route('/profile/public/<int:tenant_id>')
 def public_breeder_profile(tenant_id):
     """ブリーダー公開プロフィールページ（ログイン不要）"""
+    db = _get_db()
     from app.models_breeder import BreederProfile, BreederScore
 
     profile = db.query(BreederProfile).filter_by(
@@ -4564,6 +4566,7 @@ def public_breeder_profile(tenant_id):
 @require_roles(*BREEDER_ROLES)
 def breeder_score_page():
     """ブリーダー評価スコアページ"""
+    db = _get_db()
     from app.models_breeder import BreederScore
     from app.services.breeder_score import calculate_and_save_breeder_score
     from app.services.plan_guard import get_plan_context, can_use_feature, get_tenant_plan
@@ -4607,6 +4610,7 @@ def api_recalculate_score():
 @bp.route('/search')
 def breeder_search():
     """ブリーダー検索ページ（ログイン不要）"""
+    db = _get_db()
     from app.models_breeder import BreederProfile, BreederScore
 
     prefecture = request.args.get('prefecture', '')
@@ -4692,6 +4696,7 @@ def api_current_plan():
 @require_roles('owner', 'system_admin')
 def admin_kpi_dashboard():
     """管理者向けKPIダッシュボード"""
+    db = _get_db()
     from app.models_breeder import KpiSnapshot
     from sqlalchemy import text
 

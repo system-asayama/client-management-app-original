@@ -4731,8 +4731,20 @@ def admin_kpi_dashboard():
     except Exception:
         rt = {}
 
+    # SQLAlchemyオブジェクトをdictに変換（JSON serializable）
+    snapshots_data = []
+    for s in snapshots:
+        snapshots_data.append({
+            'snapshot_date': str(s.snapshot_date) if s.snapshot_date else '',
+            'active_breeders': s.active_breeders or 0,
+            'active_owners': s.active_owners or 0,
+            'total_dogs': s.total_dogs or 0,
+            'total_health_logs': s.total_health_logs or 0,
+            'total_coi_calcs': s.total_coi_calcs or 0,
+            'paying_tenants': s.paying_tenants or 0,
+        })
     return render_template('breeder/admin_kpi.html',
-                           snapshots=snapshots, rt=rt)
+                           snapshots=snapshots_data, rt=rt)
 
 
 @bp.route('/api/admin/kpi/snapshot', methods=['POST'])

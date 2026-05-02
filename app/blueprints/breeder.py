@@ -4918,7 +4918,7 @@ def api_admin_plan_update():
         valid_keys = set(FEATURE_NAMES.keys())
         plan.features = [f for f in features if f in valid_keys]
     if 'is_active' in data:
-        plan.is_active = 1 if data['is_active'] else 0
+        plan.is_active = True if data['is_active'] else False
     if 'sort_order' in data:
         try:
             plan.sort_order = int(data['sort_order'])
@@ -4991,7 +4991,7 @@ def api_admin_plan_bulk_update():
                 if isinstance(features, list):
                     plan.features = [f for f in features if f in valid_keys]
             if 'is_active' in plan_data:
-                plan.is_active = 1 if plan_data['is_active'] else 0
+                plan.is_active = True if plan_data['is_active'] else False
             updated.append(plan_id)
         except Exception as e:
             errors.append({'id': plan_id, 'error': str(e)})
@@ -5010,7 +5010,7 @@ def _sync_plan_guard_cache(db):
     try:
         from app.models_breeder import Plan
         from app.services import plan_guard
-        plans = db.query(Plan).filter(Plan.is_active == 1).all()
+        plans = db.query(Plan).filter(Plan.is_active == True).all()
         for p in plans:
             if p.name in plan_guard.PLAN_FEATURES:
                 plan_guard.PLAN_FEATURES[p.name]['display_name'] = p.display_name
@@ -5036,7 +5036,7 @@ def admin_tenant_plans():
     from app.models_breeder import Plan, Subscription
     from app.models_login import TTenant
 
-    plans = db.query(Plan).filter(Plan.is_active == 1).order_by(Plan.sort_order, Plan.id).all()
+    plans = db.query(Plan).filter(Plan.is_active == True).order_by(Plan.sort_order, Plan.id).all()
     plans_map = {p.id: p for p in plans}
 
     tenants = db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()

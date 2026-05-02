@@ -1,0 +1,102 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}交配候補比較{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">⚖️ 交配候補比較</h1>
+  <p class="page-desc">固定した犬に対して複数の候補を評価・ランキングします。</p>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">比較設定</h2></div>
+  <div class="card-body">
+    {% if error %}<div style="color:red;margin-bottom:1rem;padding:.75rem;background:#fff3cd;border-radius:.25rem;">{{ error }}</div>{% endif %}
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+        <div class="form-group">
+          <label class="form-label">固定する犬</label>
+          <select name="fixed_dog_id" class="form-control" required>
+            <option value="">-- 選択 --</option>
+            {% for d in dogs %}<option value="{{ d.id }}" {% if fixed_dog and d.id == fixed_dog.id %}selected{% endif %}>{{ d.name }}{% if d.breed %} ({{ d.breed }}){% endif %}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">固定犬の役割</label>
+          <select name="fixed_role" class="form-control">
+            <option value="dam" {% if fixed_role == 'dam' %}selected{% endif %}>母犬（父犬候補を比較）</option>
+            <option value="sire" {% if fixed_role == 'sire' %}selected{% endif %}>父犬（母犬候補を比較）</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">候補犬（複数選択可）</label>
+          <select name="candidate_ids" class="form-control" multiple style="height:150px;">
+            {% for d in dogs %}<option value="{{ d.id }}">{{ d.name }}{% if d.breed %} ({{ d.breed }}){% endif %}</option>{% endfor %}
+          </select>
+          <small style="color:var(--text-dim);">Ctrl/Cmd を押しながらクリックで複数選択</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">探索世代数</label>
+          <select name="max_depth" class="form-control">
+            <option value="5" selected>5世代</option>
+            <option value="8">8世代</option>
+            <option value="10">10世代</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">比較実行</button>
+    </form>
+  </div>
+</div>
+{% if results %}
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">比較結果 - {{ fixed_dog.name }} との交配候補ランキング</h2>
+  </div>
+  <div class="card-body">
+    {% for r in results %}
+    {% set border_color = '#28a745' if r.rank_position == 1 else ('#17a2b8' if r.rank_position == 2 else '#6c757d') %}
+    <div class="card" style="margin-bottom:1rem;border-left:4px solid {{ border_color }};">
+      <div class="card-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span style="font-size:1.5rem;font-weight:bold;margin-right:.5rem;">{{ r.rank_position }}位</span>
+            <strong>{{ r.candidate_name }}</strong>
+            {% set bg = '#28a745' if r.judgment_level == 'excellent' else ('#17a2b8' if r.judgment_level == 'good' else ('#ffc107' if r.judgment_level == 'fair' else '#dc3545')) %}
+            <span style="margin-left:.5rem;background:{{ bg }};color:white;padding:.2rem .5rem;border-radius:.25rem;font-size:.8rem;">{{ r.recommendation }}</span>
+          </div>
+          <div style="text-align:right;">
+            {% set sc = r.total_score %}
+            {% set sc_color = '#28a745' if sc >= 85 else ('#17a2b8' if sc >= 70 else ('#ffc107' if sc >= 55 else '#dc3545')) %}
+            <div style="font-size:2rem;font-weight:bold;color:{{ sc_color }};">{{ sc }}点</div>
+            <div style="font-size:.8rem;color:var(--text-dim);">{{ r.judgment }}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.75rem;">
+          <div style="text-align:center;padding:.5rem;background:#f8f9fa;border-radius:.25rem;">
+            <div style="font-size:.75rem;color:var(--text-dim);">COI</div>
+            <div style="font-weight:bold;">{{ r.coi_percent|round(2) }}%</div>
+          </div>
+          <div style="text-align:center;padding:.5rem;background:#f8f9fa;border-radius:.25rem;">
+            <div style="font-size:.75rem;color:var(--text-dim);">AVK</div>
+            <div style="font-weight:bold;">{{ r.avk_percent|round(1) }}%</div>
+          </div>
+          <div style="text-align:center;padding:.5rem;background:#f8f9fa;border-radius:.25rem;">
+            <div style="font-size:.75rem;color:var(--text-dim);">ランク</div>
+            <div style="font-weight:bold;">{{ r.rank }}</div>
+          </div>
+        </div>
+        {% if r.positive_points %}
+        <div style="margin-top:.5rem;">
+          {% for p in r.positive_points[:2] %}<span style="color:#28a745;font-size:.8rem;margin-right:.5rem;">✓ {{ p }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if r.warnings %}
+        <div style="margin-top:.25rem;">
+          {% for ww in r.warnings[:2] %}<span style="color:#dc3545;font-size:.8rem;margin-right:.5rem;">⚠ {{ ww }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

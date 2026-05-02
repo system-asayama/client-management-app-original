@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}テナントを選択{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .page-header {
@@ -127,14 +128,11 @@
     <a href="{{ url_for('app_manager.mypage') }}">← マイページへ戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
+
 
 <div class="search-card">
   <div class="search-box">

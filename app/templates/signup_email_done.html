@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">メール送信完了</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="box">
   <h1>アカウント登録メールを送信しました</h1>

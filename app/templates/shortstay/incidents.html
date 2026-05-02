@@ -1,0 +1,53 @@
+{% extends "shortstay/base.html" %}
+{% block title %}事故・ヒヤリハット - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}事故・ヒヤリハット{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">事故・ヒヤリハット一覧</div>
+  <a href="{{ url_for('shortstay.incident_new') }}" class="btn btn-primary">＋ 報告書作成</a>
+</div>
+
+{% if incidents %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>発生日時</th><th>種別</th><th>利用者</th><th>発生場所</th><th>概要</th><th>重症度</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for inc in incidents %}
+        {% set resident = residents_map.get(inc.resident_id) %}
+        <tr>
+          <td>{{ inc.incident_date.strftime('%Y/%m/%d') }}{% if inc.incident_time %} {{ inc.incident_time }}{% endif %}</td>
+          <td>
+            {% if inc.incident_type == '事故' %}<span class="badge badge-red">{{ inc.incident_type }}</span>
+            {% elif inc.incident_type == 'ヒヤリハット' %}<span class="badge badge-yellow">{{ inc.incident_type }}</span>
+            {% else %}<span class="badge badge-gray">{{ inc.incident_type or '-' }}</span>{% endif %}
+          </td>
+          <td>{{ resident.last_name ~ resident.first_name if resident else '-' }}</td>
+          <td>{{ inc.location or '-' }}</td>
+          <td style="font-size:0.85rem;">{{ inc.description[:50] if inc.description else '-' }}</td>
+          <td>
+            {% if inc.severity == '重傷' %}<span class="badge badge-red">{{ inc.severity }}</span>
+            {% elif inc.severity == '中等度' %}<span class="badge badge-orange">{{ inc.severity }}</span>
+            {% elif inc.severity == '軽傷' %}<span class="badge badge-yellow">{{ inc.severity }}</span>
+            {% else %}<span class="badge badge-gray">{{ inc.severity or '-' }}</span>{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('shortstay.incident_detail', incident_id=inc.id) }}" class="btn btn-sm">詳細</a>
+            <a href="{{ url_for('shortstay.incident_edit', incident_id=inc.id) }}" class="btn btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="font-size:1.5rem;margin-bottom:0.5rem;">⚠️</p>
+  <p style="color:var(--gray-500);">事故・ヒヤリハット報告書がありません</p>
+</div>
+{% endif %}
+{% endblock %}

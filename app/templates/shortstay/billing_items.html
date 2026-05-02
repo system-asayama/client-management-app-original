@@ -1,0 +1,40 @@
+{% extends "shortstay/base.html" %}
+{% block title %}請求項目マスタ - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}請求項目マスタ{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">請求項目マスタ</div>
+  <a href="{{ url_for('shortstay.billing_item_new') }}" class="btn btn-primary">＋ 項目追加</a>
+</div>
+
+{% if items %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>項目名</th><th>種別</th><th>単価</th><th>単位</th><th>介護保険対象</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td style="font-weight:600;">{{ item.item_name }}</td>
+          <td>{{ item.item_type or '-' }}</td>
+          <td>¥{{ '{:,}'.format(item.unit_price|int) }}</td>
+          <td>{{ item.unit or '-' }}</td>
+          <td>{% if item.is_insurance_covered %}<span class="badge badge-green">対象</span>{% else %}<span class="badge badge-gray">対象外</span>{% endif %}</td>
+          <td style="font-size:0.85rem;">{{ item.notes or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="font-size:1.5rem;margin-bottom:0.5rem;">📋</p>
+  <p style="color:var(--gray-500);">請求項目が登録されていません</p>
+  <a href="{{ url_for('shortstay.billing_item_new') }}" class="btn btn-primary" style="margin-top:1rem;">項目を追加する</a>
+</div>
+{% endif %}
+{% endblock %}

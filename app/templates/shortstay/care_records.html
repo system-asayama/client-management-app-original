@@ -1,0 +1,177 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ケア記録 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}ケア記録{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">ケア記録</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.vital_new') }}" class="btn">🩺 バイタル記録</a>
+    <a href="{{ url_for('shortstay.meal_new') }}" class="btn">🍱 食事記録</a>
+    <a href="{{ url_for('shortstay.excretion_new') }}" class="btn">📋 排泄記録</a>
+    <a href="{{ url_for('shortstay.bath_new') }}" class="btn">🛁 入浴記録</a>
+  </div>
+</div>
+
+<!-- フィルター -->
+<div class="card">
+  <form method="get" class="search-bar" style="flex-wrap:wrap;">
+    <select name="resident_id" class="form-control" style="max-width:200px;">
+      <option value="">全利用者</option>
+      {% for r in residents %}
+      <option value="{{ r.id }}" {% if resident_filter == r.id|string %}selected{% endif %}>{{ r.last_name }}{{ r.first_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="record_type" class="form-control" style="max-width:150px;">
+      <option value="">全種別</option>
+      <option value="バイタル" {% if type_filter == 'バイタル' %}selected{% endif %}>バイタル</option>
+      <option value="食事" {% if type_filter == '食事' %}selected{% endif %}>食事</option>
+      <option value="排泄" {% if type_filter == '排泄' %}selected{% endif %}>排泄</option>
+      <option value="入浴" {% if type_filter == '入浴' %}selected{% endif %}>入浴</option>
+    </select>
+    <input type="date" name="date" class="form-control" style="max-width:160px;" value="{{ date_filter }}">
+    <button type="submit" class="btn btn-primary">絞り込み</button>
+    <a href="{{ url_for('shortstay.care_records') }}" class="btn">クリア</a>
+  </form>
+</div>
+
+<!-- バイタル記録 -->
+{% if vitals %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">🩺 バイタル記録</div>
+    <a href="{{ url_for('shortstay.vital_new') }}" class="btn btn-sm btn-primary">＋ 記録</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日付</th><th>時刻</th><th>利用者</th><th>体温</th><th>血圧</th><th>脈拍</th><th>SpO2</th><th>体重</th><th>記録者</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for v in vitals %}
+        {% set resident = residents_map.get(v.resident_id) %}
+        <tr>
+          <td>{{ v.record_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ v.record_time or '-' }}</td>
+          <td>{{ resident.last_name ~ resident.first_name if resident else '-' }}</td>
+          <td>{% if v.body_temp %}<span style="{% if v.body_temp >= 37.5 %}color:var(--danger);font-weight:600;{% endif %}">{{ v.body_temp }}℃</span>{% else %}-{% endif %}</td>
+          <td>{{ v.blood_pressure_high or '-' }}{% if v.blood_pressure_high %}/{{ v.blood_pressure_low }}{% endif %}</td>
+          <td>{{ v.pulse or '-' }}{% if v.pulse %}回{% endif %}</td>
+          <td>{% if v.spo2 %}<span style="{% if v.spo2 < 95 %}color:var(--danger);font-weight:600;{% endif %}">{{ v.spo2 }}%</span>{% else %}-{% endif %}</td>
+          <td>{{ v.weight or '-' }}{% if v.weight %}kg{% endif %}</td>
+          <td style="font-size:0.8rem;">{{ v.recorded_by or '-' }}</td>
+          <td>
+            <a href="{{ url_for('shortstay.vital_edit', vital_id=v.id) }}" class="btn btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 食事記録 -->
+{% if meals %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">🍱 食事記録</div>
+    <a href="{{ url_for('shortstay.meal_new') }}" class="btn btn-sm btn-primary">＋ 記録</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日付</th><th>食事区分</th><th>利用者</th><th>主食摂取率</th><th>副食摂取率</th><th>水分量</th><th>特記</th><th>記録者</th></tr>
+      </thead>
+      <tbody>
+        {% for m in meals %}
+        {% set resident = residents_map.get(m.resident_id) %}
+        <tr>
+          <td>{{ m.record_date.strftime('%Y/%m/%d') }}</td>
+          <td><span class="badge badge-gray">{{ m.meal_time.value if m.meal_time else '-' }}</span></td>
+          <td>{{ resident.last_name ~ resident.first_name if resident else '-' }}</td>
+          <td>{{ m.main_food_rate or '-' }}{% if m.main_food_rate %}%{% endif %}</td>
+          <td>{{ m.side_food_rate or '-' }}{% if m.side_food_rate %}%{% endif %}</td>
+          <td>{{ m.water_intake or '-' }}{% if m.water_intake %}ml{% endif %}</td>
+          <td style="font-size:0.8rem;">{{ m.notes[:30] if m.notes else '-' }}</td>
+          <td style="font-size:0.8rem;">{{ m.recorded_by or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 排泄記録 -->
+{% if excretions %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">📋 排泄記録</div>
+    <a href="{{ url_for('shortstay.excretion_new') }}" class="btn btn-sm btn-primary">＋ 記録</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日付</th><th>時刻</th><th>利用者</th><th>排泄種別</th><th>量</th><th>性状</th><th>方法</th><th>記録者</th></tr>
+      </thead>
+      <tbody>
+        {% for e in excretions %}
+        {% set resident = residents_map.get(e.resident_id) %}
+        <tr>
+          <td>{{ e.record_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ e.record_time or '-' }}</td>
+          <td>{{ resident.last_name ~ resident.first_name if resident else '-' }}</td>
+          <td>{{ e.excretion_type or '-' }}</td>
+          <td>{{ e.amount or '-' }}</td>
+          <td>{{ e.condition or '-' }}</td>
+          <td>{{ e.method or '-' }}</td>
+          <td style="font-size:0.8rem;">{{ e.recorded_by or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- 入浴記録 -->
+{% if baths %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">🛁 入浴記録</div>
+    <a href="{{ url_for('shortstay.bath_new') }}" class="btn btn-sm btn-primary">＋ 記録</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>日付</th><th>利用者</th><th>入浴方法</th><th>湯温</th><th>特記</th><th>記録者</th></tr>
+      </thead>
+      <tbody>
+        {% for b in baths %}
+        {% set resident = residents_map.get(b.resident_id) %}
+        <tr>
+          <td>{{ b.record_date.strftime('%Y/%m/%d') }}</td>
+          <td>{{ resident.last_name ~ resident.first_name if resident else '-' }}</td>
+          <td>{{ b.bath_method or '-' }}</td>
+          <td>{{ b.water_temp or '-' }}{% if b.water_temp %}℃{% endif %}</td>
+          <td style="font-size:0.8rem;">{{ b.notes[:30] if b.notes else '-' }}</td>
+          <td style="font-size:0.8rem;">{{ b.recorded_by or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not vitals and not meals and not excretions and not baths %}
+<div class="card" style="text-align:center;padding:3rem;">
+  <p style="font-size:1.5rem;margin-bottom:0.5rem;">📊</p>
+  <p style="color:var(--gray-500);">ケア記録がありません</p>
+  <div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1rem;">
+    <a href="{{ url_for('shortstay.vital_new') }}" class="btn btn-primary">バイタル記録を追加</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

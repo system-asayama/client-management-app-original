@@ -1161,3 +1161,175 @@ def run_pedigree_ancestor_migration():
         logger.error(traceback.format_exc())
     finally:
         session.close()
+
+
+def run_truck_schedule_migration():
+    """truck_schedulesテーブルを作成する"""
+    from sqlalchemy import create_engine, text
+    from .db import get_db_url
+    engine_local = create_engine(get_db_url())
+    conn = engine_local.connect()
+    try:
+        is_pg = 'postgresql' in str(engine_local.url)
+        def tbl_exists(c, name):
+            if is_pg:
+                r = c.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema='public' AND table_name=:n"), {'n': name})
+            else:
+                r = c.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema=DATABASE() AND table_name=:n"), {'n': name})
+            return r.scalar() > 0
+        if not tbl_exists(conn, 'truck_schedules'):
+            if is_pg:
+                conn.execute(text("""
+                    CREATE TABLE truck_schedules (
+                        id SERIAL PRIMARY KEY,
+                        schedule_date DATE NOT NULL,
+                        driver_id INTEGER REFERENCES truck_drivers(id),
+                        truck_id INTEGER REFERENCES trucks(id),
+                        route_id INTEGER REFERENCES truck_routes(id),
+                        start_time VARCHAR(5),
+                        end_time VARCHAR(5),
+                        note TEXT,
+                        tenant_id INTEGER,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+            else:
+                conn.execute(text("""
+                    CREATE TABLE `truck_schedules` (
+                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                        `schedule_date` DATE NOT NULL,
+                        `driver_id` INT,
+                        `truck_id` INT,
+                        `route_id` INT,
+                        `start_time` VARCHAR(5),
+                        `end_time` VARCHAR(5),
+                        `note` TEXT,
+                        `tenant_id` INT,
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )
+                """))
+            conn.commit()
+            logger.info("✓ truck_schedules テーブルを作成しました")
+        else:
+            logger.info("- truck_schedules テーブルは既に存在します（スキップ）")
+    except Exception as e:
+        conn.rollback()
+        import traceback
+        logger.error(f"✗ run_truck_schedule_migration エラー: {e}")
+        logger.error(traceback.format_exc())
+    finally:
+        conn.close()
+
+
+def run_truck_schedule_migration():
+    """truck_schedulesテーブルを作成する"""
+    from sqlalchemy import create_engine, text
+    from .db import get_db_url
+    engine_local = create_engine(get_db_url())
+    conn = engine_local.connect()
+    try:
+        is_pg = 'postgresql' in str(engine_local.url)
+        def tbl_exists(c, name):
+            if is_pg:
+                r = c.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema='public' AND table_name=:n"), {'n': name})
+            else:
+                r = c.execute(text(
+                    "SELECT COUNT(*) FROM information_schema.tables "
+                    "WHERE table_schema=DATABASE() AND table_name=:n"), {'n': name})
+            return r.scalar() > 0
+        if not tbl_exists(conn, 'truck_schedules'):
+            if is_pg:
+                conn.execute(text("""
+                    CREATE TABLE truck_schedules (
+                        id SERIAL PRIMARY KEY,
+                        schedule_date DATE NOT NULL,
+                        driver_id INTEGER REFERENCES truck_drivers(id),
+                        truck_id INTEGER REFERENCES trucks(id),
+                        route_id INTEGER REFERENCES truck_routes(id),
+                        start_time VARCHAR(5),
+                        end_time VARCHAR(5),
+                        note TEXT,
+                        tenant_id INTEGER,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+            else:
+                conn.execute(text("""
+                    CREATE TABLE `truck_schedules` (
+                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                        `schedule_date` DATE NOT NULL,
+                        `driver_id` INT,
+                        `truck_id` INT,
+                        `route_id` INT,
+                        `start_time` VARCHAR(5),
+                        `end_time` VARCHAR(5),
+                        `note` TEXT,
+                        `tenant_id` INT,
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )
+                """))
+            conn.commit()
+            logger.info("✓ truck_schedules テーブルを作成しました")
+        else:
+            logger.info("- truck_schedules テーブルは既に存在します（スキップ）")
+    except Exception as e:
+        conn.rollback()
+        import traceback
+        logger.error(f"✗ run_truck_schedule_migration エラー: {e}")
+        logger.error(traceback.format_exc())
+    finally:
+        conn.close()
+
+
+def run_truck_store_id_migration():
+    """trucks・truck_driversテーブルにstore_idカラムを追加するマイグレーション"""
+    from app.utils.db import get_db_connection, _sql
+    from sqlalchemy import text
+    conn = get_db_connection()
+    try:
+        # trucks.store_id
+        try:
+            conn.execute(text('SELECT store_id FROM trucks LIMIT 1'))
+            logger.info("- trucks.store_id カラムは既に存在します（スキップ）")
+        except Exception:
+            conn.rollback()
+            conn.execute(text('ALTER TABLE trucks ADD COLUMN store_id INTEGER'))
+            conn.commit()
+            logger.info("✓ trucks.store_id カラムを追加しました")
+
+        # truck_drivers.store_id
+        try:
+            conn.execute(text('SELECT store_id FROM truck_drivers LIMIT 1'))
+            logger.info("- truck_drivers.store_id カラムは既に存在します（スキップ）")
+        except Exception:
+            conn.rollback()
+            conn.execute(text('ALTER TABLE truck_drivers ADD COLUMN store_id INTEGER'))
+            conn.commit()
+            logger.info("✓ truck_drivers.store_id カラムを追加しました")
+
+        # truck_routes.store_id
+        try:
+            conn.execute(text('SELECT store_id FROM truck_routes LIMIT 1'))
+            logger.info("- truck_routes.store_id カラムは既に存在します（スキップ）")
+        except Exception:
+            conn.rollback()
+            conn.execute(text('ALTER TABLE truck_routes ADD COLUMN store_id INTEGER'))
+            conn.commit()
+            logger.info("✓ truck_routes.store_id カラムを追加しました")
+    except Exception as e:
+        conn.rollback()
+        import traceback
+        logger.error(f"✗ run_truck_store_id_migration エラー: {e}")
+        logger.error(traceback.format_exc())
+    finally:
+        conn.close()

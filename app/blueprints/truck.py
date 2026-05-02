@@ -7,16 +7,18 @@ import hmac
 import hashlib
 import json
 import os
+import uuid
 import requests as http_requests
 from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, Response, stream_with_context
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem
-from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem, TruckSchedule
+from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup, TJugyoin, TJugyoinTenpo
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('truck', __name__, url_prefix='/truck')
@@ -106,6 +108,16 @@ def driver_login_required(f):
     return decorated
 
 
+def office_login_required(f):
+    """内勤スタッフログイン確認デコレーター"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('truck_office_id'):
+            return redirect(url_for('truck.office_login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
 # ─── テンプレートフィルター ──────────────────────────────
 bp.add_app_template_global(format_status, 'truck_format_status')
 bp.add_app_template_global(status_color, 'truck_status_color')
@@ -118,6 +130,12 @@ bp.add_app_template_global(format_time, 'truck_format_time')
 @bp.route('/')
 @login_required_truck
 def dashboard():
+    # 店舗管理者（role=admin かつ store_id あり）は自店舗ダッシュボードへリダイレクト
+    role = session.get('role', '')
+    store_id = session.get('store_id')
+    if role == 'admin' and store_id:
+        return redirect(url_for('truck.store_dashboard', store_id=store_id))
+
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
@@ -205,9 +223,11 @@ def history():
             start_date = date(today.year, today.month, 1)
             end_date = today + timedelta(days=1)
 
+        OFFICE_STATUSES = ['office_working', 'office_break', 'office_finished']
         q = db.query(TruckOperation).filter(
             TruckOperation.operation_date >= start_date,
             TruckOperation.operation_date < end_date,
+            ~TruckOperation.status.in_(OFFICE_STATUSES),
         )
         if tenant_id:
             q = q.filter(TruckOperation.tenant_id == tenant_id)
@@ -282,9 +302,14 @@ def trucks():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+        role = session.get('role')
         q = db.query(Truck)
         if tenant_id:
             q = q.filter(Truck.tenant_id == tenant_id)
+        # 店舗管理者は自店舗のトラックのみ表示
+        if role == 'admin' and store_id:
+            q = q.filter((Truck.store_id == store_id) | (Truck.store_id == None))
         trucks_list = q.order_by(Truck.created_at.desc()).all()
         return render_template('truck/trucks.html', trucks=trucks_list, error=None, today=date.today())
     except Exception as e:
@@ -343,6 +368,7 @@ def _parse_truck_form(form, files=None):
         insurance_company=form.get('insurance_company', '').strip() or None,
         insurance_policy=form.get('insurance_policy', '').strip() or None,
         insurance_expiry=parse_date(form.get('insurance_expiry', '').strip()),
+        store_id=parse_int(form.get('store_id', '').strip()),
     )
     # 写真アップロード
     if files:
@@ -713,9 +739,14 @@ def routes():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+        role = session.get('role')
         q = db.query(TruckRoute)
         if tenant_id:
             q = q.filter(TruckRoute.tenant_id == tenant_id)
+        # 店舗管理者は自店舗のルートのみ表示
+        if role == 'admin' and store_id:
+            q = q.filter((TruckRoute.store_id == store_id) | (TruckRoute.store_id == None))
         routes_list = q.order_by(TruckRoute.created_at.desc()).all()
         return render_template('truck/routes.html', routes=routes_list, error=None)
     except Exception as e:
@@ -731,6 +762,7 @@ def route_new():
     try:
         tenant_id = session.get('tenant_id')
         clients = db.query(TruckClient).filter_by(active=True, tenant_id=tenant_id).order_by(TruckClient.name).all()
+        stores = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
         if request.method == 'POST':
             name = request.form.get('name', '').strip()
             origin = request.form.get('origin', '').strip()
@@ -741,26 +773,30 @@ def route_new():
             note = request.form.get('note', '').strip()
             if not name:
                 flash('ルート名は必須です', 'error')
-                return render_template('truck/route_form.html', route=None, action='new', clients=clients)
+                return render_template('truck/route_form.html', route=None, action='new', clients=clients, stores=stores)
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                form_store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                form_store_id = None
             route = TruckRoute(
                 name=name,
                 origin=origin,
                 destination=destination,
                 distance_km=float(distance_km) if distance_km else None,
                 client_id=int(client_id_str) if client_id_str else None,
-                contract_amount=int(contract_amount) if contract_amount else None,
+                contract_amount=int(float(contract_amount)) if contract_amount else None,
                 note=note,
                 tenant_id=tenant_id,
+                store_id=form_store_id,
             )
             db.add(route)
             db.commit()
             flash(f'ルート「{name}」を登録しました', 'success')
             return redirect(url_for('truck.routes'))
-        return render_template('truck/route_form.html', route=None, action='new', clients=clients)
+        return render_template('truck/route_form.html', route=None, action='new', clients=clients, stores=stores)
     finally:
         db.close()
-
-
 @bp.route('/routes/<int:route_id>/edit', methods=['GET', 'POST'])
 @login_required_truck
 def route_edit(route_id):
@@ -772,6 +808,7 @@ def route_edit(route_id):
             return redirect(url_for('truck.routes'))
         tenant_id = session.get('tenant_id')
         clients = db.query(TruckClient).filter_by(active=True, tenant_id=tenant_id).order_by(TruckClient.name).all()
+        stores = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
         if request.method == 'POST':
             route.name = request.form.get('name', '').strip()
             route.origin = request.form.get('origin', '').strip()
@@ -781,16 +818,21 @@ def route_edit(route_id):
             client_id_str = request.form.get('client_id', '').strip()
             route.client_id = int(client_id_str) if client_id_str else None
             contract_amount_edit = request.form.get('contract_amount', '').strip()
-            route.contract_amount = int(contract_amount_edit) if contract_amount_edit else None
+            route.contract_amount = int(float(contract_amount_edit)) if contract_amount_edit else None
             route.note = request.form.get('note', '').strip()
             route.active = request.form.get('active') == '1'
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                route.store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                route.store_id = None
             if not route.name:
                 flash('ルート名は必須です', 'error')
-                return render_template('truck/route_form.html', route=route, action='edit', clients=clients)
+                return render_template('truck/route_form.html', route=route, action='edit', clients=clients, stores=stores)
             db.commit()
             flash(f'ルート「{route.name}」を更新しました', 'success')
             return redirect(url_for('truck.routes'))
-        return render_template('truck/route_form.html', route=route, action='edit', clients=clients)
+        return render_template('truck/route_form.html', route=route, action='edit', clients=clients, stores=stores)
     finally:
         db.close()
 
@@ -818,9 +860,14 @@ def drivers():
     db = SessionLocal()
     try:
         tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+        role = session.get('role')
         q = db.query(TruckDriver)
         if tenant_id:
             q = q.filter(TruckDriver.tenant_id == tenant_id)
+        # 店舗管理者は自店舗のドライバーのみ表示
+        if role == 'admin' and store_id:
+            q = q.filter((TruckDriver.store_id == store_id) | (TruckDriver.store_id == None))
         drivers_list = q.order_by(TruckDriver.created_at.desc()).all()
         return render_template('truck/drivers.html', drivers=drivers_list, error=None)
     except Exception as e:
@@ -839,16 +886,31 @@ def driver_new():
             login_id = request.form.get('login_id', '').strip()
             password = request.form.get('password', '').strip()
             name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip()
             phone = request.form.get('phone', '').strip()
+            position = request.form.get('position', 'ドライバー').strip()
             license_number = request.form.get('license_number', '').strip()
             note = request.form.get('note', '').strip()
-            if not login_id or not password or not name:
-                flash('ログインID・パスワード・氏名は必須です', 'error')
-                return render_template('truck/driver_form.html', driver=None, action='new')
+            stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+            if not login_id or not password or not name or not email:
+                flash('ログインID・パスワード・氏名・メールアドレスは必須です', 'error')
+                return render_template('truck/driver_form.html', driver=None, action='new', stores=stores_list)
             existing = db.query(TruckDriver).filter_by(login_id=login_id).first()
             if existing:
                 flash('そのログインIDはすでに登録されています', 'error')
+                return render_template('truck/driver_form.html', driver=None, action='new', stores=stores_list)
+            # 従業員テーブルのlogin_id / email 重複チェック
+            existing_emp = db.query(TJugyoin).filter(
+                (TJugyoin.login_id == login_id) | (TJugyoin.email == email)
+            ).first()
+            if existing_emp:
+                flash('そのログインIDまたはメールアドレスは従業員としてすでに登録されています', 'error')
                 return render_template('truck/driver_form.html', driver=None, action='new')
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                form_store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                form_store_id = None
             driver = TruckDriver(
                 login_id=login_id,
                 password_hash=generate_password_hash(password),
@@ -857,16 +919,39 @@ def driver_new():
                 license_number=license_number,
                 note=note,
                 tenant_id=tenant_id,
+                store_id=form_store_id,
             )
             db.add(driver)
+            db.flush()
+            # 従業員テーブルに自動登録
+            employee = TJugyoin(
+                login_id=login_id,
+                email=email,
+                name=name,
+                phone=phone,
+                password_hash=generate_password_hash(password),
+                tenant_id=tenant_id,
+                role='employee',
+                active=1,
+                position=position,
+            )
+            db.add(employee)
+            db.flush()
+            # 店舗に紐付け（セッションのstore_id、なければテナントの最初の店舗）
+            store_id = session.get('store_id')
+            if not store_id and tenant_id:
+                first_store = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).first()
+                if first_store:
+                    store_id = first_store.id
+            if store_id:
+                db.add(TJugyoinTenpo(employee_id=employee.id, store_id=store_id))
             db.commit()
-            flash(f'ドライバー「{name}」を登録しました', 'success')
+            flash(f'ドライバー「{name}」を登録しました（従業員にも自動登録しました）', 'success')
             return redirect(url_for('truck.drivers'))
-        return render_template('truck/driver_form.html', driver=None, action='new')
+        stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+        return render_template('truck/driver_form.html', driver=None, action='new', stores=stores_list)
     finally:
         db.close()
-
-
 @bp.route('/drivers/<int:driver_id>/edit', methods=['GET', 'POST'])
 @login_required_truck
 def driver_edit(driver_id):
@@ -886,13 +971,22 @@ def driver_edit(driver_id):
             new_password = request.form.get('password', '').strip()
             if new_password:
                 driver.password_hash = generate_password_hash(new_password)
+            form_store_id = request.form.get('store_id', '').strip()
+            try:
+                driver.store_id = int(form_store_id) if form_store_id else None
+            except Exception:
+                driver.store_id = None
             if not driver.login_id or not driver.name:
                 flash('ログインIDと氏名は必須です', 'error')
-                return render_template('truck/driver_form.html', driver=driver, action='edit')
+                tenant_id = session.get('tenant_id')
+                stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+                return render_template('truck/driver_form.html', driver=driver, action='edit', stores=stores_list)
             db.commit()
             flash(f'ドライバー「{driver.name}」を更新しました', 'success')
             return redirect(url_for('truck.drivers'))
-        return render_template('truck/driver_form.html', driver=driver, action='edit')
+        tenant_id = session.get('tenant_id')
+        stores_list = db.query(TTenpo).filter_by(tenant_id=tenant_id).order_by(TTenpo.id).all() if tenant_id else []
+        return render_template('truck/driver_form.html', driver=driver, action='edit', stores=stores_list)
     finally:
         db.close()
 
@@ -908,6 +1002,96 @@ def driver_delete(driver_id):
             db.commit()
             flash(f'ドライバー「{driver.name}」を無効化しました', 'success')
         return redirect(url_for('truck.drivers'))
+    finally:
+        db.close()
+
+
+@bp.route('/drivers/<int:driver_id>/destroy', methods=['POST'])
+@login_required_truck
+def driver_destroy(driver_id):
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        if driver:
+            name = driver.name
+            db.delete(driver)
+            db.commit()
+            flash(f'ドライバー「{name}」を削除しました', 'success')
+        return redirect(url_for('truck.drivers'))
+    finally:
+        db.close()
+
+
+@bp.route('/drivers/from_employee', methods=['GET', 'POST'])
+@login_required_truck
+def driver_from_employee():
+    """従業員をドライバーとして登録する"""
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        store_id = session.get('store_id')
+
+        def _get_employees():
+            """店舗に紐づく従業員を取得（store_idがあれば店舗絞り込み、なければテナント全体）"""
+            registered_driver_names = set(
+                d.name for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id, active=True).all()
+            )
+            if store_id:
+                # T_従業員_店舗 を JOIN して対象店舗の従業員のみ取得
+                emps = db.query(TJugyoin).join(
+                    TJugyoinTenpo, TJugyoin.id == TJugyoinTenpo.employee_id
+                ).filter(
+                    TJugyoinTenpo.store_id == store_id,
+                    TJugyoin.active == 1,
+                ).order_by(TJugyoin.name).all() if store_id else []
+            else:
+                emps = db.query(TJugyoin).filter(
+                    TJugyoin.tenant_id == tenant_id,
+                    TJugyoin.active == 1,
+                ).order_by(TJugyoin.name).all() if tenant_id else []
+            return emps, registered_driver_names
+
+        if request.method == 'POST':
+            employee_id = request.form.get('employee_id', '').strip()
+            login_id = request.form.get('login_id', '').strip()
+            password = request.form.get('password', '').strip()
+            license_number = request.form.get('license_number', '').strip()
+            note = request.form.get('note', '').strip()
+            if not employee_id or not login_id or not password:
+                flash('従業員・ログインID・パスワードは必須です', 'error')
+                emps, registered_names = _get_employees()
+                return render_template('truck/driver_from_employee.html',
+                                       employees=emps, registered_names=registered_names)
+            employee = db.query(TJugyoin).get(int(employee_id))
+            if not employee:
+                flash('従業員が見つかりません', 'error')
+                return redirect(url_for('truck.drivers'))
+            existing = db.query(TruckDriver).filter_by(login_id=login_id).first()
+            if existing:
+                flash('そのログインIDはすでに登録されています', 'error')
+                emps, registered_names = _get_employees()
+                return render_template('truck/driver_from_employee.html',
+                                       employees=emps, registered_names=registered_names)
+            driver = TruckDriver(
+                login_id=login_id,
+                password_hash=generate_password_hash(password),
+                name=employee.name,
+                phone=employee.phone or '',
+                license_number=license_number,
+                note=note,
+                tenant_id=tenant_id,
+                store_id=store_id,
+            )
+            db.add(driver)
+            # 従業員から登録の場合、従業員は既存。ドライバー用パスワードで従業員パスワードを更新する
+            employee.password_hash = generate_password_hash(password)
+            db.commit()
+            flash(f'従業員「{employee.name}」をドライバーとして登録しました', 'success')
+            return redirect(url_for('truck.drivers'))
+        emps, registered_names = _get_employees()
+        return render_template('truck/driver_from_employee.html',
+                               employees=emps,
+                               registered_names=registered_names)
     finally:
         db.close()
 
@@ -1986,6 +2170,38 @@ def mobile_login():
         db.close()
 
 
+@bp.route('/api/mobile/config', methods=['GET'])
+def mobile_config():
+    """モバイルアプリ向け設定取得API（GPS間隔など）"""
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    # X-Staff-Tokenからtenant_idを取得
+    staff_token = request.headers.get('X-Staff-Token', '')
+    tenant_id = None
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id_str = staff_token.split(':')[0]
+            db_tmp = SessionLocal()
+            try:
+                d = db_tmp.query(TruckDriver).filter_by(id=int(driver_id_str), active=True).first()
+                if d:
+                    tenant_id = d.tenant_id
+            finally:
+                db_tmp.close()
+        except Exception:
+            pass
+    db = SessionLocal()
+    try:
+        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', tenant_id, '30') or '30')
+        return jsonify({
+            'ok': True,
+            'gps_interval_seconds': gps_interval_seconds,
+        })
+    finally:
+        db.close()
+
+
 @bp.route('/api/mobile/trucks', methods=['GET'])
 def mobile_trucks():
     api_key = request.headers.get('X-Mobile-API-Key', '')
@@ -2120,7 +2336,10 @@ def mobile_operation_today():
         op = db.query(TruckOperation).filter(
             TruckOperation.driver_id == driver_id,
             TruckOperation.operation_date == today,
-            TruckOperation.status != 'finished'
+            TruckOperation.status != 'finished',
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
         ).order_by(TruckOperation.id.desc()).first()
         if not op:
             return jsonify({'ok': True, 'operation': None})
@@ -2270,6 +2489,179 @@ def mobile_location_count():
     finally:
         db.close()
 
+@bp.route('/api/mobile/photo/upload', methods=['POST'])
+def mobile_photo_upload():
+    """運行写真アップロードAPI
+    multipart/form-data: file=<画像>, operation_id=<int>, comment=<str>
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    operation_id = request.form.get('operation_id')
+    comment = request.form.get('comment', '').strip()
+    file = request.files.get('file')
+
+    if not operation_id:
+        return jsonify({'ok': False, 'error': 'operation_id は必須です'}), 400
+    if not file:
+        return jsonify({'ok': False, 'error': '画像ファイルは必須です'}), 400
+
+    # 保存先ディレクトリ
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              'static', 'uploads', 'operation_photos')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # ファイル名をUUIDで生成
+    ext = os.path.splitext(secure_filename(file.filename))[1].lower() or '.jpg'
+    filename = f"{uuid.uuid4().hex}{ext}"
+    save_path = os.path.join(upload_dir, filename)
+    file.save(save_path)
+
+    # 相対URLパス
+    photo_url = f"/truck/static/operation_photos/{filename}"
+
+    # DBに記録
+    db = SessionLocal()
+    try:
+        op = db.query(TruckOperation).get(int(operation_id))
+        tenant_id = op.tenant_id if op else None
+        driver_id = op.driver_id if op else None
+        db.execute(text("""
+            INSERT INTO truck_operation_photos
+                (operation_id, driver_id, tenant_id, photo_path, comment, taken_at)
+            VALUES
+                (:operation_id, :driver_id, :tenant_id, :photo_path, :comment, :taken_at)
+        """), {
+            'operation_id': int(operation_id),
+            'driver_id': driver_id,
+            'tenant_id': tenant_id,
+            'photo_path': photo_url,
+            'comment': comment if comment else None,
+            'taken_at': datetime.now(),
+        })
+        db.commit()
+        return jsonify({'ok': True, 'photo_url': photo_url})
+    except Exception as e:
+        db.rollback()
+        # DBエラー時はファイルも削除
+        try:
+            os.remove(save_path)
+        except Exception:
+            pass
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/api/mobile/photo/list', methods=['GET'])
+def mobile_photo_list():
+    """運行写真一覧取得API
+    クエリパラメータ: operation_id (必須)
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+
+    operation_id = request.args.get('operation_id')
+    if not operation_id:
+        return jsonify({'ok': False, 'error': 'operation_id は必須です'}), 400
+
+    db = SessionLocal()
+    try:
+        rows = db.execute(text("""
+            SELECT id, photo_path, comment, taken_at
+            FROM truck_operation_photos
+            WHERE operation_id = :operation_id
+            ORDER BY taken_at ASC
+        """), {'operation_id': int(operation_id)}).fetchall()
+        photos = []
+        for row in rows:
+            photos.append({
+                'id': row[0],
+                'photo_url': row[1],
+                'comment': row[2],
+                'taken_at': row[3].isoformat() if row[3] else None,
+            })
+        return jsonify({'ok': True, 'photos': photos})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/api/mobile/operation/history', methods=['GET'])
+def mobile_operation_history():
+    """運行履歴取得API
+    クエリパラメータ: year, month
+    """
+    api_key = request.headers.get('X-Mobile-API-Key', '')
+    if not hmac.compare_digest(api_key, MOBILE_API_KEY):
+        return jsonify({'ok': False, 'error': 'APIキーが無効です'}), 401
+    driver_id = None
+    staff_token = request.headers.get('X-Staff-Token', '')
+    if staff_token and ':' in staff_token:
+        try:
+            driver_id = int(staff_token.split(':')[0])
+        except (ValueError, IndexError):
+            pass
+    if not driver_id:
+        return jsonify({'ok': False, 'error': '認証情報がありません'}), 401
+    today = date.today()
+    try:
+        year = int(request.args.get('year', today.year))
+        month = int(request.args.get('month', today.month))
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1)
+        else:
+            end_date = date(year, month + 1, 1)
+    except Exception:
+        start_date = date(today.year, today.month, 1)
+        end_date = today
+    db = SessionLocal()
+    try:
+        ops = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date >= start_date,
+            TruckOperation.operation_date < end_date,
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
+        ).order_by(TruckOperation.operation_date.desc(), TruckOperation.start_time.desc()).all()
+        result = []
+        for op in ops:
+            truck = db.query(Truck).get(op.truck_id) if op.truck_id else None
+            route = db.query(TruckRoute).get(op.route_id) if op.route_id else None
+            result.append({
+                'id': op.id,
+                'driver_id': op.driver_id,
+                'truck_id': op.truck_id,
+                'route_id': op.route_id,
+                'status': op.status,
+                'operation_date': op.operation_date.isoformat() if op.operation_date else None,
+                'start_time': op.start_time.isoformat() if op.start_time else None,
+                'end_time': op.end_time.isoformat() if op.end_time else None,
+                'truck_number': truck.number if truck else None,
+                'truck_name': truck.name if truck else None,
+                'route_name': route.name if route else None,
+            })
+        return jsonify({'ok': True, 'operations': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/static/operation_photos/<path:filename>')
+def serve_operation_photo(filename):
+    """運行写真の静的ファイル配信"""
+    from flask import send_from_directory
+    photo_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             'static', 'uploads', 'operation_photos')
+    return send_from_directory(photo_dir, filename)
+
+
 @bp.route('/driver/login', methods=['GET', 'POST'])
 def driver_login():
     error = None
@@ -2306,9 +2698,12 @@ def driver_dashboard():
         driver = db.query(TruckDriver).get(driver_id)
         today = date.today()
         today_str = today.strftime('%Y年%m月%d日')
-        operations = db.query(TruckOperation).filter_by(
-            driver_id=driver_id,
-            operation_date=today,
+        operations = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date == today,
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
         ).order_by(TruckOperation.start_time).all()
         # /truck/settings/apkで設定したTruckAppSettingsのandroid_apk_urlを使用
         # APK設定はテナント共通（tenant_id=None）
@@ -2321,6 +2716,39 @@ def driver_dashboard():
             operations=operations,
             apk_url=apk_url,
             apk_version=apk_version,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/driver/history')
+@driver_login_required
+def driver_history():
+    driver_id = session['truck_driver_id']
+    db = SessionLocal()
+    try:
+        today = date.today()
+        try:
+            hist_year = int(request.args.get('hist_year', today.year))
+            hist_month = int(request.args.get('hist_month', today.month))
+        except (ValueError, TypeError):
+            hist_year = today.year
+            hist_month = today.month
+        hist_start = date(hist_year, hist_month, 1)
+        hist_end = date(hist_year + 1, 1, 1) if hist_month == 12 else date(hist_year, hist_month + 1, 1)
+        history_ops = db.query(TruckOperation).filter(
+            TruckOperation.driver_id == driver_id,
+            TruckOperation.operation_date >= hist_start,
+            TruckOperation.operation_date < hist_end,
+            ~TruckOperation.status.in_([
+                'office_working', 'office_break', 'office_finished'
+            ])
+        ).order_by(TruckOperation.operation_date.desc(), TruckOperation.start_time.desc()).all()
+        return render_template(
+            'truck/driver_history.html',
+            history_ops=history_ops,
+            hist_year=hist_year,
+            hist_month=hist_month,
         )
     finally:
         db.close()
@@ -2349,6 +2777,155 @@ def driver_apk_download():
         )
     except Exception as e:
         return f'ダウンロードエラー: {e}', 500
+    finally:
+        db.close()
+
+
+# ─── ドライバー内勤モード ────────────────────────────────────────
+
+@bp.route('/driver/office')
+@driver_login_required
+def driver_office():
+    """ドライバー内勤モード画面（出勤・休憩・退勤）"""
+    driver_id = session['truck_driver_id']
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        today = date.today()
+        today_str = today.strftime('%Y年%m月%d日')
+        # 本日の内勤レコードを取得
+        office_op = db.query(TruckOperation).filter_by(
+            driver_id=driver_id,
+            operation_date=today,
+            operation_type='office',
+        ).order_by(TruckOperation.id.desc()).first()
+        return render_template(
+            'truck/driver_office.html',
+            driver=driver,
+            today_str=today_str,
+            office_op=office_op,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/driver/office/action', methods=['POST'])
+@driver_login_required
+def driver_office_action():
+    """ドライバー内勤モードのアクション（出勤・休憩開始・休憩終了・退勤）"""
+    driver_id = session['truck_driver_id']
+    action = request.form.get('action')
+    db = SessionLocal()
+    try:
+        today = date.today()
+        now = datetime.now()
+        office_op = db.query(TruckOperation).filter_by(
+            driver_id=driver_id,
+            operation_date=today,
+            operation_type='office',
+        ).order_by(TruckOperation.id.desc()).first()
+
+        if action == 'checkin':
+            # 出勤：新規レコード作成
+            # truck_idはNOT NULLなのでそのドライバーのテナントの最初のトラックを使用、なけれ〇1
+            from app.models_truck import Truck as TruckModel
+            driver = db.query(TruckDriver).get(driver_id)
+            truck = db.query(TruckModel).filter_by(
+                tenant_id=driver.tenant_id, active=True
+            ).first() if driver else None
+            truck_id = truck.id if truck else 1
+            new_op = TruckOperation(
+                driver_id=driver_id,
+                truck_id=truck_id,
+                route_id=None,
+                status='office_working',
+                operation_type='office',
+                start_time=now,
+                operation_date=today,
+                tenant_id=driver.tenant_id if driver else None,
+            )
+            db.add(new_op)
+            db.commit()
+
+        elif action == 'break_start' and office_op:
+            office_op.status = 'office_break'
+            office_op.break_start_time = now
+            db.commit()
+
+        elif action == 'break_end' and office_op:
+            office_op.status = 'office_working'
+            office_op.break_end_time = now
+            db.commit()
+
+        elif action == 'checkout' and office_op:
+            office_op.status = 'office_finished'
+            office_op.end_time = now
+            db.commit()
+
+        return redirect(url_for('truck.driver_office'))
+    finally:
+        db.close()
+
+
+# ─── 内勤スタッフ（TruckAdmin）マイページ ────────────────────────────────────────
+
+@bp.route('/office/login', methods=['GET', 'POST'])
+def office_login():
+    error = None
+    if request.method == 'POST':
+        login_id = request.form.get('login_id', '').strip()
+        password = request.form.get('password', '')
+        db = SessionLocal()
+        try:
+            from app.models_truck import TruckAdmin
+            admin = db.query(TruckAdmin).filter_by(login_id=login_id, active=True).first()
+            if admin and check_password_hash(admin.password_hash, password):
+                session['truck_office_id'] = admin.id
+                session['truck_office_name'] = admin.name
+                session['truck_office_tenant_id'] = admin.tenant_id
+                return redirect(url_for('truck.office_dashboard'))
+            else:
+                error = 'ログインIDまたはパスワードが正しくありません'
+        finally:
+            db.close()
+    return render_template('truck/office_login.html', error=error)
+
+
+@bp.route('/office/logout')
+def office_logout():
+    session.pop('truck_office_id', None)
+    session.pop('truck_office_name', None)
+    session.pop('truck_office_tenant_id', None)
+    return redirect(url_for('truck.office_login'))
+
+
+@bp.route('/office/dashboard')
+@office_login_required
+def office_dashboard():
+    from app.models_truck import TruckAdmin
+    admin_id = session['truck_office_id']
+    tenant_id = session.get('truck_office_tenant_id')
+    db = SessionLocal()
+    try:
+        admin = db.query(TruckAdmin).get(admin_id)
+        today = date.today()
+        today_str = today.strftime('%Y年%m月%d日')
+        q = db.query(TruckOperation).filter_by(operation_date=today)
+        if tenant_id:
+            driver_ids = [d.id for d in db.query(TruckDriver).filter_by(tenant_id=tenant_id, active=True).all()]
+            if driver_ids:
+                q = q.filter(TruckOperation.driver_id.in_(driver_ids))
+        operations = q.order_by(TruckOperation.start_time.desc()).all()
+        status_counts = {}
+        for op in operations:
+            status_counts[op.status] = status_counts.get(op.status, 0) + 1
+        return render_template(
+            'truck/office_dashboard.html',
+            admin=admin,
+            today_str=today_str,
+            operations=operations,
+            status_counts=status_counts,
+        )
     finally:
         db.close()
 
@@ -2434,9 +3011,11 @@ def store_dashboard(store_id):
                                    operations=[], status_counts={},
                                    trucks=[], drivers=[], error="店舗が見つかりません")
 
+        OFFICE_STATUSES = ['office_working', 'office_break', 'office_finished']
         ops = db.query(TruckOperation).filter(
             TruckOperation.operation_date == today,
             TruckOperation.tenant_id == store.tenant_id,
+            ~TruckOperation.status.in_(OFFICE_STATUSES),
         ).order_by(TruckOperation.start_time).all()
 
         status_counts = {}
@@ -2559,7 +3138,7 @@ def finance_invoice_new():
                 ops = db.query(TruckOperation).filter(
                     TruckOperation.operation_date >= period_from,
                     TruckOperation.operation_date <= period_to,
-                    TruckOperation.status == 'done',
+                    TruckOperation.status == 'finished',
                 ).order_by(TruckOperation.operation_date).all()
                 if client_id:
                     ops = [o for o in ops if o.route and o.route.client_id == client_id]
@@ -2599,7 +3178,7 @@ def finance_invoice_new():
                     items.append(item)
 
             # 合計計算
-            subtotal = sum(it.amount for it in items)
+            subtotal = sum(int(it.amount) for it in items)
             tax_amount = int(subtotal * tax_rate)
             invoice.subtotal = subtotal
             invoice.tax_amount = tax_amount
@@ -2674,5 +3253,216 @@ def finance_invoice_delete(invoice_id):
             db.commit()
             flash('請求書を削除しました', 'success')
         return redirect(url_for('truck.finance_invoice'))
+    finally:
+        db.close()
+
+
+# ─── 運行スケジュール ────────────────────────────────────
+
+@bp.route('/schedule')
+@login_required_truck
+def schedule_list():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        today = date.today()
+        selected_year = request.args.get('year', str(today.year))
+        selected_month = request.args.get('month', str(today.month))
+
+        try:
+            year = int(selected_year)
+            month = int(selected_month)
+            start_date = date(year, month, 1)
+            if month == 12:
+                end_date = date(year + 1, 1, 1)
+            else:
+                end_date = date(year, month + 1, 1)
+        except Exception:
+            year = today.year
+            month = today.month
+            start_date = date(year, month, 1)
+            end_date = date(year, month + 1, 1) if month < 12 else date(year + 1, 1, 1)
+
+        q = db.query(TruckSchedule).filter(
+            TruckSchedule.schedule_date >= start_date,
+            TruckSchedule.schedule_date < end_date,
+        )
+        if tenant_id:
+            from sqlalchemy import or_
+            q = q.filter(or_(TruckSchedule.tenant_id == tenant_id, TruckSchedule.tenant_id == None))
+        schedules = q.order_by(TruckSchedule.schedule_date, TruckSchedule.start_time).all()
+
+        dq = db.query(TruckDriver).filter(TruckDriver.active == True)
+        if tenant_id:
+            dq = dq.filter(TruckDriver.tenant_id == tenant_id)
+        drivers = dq.all()
+
+        tq = db.query(Truck).filter(Truck.active == True)
+        if tenant_id:
+            tq = tq.filter(Truck.tenant_id == tenant_id)
+        trucks = tq.all()
+
+        rq = db.query(TruckRoute).filter(TruckRoute.active == True)
+        if tenant_id:
+            rq = rq.filter(TruckRoute.tenant_id == tenant_id)
+        routes = rq.all()
+
+        years = list(range(today.year - 1, today.year + 3))
+        months = list(range(1, 13))
+
+        return render_template(
+            'truck/schedule_list.html',
+            schedules=schedules,
+            drivers=drivers,
+            trucks=trucks,
+            routes=routes,
+            years=years,
+            months=months,
+            selected_year=year,
+            selected_month=month,
+            error=None,
+        )
+    except Exception as e:
+        return render_template('truck/schedule_list.html',
+                               schedules=[], drivers=[], trucks=[], routes=[],
+                               years=[], months=list(range(1, 13)),
+                               selected_year=date.today().year, selected_month=date.today().month,
+                               error=str(e))
+    finally:
+        db.close()
+
+
+@bp.route('/schedule/new', methods=['GET', 'POST'])
+@login_required_truck
+def schedule_new():
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+
+        dq = db.query(TruckDriver).filter(TruckDriver.active == True)
+        if tenant_id:
+            dq = dq.filter(TruckDriver.tenant_id == tenant_id)
+        drivers = dq.all()
+
+        tq = db.query(Truck).filter(Truck.active == True)
+        if tenant_id:
+            tq = tq.filter(Truck.tenant_id == tenant_id)
+        trucks = tq.all()
+
+        rq = db.query(TruckRoute).filter(TruckRoute.active == True)
+        if tenant_id:
+            rq = rq.filter(TruckRoute.tenant_id == tenant_id)
+        routes = rq.all()
+
+        if request.method == 'POST':
+            schedule_date_str = request.form.get('schedule_date', '')
+            driver_id = request.form.get('driver_id') or None
+            truck_id = request.form.get('truck_id') or None
+            route_id = request.form.get('route_id') or None
+            start_time = request.form.get('start_time', '').strip() or None
+            end_time = request.form.get('end_time', '').strip() or None
+            note = request.form.get('note', '').strip() or None
+
+            try:
+                schedule_date = date.fromisoformat(schedule_date_str)
+            except Exception:
+                flash('日付の形式が正しくありません', 'error')
+                return render_template('truck/schedule_form.html',
+                                       schedule=None, drivers=drivers, trucks=trucks, routes=routes,
+                                       action_url=url_for('truck.schedule_new'), form_title='スケジュール新規登録')
+
+            sched = TruckSchedule(
+                schedule_date=schedule_date,
+                driver_id=int(driver_id) if driver_id else None,
+                truck_id=int(truck_id) if truck_id else None,
+                route_id=int(route_id) if route_id else None,
+                start_time=start_time,
+                end_time=end_time,
+                note=note,
+                tenant_id=tenant_id,
+            )
+            db.add(sched)
+            db.commit()
+            flash('スケジュールを登録しました', 'success')
+            return redirect(url_for('truck.schedule_list',
+                                    year=schedule_date.year, month=schedule_date.month))
+
+        return render_template('truck/schedule_form.html',
+                               schedule=None, drivers=drivers, trucks=trucks, routes=routes,
+                               action_url=url_for('truck.schedule_new'), form_title='スケジュール新規登録')
+    finally:
+        db.close()
+
+
+@bp.route('/schedule/<int:schedule_id>/edit', methods=['GET', 'POST'])
+@login_required_truck
+def schedule_edit(schedule_id):
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        sched = db.query(TruckSchedule).get(schedule_id)
+        if not sched:
+            flash('スケジュールが見つかりません', 'error')
+            return redirect(url_for('truck.schedule_list'))
+
+        dq = db.query(TruckDriver).filter(TruckDriver.active == True)
+        if tenant_id:
+            dq = dq.filter(TruckDriver.tenant_id == tenant_id)
+        drivers = dq.all()
+
+        tq = db.query(Truck).filter(Truck.active == True)
+        if tenant_id:
+            tq = tq.filter(Truck.tenant_id == tenant_id)
+        trucks = tq.all()
+
+        rq = db.query(TruckRoute).filter(TruckRoute.active == True)
+        if tenant_id:
+            rq = rq.filter(TruckRoute.tenant_id == tenant_id)
+        routes = rq.all()
+
+        if request.method == 'POST':
+            schedule_date_str = request.form.get('schedule_date', '')
+            try:
+                sched.schedule_date = date.fromisoformat(schedule_date_str)
+            except Exception:
+                flash('日付の形式が正しくありません', 'error')
+                return render_template('truck/schedule_form.html',
+                                       schedule=sched, drivers=drivers, trucks=trucks, routes=routes,
+                                       action_url=url_for('truck.schedule_edit', schedule_id=schedule_id),
+                                       form_title='スケジュール編集')
+            sched.driver_id = int(request.form.get('driver_id')) if request.form.get('driver_id') else None
+            sched.truck_id = int(request.form.get('truck_id')) if request.form.get('truck_id') else None
+            sched.route_id = int(request.form.get('route_id')) if request.form.get('route_id') else None
+            sched.start_time = request.form.get('start_time', '').strip() or None
+            sched.end_time = request.form.get('end_time', '').strip() or None
+            sched.note = request.form.get('note', '').strip() or None
+            db.commit()
+            flash('スケジュールを更新しました', 'success')
+            return redirect(url_for('truck.schedule_list',
+                                    year=sched.schedule_date.year, month=sched.schedule_date.month))
+
+        return render_template('truck/schedule_form.html',
+                               schedule=sched, drivers=drivers, trucks=trucks, routes=routes,
+                               action_url=url_for('truck.schedule_edit', schedule_id=schedule_id),
+                               form_title='スケジュール編集')
+    finally:
+        db.close()
+
+
+@bp.route('/schedule/<int:schedule_id>/delete', methods=['POST'])
+@login_required_truck
+def schedule_delete(schedule_id):
+    db = SessionLocal()
+    try:
+        sched = db.query(TruckSchedule).get(schedule_id)
+        if sched:
+            year = sched.schedule_date.year
+            month = sched.schedule_date.month
+            db.delete(sched)
+            db.commit()
+            flash('スケジュールを削除しました', 'success')
+            return redirect(url_for('truck.schedule_list', year=year, month=month))
+        flash('スケジュールが見つかりません', 'error')
+        return redirect(url_for('truck.schedule_list'))
     finally:
         db.close()

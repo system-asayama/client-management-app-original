@@ -19,10 +19,15 @@
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; color: #fff; font-size: 11px; font-weight: 600; }
     .op-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
     .op-row:last-child { border-bottom: none; }
-    .apk-btn { display: block; width: 100%; padding: 16px; background: linear-gradient(135deg,#1a3a5c 0%,#2563a8 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center; text-decoration: none; }
+    .btn-mode { display: block; width: 100%; padding: 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center; text-decoration: none; color: #fff; margin-bottom: 10px; }
+    .btn-truck { background: linear-gradient(135deg,#16a34a 0%,#15803d 100%); }
+    .btn-office { background: linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%); }
+    .btn-history { display: block; width: 100%; padding: 13px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; font-weight: 600; text-align: center; text-decoration: none; margin-bottom: 10px; }
+    .btn-dl { display: block; width: 100%; padding: 11px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-size: 13px; font-weight: 600; text-align: center; text-decoration: none; margin-top: 4px; }
     .apk-version { font-size: 12px; color: #6b7280; text-align: center; margin-top: 8px; }
-    .no-apk { color: #9ca3af; font-size: 13px; text-align: center; padding: 16px; }
+    .apk-hint { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 6px; line-height: 1.5; }
     .empty { color: #9ca3af; font-size: 13px; text-align: center; padding: 16px; }
+    .btn-history-standalone { display: block; width: 100%; padding: 13px; background: #fff; color: #0f2744; border: 1.5px solid #d1d5db; border-radius: 12px; font-size: 14px; font-weight: 600; text-align: center; text-decoration: none; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
     .flash-success { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; color: #16a34a; font-size: 13px; margin-bottom: 14px; }
     .flash-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; color: #dc2626; font-size: 13px; margin-bottom: 14px; }
   </style>
@@ -41,10 +46,13 @@
         <div class="flash-{{ category }}">{{ message }}</div>
       {% endfor %}
     {% endwith %}
+
+    <!-- ドライバー名・日付 -->
     <div class="card">
       <div class="driver-name">{{ driver.name if driver else '-' }}</div>
       <div class="today-title">{{ today_str }}</div>
     </div>
+
     <!-- 本日の運行 -->
     <div class="card">
       <div class="section-title">📋 本日の運行</div>
@@ -62,20 +70,35 @@
       <div class="empty">本日の運行記録はありません</div>
       {% endif %}
     </div>
-    <!-- APKダウンロード -->
+
+    <!-- 運行履歴ボタン -->
+    <a href="{{ url_for('truck.driver_history') }}" class="btn-history-standalone">
+      📅 運行履歴を確認する
+    </a>
+
+    <!-- モード選択 -->
     <div class="card">
-      <div class="section-title">📱 アプリダウンロード</div>
+      <div class="section-title">🔄 モードを選択</div>
+      <!-- トラック運行モード：アプリを起動 -->
+      <a href="manus20260421055548://" class="btn-mode btn-truck">
+        🚚 トラック運行モード
+      </a>
+      <!-- 内勤モード：Webページ -->
+      <a href="{{ url_for('truck.driver_office') }}" class="btn-mode btn-office" style="margin-bottom:0;">
+        🏢 内勤モード
+      </a>
+      <!-- アプリ未インストールの場合のダウンロード -->
       {% if apk_url %}
-      <a href="{{ url_for('truck.driver_apk_download') }}" class="apk-btn">
-        📥 Androidアプリをダウンロード
+      <a href="{{ url_for('truck.driver_apk_download') }}" class="btn-dl">
+        📥 トラック運行管理アプリをお持ちでない方はこちら（ダウンロード）
       </a>
       {% if apk_version %}
       <div class="apk-version">バージョン: {{ apk_version }}</div>
       {% endif %}
-      {% else %}
-      <div class="no-apk">現在ダウンロード可能なアプリはありません</div>
+      <div class="apk-hint">※ トラック運行モードはAndroidアプリで動作します。アプリが起動しない場合はダウンロードしてください。</div>
       {% endif %}
     </div>
+
   </div>
 </body>
 </html>

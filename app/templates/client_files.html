@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">ファイル一覧</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h1>📁 {{ client.name }} のファイル共有</h1>
 
@@ -127,7 +131,7 @@
     <div class="nav-links">
         <a href="{{ url_for('clients.client_info', client_id=client.id) }}">← 顧問先ページに戻る</a>
         <a href="{{ url_for('clients.clients') }}">顧問先一覧</a>
-        <a href="{{ url_for('tenant_admin.dashboard') }}">🏠 ホーム</a>
+        <a href="{{ current_dashboard_url }}">🏠 ホーム</a>
     </div>
 
     <script>

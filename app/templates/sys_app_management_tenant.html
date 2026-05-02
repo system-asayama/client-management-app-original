@@ -45,10 +45,14 @@
   <div class="page-header-inner">
     <div><h1 class="page-header-title">テナントアプリ管理</h1></div>
     <div class="page-header-actions">
-      <a href="{{ url_for('system_admin.dashboard') }}" class="header-btn-outline">ダッシュボードに戻る</a>
+      <a href="{{ current_dashboard_url }}" class="header-btn-outline">ダッシュボードに戻る</a>
     </div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 
 <div class="card" style="max-width:800px">

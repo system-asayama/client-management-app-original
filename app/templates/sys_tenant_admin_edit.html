@@ -51,6 +51,10 @@
     </div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h2>テナント管理者編集 ({{ tenant.名称 }} / {{ tenant.slug }})</h2>
 

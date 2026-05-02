@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>内勤スタッフログイン - トラック運行管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; min-height: 100vh; background: linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%); display: flex; align-items: center; justify-content: center; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .login-card { background: #fff; border-radius: 16px; padding: 32px 28px; width: 100%; max-width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+    .login-icon { font-size: 40px; text-align: center; margin-bottom: 8px; }
+    .login-title { font-size: 20px; font-weight: 700; color: #0f2744; text-align: center; margin-bottom: 4px; }
+    .login-subtitle { font-size: 13px; color: #6b7280; text-align: center; margin-bottom: 24px; }
+    .form-field { margin-bottom: 16px; }
+    .form-field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .form-field input { width: 100%; padding: 12px 14px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 15px; font-family: inherit; }
+    .form-field input:focus { outline: none; border-color: #1a3a5c; }
+    .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg,#16a34a 0%,#15803d 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 8px; }
+    .btn-login:hover { opacity: 0.92; }
+    .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; color: #dc2626; font-size: 13px; margin-bottom: 16px; text-align: center; }
+    .switch-link { text-align: center; margin-top: 20px; font-size: 13px; color: #6b7280; }
+    .switch-link a { color: #2563a8; text-decoration: none; font-weight: 600; }
+    .switch-link a:hover { text-decoration: underline; }
+    .mode-badge { display: inline-block; background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+    .mode-badge-wrap { text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-icon">🏢</div>
+    <div class="login-title">内勤スタッフログイン</div>
+    <div class="login-subtitle">トラック運行管理システム</div>
+    <div class="mode-badge-wrap"><span class="mode-badge">内勤モード</span></div>
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+    <form method="POST">
+      <div class="form-field">
+        <label>ログインID</label>
+        <input type="text" name="login_id" placeholder="例：office001" autocomplete="username" required>
+      </div>
+      <div class="form-field">
+        <label>パスワード</label>
+        <input type="password" name="password" placeholder="パスワードを入力" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-login">ログイン</button>
+    </form>
+    <div class="switch-link">
+      ドライバーの方は <a href="{{ url_for('truck.driver_login') }}">ドライバーログイン</a>
+    </div>
+  </div>
+</body>
+</html>

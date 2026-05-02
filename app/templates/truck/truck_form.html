@@ -112,6 +112,19 @@
     </script>
     {% endif %}
 
+    <!-- ── 所属店舗 ── -->
+    {% if stores %}
+    <div class="form-field" style="margin-top:12px;">
+      <label>🏢 所属店舗</label>
+      <select name="store_id" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;background:#fff;">
+        <option value="">── 指定なし ──</option>
+        {% for store in stores %}
+        <option value="{{ store.id }}" {% if truck and truck.store_id == store.id %}selected{% endif %}>{{ store.名称 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
     <!-- ── 車検情報 ── -->
     <div class="form-section-title">🔧 車検情報</div>
 

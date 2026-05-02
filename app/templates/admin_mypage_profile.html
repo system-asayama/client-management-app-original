@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}プロフィール設定{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 2rem 2rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .page-header .page-subtitle { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+  .page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: #fff; }
+  .page-header .header-actions a {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: background 0.15s;
+  }
+  .page-header .header-actions a:hover { background: rgba(255,255,255,0.25); }
+  .form-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .section-title {
+    font-size: 0.875rem; font-weight: 700; color: #1a3a5c;
+    border-left: 4px solid #2563a8; padding-left: 0.75rem;
+    margin: 0 0 1.25rem;
+  }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.4rem; }
+  .form-group input {
+    width: 100%; padding: 0.6rem 0.75rem;
+    border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 0.9rem; color: #1f2937;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .form-group input:focus {
+    outline: none; border-color: #2563a8;
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+  }
+  .btn-primary {
+    background: #2563a8; color: #fff; border: none;
+    padding: 0.6rem 1.5rem; border-radius: 8px;
+    font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  @media (max-width: 640px) {
+    .page-header { padding: 1.5rem 1.25rem 1.25rem; }
+    .page-header h1 { font-size: 1.4rem; }
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <div class="page-subtitle">STORE ADMIN</div>
+    <h1>プロフィール設定</h1>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('admin.mypage') }}">← マイページに戻る</a>
+  </div>
+</div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- プロフィール編集 -->
+<div class="form-card">
+  <p class="section-title">プロフィール情報の編集</p>
+  <form method="POST" action="{{ url_for('admin.mypage_profile') }}">
+    <input type="hidden" name="action" value="update_profile">
+    <div class="form-group">
+      <label for="login_id">ログインID <span style="color:#ef4444">*</span></label>
+      <input type="text" id="login_id" name="login_id" value="{{ user.login_id }}" required>
+    </div>
+    <div class="form-group">
+      <label for="name">氏名 <span style="color:#ef4444">*</span></label>
+      <input type="text" id="name" name="name" value="{{ user.name }}" required>
+    </div>
+    <div class="form-group">
+      <label for="email">メールアドレス</label>
+      <input type="email" id="email" name="email" value="{{ user.email or '' }}">
+    </div>
+    <button type="submit" class="btn-primary">プロフィールを更新</button>
+  </form>
+</div>
+
+<!-- パスワード変更 -->
+<div class="form-card">
+  <p class="section-title">パスワード変更</p>
+  <form method="POST" action="{{ url_for('admin.mypage_profile') }}">
+    <input type="hidden" name="action" value="change_password">
+    <div class="form-group">
+      <label for="current_password">現在のパスワード <span style="color:#ef4444">*</span></label>
+      <input type="password" id="current_password" name="current_password" required>
+    </div>
+    <div class="form-group">
+      <label for="new_password">新しいパスワード <span style="color:#ef4444">*</span></label>
+      <input type="password" id="new_password" name="new_password" placeholder="8文字以上" required>
+    </div>
+    <div class="form-group">
+      <label for="new_password_confirm">新しいパスワード（確認） <span style="color:#ef4444">*</span></label>
+      <input type="password" id="new_password_confirm" name="new_password_confirm" placeholder="もう一度入力" required>
+    </div>
+    <button type="submit" class="btn-primary">パスワードを変更</button>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>運行履歴 - トラック運行管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; min-height: 100vh; background: #f0f4f8; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .topbar { background: linear-gradient(135deg,#0f2744 0%,#1a3a5c 100%); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 52px; }
+    .topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .topbar-back { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; text-decoration: none; white-space: nowrap; }
+    .topbar-title { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .content { padding: 16px; max-width: 500px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 16px; }
+    .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .month-nav-btn { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 16px; font-size: 13px; font-weight: 600; color: #374151; text-decoration: none; }
+    .month-nav-label { font-size: 16px; font-weight: 700; color: #0f2744; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; color: #fff; font-size: 10px; font-weight: 600; }
+    .hist-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; gap: 10px; }
+    .hist-row:last-child { border-bottom: none; }
+    .hist-date { font-size: 13px; font-weight: 700; color: #374151; min-width: 44px; }
+    .hist-info { flex: 1; min-width: 0; }
+    .hist-route { font-size: 14px; font-weight: 600; color: #0f2744; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hist-truck { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+    .hist-right { text-align: right; flex-shrink: 0; }
+    .hist-time { font-size: 12px; color: #6b7280; margin-top: 4px; white-space: nowrap; }
+    .empty { color: #9ca3af; font-size: 14px; text-align: center; padding: 32px 16px; }
+    .summary { font-size: 12px; color: #6b7280; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="{{ url_for('truck.driver_dashboard') }}" class="topbar-back">← 戻る</a>
+      <span class="topbar-title">📅 運行履歴</span>
+    </div>
+  </div>
+  <div class="content">
+    <div class="card">
+      {% set prev_month = hist_month - 1 if hist_month > 1 else 12 %}
+      {% set prev_year = hist_year if hist_month > 1 else hist_year - 1 %}
+      {% set next_month = hist_month + 1 if hist_month < 12 else 1 %}
+      {% set next_year = hist_year if hist_month < 12 else hist_year + 1 %}
+      <div class="month-nav">
+        <a href="?hist_year={{ prev_year }}&hist_month={{ prev_month }}" class="month-nav-btn">‹ 前月</a>
+        <span class="month-nav-label">{{ hist_year }}年{{ hist_month }}月</span>
+        <a href="?hist_year={{ next_year }}&hist_month={{ next_month }}" class="month-nav-btn">翌月 ›</a>
+      </div>
+      {% if history_ops %}
+      <div class="summary">{{ history_ops | length }} 件の運行記録</div>
+      {% for op in history_ops %}
+      <div class="hist-row">
+        <div class="hist-date">
+          {% if op.operation_date %}{{ op.operation_date.strftime('%-m/%-d') }}{% else %}-{% endif %}
+        </div>
+        <div class="hist-info">
+          <div class="hist-route">{{ op.route.name if op.route else '-' }}</div>
+          <div class="hist-truck">
+            {{ op.truck.name if op.truck else '-' }}{% if op.truck and op.truck.number %} ({{ op.truck.number }}){% endif %}
+          </div>
+        </div>
+        <div class="hist-right">
+          <span class="badge" style="background:{{ truck_status_color(op.status) }}">{{ truck_format_status(op.status) }}</span>
+          <div class="hist-time">
+            {{ truck_format_time(op.start_time) }}〜{% if op.end_time %}{{ truck_format_time(op.end_time) }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="empty">この月の運行記録はありません</div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

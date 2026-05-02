@@ -63,6 +63,14 @@ AVAILABLE_APPS = [
         'description': '物件・部屋・入居者・購貸契約管理、家購収支・減価償却・シミュレーションを一元管理',
         'url': '/apps/property',
         'icon': '🏠'
+    },
+    {
+        'name': 'shortstay',
+        'display_name': 'ショートステイ運営管理',
+        'scope': 'store',
+        'description': '短期入所（ショートステイ）の利用者・予約・ケア記録・請求・シフトを一元管理するアプリ',
+        'url': '/shortstay/',
+        'icon': '🏥'
     }
 ]
 
@@ -71,14 +79,33 @@ AVAILABLE_APPS = [
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def dashboard():
     """管理者ダッシュボード"""
-    # 店舗で有効なアプリを取得
     store_id = session.get('store_id')
     tenant_id = session.get('tenant_id')
+    user_id = session.get('user_id')
+    role = session.get('role', '')
     enabled_apps = []
-    
+
     tenant = None
     store = None
-    
+
+    # 店舗管理者（admin）で店舗未選択の場合、所属店舗を自動選択
+    if not store_id and role == ROLES["ADMIN"] and user_id and tenant_id:
+        db_auto = SessionLocal()
+        try:
+            store_rels = db_auto.query(TKanrishaTenpo).filter(
+                TKanrishaTenpo.admin_id == user_id
+            ).all()
+            store_ids = [r.store_id for r in store_rels]
+            if len(store_ids) == 1:
+                # 所属店舗が1件のみ → 自動選択
+                session['store_id'] = store_ids[0]
+                store_id = store_ids[0]
+            elif len(store_ids) > 1:
+                # 複数店舗 → 選択画面へリダイレクト
+                return redirect(url_for('admin.mypage_select_store'))
+        finally:
+            db_auto.close()
+
     if store_id:
         db = SessionLocal()
         
@@ -105,7 +132,6 @@ def dashboard():
             db.close()
     
     # ロール別マイページURL・ラベル
-    role = session.get('role', '')
     if role == 'system_admin':
         mypage_url = url_for('system_admin.mypage')
         mypage_label = 'システム管理者マイページ'
@@ -176,6 +202,7 @@ def available_apps():
             'real-estate':              lambda sid: '/apps/property',
             'company-incorporation':    lambda sid: '/apps/teikan',
             'truck-operation':          lambda sid: f'/truck/store/{sid}/',
+            'shortstay':                lambda sid: '/shortstay/',
         }
         TENANT_URLS = {
             'client-management-tenant': '/tenant_admin/jimusho',
@@ -185,8 +212,8 @@ def available_apps():
             'breeder-management':       '/breeder/tenant_summary',
         }
         for app in TENANT_AVAILABLE_APPS:
-            # テナントへの配布設定がある場合は、配布されたアプリのみ表示
-            if has_distribution_settings and app['name'] not in tenant_distributed_app_ids:
+            # テナントへの配布設定がある場合は配布されたアプリのみ、ない場合は表示しない
+            if not has_distribution_settings or app['name'] not in tenant_distributed_app_ids:
                 continue
             app_copy = dict(app)
             app_name = app_copy['name']
@@ -1120,6 +1147,82 @@ def store_delete(store_id):
         db.close()
 
 
+
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_profile():
+    """プロフィール設定ページ"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        user_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not user_obj:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('admin.mypage'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip() or None
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                else:
+                    user_obj.login_id = login_id
+                    user_obj.name = name
+                    user_obj.email = email
+                    if hasattr(user_obj, 'updated_at'):
+                        user_obj.updated_at = func.now()
+                    db.commit()
+                    flash('プロフィール情報を更新しました', 'success')
+                    return redirect(url_for('admin.mypage_profile'))
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if new_password != new_password_confirm:
+                    flash('パスワードが一致しません', 'error')
+                elif not check_password_hash(user_obj.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                else:
+                    user_obj.password_hash = generate_password_hash(new_password)
+                    if hasattr(user_obj, 'updated_at'):
+                        user_obj.updated_at = func.now()
+                    db.commit()
+                    flash('パスワードを変更しました', 'success')
+                    return redirect(url_for('admin.mypage_profile'))
+
+        user = {
+            'id': user_obj.id,
+            'login_id': user_obj.login_id,
+            'name': user_obj.name,
+            'email': getattr(user_obj, 'email', None),
+        }
+        return render_template('admin_mypage_profile.html', user=user)
+    finally:
+        db.close()
+
+@bp.route('/mypage/select_store_page', methods=['GET'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_select_store():
+    """店舗選択ページ（GET）"""
+    user_id = session.get('user_id')
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        # 店舗管理者は所属店舗のみ表示（テナント選択は不要）
+        store_rels = db.query(TTenpo, TKanrishaTenpo).join(
+            TKanrishaTenpo, TKanrishaTenpo.store_id == TTenpo.id
+        ).filter(
+            TKanrishaTenpo.admin_id == user_id,
+            TTenpo.有効 == 1
+        ).order_by(TTenpo.名称).all()
+        stores_data = [{'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id} for s, rel in store_rels]
+        return render_template('admin_mypage_select_store.html', store_list=stores_data)
+    finally:
+        db.close()
+
 @bp.route('/mypage/select_store', methods=['POST'])
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def select_store_from_mypage():
@@ -1131,8 +1234,71 @@ def select_store_from_mypage():
         return redirect(url_for('admin.mypage'))
     
     session['store_id'] = int(store_id)
-    flash('店舗を選択しました', 'success')
     return redirect(url_for('admin.dashboard'))
+
+
+@bp.route('/mypage/api_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def api_settings():
+    """APIキー設定ページ"""
+    store_id = session.get('store_id')
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
+                if store_id:
+                    store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+                    if store_obj:
+                        store_obj.openai_api_key = openai_api_key
+                        if hasattr(store_obj, 'google_vision_api_key'):
+                            store_obj.google_vision_api_key = google_vision_api_key
+                        if hasattr(store_obj, 'google_api_key'):
+                            store_obj.google_api_key = google_api_key
+                        if hasattr(store_obj, 'anthropic_api_key'):
+                            store_obj.anthropic_api_key = anthropic_api_key
+                        if hasattr(store_obj, 'azure_document_intelligence_endpoint'):
+                            store_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                        if hasattr(store_obj, 'azure_document_intelligence_key'):
+                            store_obj.azure_document_intelligence_key = azure_document_intelligence_key
+                        db.commit()
+                        flash('APIキー設定を更新しました', 'success')
+                    else:
+                        flash('店舗情報が見つかりません。まず店舗を選択してください', 'error')
+                else:
+                    flash('店舗が選択されていません。まず店舗を選択してください', 'error')
+                return redirect(url_for('admin.api_settings'))
+        # GET: APIキーを取得して表示
+        store_api = {
+            'openai_api_key': '',
+            'google_vision_api_key': '',
+            'google_api_key': '',
+            'anthropic_api_key': '',
+            'azure_document_intelligence_endpoint': '',
+            'azure_document_intelligence_key': '',
+        }
+        store_name = None
+        if store_id:
+            store_obj = db.query(TTenpo).filter(TTenpo.id == store_id).first()
+            if store_obj:
+                store_name = store_obj.名称
+                store_api = {
+                    'openai_api_key': getattr(store_obj, 'openai_api_key', None) or '',
+                    'google_vision_api_key': getattr(store_obj, 'google_vision_api_key', None) or '',
+                    'google_api_key': getattr(store_obj, 'google_api_key', None) or '',
+                    'anthropic_api_key': getattr(store_obj, 'anthropic_api_key', None) or '',
+                    'azure_document_intelligence_endpoint': getattr(store_obj, 'azure_document_intelligence_endpoint', None) or '',
+                    'azure_document_intelligence_key': getattr(store_obj, 'azure_document_intelligence_key', None) or '',
+                }
+        return render_template('admin_api_settings.html', store_id=store_id, store_name=store_name, store_api=store_api)
+    finally:
+        db.close()
 
 
 @bp.route('/admins/<int:admin_id>/edit', methods=['GET', 'POST'])
@@ -1613,17 +1779,13 @@ def admin_new():
                 else:
                     stores_list = [store]
                 return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
+            # 従業員テーブルの同一login_idチェック（既存の場合は同一人物として扱い、上書き登録しない）
             existing_employee = db.query(TJugyoin).filter(TJugyoin.login_id == login_id).first()
-            if existing_employee:
-                flash(f'ログインID "{login_id}" は既に従業員として登録されています。店舗管理者として登録できません。', 'error')
-                tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-                store = db.query(TTenpo).filter(TTenpo.id == store_id).first()
-                if role == ROLES["SYSTEM_ADMIN"] or role == ROLES["TENANT_ADMIN"]:
-                    stores_list = db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id).order_by(TTenpo.id).all()
-                else:
-                    stores_list = [store]
-                return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
             
+            # テナント管理者の場合：フォームから従業員登録先店舗を取得
+            employee_store_id_str = request.form.get('employee_store_id', '').strip()
+            employee_store_id = int(employee_store_id_str) if employee_store_id_str else None
+
             # 管理者作成
             hashed_password = generate_password_hash(password)
             new_admin = TKanrisha(
@@ -1651,9 +1813,41 @@ def admin_new():
                     can_manage_admins=1 if can_manage_for_this_store else 0
                 )
                 db.add(admin_store_rel)
+
+            # ─── 従業員テーブルへの自動登録 ───
+            # 従業員登録先の店舗を決定
+            # テナント管理者: フォームで選択した employee_store_id
+            # 店舗管理者: 作成元の store_id
+            target_store_id = employee_store_id if (role in [ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"]] and employee_store_id) else store_id
+
+            if not existing_employee:
+                # 新規従業員として登録
+                new_employee = TJugyoin(
+                    login_id=login_id,
+                    name=name,
+                    email=email if email else f'{login_id}@admin.local',
+                    password_hash=hashed_password,
+                    tenant_id=tenant_id,
+                    role='admin',
+                    position='店舗管理者',
+                    active=1
+                )
+                db.add(new_employee)
+                db.flush()
+                if target_store_id:
+                    db.add(TJugyoinTenpo(employee_id=new_employee.id, store_id=target_store_id))
+            else:
+                # 既存従業員に店舗紐付けのみ追加（重複チェック）
+                if target_store_id:
+                    already = db.query(TJugyoinTenpo).filter_by(
+                        employee_id=existing_employee.id, store_id=target_store_id
+                    ).first()
+                    if not already:
+                        db.add(TJugyoinTenpo(employee_id=existing_employee.id, store_id=target_store_id))
+
             db.commit()
             
-            flash(f'店舗管理者 "{name}" を作成しました', 'success')
+            flash(f'店舗管理者 "{name}" を作成しました（従業員にも登録されました）', 'success')
             return redirect(url_for('admin.admins'))
         
         # GET: フォーム表示
@@ -1671,7 +1865,10 @@ def admin_new():
             # 店舗管理者は作成元の店舗のみを表示
             stores_list = [store]
         
-        return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list, from_store_id=store_id, back_url=url_for('admin.admins'))
+        is_tenant_admin = role in [ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"]]
+        return render_template('admin_admin_new.html', tenant=tenant, store=store, stores=stores_list,
+                               from_store_id=store_id, back_url=url_for('admin.admins'),
+                               is_tenant_admin=is_tenant_admin)
     finally:
         db.close()
 

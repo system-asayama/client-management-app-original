@@ -1,0 +1,61 @@
+{% extends "shortstay/base.html" %}
+{% block title %}シフト登録 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}シフト登録{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ 'シフト編集' if shift else 'シフト登録' }}</div>
+  <a href="{{ url_for('shortstay.shifts') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">スタッフ名 <span style="color:red;">*</span></label>
+        <input type="text" name="staff_name" class="form-control" required value="{{ shift.staff_name if shift else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">日付 <span style="color:red;">*</span></label>
+        <input type="date" name="shift_date" class="form-control" required value="{{ shift.shift_date.isoformat() if shift else today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">シフト種別</label>
+        <select name="shift_type" class="form-control">
+          <option value="日勤" {% if not shift or shift.shift_type == '日勤' %}selected{% endif %}>日勤</option>
+          <option value="夜勤" {% if shift and shift.shift_type == '夜勤' %}selected{% endif %}>夜勤</option>
+          <option value="早番" {% if shift and shift.shift_type == '早番' %}selected{% endif %}>早番</option>
+          <option value="遅番" {% if shift and shift.shift_type == '遅番' %}selected{% endif %}>遅番</option>
+          <option value="休日" {% if shift and shift.shift_type == '休日' %}selected{% endif %}>休日</option>
+          <option value="有給" {% if shift and shift.shift_type == '有給' %}selected{% endif %}>有給</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">出勤時間</label>
+        <input type="time" name="start_time" class="form-control" value="{{ shift.start_time or '' if shift else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">退勤時間</label>
+        <input type="time" name="end_time" class="form-control" value="{{ shift.end_time or '' if shift else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">休憩時間（分）</label>
+        <input type="number" name="break_minutes" class="form-control" min="0" max="480" value="{{ shift.break_minutes or 60 if shift else 60 }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">備考</label>
+      <textarea name="notes" class="form-control" rows="2">{{ shift.notes or '' if shift else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.shifts') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if shift else '登録する' }}</button>
+  </div>
+</form>
+{% endblock %}

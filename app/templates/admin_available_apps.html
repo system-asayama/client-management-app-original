@@ -120,10 +120,14 @@
     <h1>📱 利用可能アプリ一覧</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('admin.dashboard') }}">← ダッシュボード</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボード</a>
     <a href="{{ mypage_url }}">👤 マイページ</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}{% for category, message in messages %}
@@ -184,7 +188,7 @@
 {% endif %}
 
 <div class="footer-actions">
-  <a class="btn-secondary" href="{{ url_for('admin.dashboard') }}">← ダッシュボードに戻る</a>
+  <a class="btn-secondary" href="{{ current_dashboard_url }}">← ダッシュボードに戻る</a>
   <a class="btn-secondary" href="{{ mypage_url }}">👤 マイページ</a>
   <a class="btn-danger-outline" href="{{ url_for('auth.logout') }}">ログアウト</a>
 </div>

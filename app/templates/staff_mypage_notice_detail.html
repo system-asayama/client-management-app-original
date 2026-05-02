@@ -48,6 +48,10 @@
     <div><h1 class="page-header-title">お知らせ詳細</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div style="margin-bottom:16px;">
     <a href="{{ url_for('staff_mypage.notices') }}" class="btn btn-secondary" style="font-size:12px;">← 一覧に戻る</a>

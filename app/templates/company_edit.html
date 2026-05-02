@@ -46,6 +46,10 @@
     <div><h1 class="page-header-title">会社情報編集</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h2>会社基本情報 編集</h2>
     <form action="{{ url_for('clients.company_edit', company_id=company.id) }}" method="post" autocomplete="off">

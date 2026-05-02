@@ -468,7 +468,7 @@ def mypage_profile():
 @bp.route('/mypage/api-settings', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def mypage_api_settings():
-    """API設定ページ（各種APIキー管理）"""
+    """API設定ページ（各種アプリキー管理）"""
     user_id = session.get('user_id')
     db = SessionLocal()
     try:
@@ -477,6 +477,10 @@ def mypage_api_settings():
         ).first()
         if not admin:
             flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('system_admin.mypage'))
+        # API設定権限チェック（オーナーまたはcan_manage_api_keys=1のみ変更可）
+        if admin.is_owner != 1 and getattr(admin, 'can_manage_api_keys', 0) != 1:
+            flash('API設定権限がありません', 'error')
             return redirect(url_for('system_admin.mypage'))
 
         user = {
@@ -1347,7 +1351,6 @@ def tenant_admin_edit(tid, admin_id):
             'can_manage_admins': admin.can_manage_admins,
             'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0),
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
-            'app_limit': getattr(admin, 'app_limit', None)
         }
         
         # テナント一覧を取得
@@ -1603,7 +1606,8 @@ def system_admins():
                 'can_manage_admins': a.can_manage_admins,
                 'can_manage_all_tenants': getattr(a, 'can_manage_all_tenants', 0),
                 'can_distribute_apps': getattr(a, 'can_distribute_apps', 0),
-                'app_limit': getattr(a, 'app_limit', None)
+                'can_manage_api_keys': getattr(a, 'can_manage_api_keys', 0),
+                'can_manage_app_managers': getattr(a, 'can_manage_app_managers', 0),
             })
         
         return render_template('sys_system_admins.html', 
@@ -1665,17 +1669,8 @@ def system_admin_new():
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
-            
-            # アプリ使用上限数を取得
-            app_limit_str = request.form.get('app_limit', '').strip()
-            app_limit = None
-            if app_limit_str:
-                try:
-                    app_limit = int(app_limit_str)
-                    if app_limit < 0:
-                        app_limit = None
-                except ValueError:
-                    app_limit = None
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
+            can_manage_app_managers = 1 if request.form.get('can_manage_app_managers') == '1' else 0
             
             # 作成者のIDを取得
             current_user_id = session.get('user_id')
@@ -1694,8 +1689,8 @@ def system_admin_new():
                 can_manage_admins=can_manage if not is_first_admin else 1,
                 can_manage_all_tenants=can_manage_all_tenants if not is_first_admin else 1,
                 can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
-                app_limit=app_limit if not is_first_admin else None,
-                distributed_by_admin_id=current_user_id if not is_first_admin else None
+                can_manage_api_keys=can_manage_api_keys if not is_first_admin else 1,
+                can_manage_app_managers=can_manage_app_managers if not is_first_admin else 1
             )
             db.add(new_admin)
             db.commit()
@@ -1757,17 +1752,8 @@ def system_admin_edit(admin_id):
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_manage_all_tenants = 1 if request.form.get('can_manage_all_tenants') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
-            
-            # アプリ使用上限数を取得
-            app_limit_str = request.form.get('app_limit', '').strip()
-            app_limit = None
-            if app_limit_str:
-                try:
-                    app_limit = int(app_limit_str)
-                    if app_limit < 0:
-                        app_limit = None
-                except ValueError:
-                    app_limit = None
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
+            can_manage_app_managers = 1 if request.form.get('can_manage_app_managers') == '1' else 0
             
             if not login_id or not name:
                 flash('ログインIDと氏名は必須です', 'error')
@@ -1797,9 +1783,12 @@ def system_admin_edit(admin_id):
                             # can_distribute_appsが存在する場合のみ更新
                             if hasattr(admin, 'can_distribute_apps'):
                                 admin.can_distribute_apps = can_distribute_apps
-                            # app_limitが存在する場合のみ更新
-                            if hasattr(admin, 'app_limit'):
-                                admin.app_limit = app_limit
+                            # can_manage_api_keysが存在する場合のみ更新
+                            if hasattr(admin, 'can_manage_api_keys'):
+                                admin.can_manage_api_keys = can_manage_api_keys
+                            # can_manage_app_managersが存在する場合のみ更新
+                            if hasattr(admin, 'can_manage_app_managers'):
+                                admin.can_manage_app_managers = can_manage_app_managers
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -1825,7 +1814,8 @@ def system_admin_edit(admin_id):
             'can_manage_admins': admin.can_manage_admins,
             'can_manage_all_tenants': getattr(admin, 'can_manage_all_tenants', 0),
             'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
-            'app_limit': getattr(admin, 'app_limit', None)
+            'can_manage_api_keys': getattr(admin, 'can_manage_api_keys', 0),
+            'can_manage_app_managers': getattr(admin, 'can_manage_app_managers', 0),
         }
         
         return render_template('sys_system_admin_edit.html', admin=admin_data)
@@ -2160,7 +2150,6 @@ def select_app_manager_group_from_mypage():
         session['app_manager_group_id'] = group.id
         session['tenant_id'] = None
         session['store_id'] = None
-        flash(f'アプリ管理者グループ「{group.group_name}」を選択しました', 'success')
         return redirect('/app_manager/')
     finally:
         db.close()
@@ -2191,7 +2180,6 @@ def select_tenant_from_mypage():
         session['tenant_id'] = tenant.id
         session['store_id'] = None  # 店舗選択をクリア
         
-        flash(f'テナント「{tenant.名称}」を選択しました', 'success')
         
         # テナント管理者ダッシュボードへリダイレクト
         return redirect('/tenant_admin/')
@@ -2228,9 +2216,9 @@ def select_store_from_mypage():
         session['tenant_id'] = store.tenant_id
         
         if tenant:
-            flash(f'店舗「{store.名称}」（テナント: {tenant.名称}）を選択しました', 'success')
+            pass
         else:
-            flash(f'店舗「{store.名称}」を選択しました', 'success')
+            pass
         
         # 店舗管理者ダッシュボードへリダイレクト
         return redirect('/admin/')
@@ -2934,6 +2922,14 @@ def app_manager_new():
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def app_limit_management():
     """利用可能アプリ管理画面"""
+    # 編集権限チェック（閲覧は全員可・編集はオーナーまたはアプリ管理者管理権限が必要）
+    user_id = session.get('user_id')
+    db_check = SessionLocal()
+    try:
+        current_user = db_check.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        can_edit = current_user and (current_user.is_owner == 1 or getattr(current_user, 'can_manage_app_managers', 0) == 1)
+    finally:
+        db_check.close()
     db = SessionLocal()
     
     try:
@@ -2941,6 +2937,7 @@ def app_limit_management():
         from app.models_login import TAppManagerGroup
         groups = db.query(TAppManagerGroup).order_by(TAppManagerGroup.id).all()
         
+        from app.blueprints.tenant_admin import AVAILABLE_APPS as _AVAILABLE_APPS
         group_data = []
         for group in groups:
             # グループに所属するアプリ管理者数を取得
@@ -2964,8 +2961,11 @@ def app_limit_management():
             import json
             current_plan = getattr(group, 'plan', 'individual') or 'individual'
             enabled_apps_raw = getattr(group, 'enabled_apps', None) or '[]'
+            # AVAILABLE_APPSに存在するIDのみに絞り込む（不正データを除外）
+            _available_app_names = {app['name'] for app in _AVAILABLE_APPS}
             try:
-                enabled_app_ids = json.loads(enabled_apps_raw)
+                enabled_app_ids_raw = json.loads(enabled_apps_raw)
+                enabled_app_ids = [app_id for app_id in enabled_app_ids_raw if app_id in _available_app_names]
             except Exception:
                 enabled_app_ids = []
 
@@ -2980,8 +2980,7 @@ def app_limit_management():
                 'enabled_app_ids': enabled_app_ids,
             })
         
-        from app.blueprints.tenant_admin import AVAILABLE_APPS
-        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=AVAILABLE_APPS)
+        return render_template('sys_app_limit_management.html', groups=group_data, available_apps=_AVAILABLE_APPS, can_edit=can_edit)
     
     finally:
         db.close()
@@ -2991,6 +2990,16 @@ def app_limit_management():
 @require_roles(ROLES["SYSTEM_ADMIN"])
 def update_app_limit():
     """アプリ配布数上限を更新"""
+    # 権限チェック（オーナーまたはアプリ管理者管理権限が必要）
+    user_id = session.get('user_id')
+    db_check = SessionLocal()
+    try:
+        current_user = db_check.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if current_user and current_user.is_owner != 1 and getattr(current_user, 'can_manage_app_managers', 0) != 1:
+            flash('アプリ管理者管理権限がありません', 'error')
+            return redirect(url_for('system_admin.dashboard'))
+    finally:
+        db_check.close()
     db = SessionLocal()
     
     try:

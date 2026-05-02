@@ -1,0 +1,53 @@
+{% extends "shortstay/base.html" %}
+{% block title %}居室登録 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}居室登録{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '居室編集' if room else '居室登録' }}</div>
+  <a href="{{ url_for('shortstay.rooms') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">居室番号 <span style="color:red;">*</span></label>
+        <input type="text" name="room_number" class="form-control" required placeholder="例：101" value="{{ room.room_number if room else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">居室名</label>
+        <input type="text" name="room_name" class="form-control" placeholder="例：梅の間" value="{{ room.room_name or '' if room else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">階数</label>
+        <input type="number" name="floor" class="form-control" min="1" max="20" value="{{ room.floor or '' if room else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">居室種別</label>
+        <select name="room_type" class="form-control">
+          <option value="">-</option>
+          <option value="個室" {% if room and room.room_type == '個室' %}selected{% endif %}>個室</option>
+          <option value="2人部屋" {% if room and room.room_type == '2人部屋' %}selected{% endif %}>2人部屋</option>
+          <option value="多床室" {% if room and room.room_type == '多床室' %}selected{% endif %}>多床室</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.5rem;">
+        <input type="checkbox" name="is_available" id="is_available" {% if not room or room.is_available %}checked{% endif %} style="width:auto;">
+        <label for="is_available" style="font-weight:normal;">利用可能</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">備考</label>
+      <textarea name="notes" class="form-control" rows="3">{{ room.notes or '' if room else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.rooms') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if room else '登録する' }}</button>
+  </div>
+</form>
+{% endblock %}

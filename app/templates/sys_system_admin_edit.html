@@ -40,6 +40,7 @@
 </style>
 {% endblock %}
 {% block title %}システム管理者編集{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div class="page-header-inner">
@@ -49,6 +50,10 @@
     </div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <h2>システム管理者編集</h2>
 
@@ -128,14 +133,14 @@
                {% if admin.can_manage_all_tenants == 1 or admin.is_owner == 1 %}checked{% endif %}
                {% if admin.is_owner == 1 %}disabled{% endif %}
                style="width:auto;margin-right:8px">
-        <span style="font-weight:normal">全テナント管理権限</span>
+        <span style="font-weight:normal">テナント管理権限</span>
       </label>
       <div class="small" style="color:#666;margin-top:4px">
         有効にすると、すべてのテナントにアクセスできます。無効の場合は、自分で作成または招待されたテナントのみアクセス可能です。
       </div>
       {% if admin.is_owner == 1 %}
         <div class="small" style="color:#666;margin-top:4px">
-          ※ オーナーは常に全テナント管理権限を持ちます
+          ※ オーナーは常にテナント管理権限を持ちます
         </div>
       {% endif %}
     </div>
@@ -149,7 +154,7 @@
         <span style="font-weight:normal">アプリ配布権限</span>
       </label>
       <div class="small" style="color:#666;margin-top:4px">
-        有効にすると、他のシステム管理者にアプリを配布できます。また、他のシステム管理者のプランを設定できます。
+        有効にすると、アプリ管理者のプランを変更できます。
       </div>
       {% if admin.is_owner == 1 %}
         <div class="small" style="color:#666;margin-top:4px">
@@ -159,20 +164,38 @@
     </div>
 
     <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
-      <label style="margin:0;margin-bottom:8px;display:block">アプリ使用上限数（プラン）</label>
-      <input name="app_limit" type="number" min="0" step="1"
-             value="{{ admin.app_limit if admin.app_limit is not none else '' }}"
-             placeholder="空欄=無制限"
-             {% if admin.is_owner == 1 %}disabled{% endif %}
-             style="max-width:200px">
+      <label style="display:flex;align-items:center;cursor:{% if admin.is_owner == 1 %}not-allowed{% else %}pointer{% endif %};margin:0">
+        <input name="can_manage_api_keys" type="checkbox" value="1" 
+               {% if admin.can_manage_api_keys == 1 or admin.is_owner == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}
+               style="width:auto;margin-right:8px">
+        <span style="font-weight:normal">API設定権限</span>
+      </label>
       <div class="small" style="color:#666;margin-top:4px">
-        このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。
+        有効にすると、OpenAI・Google・AnthropicなどのAPIキーを設定・変更できます。
       </div>
       {% if admin.is_owner == 1 %}
         <div class="small" style="color:#666;margin-top:4px">
-          ※ オーナーは常に無制限プランです
+          ※ オーナーは常にAPI設定権限を持ちます
         </div>
-        <input name="app_limit" type="hidden" value="">
+      {% endif %}
+    </div>
+
+    <div style="margin-top:16px;padding:16px;background:#f9f9f9;border-radius:8px">
+      <label style="display:flex;align-items:center;cursor:{% if admin.is_owner == 1 %}not-allowed{% else %}pointer{% endif %};margin:0">
+        <input name="can_manage_app_managers" type="checkbox" value="1" 
+               {% if admin.can_manage_app_managers == 1 or admin.is_owner == 1 %}checked{% endif %}
+               {% if admin.is_owner == 1 %}disabled{% endif %}
+               style="width:auto;margin-right:8px">
+        <span style="font-weight:normal">アプリ管理者管理権限</span>
+      </label>
+      <div class="small" style="color:#666;margin-top:4px">
+        有効にすると、アプリ管理者の作成・編集・削除ができます。
+      </div>
+      {% if admin.is_owner == 1 %}
+        <div class="small" style="color:#666;margin-top:4px">
+          ※ オーナーは常にアプリ管理者管理権限を持ちます
+        </div>
       {% endif %}
     </div>
 

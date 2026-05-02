@@ -1,0 +1,91 @@
+{% extends "truck/base.html" %}
+{% block title %}{{ form_title }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" style="max-width:600px;">
+
+  <div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('truck.schedule_list') }}" class="btn btn-outline-secondary btn-sm me-3">← 戻る</a>
+    <h5 class="mb-0">📅 {{ form_title }}</h5>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show py-2" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" action="{{ action_url }}">
+        <div class="mb-3">
+          <label class="form-label">運行予定日 <span class="text-danger">*</span></label>
+          <input type="date" name="schedule_date" class="form-control"
+                 value="{{ schedule.schedule_date.isoformat() if schedule and schedule.schedule_date else '' }}" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">ドライバー</label>
+          <select name="driver_id" class="form-select">
+            <option value="">-- 未設定 --</option>
+            {% for d in drivers %}
+              <option value="{{ d.id }}" {% if schedule and schedule.driver_id == d.id %}selected{% endif %}>
+                {{ d.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">トラック</label>
+          <select name="truck_id" class="form-select">
+            <option value="">-- 未設定 --</option>
+            {% for t in trucks %}
+              <option value="{{ t.id }}" {% if schedule and schedule.truck_id == t.id %}selected{% endif %}>
+                {{ t.name }}（{{ t.number }}）
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">ルート</label>
+          <select name="route_id" class="form-select">
+            <option value="">-- 未設定 --</option>
+            {% for r in routes %}
+              <option value="{{ r.id }}" {% if schedule and schedule.route_id == r.id %}selected{% endif %}>
+                {{ r.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col">
+            <label class="form-label">予定出発時刻</label>
+            <input type="time" name="start_time" class="form-control"
+                   value="{{ schedule.start_time if schedule and schedule.start_time else '' }}">
+          </div>
+          <div class="col">
+            <label class="form-label">予定終了時刻</label>
+            <input type="time" name="end_time" class="form-control"
+                   value="{{ schedule.end_time if schedule and schedule.end_time else '' }}">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">備考</label>
+          <textarea name="note" class="form-control" rows="3">{{ schedule.note if schedule and schedule.note else '' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">保存</button>
+          <a href="{{ url_for('truck.schedule_list') }}" class="btn btn-outline-secondary">キャンセル</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

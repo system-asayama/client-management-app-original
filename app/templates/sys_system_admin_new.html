@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}システム管理者新規作成{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .page-header {
@@ -101,6 +102,10 @@
     <a href="{{ url_for('system_admin.system_admins') }}">一覧に戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% if get_flashed_messages() %}
 <div style="margin-bottom:1rem">
@@ -146,18 +151,20 @@
       <div class="hint">チェックを入れるとこのシステム管理者は他のシステム管理者を管理できるようになります。</div>
     </div>
     <div class="checkbox-card">
-      <label><input name="can_manage_all_tenants" type="checkbox" value="1"><span>全テナント管理権限</span></label>
+      <label><input name="can_manage_all_tenants" type="checkbox" value="1"><span>テナント管理権限</span></label>
       <div class="hint">チェックを入れると、このシステム管理者はすべてのテナントにアクセスできます。チェックを外すと、自分で作成または招待されたテナントのみアクセス可能です。</div>
     </div>
     <div class="checkbox-card">
       <label><input name="can_distribute_apps" type="checkbox" value="1"><span>アプリ配布権限</span></label>
-      <div class="hint">チェックを入れると、このシステム管理者は他のシステム管理者にアプリを配布できます。また、他のシステム管理者のプランを設定できます。</div>
+      <div class="hint">有効にすると、アプリ管理者のプランを変更できます。</div>
     </div>
-
-    <div class="form-group" style="margin-top:1rem">
-      <label>アプリ使用上限数（プラン）</label>
-      <input name="app_limit" type="number" min="0" step="1" placeholder="空欄=無制限" style="max-width:200px">
-      <div class="hint">このシステム管理者が使用できるアプリの最大数を設定します。空欄の場合は無制限です。</div>
+    <div class="checkbox-card">
+      <label><input name="can_manage_api_keys" type="checkbox" value="1"><span>API設定権限</span></label>
+      <div class="hint">チェックを入れると、このシステム管理者はOpenAI・Google・AnthropicなどのAPIキーを設定・変更できます。</div>
+    </div>
+    <div class="checkbox-card">
+      <label><input name="can_manage_app_managers" type="checkbox" value="1"><span>アプリ管理者管理権限</span></label>
+      <div class="hint">チェックを入れると、このシステム管理者はアプリ管理者の作成・編集・削除ができます。</div>
     </div>
 
     <div class="form-actions">

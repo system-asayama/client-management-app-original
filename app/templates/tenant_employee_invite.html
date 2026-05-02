@@ -37,6 +37,10 @@
     <a href="{{ url_for('tenant_admin.employees') }}">← 従業員一覧に戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="form-card">
   <div class="form-section-title">既存従業員を店舗に追加</div>

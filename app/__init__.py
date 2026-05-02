@@ -16,12 +16,13 @@ try:
     from . import models_property  # noqa: F401
     from . import models_truck  # noqa: F401
     from . import models_breeder  # noqa: F401
+    from . import models_shortstay  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
     # ログインシステムの自動マイグレーション実行
     try:
-        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration
+        from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration, run_truck_schedule_migration, run_truck_store_id_migration
         run_auto_migrations()
         print("✅ ログインシステム自動マイグレーション完了")
         run_truck_doc_migrations()
@@ -30,6 +31,10 @@ try:
         print("✅ ブリーダー新テーブルマイグレーション完了")
         run_pedigree_ancestor_migration()
         print("✅ 血統書祖先テーブルマイグレーション完了")
+        run_truck_schedule_migration()
+        print("✅ 運行スケジュールテーブルマイグレーション完了")
+        run_truck_store_id_migration()
+        print("✅ トラック・ドライバー store_id マイグレーション完了")
     except Exception as e:
         print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
 except Exception as e:
@@ -101,6 +106,62 @@ def create_app() -> Flask:
         except Exception:
             # ブループリントが登録されていない場合はデフォルトのURLを使用
             context['mypage_url'] = url_for('auth.index')
+
+        # 現在操作中のロールに応じたダッシュボードURLを設定
+        # セッションの状態（store_id / tenant_id / role）から現在操作中のロールを判定
+        context['viewing_as_banner'] = None  # 閲覧中バナーメッセージ
+        # 現在のURLパスを取得（自分のロールのパスではバナー非表示）
+        try:
+            from flask import request as _req_path
+            _current_path = _req_path.path
+        except Exception:
+            _current_path = ''
+        # 各ロールの自分のパスプレフィックス
+        _own_path_prefixes = {
+            'system_admin': '/system_admin',
+            'app_manager': '/app_manager',
+            'tenant_admin': '/tenant_admin',
+            'admin': '/admin',
+        }
+        _own_prefix = _own_path_prefixes.get(role, '')
+        _on_own_page = bool(_own_prefix and _current_path.startswith(_own_prefix))
+        try:
+            store_id_check = session.get('store_id')
+            tenant_id_check = session.get('tenant_id')
+            app_manager_group_id_check = session.get('app_manager_group_id')
+            if role == 'admin':
+                # 店舗管理者ロールは常に店舗管理者ダッシュボードへ（store_idの有無に関わらず）
+                context['current_dashboard_url'] = url_for('admin.dashboard')
+            elif store_id_check:
+                # 上位ロールが店舗管理者として操作中
+                context['current_dashboard_url'] = url_for('admin.dashboard')
+                # 上位ロールが店舗管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
+                if role in ('system_admin', 'app_manager', 'tenant_admin') and not _on_own_page:
+                    role_label = 'システム管理者' if role == 'system_admin' else ('アプリ管理者' if role == 'app_manager' else 'テナント管理者')
+                    context['viewing_as_banner'] = f'{role_label}として閲覧中'
+            elif tenant_id_check:
+                # テナント管理者として操作中
+                context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+                # 上位ロールがテナント管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
+                if role in ('system_admin', 'app_manager') and not _on_own_page:
+                    role_label = 'システム管理者' if role == 'system_admin' else 'アプリ管理者'
+                    context['viewing_as_banner'] = f'{role_label}として閲覧中'
+            elif role == 'app_manager' or app_manager_group_id_check:
+                # アプリ管理者として操作中
+                context['current_dashboard_url'] = url_for('app_manager.dashboard')
+                # システム管理者がアプリ管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
+                if role == 'system_admin' and not _on_own_page:
+                    context['viewing_as_banner'] = 'システム管理者として閲覧中'
+            elif role == 'admin':
+                # 店舗管理者として操作中（store_idなしでも常に店舗管理者ダッシュボードへ）
+                context['current_dashboard_url'] = url_for('admin.dashboard')
+            elif role == 'system_admin':
+                # システム管理者として操作中
+                context['current_dashboard_url'] = url_for('system_admin.dashboard')
+            else:
+                context['current_dashboard_url'] = url_for('auth.select_login')
+        except Exception:
+            context['current_dashboard_url'] = '/'
         
         # テナント情報を取得
         tenant_id = session.get('tenant_id')
@@ -139,6 +200,66 @@ def create_app() -> Flask:
                 conn.close()
             except Exception:
                 pass
+
+        # 閲覧中バナーにコンテキスト情報（グループ名・テナント名・店舗名）を付加
+        if context.get('viewing_as_banner'):
+            # アプリ管理者グループ名を取得
+            app_manager_group_name = None
+            app_mgr_gid = session.get('app_manager_group_id')
+            if app_mgr_gid:
+                try:
+                    from .models_login import TAppManagerGroup
+                    from .db import SessionLocal
+                    db = SessionLocal()
+                    grp = db.query(TAppManagerGroup).filter(TAppManagerGroup.id == app_mgr_gid).first()
+                    if grp:
+                        app_manager_group_name = grp.group_name
+                    db.close()
+                except Exception:
+                    pass
+
+            # 「○○の××を表示しています」形式でバナーメッセージを構築
+            subject_parts = []
+            if app_manager_group_name:
+                subject_parts.append(f'グループ「{app_manager_group_name}」')
+            if context.get('current_tenant_name'):
+                subject_parts.append(f'テナント「{context["current_tenant_name"]}」')
+            if context.get('current_store_name'):
+                subject_parts.append(f'店舗「{context["current_store_name"]}」')
+
+            # ページ名をURLパスから判定
+            try:
+                from flask import request as _req
+                path = _req.path
+                if '/dashboard' in path:
+                    page_name = 'ダッシュボード'
+                elif '/distribute' in path:
+                    page_name = 'アプリ配布設定'
+                elif '/plan' in path:
+                    page_name = 'プラン設定'
+                elif '/app_managers' in path:
+                    page_name = 'アプリ管理者管理'
+                elif '/tenants' in path:
+                    page_name = 'テナント管理'
+                elif '/stores' in path:
+                    page_name = '店舗管理'
+                elif '/api_keys' in path:
+                    page_name = 'APIキー設定'
+                elif '/members' in path:
+                    page_name = 'メンバー管理'
+                elif '/settings' in path:
+                    page_name = '設定'
+                else:
+                    page_name = 'ページ'
+            except Exception:
+                page_name = 'ページ'
+
+            role_label = context['viewing_as_banner']  # 「システム管理者として閲覧中」等
+            if subject_parts:
+                subject_str = '・'.join(subject_parts)
+                context['viewing_as_banner'] = f'{role_label} — {subject_str}の{page_name}を表示しています'
+            else:
+                context['viewing_as_banner'] = f'{role_label} — {page_name}を表示しています'
         
         return context
 
@@ -462,6 +583,13 @@ def create_app() -> Flask:
         print("✅ reservation_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ reservation_app blueprint 登録エラー: {e}")
+    # ショートステイ運営管理 blueprint登録
+    try:
+        from .blueprints.shortstay import bp as shortstay_bp
+        app.register_blueprint(shortstay_bp)
+        print("✅ shortstay blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ shortstay blueprint 登録エラー: {e}")
     # カスタムJinja2フィルター
     import json as _json
     @app.template_filter('from_json')

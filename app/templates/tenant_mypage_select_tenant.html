@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}テナントを選択{% endblock %}
+{% block content %}
+<div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;border-radius:16px;padding:2rem 2rem 1.5rem;margin-bottom:2rem;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem">
+  <div>
+    <div style="font-size:0.85rem;opacity:0.75;margin-bottom:0.25rem;letter-spacing:0.05em">TENANT ADMIN</div>
+    <h1 style="font-size:1.75rem;font-weight:700;margin:0;color:#fff">🏬 テナントを選択</h1>
+  </div>
+  <div style="display:flex;gap:0.75rem">
+    <a href="{{ url_for('tenant_admin.mypage') }}" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:0.45rem 1rem;border-radius:8px;text-decoration:none;font-size:0.875rem">← マイページへ戻る</a>
+  </div>
+</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:1.5rem 1.75rem;box-shadow:0 2px 6px rgba(0,0,0,0.04)">
+  <p style="font-size:0.875rem;font-weight:700;color:#1a3a5c;border-left:4px solid #2563a8;padding-left:0.75rem;margin:0 0 1rem">テナントを選択してダッシュボードへ進む</p>
+  {% if tenant_list %}
+    <form method="POST" action="{{ url_for('tenant_admin.select_tenant_from_mypage') }}">
+      <div style="margin-bottom:1rem">
+        <input type="text" placeholder="テナント名で検索..." oninput="filterTenants(this.value)" style="width:100%;max-width:400px;padding:0.55rem 0.75rem;border:1px solid #d1d5db;border-radius:8px;font-size:0.9rem;box-sizing:border-box">
+      </div>
+      <div id="tenant-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem">
+        {% for tenant in tenant_list %}
+          <label style="display:flex;align-items:center;gap:0.75rem;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:10px;padding:0.85rem 1rem;cursor:pointer;transition:all 0.15s" data-name="{{ tenant.name|lower }}">
+            <input type="radio" name="tenant_id" value="{{ tenant.id }}" style="accent-color:#2563a8">
+            <span style="font-weight:600;color:#1a3a5c">{{ tenant.name }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <button type="submit" style="background:#2563a8;color:#fff;border:none;padding:0.6rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.9rem">テナントダッシュボードへ進む</button>
+    </form>
+  {% else %}
+    <div style="text-align:center;padding:3rem 1rem;color:#9ca3af">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem">🏬</div>
+      <p style="margin:0">管理するテナントがありません</p>
+    </div>
+  {% endif %}
+</div>
+<script>
+function filterTenants(text) {
+  const items = document.querySelectorAll('#tenant-list label');
+  items.forEach(item => {
+    item.style.display = item.dataset.name.includes(text.toLowerCase()) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

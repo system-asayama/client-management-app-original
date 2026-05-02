@@ -1,0 +1,118 @@
+{% extends "shortstay/base.html" %}
+{% block title %}請求書 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}請求書{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '請求書編集' if billing else '請求書作成' }}</div>
+  <a href="{{ url_for('shortstay.billing_list') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-section-title">基本情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">利用者 <span style="color:red;">*</span></label>
+        <select name="resident_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for r in residents %}
+          <option value="{{ r.id }}" {% if billing and billing.resident_id == r.id %}selected{% endif %}>
+            {{ r.last_name }}{{ r.first_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">予約 <span style="color:red;">*</span></label>
+        <select name="reservation_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for rsv in reservations %}
+          {% set resident = residents_map.get(rsv.resident_id) %}
+          <option value="{{ rsv.id }}" {% if billing and billing.reservation_id == rsv.id %}selected{% endif %}>
+            {{ rsv.check_in_date.strftime('%Y/%m/%d') }}〜{{ rsv.check_out_date.strftime('%m/%d') }}
+            （{{ resident.last_name ~ resident.first_name if resident else '' }}）
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">請求年 <span style="color:red;">*</span></label>
+        <input type="number" name="billing_year" class="form-control" required min="2000" max="2100" value="{{ billing.billing_year if billing else current_year }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">請求月 <span style="color:red;">*</span></label>
+        <input type="number" name="billing_month" class="form-control" required min="1" max="12" value="{{ billing.billing_month if billing else current_month }}">
+      </div>
+    </div>
+
+    <div class="form-section-title">金額</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">合計金額（円）</label>
+        <input type="number" name="total_amount" class="form-control" min="0" value="{{ billing.total_amount|int if billing else 0 }}" id="total_amount">
+      </div>
+      <div class="form-group">
+        <label class="form-label">介護給付額（円）</label>
+        <input type="number" name="insurance_amount" class="form-control" min="0" value="{{ billing.insurance_amount|int if billing else 0 }}" id="insurance_amount">
+      </div>
+      <div class="form-group">
+        <label class="form-label">自己負担額（円）</label>
+        <input type="number" name="self_pay_amount" class="form-control" min="0" value="{{ billing.self_pay_amount|int if billing else 0 }}" id="self_pay_amount">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">食費（円）</label>
+        <input type="number" name="meal_fee" class="form-control" min="0" value="{{ billing.meal_fee|int if billing else 0 }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">居住費（円）</label>
+        <input type="number" name="accommodation_fee" class="form-control" min="0" value="{{ billing.accommodation_fee|int if billing else 0 }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">その他費用（円）</label>
+        <input type="number" name="other_fee" class="form-control" min="0" value="{{ billing.other_fee|int if billing else 0 }}">
+      </div>
+    </div>
+
+    <div class="form-section-title">支払情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">状態</label>
+        <select name="status" class="form-control">
+          <option value="未発行" {% if not billing or billing.status.value == '未発行' %}selected{% endif %}>未発行</option>
+          <option value="発行済" {% if billing and billing.status.value == '発行済' %}selected{% endif %}>発行済</option>
+          <option value="未払い" {% if billing and billing.status.value == '未払い' %}selected{% endif %}>未払い</option>
+          <option value="支払済" {% if billing and billing.status.value == '支払済' %}selected{% endif %}>支払済</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">支払日</label>
+        <input type="date" name="payment_date" class="form-control" value="{{ billing.payment_date.isoformat() if billing and billing.payment_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">支払方法</label>
+        <select name="payment_method" class="form-control">
+          <option value="">-</option>
+          <option value="現金" {% if billing and billing.payment_method == '現金' %}selected{% endif %}>現金</option>
+          <option value="銀行振込" {% if billing and billing.payment_method == '銀行振込' %}selected{% endif %}>銀行振込</option>
+          <option value="口座引落" {% if billing and billing.payment_method == '口座引落' %}selected{% endif %}>口座引落</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">備考</label>
+      <textarea name="notes" class="form-control" rows="3">{{ billing.notes or '' if billing else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.billing_list') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if billing else '作成する' }}</button>
+  </div>
+</form>
+{% endblock %}

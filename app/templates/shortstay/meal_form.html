@@ -1,0 +1,76 @@
+{% extends "shortstay/base.html" %}
+{% block title %}食事記録 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}食事記録{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '食事記録編集' if meal else '食事記録' }}</div>
+  <a href="{{ url_for('shortstay.care_records') }}" class="btn">← 記録一覧へ</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">利用者 <span style="color:red;">*</span></label>
+        <select name="resident_id" class="form-control" required>
+          <option value="">選択してください</option>
+          {% for r in residents %}
+          <option value="{{ r.id }}" {% if meal and meal.resident_id == r.id %}selected{% endif %}>{{ r.last_name }}{{ r.first_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">記録日 <span style="color:red;">*</span></label>
+        <input type="date" name="record_date" class="form-control" required value="{{ meal.record_date.isoformat() if meal else today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">食事区分</label>
+        <select name="meal_time" class="form-control">
+          <option value="朝食" {% if meal and meal.meal_time and meal.meal_time.value == '朝食' %}selected{% endif %}>朝食</option>
+          <option value="昼食" {% if meal and meal.meal_time and meal.meal_time.value == '昼食' %}selected{% endif %}>昼食</option>
+          <option value="夕食" {% if meal and meal.meal_time and meal.meal_time.value == '夕食' %}selected{% endif %}>夕食</option>
+          <option value="補食" {% if meal and meal.meal_time and meal.meal_time.value == '補食' %}selected{% endif %}>補食</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-section-title">摂取量</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">主食摂取率（%）</label>
+        <input type="number" name="main_food_rate" class="form-control" min="0" max="100" step="10" placeholder="100" value="{{ meal.main_food_rate or '' if meal else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">副食摂取率（%）</label>
+        <input type="number" name="side_food_rate" class="form-control" min="0" max="100" step="10" placeholder="100" value="{{ meal.side_food_rate or '' if meal else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">水分量（ml）</label>
+        <input type="number" name="water_intake" class="form-control" min="0" max="2000" placeholder="200" value="{{ meal.water_intake or '' if meal else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">食事形態</label>
+        <input type="text" name="meal_form" class="form-control" placeholder="普通食、刻み食など" value="{{ meal.meal_form or '' if meal else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">記録者</label>
+        <input type="text" name="recorded_by" class="form-control" value="{{ meal.recorded_by or current_user_name if meal else current_user_name }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">特記事項</label>
+      <textarea name="notes" class="form-control" rows="3">{{ meal.notes or '' if meal else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.care_records') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if meal else '記録する' }}</button>
+  </div>
+</form>
+{% endblock %}

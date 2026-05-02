@@ -27,6 +27,7 @@ class Truck(Base):
     capacity = Column(Float)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
+    store_id = Column(Integer, nullable=True)  # 所属店舗ID
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -88,6 +89,7 @@ class TruckRoute(Base):
     contract_amount = Column(Integer)
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
+    store_id = Column(Integer, nullable=True)  # 所属店舗ID
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -118,6 +120,7 @@ class TruckDriver(Base):
     license_number = Column(String(50))
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
+    store_id = Column(Integer, nullable=True)  # 所属店舗ID
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -147,6 +150,7 @@ class TruckOperation(Base):
     break_start_time = Column(DateTime)
     break_end_time = Column(DateTime)
     operation_date = Column(Date, default=date.today)
+    operation_type = Column(String(20), default='driving')  # 'driving' or 'office'
     note = Column(Text)
     tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -325,6 +329,8 @@ class TruckAppSettings(Base):
         q = db_session.query(cls).filter_by(key=key)
         if tenant_id is not None:
             q = q.filter_by(tenant_id=tenant_id)
+        else:
+            q = q.filter(cls.tenant_id == None)  # noqa: E711
         row = q.first()
         if row:
             row.value = value
@@ -371,3 +377,23 @@ class TruckInvoiceItem(Base):
     quantity = Column(Integer, default=1)                  # 数量
     unit_price = Column(Integer, default=0)                # 単価
     amount = Column(Integer, default=0)                    # 金額
+
+
+class TruckSchedule(Base):
+    """運行スケジュール"""
+    __tablename__ = "truck_schedules"
+    id = Column(Integer, primary_key=True)
+    schedule_date = Column(Date, nullable=False)           # 運行予定日
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=True)
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)
+    route_id = Column(Integer, ForeignKey("truck_routes.id"), nullable=True)
+    start_time = Column(String(5))                         # 予定出発時刻 HH:MM
+    end_time = Column(String(5))                           # 予定終了時刻 HH:MM
+    note = Column(Text)                                    # 備考
+    tenant_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    driver = relationship("TruckDriver", backref="schedules")
+    truck = relationship("Truck", backref="schedules")
+    route = relationship("TruckRoute", backref="schedules")

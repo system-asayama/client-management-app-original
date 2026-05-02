@@ -1,0 +1,86 @@
+{% extends "shortstay/base.html" %}
+{% block title %}請求管理 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}請求管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">請求管理</div>
+  <a href="{{ url_for('shortstay.billing_new') }}" class="btn btn-primary">＋ 請求書作成</a>
+</div>
+
+<!-- 統計 -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ total_count }}</div>
+    <div class="stat-label">総請求件数</div>
+  </div>
+  <div class="stat-card urgent">
+    <div class="stat-value">{{ unpaid_count }}</div>
+    <div class="stat-label">未払い件数</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-value">¥{{ '{:,}'.format(monthly_total|int) }}</div>
+    <div class="stat-label">今月の請求合計</div>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" class="search-bar" style="flex-wrap:wrap;">
+    <select name="status" class="form-control" style="max-width:150px;">
+      <option value="">全状態</option>
+      <option value="未発行" {% if status_filter == '未発行' %}selected{% endif %}>未発行</option>
+      <option value="発行済" {% if status_filter == '発行済' %}selected{% endif %}>発行済</option>
+      <option value="未払い" {% if status_filter == '未払い' %}selected{% endif %}>未払い</option>
+      <option value="支払済" {% if status_filter == '支払済' %}selected{% endif %}>支払済</option>
+    </select>
+    <input type="number" name="year" class="form-control" style="max-width:100px;" placeholder="年" value="{{ year_filter }}">
+    <input type="number" name="month" class="form-control" style="max-width:80px;" placeholder="月" min="1" max="12" value="{{ month_filter }}">
+    <button type="submit" class="btn btn-primary">絞り込み</button>
+    <a href="{{ url_for('shortstay.billing_list') }}" class="btn">クリア</a>
+  </form>
+
+  {% if billings %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>請求年月</th><th>利用者</th><th>合計金額</th><th>自己負担額</th><th>介護給付額</th><th>状態</th><th>支払日</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for b in billings %}
+        {% set resident = residents_map.get(b.resident_id) %}
+        <tr>
+          <td>{{ b.billing_year }}年{{ b.billing_month }}月</td>
+          <td>
+            {% if resident %}
+            <a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" style="color:var(--primary);">
+              {{ resident.last_name }}{{ resident.first_name }}
+            </a>
+            {% else %}-{% endif %}
+          </td>
+          <td style="font-weight:600;">¥{{ '{:,}'.format(b.total_amount|int) }}</td>
+          <td>¥{{ '{:,}'.format(b.self_pay_amount|int) }}</td>
+          <td>¥{{ '{:,}'.format(b.insurance_amount|int) }}</td>
+          <td>
+            {% if b.status.value == '支払済' %}<span class="badge badge-green">{{ b.status.value }}</span>
+            {% elif b.status.value == '発行済' %}<span class="badge badge-blue">{{ b.status.value }}</span>
+            {% elif b.status.value == '未払い' %}<span class="badge badge-red">{{ b.status.value }}</span>
+            {% else %}<span class="badge badge-gray">{{ b.status.value }}</span>{% endif %}
+          </td>
+          <td>{{ b.payment_date.strftime('%Y/%m/%d') if b.payment_date else '-' }}</td>
+          <td>
+            <a href="{{ url_for('shortstay.billing_detail', billing_id=b.id) }}" class="btn btn-sm">詳細</a>
+            <a href="{{ url_for('shortstay.billing_edit', billing_id=b.id) }}" class="btn btn-sm">編集</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:3rem;color:var(--gray-500);">
+    <p style="font-size:1.5rem;margin-bottom:0.5rem;">💴</p>
+    <p>請求書が見つかりません</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

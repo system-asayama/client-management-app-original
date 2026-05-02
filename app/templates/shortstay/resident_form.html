@@ -1,0 +1,384 @@
+{% extends "shortstay/base.html" %}
+{% block title %}{{ '利用者編集' if resident else '利用者登録' }} - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}{{ '利用者編集' if resident else '利用者登録' }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '利用者情報の編集' if resident else '新規利用者登録（フェイスシート）' }}</div>
+  <a href="{{ url_for('shortstay.residents') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+
+  <!-- ① 基本情報 -->
+  <div class="card">
+    <div class="form-section-title">基本情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">姓 <span style="color:red;">*</span></label>
+        <input type="text" name="last_name" class="form-control" required value="{{ resident.last_name if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">名 <span style="color:red;">*</span></label>
+        <input type="text" name="first_name" class="form-control" required value="{{ resident.first_name if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">姓（フリガナ）</label>
+        <input type="text" name="last_name_kana" class="form-control" value="{{ resident.last_name_kana or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">名（フリガナ）</label>
+        <input type="text" name="first_name_kana" class="form-control" value="{{ resident.first_name_kana or '' if resident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">性別</label>
+        <select name="gender" class="form-control">
+          <option value="">選択してください</option>
+          {% for g in genders %}
+          <option value="{{ g.value }}" {% if resident and resident.gender and resident.gender.value == g.value %}selected{% endif %}>{{ g.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">生年月日</label>
+        <input type="date" name="birth_date" class="form-control" value="{{ resident.birth_date.isoformat() if resident and resident.birth_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">相談員</label>
+        <input type="text" name="consultant_name" class="form-control" value="{{ resident.consultant_name or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input type="tel" name="phone" class="form-control" value="{{ resident.phone or '' if resident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">郵便番号</label>
+        <input type="text" name="postal_code" class="form-control" placeholder="000-0000" value="{{ resident.postal_code or '' if resident else '' }}">
+      </div>
+      <div class="form-group" style="grid-column: span 2;">
+        <label class="form-label">住所</label>
+        <input type="text" name="address" class="form-control" value="{{ resident.address or '' if resident else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 障害・支給情報 -->
+  <div class="card">
+    <div class="form-section-title">障害・支給情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">障害支援区分</label>
+        <select name="disability_support_category" class="form-control">
+          <option value="">選択してください</option>
+          {% for v in ['区分1','区分2','区分3','区分4','区分5','区分6','非該当'] %}
+          <option value="{{ v }}" {% if resident and resident.disability_support_category == v %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">決定支給量（日／月）</label>
+        <input type="text" name="approved_service_amount" class="form-control" placeholder="例：12日/月" value="{{ resident.approved_service_amount or '' if resident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">認定有効期間（開始）</label>
+        <input type="date" name="certification_valid_from" class="form-control" value="{{ resident.certification_valid_from.isoformat() if resident and resident.certification_valid_from else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">認定有効期間（終了）</label>
+        <input type="date" name="certification_valid_to" class="form-control" value="{{ resident.certification_valid_to.isoformat() if resident and resident.certification_valid_to else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">支給決定期間（開始）</label>
+        <input type="date" name="service_decision_from" class="form-control" value="{{ resident.service_decision_from.isoformat() if resident and resident.service_decision_from else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">支給決定期間（終了）</label>
+        <input type="date" name="service_decision_to" class="form-control" value="{{ resident.service_decision_to.isoformat() if resident and resident.service_decision_to else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="grid-column: span 2;">
+        <label class="form-label">障害等認定</label>
+        <input type="text" name="disability_certification" class="form-control" placeholder="例：身体障害者手帳2級" value="{{ resident.disability_certification or '' if resident else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 食事 -->
+  <div class="card">
+    <div class="form-section-title">食事</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">食事動作</label>
+        <select name="meal_action" class="form-control">
+          {% for v in ['自立','見守り','介助'] %}
+          <option value="{{ v }}" {% if resident and resident.meal_action == v %}selected{% elif not resident and v == '自立' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">★アレルギー</label>
+        <input type="text" name="allergies" class="form-control" value="{{ resident.allergies or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">嫌いなもの</label>
+        <input type="text" name="disliked_food" class="form-control" value="{{ resident.disliked_food or '' if resident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">形態（とろみ等）</label>
+        <input type="text" name="meal_form" class="form-control" placeholder="例：刻み食・とろみあり" value="{{ resident.meal_form or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">好きなもの</label>
+        <input type="text" name="favorite_food" class="form-control" value="{{ resident.favorite_food or '' if resident else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 服薬 -->
+  <div class="card">
+    <div class="form-section-title">服薬</div>
+    <div class="form-row">
+      <div class="form-group" style="grid-column: span 2;">
+        <label class="form-label">定期薬（朝・昼・夕・眠前）</label>
+        <input type="text" name="medication_regular" class="form-control" placeholder="例：朝○・昼×・夕○・眠前○" value="{{ resident.medication_regular or '' if resident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">頓服　あり（　　　　　　）・なし</label>
+        <input type="text" name="medication_prn" class="form-control" placeholder="頓服薬名を入力（なしの場合は空欄）" value="{{ resident.medication_prn or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">管理</label>
+        <select name="medication_management" class="form-control">
+          {% for v in ['自己管理','職員管理'] %}
+          <option value="{{ v }}" {% if resident and resident.medication_management == v %}selected{% elif not resident and v == '自己管理' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="grid-column: span 3;">
+        <label class="form-label">特記</label>
+        <textarea name="medication_special_notes" class="form-control" rows="2">{{ resident.medication_special_notes or '' if resident else '' }}</textarea>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="grid-column: span 3;">
+        <label class="form-label">服薬情報（薬品名・用量・用法の詳細）</label>
+        <textarea name="medications" class="form-control" rows="3">{{ resident.medications or '' if resident else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ ADL -->
+  <div class="card">
+    <div class="form-section-title">ADL（日常生活動作）</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">トイレ動作</label>
+        <select name="toilet_action" class="form-control">
+          {% for v in ['自立','見守り','介助'] %}
+          <option value="{{ v }}" {% if resident and resident.toilet_action == v %}selected{% elif not resident and v == '自立' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">入浴</label>
+        <select name="bath_assistance" class="form-control">
+          {% for v in ['自立','見守り','一部介助','全介助'] %}
+          <option value="{{ v }}" {% if resident and resident.bath_assistance == v %}selected{% elif not resident and v == '自立' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">排尿コントロール</label>
+        <select name="urinary_control" class="form-control">
+          {% for v in ['失禁なし','時に失禁','介助'] %}
+          <option value="{{ v }}" {% if resident and resident.urinary_control == v %}selected{% elif not resident and v == '失禁なし' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">更衣</label>
+        <select name="dressing_assistance" class="form-control">
+          {% for v in ['自立','見守り','一部介助','全介助'] %}
+          <option value="{{ v }}" {% if resident and resident.dressing_assistance == v %}selected{% elif not resident and v == '自立' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">排便コントロール</label>
+        <select name="bowel_control" class="form-control">
+          {% for v in ['失禁なし','時に失禁','介助'] %}
+          <option value="{{ v }}" {% if resident and resident.bowel_control == v %}selected{% elif not resident and v == '失禁なし' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">意思疎通</label>
+        <select name="communication" class="form-control">
+          {% for v in ['可能','何とか可能','不可能'] %}
+          <option value="{{ v }}" {% if resident and resident.communication == v %}selected{% elif not resident and v == '可能' %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 介護保険情報 -->
+  <div class="card">
+    <div class="form-section-title">介護保険情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">介護度</label>
+        <select name="care_level" class="form-control">
+          <option value="">選択してください</option>
+          {% for cl in care_levels %}
+          <option value="{{ cl.value }}" {% if resident and resident.care_level and resident.care_level.value == cl.value %}selected{% endif %}>{{ cl.value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">介護保険番号</label>
+        <input type="text" name="care_insurance_no" class="form-control" value="{{ resident.care_insurance_no or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">介護保険有効期限</label>
+        <input type="date" name="care_insurance_expiry" class="form-control" value="{{ resident.care_insurance_expiry.isoformat() if resident and resident.care_insurance_expiry else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">保険者番号</label>
+        <input type="text" name="insurer_no" class="form-control" value="{{ resident.insurer_no or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">保険者名</label>
+        <input type="text" name="insurer_name" class="form-control" value="{{ resident.insurer_name or '' if resident else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑦ 医療情報 -->
+  <div class="card">
+    <div class="form-section-title">医療情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">主治医名</label>
+        <input type="text" name="doctor_name" class="form-control" value="{{ resident.doctor_name or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">病院名</label>
+        <input type="text" name="hospital_name" class="form-control" value="{{ resident.hospital_name or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">病院電話番号</label>
+        <input type="tel" name="hospital_phone" class="form-control" value="{{ resident.hospital_phone or '' if resident else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">既往歴</label>
+        <textarea name="medical_history" class="form-control" rows="3">{{ resident.medical_history or '' if resident else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">特記事項</label>
+        <textarea name="special_notes" class="form-control" rows="3">{{ resident.special_notes or '' if resident else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑧ ケアマネジャー情報 -->
+  <div class="card">
+    <div class="form-section-title">担当ケアマネジャー情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">担当ケアマネジャー名</label>
+        <input type="text" name="care_manager_name" class="form-control" value="{{ resident.care_manager_name or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">居宅介護支援事業所名</label>
+        <input type="text" name="care_manager_office" class="form-control" value="{{ resident.care_manager_office or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ケアマネ電話番号</label>
+        <input type="tel" name="care_manager_phone" class="form-control" value="{{ resident.care_manager_phone or '' if resident else '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑨ 緊急連絡先 -->
+  <div class="card">
+    <div class="form-section-title">緊急連絡先</div>
+    <div id="ec-list">
+      {% if emergency_contacts %}
+        {% for ec in emergency_contacts %}
+        <div class="ec-row" style="display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:0.75rem;margin-bottom:0.75rem;align-items:end;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">氏名</label>
+            <input type="text" name="ec_name[]" class="form-control" value="{{ ec.name }}">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">続柄</label>
+            <input type="text" name="ec_relation_type[]" class="form-control" value="{{ ec.relation_type or '' }}">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">電話番号</label>
+            <input type="tel" name="ec_phone[]" class="form-control" value="{{ ec.phone or '' }}">
+          </div>
+          <button type="button" onclick="this.closest('.ec-row').remove()" class="btn btn-sm btn-danger" style="margin-bottom:0;">削除</button>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="ec-row" style="display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:0.75rem;margin-bottom:0.75rem;align-items:end;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">氏名</label>
+            <input type="text" name="ec_name[]" class="form-control">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">続柄</label>
+            <input type="text" name="ec_relation_type[]" class="form-control">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">電話番号</label>
+            <input type="tel" name="ec_phone[]" class="form-control">
+          </div>
+          <button type="button" onclick="this.closest('.ec-row').remove()" class="btn btn-sm btn-danger" style="margin-bottom:0;">削除</button>
+        </div>
+      {% endif %}
+    </div>
+    <button type="button" id="add-ec" class="btn btn-sm">＋ 連絡先を追加</button>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
+    <a href="{{ url_for('shortstay.residents') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if resident else '登録する' }}</button>
+  </div>
+</form>
+
+<script>
+document.getElementById('add-ec').addEventListener('click', function() {
+  const row = `<div class="ec-row" style="display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:0.75rem;margin-bottom:0.75rem;align-items:end;">
+    <div class="form-group" style="margin:0;"><label class="form-label">氏名</label><input type="text" name="ec_name[]" class="form-control"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label">続柄</label><input type="text" name="ec_relation_type[]" class="form-control"></div>
+    <div class="form-group" style="margin:0;"><label class="form-label">電話番号</label><input type="tel" name="ec_phone[]" class="form-control"></div>
+    <button type="button" onclick="this.closest('.ec-row').remove()" class="btn btn-sm btn-danger" style="margin-bottom:0;">削除</button>
+  </div>`;
+  document.getElementById('ec-list').insertAdjacentHTML('beforeend', row);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "shortstay/base.html" %}
+{% block title %}報告書詳細 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}報告書詳細{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ report.title or '報告書 #' ~ report.id }}</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.report_edit', report_id=report.id) }}" class="btn">編集</a>
+    <a href="{{ url_for('shortstay.reports') }}" class="btn">← 一覧へ</a>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+    <span class="badge badge-blue">{{ report.report_type }}</span>
+    <span style="font-size:0.875rem;color:var(--gray-500);">{{ report.report_date.strftime('%Y年%m月%d日') }}</span>
+    {% if resident %}
+    <span style="font-size:0.875rem;">利用者：<a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" style="color:var(--primary);">{{ resident.last_name }}{{ resident.first_name }}</a></span>
+    {% endif %}
+    {% if report.author_name %}
+    <span style="font-size:0.875rem;color:var(--gray-500);">作成者：{{ report.author_name }}</span>
+    {% endif %}
+  </div>
+  <div style="white-space:pre-wrap;font-size:0.9rem;line-height:1.7;padding:1rem;background:var(--gray-50);border-radius:8px;">{{ report.content }}</div>
+</div>
+{% endblock %}

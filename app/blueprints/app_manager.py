@@ -226,7 +226,12 @@ def mypage():
         else:
             tenant_list = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         store_list = []
+        # 自分のグループのテナントIDセットを取得
+        my_tenant_ids = {t['id'] for t in tenant_list}
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
+            # 自分のグループのテナントに属する店舗のみ表示
+            if my_tenant_ids and s.tenant_id not in my_tenant_ids:
+                continue
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
             store_list.append({
                 'id': s.id,
@@ -293,20 +298,26 @@ def edit_profile():
     """プロフィール編集"""
     user_id = session.get('user_id')
     
-    if request.method == 'GET':
-        return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
-    
-    # POST処理
-    login_id = request.form.get('login_id', '').strip()
-    name = request.form.get('name', '').strip()
-    email = request.form.get('email', '').strip()
-    
-    if not login_id or not name or not email:
-        flash('すべての項目を入力してください', 'error')
-        return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
-    
     db = SessionLocal()
     try:
+        # ログインユーザー情報を取得
+        app_manager = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not app_manager:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('app_manager.mypage'))
+        
+        if request.method == 'GET':
+            return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
+        
+        # POST処理
+        login_id = request.form.get('login_id', '').strip()
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        
+        if not login_id or not name or not email:
+            flash('すべての項目を入力してください', 'error')
+            return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
+        
         # ログインIDの重複チェック（自分以外）
         existing = db.query(TKanrisha).filter(
             TKanrisha.login_id == login_id,
@@ -318,10 +329,9 @@ def edit_profile():
             return render_template('app_manager_mypage_edit_profile.html', app_manager=app_manager)
         
         # 更新
-        current_admin = db.query(TKanrisha).filter(TKanrisha.id == app_manager.id).first()
-        current_admin.login_id = login_id
-        current_admin.name = name
-        current_admin.email = email
+        app_manager.login_id = login_id
+        app_manager.name = name
+        app_manager.email = email
         db.commit()
         
         # セッション更新
@@ -382,6 +392,17 @@ def api_keys():
     """APIキー設定ページ"""
     role = session.get('role')
     group_id = session.get('app_manager_group_id')
+
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_api_keys', 0) != 1):
+                flash('API設定権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
 
     if not group_id:
         flash('アプリ管理者グループが選択されていません', 'error')
@@ -466,7 +487,10 @@ def mypage_select_store():
         else:
             tenants = [{'id': t.id, 'name': t.名称} for t in db.query(TTenant).filter(TTenant.有効 == 1).order_by(TTenant.id).all()]
         stores = []
+        my_tenant_ids = {t['id'] for t in tenants}
         for s in db.query(TTenpo).filter(TTenpo.有効 == 1).order_by(TTenpo.tenant_id, TTenpo.id).all():
+            if my_tenant_ids and s.tenant_id not in my_tenant_ids:
+                continue
             tenant = db.query(TTenant).filter(TTenant.id == s.tenant_id).first()
             stores.append({'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id, 'tenant_name': tenant.名称 if tenant else ''})
         return render_template('app_manager_mypage_select_store.html', tenants=tenants, stores=stores)
@@ -502,7 +526,6 @@ def select_tenant_from_mypage():
         session['store_id'] = None
         session.modified = True
         
-        flash(f'テナント「{tenant.名称}」を選択しました', 'success')
         return redirect(url_for('tenant_admin.dashboard'))
         
     finally:
@@ -537,7 +560,6 @@ def select_store_from_mypage():
         session['store_id'] = store.id
         session.modified = True
         
-        flash(f'店舗「{store.名称}」を選択しました', 'success')
         return redirect(url_for('admin.dashboard'))
         
     finally:
@@ -651,6 +673,8 @@ def app_manager_new():
             active = 1 if request.form.get('active') == '1' else 0
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
+            can_manage_tenants = 1 if request.form.get('can_manage_tenants') == '1' else 0
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
             
             # アプリ管理者作成（同じグループに所属）
             hashed_password = generate_password_hash(password)
@@ -665,7 +689,9 @@ def app_manager_new():
                 active=active if not is_first_admin else 1,
                 is_owner=1 if is_first_admin else 0,
                 can_manage_admins=can_manage if not is_first_admin else 1,
-                can_distribute_apps=can_distribute_apps if not is_first_admin else 1
+                can_distribute_apps=can_distribute_apps if not is_first_admin else 1,
+                can_manage_tenants=can_manage_tenants if not is_first_admin else 1,
+                can_manage_api_keys=can_manage_api_keys if not is_first_admin else 1
             )
             db.add(new_admin)
             db.commit()
@@ -715,6 +741,8 @@ def app_manager_edit(admin_id):
             active = 1 if request.form.get('active') == '1' else 0
             can_manage = 1 if request.form.get('can_manage_admins') == '1' else 0
             can_distribute_apps = 1 if request.form.get('can_distribute_apps') == '1' else 0
+            can_manage_tenants = 1 if request.form.get('can_manage_tenants') == '1' else 0
+            can_manage_api_keys = 1 if request.form.get('can_manage_api_keys') == '1' else 0
             
             if not login_id or not name:
                 flash('ログインIDと氏名は必須です', 'error')
@@ -733,15 +761,20 @@ def app_manager_edit(admin_id):
                         TKanrisha.app_manager_group_id == group_id
                     ).first()
                     
+                    is_self = (admin_id == current_user_id)
                     if admin:
                         admin.login_id = login_id
                         admin.name = name
                         admin.email = email
-                        admin.active = active
-                        # オーナーでない場合のみ管理権限を変更可能
-                        if admin.is_owner != 1:
-                            admin.can_manage_admins = can_manage
-                            admin.can_distribute_apps = can_distribute_apps
+                        # 自分自身の場合は有効・権限設定を変更不可（オーナーが移譲する場合のみ変更可）
+                        if not is_self:
+                            admin.active = active
+                            # オーナーでない場合のみ管理権限を変更可能
+                            if admin.is_owner != 1:
+                                admin.can_manage_admins = can_manage
+                                admin.can_distribute_apps = can_distribute_apps
+                                admin.can_manage_tenants = can_manage_tenants
+                                admin.can_manage_api_keys = can_manage_api_keys
                         if password:
                             admin.password_hash = generate_password_hash(password)
                         db.commit()
@@ -770,10 +803,13 @@ def app_manager_edit(admin_id):
             'active': admin.active,
             'is_owner': admin.is_owner,
             'can_manage_admins': admin.can_manage_admins,
-            'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0)
+            'can_distribute_apps': getattr(admin, 'can_distribute_apps', 0),
+            'can_manage_tenants': getattr(admin, 'can_manage_tenants', 0),
+            'can_manage_api_keys': getattr(admin, 'can_manage_api_keys', 0)
         }
         
-        return render_template('app_manager_app_manager_edit.html', admin=admin_data)
+        is_self = (admin_id == current_user_id)
+        return render_template('app_manager_app_manager_edit.html', admin=admin_data, is_self=is_self)
     finally:
         db.close()
 
@@ -989,6 +1025,7 @@ def transfer_ownership(admin_id):
         admin.is_owner = 1
         admin.can_manage_admins = 1
         admin.can_distribute_apps = 1
+        admin.can_manage_tenants = 1
         db.commit()
         
         flash(f'オーナー権限を「{new_owner_name}」に移譲しました', 'success')
@@ -1015,11 +1052,21 @@ def grant_owner(admin_id):
         if not admin:
             flash('管理者が見つかりません', 'error')
         else:
-            admin.is_owner = 1
-            admin.can_manage_admins = 1
-            admin.can_distribute_apps = 1
-            db.commit()
-            flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
+            # オーナーは1人のみ許可
+            existing_owner = db.query(TKanrisha).filter(
+                TKanrisha.app_manager_group_id == group_id,
+                TKanrisha.is_owner == 1,
+                TKanrisha.id != admin_id
+            ).first()
+            if existing_owner:
+                flash(f'オーナーは1人のみ設定できます。現在のオーナー「{existing_owner.name}」のオーナー権限を先に解除してください。', 'error')
+            else:
+                admin.is_owner = 1
+                admin.can_manage_admins = 1
+                admin.can_distribute_apps = 1
+                admin.can_manage_tenants = 1
+                db.commit()
+                flash(f'「{admin.name}」にオーナー権限を付与しました', 'success')
     finally:
         db.close()
     return redirect(url_for('app_manager.app_managers'))
@@ -1061,6 +1108,18 @@ def tenants():
     """テナント管理（担当テナントの一覧）"""
     role = session.get('role')
     group_id = session.get('app_manager_group_id')
+
+    # 閲覧は全員可能。編集・削除操作のために権限情報をテンプレートに渡す
+    can_edit = True  # system_adminは常に可
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            can_edit = bool(_adm and (_adm.is_owner == 1 or getattr(_adm, 'can_manage_tenants', 0) == 1))
+        finally:
+            _db_c.close()
+
     db = SessionLocal()
     try:
         from app.models_login import TTenant
@@ -1082,7 +1141,8 @@ def tenants():
         
         return render_template(
             'app_manager_tenants.html',
-            tenants=tenants_list
+            tenants=tenants_list,
+            can_edit=can_edit
         )
     finally:
         db.close()
@@ -1093,6 +1153,16 @@ def tenants():
 def tenant_new():
     """テナント新規作成"""
     role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     app_manager = get_current_app_manager()
     if not app_manager and role != 'system_admin':
         return redirect(url_for('app_manager.login'))
@@ -1159,6 +1229,17 @@ def tenant_new():
 @require_roles('app_manager', 'system_admin')
 def tenant_edit(tenant_id):
     """テナント編集"""
+    role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     from app.models_login import TTenant
     db = SessionLocal()
     try:
@@ -1209,6 +1290,17 @@ def tenant_edit(tenant_id):
 @require_roles('app_manager', 'system_admin')
 def tenant_delete(tenant_id):
     """テナント削除（無効化）"""
+    role = session.get('role')
+    if role == 'app_manager':
+        _db_c = SessionLocal()
+        try:
+            _aid = session.get('user_id')
+            _adm = _db_c.query(TKanrisha).filter(TKanrisha.id == _aid).first()
+            if not _adm or (_adm.is_owner != 1 and getattr(_adm, 'can_manage_tenants', 0) != 1):
+                flash('テナント管理権限がありません', 'error')
+                return redirect(url_for('app_manager.dashboard'))
+        finally:
+            _db_c.close()
     from app.models_login import TTenant
     db = SessionLocal()
     try:
@@ -1411,8 +1503,9 @@ def plan():
 
 
 @bp.route('/distribute', methods=['GET', 'POST'])
+@bp.route('/distribute/<int:tenant_id>', methods=['GET', 'POST'])
 @require_roles('app_manager', 'system_admin')
-def distribute():
+def distribute(tenant_id=None):
     """テナントへのアプリ配布管理"""
     import json
     role = session.get('role')
@@ -1421,6 +1514,17 @@ def distribute():
     if not group_id:
         flash('アプリ管理者グループが選択されていません', 'error')
         return redirect(url_for('system_admin.mypage') if role == 'system_admin' else url_for('app_manager.login'))
+
+    # 閲覧は全員可能。配布設定変更（POST）時のみ権限チェック
+    can_distribute = True  # system_adminは常に可
+    if role == 'app_manager':
+        _db_check = SessionLocal()
+        try:
+            _admin_id = session.get('user_id')
+            _current_admin = _db_check.query(TKanrisha).filter(TKanrisha.id == _admin_id).first()
+            can_distribute = bool(_current_admin and (_current_admin.is_owner == 1 or getattr(_current_admin, 'can_distribute_apps', 0) == 1))
+        finally:
+            _db_check.close()
 
     db = SessionLocal()
     try:
@@ -1449,12 +1553,20 @@ def distribute():
             enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
 
         # テナント一覧（自分のグループが作成したテナントのみ）
-        tenants = db.query(TTenant).filter(
+        tenants_query = db.query(TTenant).filter(
             TTenant.有効 == 1,
             TTenant.app_manager_group_id == group_id
-        ).order_by(TTenant.id).all()
+        )
+        if tenant_id:
+            tenants_query = tenants_query.filter(TTenant.id == tenant_id)
+        tenants = tenants_query.order_by(TTenant.id).all()
 
         if request.method == 'POST':
+            # POST（変更操作）は権限必須
+            if not can_distribute:
+                flash('アプリ配布権限がありません', 'error')
+                return redirect(url_for('app_manager.distribute'))
+
             tenant_id = request.form.get('tenant_id')
             selected_apps = request.form.getlist('apps')
 
@@ -1495,7 +1607,9 @@ def distribute():
             tenants=tenants,
             enabled_apps=enabled_apps,
             tenant_app_settings=tenant_app_settings,
-            is_system_admin_view=(role == 'system_admin')
+            is_system_admin_view=(role == 'system_admin'),
+            can_distribute=can_distribute,
+            selected_tenant_id=tenant_id
         )
     finally:
         db.close()

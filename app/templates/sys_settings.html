@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}システム設定{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .page-header {
@@ -98,9 +99,13 @@
     <h1>システム設定</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+    <a href="{{ current_dashboard_url }}">ダッシュボードに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <p style="font-size:0.875rem;color:#6b7280;margin-bottom:1.5rem">システム全体のデフォルト設定を管理します</p>
 
@@ -124,7 +129,7 @@
     </div>
     <div class="form-actions">
       <button type="submit" class="btn-primary-form">保存</button>
-      <a href="{{ url_for('system_admin.dashboard') }}" class="btn-cancel-form">戻る</a>
+      <a href="{{ current_dashboard_url }}" class="btn-cancel-form">戻る</a>
     </div>
   </form>
 </div>

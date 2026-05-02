@@ -125,6 +125,9 @@ def run_migrations():
             ("truck_routes", "contract_amount", "NUMERIC(12,2) NULL"),
             ("truck_accident_records", "driver_id", "INTEGER NULL"),
             ("truck_accident_records", "fault_ratio", "INTEGER NULL"),
+            ("truck_operations", "operation_type", "VARCHAR(20) DEFAULT 'driving'"),
+            ("truck_operations", "break_start_time", "DATETIME NULL"),
+            ("truck_operations", "break_end_time", "DATETIME NULL"),
         ]
         
         added_count = 0

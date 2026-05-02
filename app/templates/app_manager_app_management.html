@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}アプリ配布管理{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .office-header {
@@ -103,17 +104,20 @@
     <h1>アプリ配布管理</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボードへ</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-  {% for category, message in messages %}
-    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
+{% if messages %}{% for category, message in messages %}
+<div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+{% endfor %}{% endif %}
 {% endwith %}
+
 
 <!-- クイックリンク -->
 <div class="quick-links">

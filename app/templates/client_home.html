@@ -126,6 +126,10 @@
     </div>
     <a href="{{ url_for('tenant_admin.me_edit') }}" class="edit-btn-header">&#9998; 事務所情報を編集</a>
   </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
   <!-- 統計 -->
   <div class="stats-grid">

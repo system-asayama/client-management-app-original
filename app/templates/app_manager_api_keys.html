@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}API設定{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .page-header {
@@ -87,16 +88,13 @@
     <h1>🔑 API設定</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ戻る</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボードへ戻る</a>
   </div>
 </div>
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }}" style="margin-bottom:1rem">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 <div class="section-card">
   <p class="section-title">AIサービス APIキー</p>
   <form method="POST" action="{{ url_for('app_manager.api_keys') }}">

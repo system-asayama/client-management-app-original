@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}ショートステイ運営管理{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --sidebar-width: 240px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui,-apple-system,'Hiragino Sans',Meiryo,sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ─── サイドバー ─── */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: #1e293b;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 1.25rem 1rem;
+      border-bottom: 1px solid #334155;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      line-height: 1.3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sidebar-logo-text small { display: block; font-size: 0.7rem; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+    .sidebar-nav { flex: 1; padding: 0.5rem 0; }
+    .sidebar-section { padding: 0.75rem 1rem 0.25rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+    .sidebar-nav a {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.55rem 1rem;
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 0.875rem;
+      border-left: 3px solid transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .sidebar-nav a:hover { background: #334155; color: #f1f5f9; }
+    .sidebar-nav a.active { background: #1e40af; color: #fff; border-left-color: #60a5fa; }
+    .sidebar-nav a .icon { width: 18px; text-align: center; font-size: 1rem; }
+    .sidebar-footer { padding: 1rem; border-top: 1px solid #334155; font-size: 0.8rem; color: #94a3b8; }
+
+    /* ─── ハンバーガーボタン ─── */
+    .hamburger-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      color: #94a3b8;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .hamburger-btn:hover { background: #334155; color: #f1f5f9; }
+    .hamburger-btn .bar {
+      display: block;
+      width: 20px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+      transition: transform 0.2s, opacity 0.2s;
+      margin: 4px 0;
+    }
+    .hamburger-btn.open .bar:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .hamburger-btn.open .bar:nth-child(2) { opacity: 0; }
+    .hamburger-btn.open .bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+    /* ─── クイックメニューパネル ─── */
+    .quick-menu-panel {
+      display: none;
+      background: #0f172a;
+      border-top: 1px solid #334155;
+      padding: 0.75rem 0.75rem 0.5rem;
+    }
+    .quick-menu-panel.open { display: block; }
+    .quick-menu-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+      padding-left: 0.25rem;
+    }
+    .quick-menu-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+    }
+    .quick-menu-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.55rem 0.25rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 0.72rem;
+      text-align: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      line-height: 1.2;
+    }
+    .quick-menu-item:hover {
+      background: #2563eb;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+    .quick-menu-item .qm-icon { font-size: 1.2rem; }
+
+    /* ─── メインコンテンツ ─── */
+    .main-wrapper {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar-title { font-size: 1.1rem; font-weight: 600; color: var(--gray-900); }
+    .topbar-user { font-size: 0.85rem; color: var(--gray-500); display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-user strong { color: var(--gray-700); }
+    .main-content { padding: 1.5rem; flex: 1; }
+
+    /* ─── カード ─── */
+    .card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .card-title { font-size: 1rem; font-weight: 600; color: var(--gray-900); }
+
+    /* ─── ボタン ─── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--gray-300);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+      background: #fff;
+      color: var(--gray-700);
+    }
+    .btn:hover { background: var(--gray-50); }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+    .btn-success { background: var(--success); color: #fff; border-color: var(--success); }
+    .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+    .btn-link { border: none; background: transparent; color: var(--primary); padding: 0.3rem 0; }
+
+    /* ─── フォーム ─── */
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-size: 0.875rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.35rem; }
+    .form-control {
+      width: 100%; padding: 0.55rem 0.75rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      background: #fff;
+      color: var(--gray-900);
+      transition: border-color 0.15s;
+    }
+    .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+    .form-section-title { font-size: 0.9rem; font-weight: 700; color: var(--gray-700); margin: 1.5rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--primary-light); }
+
+    /* ─── テーブル ─── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead th { background: var(--gray-50); padding: 0.65rem 0.75rem; text-align: left; font-weight: 600; color: var(--gray-700); border-bottom: 2px solid var(--gray-200); white-space: nowrap; }
+    tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+    tbody tr:hover { background: var(--gray-50); }
+
+    /* ─── バッジ ─── */
+    .badge {
+      display: inline-block; padding: 0.2rem 0.6rem;
+      border-radius: 9999px; font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+    .badge-green { background: #dcfce7; color: #15803d; }
+    .badge-yellow { background: #fef9c3; color: #a16207; }
+    .badge-red { background: #fee2e2; color: #b91c1c; }
+    .badge-gray { background: var(--gray-100); color: var(--gray-700); }
+    .badge-orange { background: #ffedd5; color: #c2410c; }
+
+    /* ─── アラート ─── */
+    .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.875rem; }
+    .alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .alert-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert-info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+    /* ─── 統計カード ─── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+      padding: 1.25rem; text-align: center;
+    }
+    .stat-card .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); line-height: 1; }
+    .stat-card .stat-label { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.4rem; }
+    .stat-card.urgent .stat-value { color: var(--danger); }
+    .stat-card.success .stat-value { color: var(--success); }
+
+    /* ─── ページタイトル ─── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
+    .page-title { font-size: 1.4rem; font-weight: 700; color: var(--gray-900); }
+
+    /* ─── 検索バー ─── */
+    .search-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .search-bar .form-control { max-width: 280px; }
+
+    /* ─── viewing_as_banner ─── */
+    .viewing-as-banner { background: #fff8e1; color: #7a5c00; border: 1px solid #ffe082; border-radius: 8px; padding: .6rem 1rem; margin-bottom: 1rem; font-size: .875rem; }
+
+    /* ─── モバイルトップバーのハンバーガー ─── */
+    .topbar-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      color: var(--gray-700);
+      transition: background 0.15s;
+    }
+    .topbar-hamburger:hover { background: var(--gray-100); }
+    .topbar-hamburger .bar {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+      margin: 5px 0;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .topbar-hamburger.open .bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .topbar-hamburger.open .bar:nth-child(2) { opacity: 0; }
+    .topbar-hamburger.open .bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* ─── サイドバーオーバーレイ ─── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 99;
+    }
+    .sidebar-overlay.open { display: block; }
+
+    /* ─── レスポンシブ ─── */
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+      }
+      .sidebar.mobile-open {
+        transform: translateX(0);
+      }
+      .main-wrapper { margin-left: 0; }
+      .topbar-hamburger { display: flex; flex-direction: column; justify-content: center; }
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <!-- サイドバー -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text">
+        🏥 ショートステイ<small>運営管理システム</small>
+      </div>
+      <!-- ハンバーガーボタン -->
+      <button class="hamburger-btn" id="quickMenuBtn" title="クイックメニュー" aria-expanded="false">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+    </div>
+
+    <!-- クイックメニューパネル -->
+    <div class="quick-menu-panel" id="quickMenuPanel">
+      <div class="quick-menu-title">⚡ クイックメニュー</div>
+      <div class="quick-menu-grid">
+        <a href="{{ url_for('shortstay.resident_new') }}" class="quick-menu-item">
+          <span class="qm-icon">👤</span>
+          <span>利用者登録</span>
+        </a>
+        <a href="{{ url_for('shortstay.reservation_new') }}" class="quick-menu-item">
+          <span class="qm-icon">📝</span>
+          <span>予約登録</span>
+        </a>
+        <a href="{{ url_for('shortstay.vital_new') }}" class="quick-menu-item">
+          <span class="qm-icon">🩺</span>
+          <span>バイタル</span>
+        </a>
+        <a href="{{ url_for('shortstay.meal_new') }}" class="quick-menu-item">
+          <span class="qm-icon">🍱</span>
+          <span>食事記録</span>
+        </a>
+        <a href="{{ url_for('shortstay.excretion_new') }}" class="quick-menu-item">
+          <span class="qm-icon">📋</span>
+          <span>排泄記録</span>
+        </a>
+        <a href="{{ url_for('shortstay.bath_new') }}" class="quick-menu-item">
+          <span class="qm-icon">🛁</span>
+          <span>入浴記録</span>
+        </a>
+        <a href="{{ url_for('shortstay.staff_note_new') }}" class="quick-menu-item">
+          <span class="qm-icon">💬</span>
+          <span>申し送り</span>
+        </a>
+        <a href="{{ url_for('shortstay.incident_new') }}" class="quick-menu-item">
+          <span class="qm-icon">⚠️</span>
+          <span>事故報告</span>
+        </a>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section">メイン</div>
+      <a href="{{ url_for('shortstay.dashboard') }}" class="{% if request.endpoint == 'shortstay.dashboard' %}active{% endif %}">
+        <span class="icon">🏠</span> ダッシュボード
+      </a>
+
+      <div class="sidebar-section">利用者</div>
+      <a href="{{ url_for('shortstay.residents') }}" class="{% if 'resident' in request.endpoint %}active{% endif %}">
+        <span class="icon">👥</span> 利用者管理
+      </a>
+      <a href="{{ url_for('shortstay.care_plans') }}" class="{% if 'care_plan' in request.endpoint %}active{% endif %}">
+        <span class="icon">📋</span> ケアプラン
+      </a>
+
+      <div class="sidebar-section">予約・入退所</div>
+      <a href="{{ url_for('shortstay.reservation_calendar') }}" class="{% if 'calendar' in request.endpoint %}active{% endif %}">
+        <span class="icon">📅</span> 空き状況カレンダー
+      </a>
+      <a href="{{ url_for('shortstay.reservations') }}" class="{% if request.endpoint == 'shortstay.reservations' %}active{% endif %}">
+        <span class="icon">📝</span> 予約一覧
+      </a>
+      <a href="{{ url_for('shortstay.rooms') }}" class="{% if 'room' in request.endpoint %}active{% endif %}">
+        <span class="icon">🛏️</span> 居室管理
+      </a>
+
+      <div class="sidebar-section">ケア記録</div>
+      <a href="{{ url_for('shortstay.care_records') }}" class="{% if 'care_record' in request.endpoint or 'vital' in request.endpoint or 'meal' in request.endpoint or 'excretion' in request.endpoint or 'bath' in request.endpoint %}active{% endif %}">
+        <span class="icon">📊</span> ケア記録
+      </a>
+
+      <div class="sidebar-section">スタッフ</div>
+      <a href="{{ url_for('shortstay.staff_notes') }}" class="{% if 'staff_note' in request.endpoint %}active{% endif %}">
+        <span class="icon">💬</span> 申し送り
+      </a>
+      <a href="{{ url_for('shortstay.shifts') }}" class="{% if 'shift' in request.endpoint %}active{% endif %}">
+        <span class="icon">🗓️</span> シフト管理
+      </a>
+
+      <div class="sidebar-section">請求・書類</div>
+      <a href="{{ url_for('shortstay.billing_list') }}" class="{% if 'billing' in request.endpoint %}active{% endif %}">
+        <span class="icon">💴</span> 請求管理
+      </a>
+      <a href="{{ url_for('shortstay.reports') }}" class="{% if request.endpoint == 'shortstay.reports' or request.endpoint == 'shortstay.report_new' %}active{% endif %}">
+        <span class="icon">📄</span> 報告書
+      </a>
+      <a href="{{ url_for('shortstay.incidents') }}" class="{% if 'incident' in request.endpoint %}active{% endif %}">
+        <span class="icon">⚠️</span> 事故・ヒヤリハット
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      {% if current_store_name %}{{ current_store_name }}{% elif current_tenant_name %}{{ current_tenant_name }}{% endif %}
+    </div>
+  </aside>
+
+  <!-- サイドバーオーバーレイ（モバイル用） -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- メインコンテンツ -->
+  <div class="main-wrapper">
+    <div class="topbar">
+      <!-- モバイル用ハンバーガーボタン -->
+      <button class="topbar-hamburger" id="mobileMenuBtn" aria-label="メニューを開く">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+      <div class="topbar-user">
+        <strong>{{ session.get('user_name', '') }}</strong>
+        <a href="{{ current_dashboard_url }}" style="color: var(--gray-500); text-decoration: none; font-size: 0.8rem;">← 管理画面へ</a>
+      </div>
+    </div>
+
+    <div class="main-content">
+      {% if viewing_as_banner %}
+      <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+      {% endif %}
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'error' if category == 'error' else category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ── サイドバー内ハンバーガー（クイックメニュー）──
+      var btn = document.getElementById('quickMenuBtn');
+      var panel = document.getElementById('quickMenuPanel');
+      if (btn && panel) {
+        var isOpen = localStorage.getItem('quickMenuOpen') === 'true';
+        if (isOpen) {
+          panel.classList.add('open');
+          btn.classList.add('open');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+        btn.addEventListener('click', function() {
+          isOpen = !isOpen;
+          panel.classList.toggle('open', isOpen);
+          btn.classList.toggle('open', isOpen);
+          btn.setAttribute('aria-expanded', String(isOpen));
+          localStorage.setItem('quickMenuOpen', String(isOpen));
+        });
+      }
+
+      // ── モバイル用ハンバーガー（サイドバー開閉）──
+      var mobileBtn = document.getElementById('mobileMenuBtn');
+      var sidebar = document.querySelector('.sidebar');
+      var overlay = document.getElementById('sidebarOverlay');
+      if (mobileBtn && sidebar && overlay) {
+        function openSidebar() {
+          sidebar.classList.add('mobile-open');
+          overlay.classList.add('open');
+          mobileBtn.classList.add('open');
+          mobileBtn.setAttribute('aria-label', 'メニューを閉じる');
+        }
+        function closeSidebar() {
+          sidebar.classList.remove('mobile-open');
+          overlay.classList.remove('open');
+          mobileBtn.classList.remove('open');
+          mobileBtn.setAttribute('aria-label', 'メニューを開く');
+        }
+        mobileBtn.addEventListener('click', function() {
+          if (sidebar.classList.contains('mobile-open')) {
+            closeSidebar();
+          } else {
+            openSidebar();
+          }
+        });
+        overlay.addEventListener('click', closeSidebar);
+        // サイドバー内リンクをタップしたら閉じる
+        sidebar.querySelectorAll('a').forEach(function(a) {
+          a.addEventListener('click', function() {
+            if (window.innerWidth <= 768) closeSidebar();
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

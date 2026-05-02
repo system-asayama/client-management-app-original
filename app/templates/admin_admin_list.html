@@ -4,9 +4,14 @@
   <meta charset="utf-8">
   <title>管理者一覧</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px}</style>
+  <style>table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px}    .viewing-as-banner { background: #fff8e1; color: #7a5c00; border: 1px solid #ffe082; border-radius: 8px; padding: .6rem 1rem; margin: .5rem 0 1rem; font-size: .9rem; }
+  </style>
 </head>
 <body>
+  {% if viewing_as_banner %}
+  <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+  {% endif %}
+
   <h1>管理者一覧</h1>
   <p><a href="{{ url_for('admin_home') }}">管理者ホーム</a> / <a href="{{ url_for('admin_admins_create') }}">＋新規管理者を登録</a></p>
   <table>

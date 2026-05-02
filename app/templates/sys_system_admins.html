@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}システム管理者一覧{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .page-header {
@@ -101,9 +102,13 @@
     {% if can_manage_system_admins() %}
     <a class="btn-create" href="{{ url_for('system_admin.system_admin_new') }}">＋ 新しいシステム管理者を作成</a>
     {% endif %}
-    <a href="{{ url_for('system_admin.dashboard') }}">ダッシュボードに戻る</a>
+    <a href="{{ current_dashboard_url }}">ダッシュボードに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="toolbar">
   <div class="search-box">
@@ -120,8 +125,8 @@
     <thead>
       <tr>
         <th>ID</th><th>ログインID</th><th>氏名</th><th>オーナー</th>
-        <th>管理権限</th><th>全テナント管理権限</th><th>アプリ配布権限</th>
-        <th>プラン（上限数）</th><th>有効</th><th>作成日時</th><th>更新日時</th><th>操作</th>
+        <th>管理権限</th><th>アプリ管理者管理権限</th><th>テナント管理権限</th><th>アプリ配布権限</th><th>API設定権限</th>
+        <th>有効</th><th>作成日時</th><th>更新日時</th><th>操作</th>
       </tr>
     </thead>
     <tbody>
@@ -132,9 +137,10 @@
         <td><strong>{{ a.name }}</strong></td>
         <td>{% if a.is_owner == 1 %}<span class="badge badge-owner">★ オーナー</span>{% else %}<span style="color:#d1d5db">—</span>{% endif %}</td>
         <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_manage_admins == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_manage_app_managers == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</td>
         <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_manage_all_tenants == 1 %}<span class="badge badge-yes">全テナント</span>{% else %}<span class="badge badge-no">作成/招待のみ</span>{% endif %}</td>
         <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_distribute_apps == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</td>
-        <td>{% if a.is_owner == 1 %}<span style="color:#059669;font-weight:600">無制限</span>{% elif a.app_limit is not none %}{{ a.app_limit }}アプリ{% else %}<span style="color:#059669">無制限</span>{% endif %}</td>
+        <td>{% if a.is_owner == 1 %}<span class="badge badge-yes">常に有</span>{% elif a.can_manage_api_keys == 1 %}<span class="badge badge-yes">有</span>{% else %}<span class="badge badge-no">無</span>{% endif %}</td>
         <td>{% if a.is_owner == 1 %}<span class="badge badge-active">常に有効</span>{% elif a.active == 1 %}<span class="badge badge-active">有効</span>{% else %}<span class="badge badge-inactive">無効</span>{% endif %}</td>
         <td style="color:#9ca3af;font-size:0.8rem">{{ a.created_at }}</td>
         <td style="color:#9ca3af;font-size:0.8rem">{{ a.updated_at if a.updated_at else '—' }}</td>

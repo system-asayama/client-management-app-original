@@ -1,0 +1,100 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}健康履歴{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🏥 健康履歴 - {{ dog.name }}</h1>
+  <p class="page-desc">親犬の健康・疾患履歴を管理します。</p>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">新規登録</h2></div>
+  <div class="card-body">
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">記録日</label>
+          <input type="date" name="record_date" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">カテゴリ</label>
+          <select name="category" class="form-control">
+            <option value="">-- 選択 --</option>
+            <option value="orthopedic">整形外科</option>
+            <option value="eye">眼科</option>
+            <option value="heart">心臓</option>
+            <option value="skin">皮膚</option>
+            <option value="respiratory">呼吸器</option>
+            <option value="digestive">消化器</option>
+            <option value="neurological">神経</option>
+            <option value="reproductive">繁殖</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">タイトル <span style="color:red">*</span></label>
+          <input type="text" name="title" class="form-control" required placeholder="例：膝蓋骨脱臼 グレード2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">重篤度</label>
+          <select name="severity" class="form-control">
+            <option value="">-- 選択 --</option>
+            <option value="critical">重篤</option>
+            <option value="high">重大</option>
+            <option value="medium">中程度</option>
+            <option value="low">軽度</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">オプション</label>
+          <div>
+            <label><input type="checkbox" name="diagnosed_by_vet"> 獣医師診断あり</label>
+            <label style="margin-left:1rem;"><input type="checkbox" name="resolved"> 解決済み</label>
+          </div>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">詳細</label>
+          <textarea name="description" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">備考</label>
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+      <a href="{{ url_for('breeder.dog_detail', dog_id=dog.id) }}" class="btn btn-secondary" style="margin-left:.5rem;">戻る</a>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><h2 class="card-title">履歴一覧（{{ records|length }}件）</h2></div>
+  <div class="card-body">
+    {% if records %}
+    <table class="table">
+      <thead><tr><th>日付</th><th>カテゴリ</th><th>タイトル</th><th>重篤度</th><th>解決</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for r in records %}
+      <tr>
+        <td>{{ r.record_date or '-' }}</td>
+        <td>{{ r.category or '-' }}</td>
+        <td>{{ r.title }}</td>
+        <td>
+          {% if r.severity == 'critical' %}<span style="color:red;font-weight:bold;">重篤</span>
+          {% elif r.severity == 'high' %}<span style="color:orange;font-weight:bold;">重大</span>
+          {% elif r.severity == 'medium' %}<span style="color:#888;">中程度</span>
+          {% else %}<span style="color:#aaa;">軽度</span>{% endif %}
+        </td>
+        <td>{{ '✅' if r.resolved else '❌' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('breeder.health_record_delete', dog_id=dog.id, record_id=r.id) }}" style="display:inline;" onsubmit="return confirm('削除しますか？')">
+            <button type="submit" class="btn btn-sm" style="color:red;">削除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-dim);">健康履歴はありません。</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -80,6 +80,10 @@
     <span class="page-title">🧾 税務申告基本情報</span>
     <a href="{{ url_for('clients.edit_tax_info', client_id=client.id) }}" class="btn-edit">&#9998; 編集</a>
   </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
   <!-- 会計期間 -->
   <div class="info-card">

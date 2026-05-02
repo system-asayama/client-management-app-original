@@ -403,52 +403,8 @@ def mypage():
                 flash('パスワードを変更しました', 'success')
                 return redirect(url_for('tenant_admin.mypage'))
             
-            elif action == 'update_api_keys':
-                # APIキー更新（テナント単位）
-                openai_api_key = request.form.get('openai_api_key', '').strip() or None
-                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
-                google_api_key = request.form.get('google_api_key', '').strip() or None
-                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
-                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
-                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
-                
-                if tenant_id:
-                    tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-                    if tenant_obj:
-                        tenant_obj.openai_api_key = openai_api_key
-                        if hasattr(tenant_obj, 'google_vision_api_key'):
-                            tenant_obj.google_vision_api_key = google_vision_api_key
-                        if hasattr(tenant_obj, 'google_api_key'):
-                            tenant_obj.google_api_key = google_api_key
-                        if hasattr(tenant_obj, 'anthropic_api_key'):
-                            tenant_obj.anthropic_api_key = anthropic_api_key
-                        if hasattr(tenant_obj, 'azure_document_intelligence_endpoint'):
-                            tenant_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
-                        if hasattr(tenant_obj, 'azure_document_intelligence_key'):
-                            tenant_obj.azure_document_intelligence_key = azure_document_intelligence_key
-                        db.commit()
-                        flash('APIキー設定を更新しました', 'success')
-                    else:
-                        flash('テナント情報が見つかりません。まずテナントを選択してください', 'error')
-                else:
-                    flash('テナントが選択されていません。まずテナントを選択してください', 'error')
-                return redirect(url_for('tenant_admin.mypage'))
         
-        # テナントのAPIキーを取得
-        tenant_api = None
-        if tenant_id:
-            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-            if tenant_obj:
-                tenant_api = {
-                    'openai_api_key': getattr(tenant_obj, 'openai_api_key', None) or '',
-                    'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
-                    'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
-                    'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
-                    'azure_document_intelligence_endpoint': getattr(tenant_obj, 'azure_document_intelligence_endpoint', None) or '',
-                    'azure_document_intelligence_key': getattr(tenant_obj, 'azure_document_intelligence_key', None) or '',
-                }
-        
-        return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list, tenant_api=tenant_api)
+        return render_template('tenant_mypage.html', user=user, tenant_name=tenant_name, tenant_list=tenant_list, store_list=store_list)
     finally:
         db.close()
 
@@ -2385,6 +2341,14 @@ AVAILABLE_APPS = [
         'url': '/apps/reservation',
         'icon': '📅',
         'scope': 'store'
+    },
+    {
+        'name': 'shortstay',
+        'display_name': 'ショートステイ運営管理',
+        'description': '短期入所（ショートステイ）の利用者・予約・ケア記録・請求・シフトを一元管理するアプリ',
+        'url': '/shortstay/',
+        'icon': '🏥',
+        'scope': 'store'
     }
 ]
 
@@ -2462,7 +2426,7 @@ def app_management():
             
             elif action == 'select_store':
                 # 店舗選択
-                selected_tenant_id = request.form.get('tenant_id', type=int)
+                selected_tenant_id = request.form.get('tenant_id', type=int) or session_tenant_id
                 selected_store_id = request.form.get('store_id', type=int)
                 
                 # 権限チェック
@@ -2523,7 +2487,7 @@ def app_management():
             
             elif action == 'update_apps':
                 # アプリ設定更新
-                selected_tenant_id = request.form.get('tenant_id', type=int)
+                selected_tenant_id = request.form.get('tenant_id', type=int) or session_tenant_id
                 selected_store_id = request.form.get('store_id', type=int)
                 
                 # 権限チェック
@@ -2690,11 +2654,11 @@ def tenant_apps():
             tenant_distributed_app_ids = set()
             has_distribution_settings = False
 
-        # 配布設定がある場合は配布されたアプリのみ、ない場合は全アプリを表示
+        # 配布設定がある場合は配布されたアプリのみ、ない場合は空リスト（未設定テナントにはアプリを表示しない）
         if has_distribution_settings:
             apps = [app for app in AVAILABLE_APPS if app['name'] in tenant_distributed_app_ids]
         else:
-            apps = list(AVAILABLE_APPS)
+            apps = []
         
         # 店舗情報を取得（現在選択中の店舗）
         store_id = session.get('store_id')
@@ -3451,6 +3415,179 @@ def employee_delete(employee_id):
         db.close()
 
 
+
+@bp.route('/mypage/api_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def api_settings():
+    """APIキー設定ページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_api_keys':
+                openai_api_key = request.form.get('openai_api_key', '').strip() or None
+                google_vision_api_key = request.form.get('google_vision_api_key', '').strip() or None
+                google_api_key = request.form.get('google_api_key', '').strip() or None
+                anthropic_api_key = request.form.get('anthropic_api_key', '').strip() or None
+                azure_document_intelligence_endpoint = request.form.get('azure_document_intelligence_endpoint', '').strip() or None
+                azure_document_intelligence_key = request.form.get('azure_document_intelligence_key', '').strip() or None
+                if tenant_id:
+                    tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+                    if tenant_obj:
+                        tenant_obj.openai_api_key = openai_api_key
+                        if hasattr(tenant_obj, 'google_vision_api_key'):
+                            tenant_obj.google_vision_api_key = google_vision_api_key
+                        if hasattr(tenant_obj, 'google_api_key'):
+                            tenant_obj.google_api_key = google_api_key
+                        if hasattr(tenant_obj, 'anthropic_api_key'):
+                            tenant_obj.anthropic_api_key = anthropic_api_key
+                        if hasattr(tenant_obj, 'azure_document_intelligence_endpoint'):
+                            tenant_obj.azure_document_intelligence_endpoint = azure_document_intelligence_endpoint
+                        if hasattr(tenant_obj, 'azure_document_intelligence_key'):
+                            tenant_obj.azure_document_intelligence_key = azure_document_intelligence_key
+                        db.commit()
+                        flash('APIキー設定を更新しました', 'success')
+                    else:
+                        flash('テナント情報が見つかりません', 'error')
+                else:
+                    flash('テナントが選択されていません', 'error')
+                return redirect(url_for('tenant_admin.api_settings'))
+        # GET: APIキーを取得して表示
+        tenant_api = {
+            'openai_api_key': '',
+            'google_vision_api_key': '',
+            'google_api_key': '',
+            'anthropic_api_key': '',
+            'azure_document_intelligence_endpoint': '',
+            'azure_document_intelligence_key': '',
+        }
+        if tenant_id:
+            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+            if tenant_obj:
+                tenant_api = {
+                    'openai_api_key': getattr(tenant_obj, 'openai_api_key', None) or '',
+                    'google_vision_api_key': getattr(tenant_obj, 'google_vision_api_key', None) or '',
+                    'google_api_key': getattr(tenant_obj, 'google_api_key', None) or '',
+                    'anthropic_api_key': getattr(tenant_obj, 'anthropic_api_key', None) or '',
+                    'azure_document_intelligence_endpoint': getattr(tenant_obj, 'azure_document_intelligence_endpoint', None) or '',
+                    'azure_document_intelligence_key': getattr(tenant_obj, 'azure_document_intelligence_key', None) or '',
+                }
+        return render_template('tenant_api_settings.html', tenant_id=tenant_id, tenant_api=tenant_api)
+    finally:
+        db.close()
+
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_profile():
+    """テナント管理者プロフィール設定ページ"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        user_obj = db.query(TKanrisha).filter(TKanrisha.id == user_id).first()
+        if not user_obj:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('tenant_admin.mypage'))
+        user = {
+            'id': user_obj.id,
+            'login_id': user_obj.login_id,
+            'name': user_obj.name,
+            'email': user_obj.email or '',
+        }
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip()
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                existing = db.query(TKanrisha).filter(
+                    and_(TKanrisha.login_id == login_id, TKanrisha.id != user_id)
+                ).first()
+                if existing:
+                    flash('このログインIDは既に使用されています', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                user_obj.login_id = login_id
+                user_obj.name = name
+                user_obj.email = email
+                if hasattr(user_obj, 'updated_at'):
+                    user_obj.updated_at = func.now()
+                db.commit()
+                session['login_id'] = login_id
+                session['user_name'] = name
+                flash('プロフィール情報を更新しました', 'success')
+                return redirect(url_for('tenant_admin.mypage_profile'))
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if not current_password or not new_password or not new_password_confirm:
+                    flash('全ての項目を入力してください', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                if new_password != new_password_confirm:
+                    flash('新しいパスワードが一致しません', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                if len(new_password) < 8:
+                    flash('パスワードは8文字以上で入力してください', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                if not check_password_hash(user_obj.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                    return render_template('tenant_mypage_profile.html', user=user)
+                user_obj.password_hash = generate_password_hash(new_password)
+                if hasattr(user_obj, 'updated_at'):
+                    user_obj.updated_at = func.now()
+                db.commit()
+                flash('パスワードを変更しました', 'success')
+                return redirect(url_for('tenant_admin.mypage_profile'))
+        return render_template('tenant_mypage_profile.html', user=user)
+    finally:
+        db.close()
+
+@bp.route('/mypage/select_tenant', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_select_tenant():
+    """テナント選択ページ（GET）"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        tenant_objs = db.query(TTenant).join(
+            TKanrisha, TKanrisha.tenant_id == TTenant.id
+        ).filter(
+            TKanrisha.id == user_id
+        ).distinct().order_by(TTenant.名称).all()
+        tenant_list = [{'id': t.id, 'name': t.名称} for t in tenant_objs]
+        return render_template('tenant_mypage_select_tenant.html', tenant_list=tenant_list)
+    finally:
+        db.close()
+
+@bp.route('/mypage/select_store', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def mypage_select_store():
+    """店舗選択ページ（GET）"""
+    user_id = session.get('user_id')
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        if tenant_id:
+            store_objs = db.query(TTenpo).filter(
+                TTenpo.tenant_id == tenant_id
+            ).order_by(TTenpo.名称).all()
+        else:
+            # テナント未選択の場合は管理者が所属するテナントの全店舗
+            tenant_objs = db.query(TTenant).join(
+                TKanrisha, TKanrisha.tenant_id == TTenant.id
+            ).filter(TKanrisha.id == user_id).distinct().all()
+            tenant_ids = [t.id for t in tenant_objs]
+            store_objs = db.query(TTenpo).filter(
+                TTenpo.tenant_id.in_(tenant_ids)
+            ).order_by(TTenpo.名称).all() if tenant_ids else []
+        store_list = [{'id': s.id, 'name': s.名称, 'tenant_id': s.tenant_id} for s in store_objs]
+        return render_template('tenant_mypage_select_store.html', store_list=store_list)
+    finally:
+        db.close()
+
 @bp.route('/mypage/select_tenant', methods=['POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def select_tenant_from_mypage():
@@ -3462,7 +3599,6 @@ def select_tenant_from_mypage():
         return redirect(url_for('tenant_admin.mypage'))
     
     session['tenant_id'] = int(tenant_id)
-    flash('テナントを選択しました', 'success')
     return redirect(url_for('tenant_admin.dashboard'))
 
 
@@ -3477,7 +3613,6 @@ def select_store_from_mypage():
         return redirect(url_for('tenant_admin.mypage'))
     
     session['store_id'] = int(store_id)
-    flash('店舗を選択しました', 'success')
     return redirect(url_for('admin.dashboard'))
 
 

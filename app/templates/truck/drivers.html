@@ -3,7 +3,10 @@
 {% block content %}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
   <div class="page-title">👤 ドライバー管理</div>
-  <a href="{{ url_for('truck.driver_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('truck.driver_from_employee') }}"><button class="btn btn-secondary">👥 従業員から登録</button></a>
+    <a href="{{ url_for('truck.driver_new') }}"><button class="btn btn-primary">＋ 新規登録</button></a>
+  </div>
 </div>
 <div class="page-subtitle">ドライバーの登録・管理を行います</div>
 
@@ -48,13 +51,16 @@
       <form method="POST" action="{{ url_for('truck.driver_delete', driver_id=driver.id) }}" style="display:inline;" onsubmit="return confirm('このドライバーを無効化しますか？')">
         <button type="submit" class="btn btn-danger btn-sm">無効化</button>
       </form>
+      <form method="POST" action="{{ url_for('truck.driver_destroy', driver_id=driver.id) }}" style="display:inline;" onsubmit="return confirm('「{{ driver.name }}」を完全に削除します。この操作は元に戻せません。本当に削除しますか？')">
+        <button type="submit" class="btn btn-sm" style="background:#7f1d1d;color:#fff;border:none;">削除</button>
+      </form>
     </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
 <div class="card">
-  <div class="empty" style="padding:32px;text-align:center;">ドライバーが登録されていません。「＋ 新規登録」から追加してください。</div>
+  <div class="empty" style="padding:32px;text-align:center;">ドライバーが登録されていません。「従業員から登録」または「＋ 新規登録」から追加してください。</div>
 </div>
 {% endif %}
 

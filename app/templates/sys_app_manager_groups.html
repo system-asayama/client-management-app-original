@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}アプリ管理者グループ管理{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
 .page-header {
@@ -115,9 +116,13 @@
   <div class="header-actions">
     <a class="btn-create-primary" href="{{ url_for('system_admin.app_manager_group_new') }}">＋ 新しいグループを作成</a>
     <a class="btn-create-secondary" href="{{ url_for('system_admin.app_manager_new') }}">＋ アプリ管理者を追加</a>
-    <a class="btn-back" href="{{ url_for('system_admin.dashboard') }}">← ダッシュボードに戻る</a>
+    <a class="btn-back" href="{{ current_dashboard_url }}">← ダッシュボードに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% if get_flashed_messages() %}
 <div style="margin-bottom:1rem">

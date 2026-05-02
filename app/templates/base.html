@@ -25,7 +25,9 @@
     .alert-warning { background: #fff4e5; color: #8a4b11; border: 1px solid #ffd59e; }
     .alert-error { background: #fde7e9; color: #8a1f2d; border: 1px solid #f5b7c0; }
     footer { margin-top: 2rem; color: #777; font-size: .9rem; }
+    .viewing-as-banner { background: #fff8e1; color: #7a5c00; border: 1px solid #ffe082; border-radius: 8px; padding: .6rem 1rem; margin: .5rem 0 1rem; font-size: .9rem; }
   </style>
+  {% block head %}{% endblock %}
 </head>
 <body>
   <div class="container">
@@ -54,17 +56,7 @@
       {% endif %}
     </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="alert {{ 'alert-success' if category == 'success'
-                             else ('alert-warning' if category == 'warning'
-                                   else 'alert-error') }}">
-          {{ message }}
-        </div>
-      {% endfor %}
-    {% endif %}
-    {% endwith %}
+    {% block flash_messages %}{% endblock %}
 
     {% block content %}{% endblock %}
 

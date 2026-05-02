@@ -143,6 +143,10 @@
     <a href="{{ mypage_url }}">&#128100; {{ mypage_label or 'マイページ' }}</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <!-- ウェルカムカード -->
 <div class="welcome-card">
@@ -210,6 +214,11 @@
     <div class="card-icon">👤</div>
     <h4>従業員管理</h4>
     <p>従業員の作成・編集・削除</p>
+  </a>
+  <a class="mgmt-card" href="{{ url_for('admin.api_settings') }}">
+    <div class="card-icon">🔑</div>
+    <h4>APIキー設定</h4>
+    <p>OpenAI・Google・Azure等のAPIキー管理</p>
   </a>
 </div>
 

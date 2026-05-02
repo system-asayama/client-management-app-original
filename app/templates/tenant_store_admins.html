@@ -66,9 +66,13 @@
     <h1>🏢 店舗管理者一覧</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードに戻る</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボードに戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <div class="toolbar">
   <div class="toolbar-left">

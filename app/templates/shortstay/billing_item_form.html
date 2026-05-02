@@ -1,0 +1,55 @@
+{% extends "shortstay/base.html" %}
+{% block title %}請求項目 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}請求項目{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">{{ '請求項目編集' if item else '請求項目追加' }}</div>
+  <a href="{{ url_for('shortstay.billing_items') }}" class="btn">← 一覧へ戻る</a>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">項目名 <span style="color:red;">*</span></label>
+        <input type="text" name="item_name" class="form-control" required value="{{ item.item_name if item else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">種別</label>
+        <select name="item_type" class="form-control">
+          <option value="">-</option>
+          <option value="介護サービス費" {% if item and item.item_type == '介護サービス費' %}selected{% endif %}>介護サービス費</option>
+          <option value="食費" {% if item and item.item_type == '食費' %}selected{% endif %}>食費</option>
+          <option value="居住費" {% if item and item.item_type == '居住費' %}selected{% endif %}>居住費</option>
+          <option value="日常生活費" {% if item and item.item_type == '日常生活費' %}selected{% endif %}>日常生活費</option>
+          <option value="その他" {% if item and item.item_type == 'その他' %}selected{% endif %}>その他</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">単価（円）</label>
+        <input type="number" name="unit_price" class="form-control" min="0" value="{{ item.unit_price|int if item else 0 }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">単位</label>
+        <input type="text" name="unit" class="form-control" placeholder="例：日、回、月" value="{{ item.unit or '' if item else '' }}">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:0.5rem;padding-top:1.5rem;">
+        <input type="checkbox" name="is_insurance_covered" id="is_insurance_covered" {% if item and item.is_insurance_covered %}checked{% endif %} style="width:auto;">
+        <label for="is_insurance_covered" style="font-weight:normal;">介護保険対象</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">備考</label>
+      <textarea name="notes" class="form-control" rows="2">{{ item.notes or '' if item else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+    <a href="{{ url_for('shortstay.billing_items') }}" class="btn">キャンセル</a>
+    <button type="submit" class="btn btn-primary">{{ '更新する' if item else '追加する' }}</button>
+  </div>
+</form>
+{% endblock %}

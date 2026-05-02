@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}アプリ管理者 新規作成{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .office-header {
@@ -120,14 +121,17 @@
     <a href="{{ url_for('app_manager.app_managers') }}">← 一覧へ戻る</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-  {% for category, message in messages %}
-    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
+{% if messages %}{% for category, message in messages %}
+<div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+{% endfor %}{% endif %}
 {% endwith %}
+
 
 <div class="info-box">
   ℹ️ 新しいアプリ管理者を作成します。作成後、ログインIDとパスワードを本人に共有してください。
@@ -213,11 +217,28 @@
       </label>
 
       <label class="checkbox-item">
+        <input type="checkbox" name="can_manage_tenants" value="1"
+               {% if request.form.get('can_manage_tenants') == '1' %}checked{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>テナント管理権限</strong>
+          <span>テナントの作成・編集・管理ができます。</span>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
         <input type="checkbox" name="can_distribute_apps" value="1"
                {% if request.form.get('can_distribute_apps') == '1' %}checked{% endif %}>
         <div class="checkbox-item-label">
           <strong>アプリ配布権限</strong>
           <span>テナントへのアプリ配布設定ができます。</span>
+        </div>
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" name="can_manage_api_keys" value="1"
+               {% if request.form.get('can_manage_api_keys') == '1' %}checked{% endif %}>
+        <div class="checkbox-item-label">
+          <strong>API設定権限</strong>
+          <span>APIキーの設定・変更ができます。</span>
         </div>
       </label>
     </div>

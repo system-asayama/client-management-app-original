@@ -71,6 +71,10 @@
     <a href="{{ url_for('voucher_store.export_csv') }}" class="vc-btn vc-btn-white">⬇️ CSV</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% with messages = get_flashed_messages(with_categories=true) %}
 {% if messages %}

@@ -1,0 +1,68 @@
+{% extends "shortstay/base.html" %}
+{% block title %}請求詳細 - ショートステイ運営管理{% endblock %}
+{% block topbar_title %}請求詳細{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">請求書 #{{ billing.id }}</div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="{{ url_for('shortstay.billing_edit', billing_id=billing.id) }}" class="btn">編集</a>
+    <a href="{{ url_for('shortstay.billing_list') }}" class="btn">← 一覧へ</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 請求情報</div></div>
+    <table style="font-size:0.875rem;">
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;width:40%;">利用者</td>
+        <td>{% if resident %}<a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" style="color:var(--primary);">{{ resident.last_name }}{{ resident.first_name }}</a>{% else %}-{% endif %}</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">請求年月</td><td>{{ billing.billing_year }}年{{ billing.billing_month }}月</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">状態</td>
+        <td>{% if billing.status.value == '支払済' %}<span class="badge badge-green">{{ billing.status.value }}</span>
+            {% elif billing.status.value == '発行済' %}<span class="badge badge-blue">{{ billing.status.value }}</span>
+            {% elif billing.status.value == '未払い' %}<span class="badge badge-red">{{ billing.status.value }}</span>
+            {% else %}<span class="badge badge-gray">{{ billing.status.value }}</span>{% endif %}</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">支払日</td><td>{{ billing.payment_date.strftime('%Y/%m/%d') if billing.payment_date else '-' }}</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">支払方法</td><td>{{ billing.payment_method or '-' }}</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">💴 金額明細</div></div>
+    <table style="font-size:0.875rem;">
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;width:50%;">介護サービス費</td><td>¥{{ '{:,}'.format(billing.insurance_amount|int) }}</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">食費</td><td>¥{{ '{:,}'.format(billing.meal_fee|int) }}</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">居住費</td><td>¥{{ '{:,}'.format(billing.accommodation_fee|int) }}</td></tr>
+      <tr><td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">その他</td><td>¥{{ '{:,}'.format(billing.other_fee|int) }}</td></tr>
+      <tr style="border-top:2px solid var(--gray-200);">
+        <td style="padding:0.6rem 0.75rem 0.4rem 0;font-weight:700;">合計金額</td>
+        <td style="font-weight:700;font-size:1.1rem;">¥{{ '{:,}'.format(billing.total_amount|int) }}</td>
+      </tr>
+      <tr>
+        <td style="color:var(--gray-500);padding:0.4rem 0.75rem 0.4rem 0;">自己負担額</td>
+        <td style="font-weight:600;color:var(--danger);">¥{{ '{:,}'.format(billing.self_pay_amount|int) }}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+{% if billing.notes %}
+<div class="card">
+  <div class="card-header"><div class="card-title">備考</div></div>
+  <p style="font-size:0.875rem;white-space:pre-wrap;">{{ billing.notes }}</p>
+</div>
+{% endif %}
+
+<!-- 支払済みにするボタン -->
+{% if billing.status.value != '支払済' %}
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <p style="font-size:0.875rem;color:var(--gray-500);">支払いが確認できたら「支払済みにする」ボタンを押してください。</p>
+    <form method="post" action="{{ url_for('shortstay.billing_mark_paid', billing_id=billing.id) }}">
+      <button type="submit" class="btn btn-success">✓ 支払済みにする</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

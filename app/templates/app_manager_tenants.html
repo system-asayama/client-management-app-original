@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}テナント管理{% endblock %}
 {% block header %}{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <style>
   .office-header {
@@ -107,22 +108,27 @@
     <h1>テナント管理</h1>
   </div>
   <div class="header-actions">
-    <a href="{{ url_for('app_manager.dashboard') }}">← ダッシュボードへ</a>
+    <a href="{{ current_dashboard_url }}">← ダッシュボードへ</a>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-  {% for category, message in messages %}
-    <div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
+{% if messages %}{% for category, message in messages %}
+<div class="alert {{ 'alert-success' if category == 'success' else ('alert-warning' if category == 'warning' else 'alert-error') }}">{{ message }}</div>
+{% endfor %}{% endif %}
 {% endwith %}
+
 
 <!-- アクションバー -->
 <div class="action-bar">
-  <a class="btn-primary" href="{{ url_for('app_manager.tenant_new') }}">＋ テナント新規作成</a>
-  <a class="btn-secondary" href="{{ url_for('app_manager.distribute') }}">📦 アプリ配布設定</a>
+  {% if can_edit %}
+  <a class="btn-primary" href="{{ url_for('app_manager.tenant_new') }}">&#65291; テナント新規作成</a>
+  {% endif %}
+  <a class="btn-secondary" href="{{ url_for('app_manager.distribute') }}">&#128230; アプリ配布設定</a>
 </div>
 
 <!-- 検索 -->
@@ -149,24 +155,28 @@
       </div>
     </div>
     <div class="tenant-actions">
-      <a class="btn-detail" href="{{ url_for('app_manager.tenant_detail', tenant_id=t.id) }}">詳細</a>
-      <a class="btn-edit" href="{{ url_for('app_manager.tenant_edit', tenant_id=t.id) }}">編集</a>
+      <a class="btn-detail" href="{{ url_for('app_manager.tenant_detail', tenant_id=t.id) }}">&#35443;細</a>
+      {% if can_edit %}
+      <a class="btn-edit" href="{{ url_for('app_manager.tenant_edit', tenant_id=t.id) }}">&#32232;集</a>
       <form method="post" action="{{ url_for('app_manager.tenant_delete', tenant_id=t.id) }}" style="display:inline"
             onsubmit="return confirm('テナント &quot;{{ t.名称 }}&quot; を無効化しますか？')">
         {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
         <button class="btn-delete" type="submit">削除</button>
       </form>
-      <a class="btn-distribute" href="{{ url_for('app_manager.distribute') }}">アプリ配布設定</a>
+      {% endif %}
+      <a class="btn-distribute" href="{{ url_for('app_manager.distribute', tenant_id=t.id) }}">&#12450;&#12503;&#12522;&#37197;&#24067;&#35373;&#23450;</a>
     </div>
   </div>
   {% endfor %}
 {% else %}
   <div class="empty-state">
-    <div class="empty-icon">🏢</div>
+    <div class="empty-icon">&#127970;</div>
     <div>テナントが登録されていません。</div>
+    {% if can_edit %}
     <div style="margin-top:1rem">
-      <a class="btn-primary" href="{{ url_for('app_manager.tenant_new') }}">最初のテナントを作成</a>
+      <a class="btn-primary" href="{{ url_for('app_manager.tenant_new') }}">&#26368;初のテナントを作成</a>
     </div>
+    {% endif %}
   </div>
 {% endif %}
 

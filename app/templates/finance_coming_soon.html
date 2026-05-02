@@ -47,6 +47,10 @@
     <div><h1 class="page-header-title">財務管理</h1></div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 <style>
   .coming-soon-wrap {
@@ -109,6 +113,6 @@
     事務所の売上・経費・損益管理機能は現在開発中です。<br>
     近日中に公開予定です。
   </div>
-  <a class="back-btn" href="{{ url_for('tenant_admin.dashboard') }}">← ダッシュボードへ戻る</a>
+  <a class="back-btn" href="{{ current_dashboard_url }}">← ダッシュボードへ戻る</a>
 </div>
 {% endblock %}

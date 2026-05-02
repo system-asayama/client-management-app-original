@@ -1,0 +1,1775 @@
+# -*- coding: utf-8 -*-
+"""
+ショートステイ運営管理システム - メインBlueprint
+
+機能:
+  - ダッシュボード（稼働状況サマリー）
+  - 利用者管理
+  - 予約・空き状況管理
+  - 入退所管理
+  - ケア記録（バイタル・食事・排泄・入浴）
+  - ケアプラン管理
+  - 請求管理
+  - スタッフ・シフト管理
+  - 申し送り
+  - 報告書・事故報告
+"""
+from __future__ import annotations
+from datetime import date, datetime, timedelta
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from sqlalchemy import and_, or_, func
+from ..db import SessionLocal
+from ..models_login import TTenant, TTenpo, TJugyoin
+from ..models_shortstay import (
+    SSResident, SSEmergencyContact, SSRoom, SSReservation,
+    SSCareRecord, SSVitalRecord, SSMealRecord, SSExcretionRecord, SSBathRecord,
+    SSCarePlan, SSBillingItem, SSBilling, SSBillingDetail,
+    SSShift, SSStaffNote, SSReport, SSIncidentReport,
+    ReservationStatus, CheckStatus, BillingStatus, ShiftType,
+    GenderEnum, CareLevel, MealType, MealAmount, ExcretionType, ExcretionMethod, BathType
+)
+from ..utils.decorators import ROLES, require_roles
+
+bp = Blueprint('shortstay', __name__, url_prefix='/shortstay')
+
+
+def _get_store_tenant():
+    """セッションから store_id / tenant_id を取得するヘルパー"""
+    return session.get('store_id'), session.get('tenant_id')
+
+
+# ─────────────────────────────────────────────
+# ダッシュボード
+# ─────────────────────────────────────────────
+
+@bp.route('/')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def dashboard():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        today = date.today()
+
+        # 基本フィルタ
+        def base_filter(q, model):
+            if store_id:
+                return q.filter(model.store_id == store_id)
+            elif tenant_id:
+                return q.filter(model.tenant_id == tenant_id)
+            return q
+
+        # 本日の入所者数
+        today_checkins = base_filter(
+            db.query(func.count(SSReservation.id)).filter(
+                SSReservation.check_in_date == today,
+                SSReservation.status == ReservationStatus.confirmed
+            ), SSReservation
+        ).scalar() or 0
+
+        # 本日の退所者数
+        today_checkouts = base_filter(
+            db.query(func.count(SSReservation.id)).filter(
+                SSReservation.check_out_date == today,
+                SSReservation.status == ReservationStatus.confirmed
+            ), SSReservation
+        ).scalar() or 0
+
+        # 現在入所中の利用者数
+        current_residents = base_filter(
+            db.query(func.count(SSReservation.id)).filter(
+                SSReservation.check_status == CheckStatus.checked_in
+            ), SSReservation
+        ).scalar() or 0
+
+        # 今後7日間の予約数
+        week_later = today + timedelta(days=7)
+        upcoming_reservations = base_filter(
+            db.query(SSReservation).filter(
+                SSReservation.check_in_date.between(today, week_later),
+                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+            ).order_by(SSReservation.check_in_date), SSReservation
+        ).limit(10).all()
+
+        # 未対応の申し送り
+        urgent_notes = base_filter(
+            db.query(SSStaffNote).filter(
+                SSStaffNote.is_resolved == False,
+                SSStaffNote.is_urgent == True
+            ).order_by(SSStaffNote.note_date.desc()), SSStaffNote
+        ).limit(5).all()
+
+        # 利用者総数
+        total_residents = base_filter(
+            db.query(func.count(SSResident.id)).filter(SSResident.active == True),
+            SSResident
+        ).scalar() or 0
+
+        # 居室稼働率
+        total_rooms = base_filter(
+            db.query(func.count(SSRoom.id)).filter(SSRoom.active == True),
+            SSRoom
+        ).scalar() or 0
+        occupancy_rate = round(current_residents / total_rooms * 100, 1) if total_rooms > 0 else 0
+
+        return render_template('shortstay/dashboard.html',
+            today=today,
+            today_checkins=today_checkins,
+            today_checkouts=today_checkouts,
+            current_residents=current_residents,
+            total_residents=total_residents,
+            total_rooms=total_rooms,
+            occupancy_rate=occupancy_rate,
+            upcoming_reservations=upcoming_reservations,
+            urgent_notes=urgent_notes,
+        )
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 利用者管理
+# ─────────────────────────────────────────────
+
+@bp.route('/residents')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def residents():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSResident).filter(SSResident.active == True)
+        if store_id:
+            q = q.filter(SSResident.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSResident.tenant_id == tenant_id)
+
+        search = request.args.get('search', '').strip()
+        if search:
+            q = q.filter(or_(
+                SSResident.last_name.contains(search),
+                SSResident.first_name.contains(search),
+                SSResident.last_name_kana.contains(search),
+                SSResident.first_name_kana.contains(search),
+            ))
+
+        residents_list = q.order_by(SSResident.last_name_kana).all()
+        return render_template('shortstay/residents.html',
+            residents=residents_list, search=search)
+    finally:
+        db.close()
+
+
+@bp.route('/residents/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def resident_new():
+    store_id, tenant_id = _get_store_tenant()
+    if request.method == 'POST':
+        db = SessionLocal()
+        try:
+            r = SSResident(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                last_name=request.form.get('last_name', ''),
+                first_name=request.form.get('first_name', ''),
+                last_name_kana=request.form.get('last_name_kana'),
+                first_name_kana=request.form.get('first_name_kana'),
+                gender=request.form.get('gender') or None,
+                birth_date=_parse_date(request.form.get('birth_date')),
+                postal_code=request.form.get('postal_code'),
+                address=request.form.get('address'),
+                phone=request.form.get('phone'),
+                care_level=request.form.get('care_level') or None,
+                care_insurance_no=request.form.get('care_insurance_no'),
+                care_insurance_expiry=_parse_date(request.form.get('care_insurance_expiry')),
+                insurer_no=request.form.get('insurer_no'),
+                insurer_name=request.form.get('insurer_name'),
+                doctor_name=request.form.get('doctor_name'),
+                hospital_name=request.form.get('hospital_name'),
+                hospital_phone=request.form.get('hospital_phone'),
+                allergies=request.form.get('allergies'),
+                medical_history=request.form.get('medical_history'),
+                medications=request.form.get('medications'),
+                special_notes=request.form.get('special_notes'),
+                meal_type=request.form.get('meal_type'),
+                meal_texture=request.form.get('meal_texture'),
+                thickener=bool(request.form.get('thickener')),
+                care_manager_name=request.form.get('care_manager_name'),
+                care_manager_office=request.form.get('care_manager_office'),
+                care_manager_phone=request.form.get('care_manager_phone'),
+                # フェイスシート対応フィールド
+                consultant_name=request.form.get('consultant_name'),
+                disability_support_category=request.form.get('disability_support_category'),
+                approved_service_amount=request.form.get('approved_service_amount'),
+                certification_valid_from=_parse_date(request.form.get('certification_valid_from')),
+                certification_valid_to=_parse_date(request.form.get('certification_valid_to')),
+                service_decision_from=_parse_date(request.form.get('service_decision_from')),
+                service_decision_to=_parse_date(request.form.get('service_decision_to')),
+                disability_certification=request.form.get('disability_certification'),
+                meal_action=request.form.get('meal_action'),
+                disliked_food=request.form.get('disliked_food'),
+                meal_form=request.form.get('meal_form'),
+                favorite_food=request.form.get('favorite_food'),
+                medication_regular=request.form.get('medication_regular'),
+                medication_prn=request.form.get('medication_prn'),
+                medication_management=request.form.get('medication_management'),
+                medication_special_notes=request.form.get('medication_special_notes'),
+                toilet_action=request.form.get('toilet_action'),
+                bath_assistance=request.form.get('bath_assistance'),
+                urinary_control=request.form.get('urinary_control'),
+                bowel_control=request.form.get('bowel_control'),
+                dressing_assistance=request.form.get('dressing_assistance'),
+                communication=request.form.get('communication'),
+            )
+            db.add(r)
+            db.flush()
+
+            # 緊急連絡先
+            ec_names = request.form.getlist('ec_name[]')
+            ec_rels = request.form.getlist('ec_relation_type[]')
+            ec_phones = request.form.getlist('ec_phone[]')
+            for i, name in enumerate(ec_names):
+                if name.strip():
+                    ec = SSEmergencyContact(
+                        resident_id=r.id,
+                        name=name.strip(),
+                        relation_type=ec_rels[i] if i < len(ec_rels) else None,
+                        phone=ec_phones[i] if i < len(ec_phones) else None,
+                        sort_order=i,
+                    )
+                    db.add(ec)
+
+            db.commit()
+            flash('利用者を登録しました。', 'success')
+            return redirect(url_for('shortstay.resident_detail', resident_id=r.id))
+        except Exception as e:
+            db.rollback()
+            flash(f'登録に失敗しました: {e}', 'error')
+        finally:
+            db.close()
+
+    return render_template('shortstay/resident_form.html',
+        resident=None,
+        care_levels=list(CareLevel),
+        genders=list(GenderEnum),
+    )
+
+
+@bp.route('/residents/<int:resident_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def resident_detail(resident_id):
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if not resident:
+            flash('利用者が見つかりません。', 'error')
+            return redirect(url_for('shortstay.residents'))
+
+        # 最新の予約
+        reservations = db.query(SSReservation).filter(
+            SSReservation.resident_id == resident_id
+        ).order_by(SSReservation.check_in_date.desc()).limit(10).all()
+
+        # 最新のバイタル
+        vitals = db.query(SSVitalRecord).filter(
+            SSVitalRecord.resident_id == resident_id
+        ).order_by(SSVitalRecord.record_date.desc(), SSVitalRecord.record_time.desc()).limit(5).all()
+
+        # 緊急連絡先
+        emergency_contacts = db.query(SSEmergencyContact).filter(
+            SSEmergencyContact.resident_id == resident_id
+        ).order_by(SSEmergencyContact.sort_order).all()
+
+        # ケアプラン（最新）
+        care_plan = db.query(SSCarePlan).filter(
+            SSCarePlan.resident_id == resident_id
+        ).order_by(SSCarePlan.plan_start_date.desc()).first()
+
+        # 年齢計算
+        age = None
+        if resident.birth_date:
+            today = date.today()
+            age = today.year - resident.birth_date.year - (
+                (today.month, today.day) < (resident.birth_date.month, resident.birth_date.day)
+            )
+
+        return render_template('shortstay/resident_detail.html',
+            resident=resident,
+            reservations=reservations,
+            vitals=vitals,
+            emergency_contacts=emergency_contacts,
+            care_plan=care_plan,
+            age=age,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def resident_edit(resident_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if not resident:
+            flash('利用者が見つかりません。', 'error')
+            return redirect(url_for('shortstay.residents'))
+
+        if request.method == 'POST':
+            resident.last_name = request.form.get('last_name', '')
+            resident.first_name = request.form.get('first_name', '')
+            resident.last_name_kana = request.form.get('last_name_kana')
+            resident.first_name_kana = request.form.get('first_name_kana')
+            resident.gender = request.form.get('gender') or None
+            resident.birth_date = _parse_date(request.form.get('birth_date'))
+            resident.postal_code = request.form.get('postal_code')
+            resident.address = request.form.get('address')
+            resident.phone = request.form.get('phone')
+            resident.care_level = request.form.get('care_level') or None
+            resident.care_insurance_no = request.form.get('care_insurance_no')
+            resident.care_insurance_expiry = _parse_date(request.form.get('care_insurance_expiry'))
+            resident.insurer_no = request.form.get('insurer_no')
+            resident.insurer_name = request.form.get('insurer_name')
+            resident.doctor_name = request.form.get('doctor_name')
+            resident.hospital_name = request.form.get('hospital_name')
+            resident.hospital_phone = request.form.get('hospital_phone')
+            resident.allergies = request.form.get('allergies')
+            resident.medical_history = request.form.get('medical_history')
+            resident.medications = request.form.get('medications')
+            resident.special_notes = request.form.get('special_notes')
+            resident.meal_type = request.form.get('meal_type')
+            resident.meal_texture = request.form.get('meal_texture')
+            resident.thickener = bool(request.form.get('thickener'))
+            resident.care_manager_name = request.form.get('care_manager_name')
+            resident.care_manager_office = request.form.get('care_manager_office')
+            resident.care_manager_phone = request.form.get('care_manager_phone')
+            # フェイスシート対応フィールド
+            resident.consultant_name = request.form.get('consultant_name')
+            resident.disability_support_category = request.form.get('disability_support_category')
+            resident.approved_service_amount = request.form.get('approved_service_amount')
+            resident.certification_valid_from = _parse_date(request.form.get('certification_valid_from'))
+            resident.certification_valid_to = _parse_date(request.form.get('certification_valid_to'))
+            resident.service_decision_from = _parse_date(request.form.get('service_decision_from'))
+            resident.service_decision_to = _parse_date(request.form.get('service_decision_to'))
+            resident.disability_certification = request.form.get('disability_certification')
+            resident.meal_action = request.form.get('meal_action')
+            resident.disliked_food = request.form.get('disliked_food')
+            resident.meal_form = request.form.get('meal_form')
+            resident.favorite_food = request.form.get('favorite_food')
+            resident.medication_regular = request.form.get('medication_regular')
+            resident.medication_prn = request.form.get('medication_prn')
+            resident.medication_management = request.form.get('medication_management')
+            resident.medication_special_notes = request.form.get('medication_special_notes')
+            resident.toilet_action = request.form.get('toilet_action')
+            resident.bath_assistance = request.form.get('bath_assistance')
+            resident.urinary_control = request.form.get('urinary_control')
+            resident.bowel_control = request.form.get('bowel_control')
+            resident.dressing_assistance = request.form.get('dressing_assistance')
+            resident.communication = request.form.get('communication')
+            resident.updated_at = datetime.utcnow()
+
+            # 緊急連絡先を更新
+            db.query(SSEmergencyContact).filter(SSEmergencyContact.resident_id == resident_id).delete()
+            ec_names = request.form.getlist('ec_name[]')
+            ec_rels = request.form.getlist('ec_relation_type[]')
+            ec_phones = request.form.getlist('ec_phone[]')
+            for i, name in enumerate(ec_names):
+                if name.strip():
+                    ec = SSEmergencyContact(
+                        resident_id=resident_id,
+                        name=name.strip(),
+                        relation_type=ec_rels[i] if i < len(ec_rels) else None,
+                        phone=ec_phones[i] if i < len(ec_phones) else None,
+                        sort_order=i,
+                    )
+                    db.add(ec)
+
+            db.commit()
+            flash('利用者情報を更新しました。', 'success')
+            return redirect(url_for('shortstay.resident_detail', resident_id=resident_id))
+
+        emergency_contacts = db.query(SSEmergencyContact).filter(
+            SSEmergencyContact.resident_id == resident_id
+        ).order_by(SSEmergencyContact.sort_order).all()
+
+        return render_template('shortstay/resident_form.html',
+            resident=resident,
+            emergency_contacts=emergency_contacts,
+            care_levels=list(CareLevel),
+            genders=list(GenderEnum),
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def resident_delete(resident_id):
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if resident:
+            resident.active = False
+            db.commit()
+            flash('利用者を削除しました。', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('shortstay.residents'))
+
+
+# ─────────────────────────────────────────────
+# 予約管理
+# ─────────────────────────────────────────────
+
+@bp.route('/reservations')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def reservations():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSReservation)
+        if store_id:
+            q = q.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSReservation.tenant_id == tenant_id)
+
+        # フィルタ
+        status_filter = request.args.get('status', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+
+        if status_filter:
+            q = q.filter(SSReservation.status == status_filter)
+        if date_from:
+            q = q.filter(SSReservation.check_in_date >= _parse_date(date_from))
+        if date_to:
+            q = q.filter(SSReservation.check_in_date <= _parse_date(date_to))
+
+        reservations_list = q.order_by(SSReservation.check_in_date.desc()).limit(100).all()
+
+        # 利用者情報を付加
+        resident_ids = list({r.resident_id for r in reservations_list})
+        residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+
+        return render_template('shortstay/reservations.html',
+            reservations=reservations_list,
+            residents_map=residents_map,
+            status_filter=status_filter,
+            date_from=date_from,
+            date_to=date_to,
+            ReservationStatus=ReservationStatus,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/reservations/calendar')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def reservation_calendar():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        today = date.today()
+        year = int(request.args.get('year', today.year))
+        month = int(request.args.get('month', today.month))
+
+        import calendar
+        cal = calendar.monthcalendar(year, month)
+        first_day = date(year, month, 1)
+        last_day = date(year, month, calendar.monthrange(year, month)[1])
+
+        q = db.query(SSReservation).filter(
+            SSReservation.check_in_date <= last_day,
+            SSReservation.check_out_date >= first_day,
+            SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+        )
+        if store_id:
+            q = q.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSReservation.tenant_id == tenant_id)
+
+        month_reservations = q.all()
+        resident_ids = list({r.resident_id for r in month_reservations})
+        residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+
+        # 居室一覧
+        rooms_q = db.query(SSRoom).filter(SSRoom.active == True)
+        if store_id:
+            rooms_q = rooms_q.filter(SSRoom.store_id == store_id)
+        elif tenant_id:
+            rooms_q = rooms_q.filter(SSRoom.tenant_id == tenant_id)
+        rooms = rooms_q.order_by(SSRoom.room_number).all()
+
+        return render_template('shortstay/reservation_calendar.html',
+            year=year, month=month, cal=cal,
+            first_day=first_day, last_day=last_day,
+            month_reservations=month_reservations,
+            residents_map=residents_map,
+            rooms=rooms,
+            today=today,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/reservations/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def reservation_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            resident_id = int(request.form.get('resident_id', 0))
+            check_in = _parse_date(request.form.get('check_in_date'))
+            check_out = _parse_date(request.form.get('check_out_date'))
+
+            if not resident_id or not check_in or not check_out:
+                flash('必須項目を入力してください。', 'error')
+            elif check_in > check_out:
+                flash('入所日は退所日より前に設定してください。', 'error')
+            else:
+                rsv = SSReservation(
+                    tenant_id=tenant_id,
+                    store_id=store_id,
+                    resident_id=resident_id,
+                    room_id=int(request.form.get('room_id')) if request.form.get('room_id') else None,
+                    check_in_date=check_in,
+                    check_out_date=check_out,
+                    status=request.form.get('status', ReservationStatus.tentative.value),
+                    pickup_required=bool(request.form.get('pickup_required')),
+                    dropoff_required=bool(request.form.get('dropoff_required')),
+                    pickup_address=request.form.get('pickup_address'),
+                    pickup_time=request.form.get('pickup_time'),
+                    dropoff_time=request.form.get('dropoff_time'),
+                    service_type=request.form.get('service_type'),
+                    notes=request.form.get('notes'),
+                )
+                db.add(rsv)
+                db.commit()
+                flash('予約を登録しました。', 'success')
+                return redirect(url_for('shortstay.reservation_detail', reservation_id=rsv.id))
+
+        # 利用者一覧
+        residents_q = db.query(SSResident).filter(SSResident.active == True)
+        if store_id:
+            residents_q = residents_q.filter(SSResident.store_id == store_id)
+        elif tenant_id:
+            residents_q = residents_q.filter(SSResident.tenant_id == tenant_id)
+        residents_list = residents_q.order_by(SSResident.last_name_kana).all()
+
+        # 居室一覧
+        rooms_q = db.query(SSRoom).filter(SSRoom.active == True)
+        if store_id:
+            rooms_q = rooms_q.filter(SSRoom.store_id == store_id)
+        elif tenant_id:
+            rooms_q = rooms_q.filter(SSRoom.tenant_id == tenant_id)
+        rooms = rooms_q.order_by(SSRoom.room_number).all()
+
+        prefill_resident = request.args.get('resident_id', '')
+
+        return render_template('shortstay/reservation_form.html',
+            reservation=None,
+            residents=residents_list,
+            rooms=rooms,
+            ReservationStatus=ReservationStatus,
+            prefill_resident=prefill_resident,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/reservations/<int:reservation_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def reservation_detail(reservation_id):
+    db = SessionLocal()
+    try:
+        rsv = db.query(SSReservation).filter(SSReservation.id == reservation_id).first()
+        if not rsv:
+            flash('予約が見つかりません。', 'error')
+            return redirect(url_for('shortstay.reservations'))
+
+        resident = db.query(SSResident).filter(SSResident.id == rsv.resident_id).first()
+        room = db.query(SSRoom).filter(SSRoom.id == rsv.room_id).first() if rsv.room_id else None
+        billing = db.query(SSBilling).filter(SSBilling.reservation_id == reservation_id).first()
+
+        # ケア記録（この予約に紐づく）
+        care_records = db.query(SSCareRecord).filter(
+            SSCareRecord.reservation_id == reservation_id
+        ).order_by(SSCareRecord.record_date.desc(), SSCareRecord.record_time.desc()).limit(20).all()
+
+        return render_template('shortstay/reservation_detail.html',
+            reservation=rsv,
+            resident=resident,
+            room=room,
+            billing=billing,
+            care_records=care_records,
+            ReservationStatus=ReservationStatus,
+            CheckStatus=CheckStatus,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/reservations/<int:reservation_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def reservation_edit(reservation_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        rsv = db.query(SSReservation).filter(SSReservation.id == reservation_id).first()
+        if not rsv:
+            flash('予約が見つかりません。', 'error')
+            return redirect(url_for('shortstay.reservations'))
+
+        if request.method == 'POST':
+            rsv.resident_id = int(request.form.get('resident_id', rsv.resident_id))
+            rsv.room_id = int(request.form.get('room_id')) if request.form.get('room_id') else None
+            rsv.check_in_date = _parse_date(request.form.get('check_in_date')) or rsv.check_in_date
+            rsv.check_out_date = _parse_date(request.form.get('check_out_date')) or rsv.check_out_date
+            rsv.status = request.form.get('status', rsv.status)
+            rsv.check_status = request.form.get('check_status', rsv.check_status)
+            rsv.pickup_required = bool(request.form.get('pickup_required'))
+            rsv.dropoff_required = bool(request.form.get('dropoff_required'))
+            rsv.pickup_address = request.form.get('pickup_address')
+            rsv.pickup_time = request.form.get('pickup_time')
+            rsv.dropoff_time = request.form.get('dropoff_time')
+            rsv.service_type = request.form.get('service_type')
+            rsv.notes = request.form.get('notes')
+            rsv.updated_at = datetime.utcnow()
+
+            # 入退所日時の更新
+            if rsv.check_status == CheckStatus.checked_in.value and not rsv.actual_check_in:
+                rsv.actual_check_in = datetime.utcnow()
+            elif rsv.check_status == CheckStatus.checked_out.value and not rsv.actual_check_out:
+                rsv.actual_check_out = datetime.utcnow()
+
+            db.commit()
+            flash('予約を更新しました。', 'success')
+            return redirect(url_for('shortstay.reservation_detail', reservation_id=reservation_id))
+
+        residents_q = db.query(SSResident).filter(SSResident.active == True)
+        if store_id:
+            residents_q = residents_q.filter(SSResident.store_id == store_id)
+        elif tenant_id:
+            residents_q = residents_q.filter(SSResident.tenant_id == tenant_id)
+        residents_list = residents_q.order_by(SSResident.last_name_kana).all()
+
+        rooms_q = db.query(SSRoom).filter(SSRoom.active == True)
+        if store_id:
+            rooms_q = rooms_q.filter(SSRoom.store_id == store_id)
+        elif tenant_id:
+            rooms_q = rooms_q.filter(SSRoom.tenant_id == tenant_id)
+        rooms = rooms_q.order_by(SSRoom.room_number).all()
+
+        return render_template('shortstay/reservation_form.html',
+            reservation=rsv,
+            residents=residents_list,
+            rooms=rooms,
+            ReservationStatus=ReservationStatus,
+            CheckStatus=CheckStatus,
+        )
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# ケア記録
+# ─────────────────────────────────────────────
+
+@bp.route('/care_records')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def care_records():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        today = date.today()
+        record_date = _parse_date(request.args.get('date', '')) or today
+        resident_id = request.args.get('resident_id', '')
+
+        # バイタル記録
+        vq = db.query(SSVitalRecord).filter(SSVitalRecord.record_date == record_date)
+        if store_id:
+            vq = vq.filter(SSVitalRecord.store_id == store_id)
+        elif tenant_id:
+            vq = vq.filter(SSVitalRecord.tenant_id == tenant_id)
+        if resident_id:
+            vq = vq.filter(SSVitalRecord.resident_id == int(resident_id))
+        vitals = vq.order_by(SSVitalRecord.record_time).all()
+
+        # 食事記録
+        mq = db.query(SSMealRecord).filter(SSMealRecord.record_date == record_date)
+        if store_id:
+            mq = mq.filter(SSMealRecord.store_id == store_id)
+        elif tenant_id:
+            mq = mq.filter(SSMealRecord.tenant_id == tenant_id)
+        if resident_id:
+            mq = mq.filter(SSMealRecord.resident_id == int(resident_id))
+        meals = mq.all()
+
+        # 排泄記録
+        eq = db.query(SSExcretionRecord).filter(SSExcretionRecord.record_date == record_date)
+        if store_id:
+            eq = eq.filter(SSExcretionRecord.store_id == store_id)
+        elif tenant_id:
+            eq = eq.filter(SSExcretionRecord.tenant_id == tenant_id)
+        if resident_id:
+            eq = eq.filter(SSExcretionRecord.resident_id == int(resident_id))
+        excretions = eq.order_by(SSExcretionRecord.record_time).all()
+
+        # 入浴記録
+        bq = db.query(SSBathRecord).filter(SSBathRecord.record_date == record_date)
+        if store_id:
+            bq = bq.filter(SSBathRecord.store_id == store_id)
+        elif tenant_id:
+            bq = bq.filter(SSBathRecord.tenant_id == tenant_id)
+        if resident_id:
+            bq = bq.filter(SSBathRecord.resident_id == int(resident_id))
+        baths = bq.all()
+
+        # 現在入所中の利用者
+        current_q = db.query(SSReservation).filter(
+            SSReservation.check_status == CheckStatus.checked_in
+        )
+        if store_id:
+            current_q = current_q.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            current_q = current_q.filter(SSReservation.tenant_id == tenant_id)
+        current_reservations = current_q.all()
+        current_resident_ids = [r.resident_id for r in current_reservations]
+        current_residents = db.query(SSResident).filter(SSResident.id.in_(current_resident_ids)).all() if current_resident_ids else []
+
+        # 全利用者（フィルタ用）
+        all_residents_q = db.query(SSResident).filter(SSResident.active == True)
+        if store_id:
+            all_residents_q = all_residents_q.filter(SSResident.store_id == store_id)
+        elif tenant_id:
+            all_residents_q = all_residents_q.filter(SSResident.tenant_id == tenant_id)
+        all_residents = all_residents_q.order_by(SSResident.last_name_kana).all()
+        residents_map = {r.id: r for r in all_residents}
+
+        return render_template('shortstay/care_records.html',
+            record_date=record_date,
+            resident_id=resident_id,
+            vitals=vitals,
+            meals=meals,
+            excretions=excretions,
+            baths=baths,
+            current_residents=current_residents,
+            all_residents=all_residents,
+            residents_map=residents_map,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/care_records/vital/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def vital_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            v = SSVitalRecord(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id', 0)),
+                reservation_id=int(request.form.get('reservation_id')) if request.form.get('reservation_id') else None,
+                record_date=_parse_date(request.form.get('record_date')) or date.today(),
+                record_time=request.form.get('record_time'),
+                body_temp=_parse_decimal(request.form.get('body_temp')),
+                blood_pressure_high=_parse_int(request.form.get('blood_pressure_high')),
+                blood_pressure_low=_parse_int(request.form.get('blood_pressure_low')),
+                pulse=_parse_int(request.form.get('pulse')),
+                spo2=_parse_int(request.form.get('spo2')),
+                respiration=_parse_int(request.form.get('respiration')),
+                weight=_parse_decimal(request.form.get('weight')),
+                notes=request.form.get('notes'),
+            )
+            db.add(v)
+            db.commit()
+            flash('バイタル記録を登録しました。', 'success')
+            return redirect(url_for('shortstay.care_records', date=v.record_date))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/vital_form.html',
+            residents=residents_list, today=date.today())
+    finally:
+        db.close()
+
+
+@bp.route('/care_records/meal/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def meal_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            m = SSMealRecord(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id', 0)),
+                reservation_id=int(request.form.get('reservation_id')) if request.form.get('reservation_id') else None,
+                record_date=_parse_date(request.form.get('record_date')) or date.today(),
+                meal_type=request.form.get('meal_type'),
+                meal_amount=request.form.get('meal_amount') or None,
+                water_intake_ml=_parse_int(request.form.get('water_intake_ml')),
+                notes=request.form.get('notes'),
+            )
+            db.add(m)
+            db.commit()
+            flash('食事記録を登録しました。', 'success')
+            return redirect(url_for('shortstay.care_records', date=m.record_date))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/meal_form.html',
+            residents=residents_list, today=date.today(),
+            MealType=MealType, MealAmount=MealAmount)
+    finally:
+        db.close()
+
+
+@bp.route('/care_records/excretion/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def excretion_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            e = SSExcretionRecord(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id', 0)),
+                reservation_id=int(request.form.get('reservation_id')) if request.form.get('reservation_id') else None,
+                record_date=_parse_date(request.form.get('record_date')) or date.today(),
+                record_time=request.form.get('record_time'),
+                excretion_type=request.form.get('excretion_type') or None,
+                excretion_method=request.form.get('excretion_method') or None,
+                amount=request.form.get('amount'),
+                stool_form=request.form.get('stool_form'),
+                notes=request.form.get('notes'),
+            )
+            db.add(e)
+            db.commit()
+            flash('排泄記録を登録しました。', 'success')
+            return redirect(url_for('shortstay.care_records', date=e.record_date))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/excretion_form.html',
+            residents=residents_list, today=date.today(),
+            ExcretionType=ExcretionType, ExcretionMethod=ExcretionMethod)
+    finally:
+        db.close()
+
+
+@bp.route('/care_records/bath/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def bath_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            b = SSBathRecord(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id', 0)),
+                reservation_id=int(request.form.get('reservation_id')) if request.form.get('reservation_id') else None,
+                record_date=_parse_date(request.form.get('record_date')) or date.today(),
+                bath_type=request.form.get('bath_type') or None,
+                duration_minutes=_parse_int(request.form.get('duration_minutes')),
+                skin_condition=request.form.get('skin_condition'),
+                notes=request.form.get('notes'),
+            )
+            db.add(b)
+            db.commit()
+            flash('入浴記録を登録しました。', 'success')
+            return redirect(url_for('shortstay.care_records', date=b.record_date))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/bath_form.html',
+            residents=residents_list, today=date.today(), BathType=BathType)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# ケアプラン
+# ─────────────────────────────────────────────
+
+@bp.route('/care_plans')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def care_plans():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSCarePlan)
+        if store_id:
+            q = q.filter(SSCarePlan.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSCarePlan.tenant_id == tenant_id)
+        plans = q.order_by(SSCarePlan.plan_start_date.desc()).all()
+        resident_ids = list({p.resident_id for p in plans})
+        residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+        return render_template('shortstay/care_plans.html', plans=plans, residents_map=residents_map)
+    finally:
+        db.close()
+
+
+@bp.route('/care_plans/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def care_plan_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            plan = SSCarePlan(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id', 0)),
+                plan_start_date=_parse_date(request.form.get('plan_start_date')) or date.today(),
+                plan_end_date=_parse_date(request.form.get('plan_end_date')),
+                long_term_goal=request.form.get('long_term_goal'),
+                short_term_goal=request.form.get('short_term_goal'),
+                service_content=request.form.get('service_content'),
+                notes=request.form.get('notes'),
+            )
+            db.add(plan)
+            db.commit()
+            flash('ケアプランを登録しました。', 'success')
+            return redirect(url_for('shortstay.care_plans'))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        prefill_resident = request.args.get('resident_id', '')
+        return render_template('shortstay/care_plan_form.html',
+            plan=None, residents=residents_list, prefill_resident=prefill_resident)
+    finally:
+        db.close()
+
+
+@bp.route('/care_plans/<int:plan_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def care_plan_edit(plan_id):
+    db = SessionLocal()
+    try:
+        plan = db.query(SSCarePlan).filter(SSCarePlan.id == plan_id).first()
+        if not plan:
+            flash('ケアプランが見つかりません。', 'error')
+            return redirect(url_for('shortstay.care_plans'))
+
+        if request.method == 'POST':
+            plan.plan_start_date = _parse_date(request.form.get('plan_start_date')) or plan.plan_start_date
+            plan.plan_end_date = _parse_date(request.form.get('plan_end_date'))
+            plan.long_term_goal = request.form.get('long_term_goal')
+            plan.short_term_goal = request.form.get('short_term_goal')
+            plan.service_content = request.form.get('service_content')
+            plan.notes = request.form.get('notes')
+            plan.updated_at = datetime.utcnow()
+            db.commit()
+            flash('ケアプランを更新しました。', 'success')
+            return redirect(url_for('shortstay.care_plans'))
+
+        store_id, tenant_id = _get_store_tenant()
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/care_plan_form.html',
+            plan=plan, residents=residents_list)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 居室管理
+# ─────────────────────────────────────────────
+
+@bp.route('/rooms')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def rooms():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSRoom).filter(SSRoom.active == True)
+        if store_id:
+            q = q.filter(SSRoom.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSRoom.tenant_id == tenant_id)
+        rooms_list = q.order_by(SSRoom.room_number).all()
+        return render_template('shortstay/rooms.html', rooms=rooms_list)
+    finally:
+        db.close()
+
+
+@bp.route('/rooms/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def room_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            room = SSRoom(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                room_number=request.form.get('room_number', ''),
+                room_name=request.form.get('room_name'),
+                capacity=_parse_int(request.form.get('capacity')) or 1,
+                floor=request.form.get('floor'),
+                notes=request.form.get('notes'),
+            )
+            db.add(room)
+            db.commit()
+            flash('居室を登録しました。', 'success')
+            return redirect(url_for('shortstay.rooms'))
+
+        return render_template('shortstay/room_form.html', room=None)
+    finally:
+        db.close()
+
+
+@bp.route('/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def room_edit(room_id):
+    db = SessionLocal()
+    try:
+        room = db.query(SSRoom).filter(SSRoom.id == room_id).first()
+        if not room:
+            flash('居室が見つかりません。', 'error')
+            return redirect(url_for('shortstay.rooms'))
+
+        if request.method == 'POST':
+            room.room_number = request.form.get('room_number', room.room_number)
+            room.room_name = request.form.get('room_name')
+            room.capacity = _parse_int(request.form.get('capacity')) or room.capacity
+            room.floor = request.form.get('floor')
+            room.notes = request.form.get('notes')
+            db.commit()
+            flash('居室を更新しました。', 'success')
+            return redirect(url_for('shortstay.rooms'))
+
+        return render_template('shortstay/room_form.html', room=room)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 請求管理
+# ─────────────────────────────────────────────
+
+@bp.route('/billing')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_list():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSBilling)
+        if store_id:
+            q = q.filter(SSBilling.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSBilling.tenant_id == tenant_id)
+
+        status_filter = request.args.get('status', '')
+        if status_filter:
+            q = q.filter(SSBilling.status == status_filter)
+
+        billings = q.order_by(SSBilling.billing_year.desc(), SSBilling.billing_month.desc()).all()
+        resident_ids = list({b.resident_id for b in billings})
+        residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+
+        return render_template('shortstay/billing_list.html',
+            billings=billings,
+            residents_map=residents_map,
+            status_filter=status_filter,
+            BillingStatus=BillingStatus,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/billing/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            billing = SSBilling(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id', 0)),
+                reservation_id=int(request.form.get('reservation_id')) if request.form.get('reservation_id') else None,
+                billing_year=int(request.form.get('billing_year', date.today().year)),
+                billing_month=int(request.form.get('billing_month', date.today().month)),
+                billing_date=_parse_date(request.form.get('billing_date')),
+                due_date=_parse_date(request.form.get('due_date')),
+                notes=request.form.get('notes'),
+                status=BillingStatus.draft,
+            )
+            db.add(billing)
+            db.flush()
+
+            # 明細
+            item_names = request.form.getlist('item_name[]')
+            quantities = request.form.getlist('quantity[]')
+            unit_prices = request.form.getlist('unit_price[]')
+            is_insurances = request.form.getlist('is_insurance[]')
+
+            total = 0
+            insurance_total = 0
+            for i, name in enumerate(item_names):
+                if not name.strip():
+                    continue
+                qty = float(quantities[i]) if i < len(quantities) and quantities[i] else 1
+                price = int(unit_prices[i]) if i < len(unit_prices) and unit_prices[i] else 0
+                amount = int(qty * price)
+                is_ins = str(i) in is_insurances or (i < len(is_insurances) and is_insurances[i])
+                detail = SSBillingDetail(
+                    billing_id=billing.id,
+                    item_name=name.strip(),
+                    quantity=qty,
+                    unit_price=price,
+                    amount=amount,
+                    is_insurance=bool(is_ins),
+                )
+                db.add(detail)
+                total += amount
+                if is_ins:
+                    insurance_total += amount
+
+            # 自己負担は1割（簡易計算）
+            self_pay = int(total * 0.1)
+            billing.subtotal = total
+            billing.insurance_amount = total - self_pay
+            billing.self_pay_amount = self_pay
+            billing.total_amount = total
+
+            db.commit()
+            flash('請求書を作成しました。', 'success')
+            return redirect(url_for('shortstay.billing_detail', billing_id=billing.id))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+
+        # 請求項目マスタ
+        items_q = db.query(SSBillingItem).filter(SSBillingItem.active == True)
+        if store_id:
+            items_q = items_q.filter(SSBillingItem.store_id == store_id)
+        elif tenant_id:
+            items_q = items_q.filter(SSBillingItem.tenant_id == tenant_id)
+        billing_items = items_q.all()
+
+        today = date.today()
+        return render_template('shortstay/billing_form.html',
+            billing=None,
+            residents=residents_list,
+            billing_items=billing_items,
+            today=today,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/billing/<int:billing_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_detail(billing_id):
+    db = SessionLocal()
+    try:
+        billing = db.query(SSBilling).filter(SSBilling.id == billing_id).first()
+        if not billing:
+            flash('請求書が見つかりません。', 'error')
+            return redirect(url_for('shortstay.billing_list'))
+
+        resident = db.query(SSResident).filter(SSResident.id == billing.resident_id).first()
+        details = db.query(SSBillingDetail).filter(SSBillingDetail.billing_id == billing_id).all()
+
+        return render_template('shortstay/billing_detail.html',
+            billing=billing,
+            resident=resident,
+            details=details,
+            BillingStatus=BillingStatus,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/billing/<int:billing_id>/update_status', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_update_status(billing_id):
+    db = SessionLocal()
+    try:
+        billing = db.query(SSBilling).filter(SSBilling.id == billing_id).first()
+        if billing:
+            new_status = request.form.get('status')
+            billing.status = new_status
+            if new_status == BillingStatus.paid.value:
+                billing.paid_date = _parse_date(request.form.get('paid_date')) or date.today()
+            billing.updated_at = datetime.utcnow()
+            db.commit()
+            flash('請求状態を更新しました。', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('shortstay.billing_detail', billing_id=billing_id))
+
+
+# 請求項目マスタ管理
+@bp.route('/billing_items')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_items():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSBillingItem).filter(SSBillingItem.active == True)
+        if store_id:
+            q = q.filter(SSBillingItem.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSBillingItem.tenant_id == tenant_id)
+        items = q.order_by(SSBillingItem.item_name).all()
+        return render_template('shortstay/billing_items.html', items=items)
+    finally:
+        db.close()
+
+
+@bp.route('/billing_items/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_item_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            item = SSBillingItem(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                item_name=request.form.get('item_name', ''),
+                item_code=request.form.get('item_code'),
+                unit_price=_parse_int(request.form.get('unit_price')) or 0,
+                unit=request.form.get('unit'),
+                is_insurance=bool(request.form.get('is_insurance')),
+                notes=request.form.get('notes'),
+            )
+            db.add(item)
+            db.commit()
+            flash('請求項目を登録しました。', 'success')
+            return redirect(url_for('shortstay.billing_items'))
+
+        return render_template('shortstay/billing_item_form.html', item=None)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# シフト管理
+# ─────────────────────────────────────────────
+
+@bp.route('/shifts')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def shifts():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        today = date.today()
+        year = int(request.args.get('year', today.year))
+        month = int(request.args.get('month', today.month))
+
+        import calendar
+        _, days_in_month = calendar.monthrange(year, month)
+        first_day = date(year, month, 1)
+        last_day = date(year, month, days_in_month)
+
+        q = db.query(SSShift).filter(
+            SSShift.shift_date.between(first_day, last_day)
+        )
+        if store_id:
+            q = q.filter(SSShift.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSShift.tenant_id == tenant_id)
+        shifts_list = q.order_by(SSShift.shift_date, SSShift.employee_id).all()
+
+        # 従業員一覧
+        emp_q = db.query(TJugyoin).filter(TJugyoin.active == True)
+        if store_id:
+            emp_q = emp_q.filter(TJugyoin.store_id == store_id)
+        elif tenant_id:
+            emp_q = emp_q.filter(TJugyoin.tenant_id == tenant_id)
+        employees = emp_q.order_by(TJugyoin.name).all()
+
+        # シフトをマップ化 {employee_id: {date: shift}}
+        shift_map = {}
+        for s in shifts_list:
+            if s.employee_id not in shift_map:
+                shift_map[s.employee_id] = {}
+            shift_map[s.employee_id][s.shift_date] = s
+
+        return render_template('shortstay/shifts.html',
+            year=year, month=month,
+            first_day=first_day, last_day=last_day,
+            days_in_month=days_in_month,
+            shifts=shifts_list,
+            shift_map=shift_map,
+            employees=employees,
+            ShiftType=ShiftType,
+            today=today,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/shifts/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def shift_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            shift = SSShift(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                employee_id=int(request.form.get('employee_id', 0)),
+                shift_date=_parse_date(request.form.get('shift_date')) or date.today(),
+                shift_type=request.form.get('shift_type', ShiftType.day.value),
+                start_time=request.form.get('start_time'),
+                end_time=request.form.get('end_time'),
+                break_minutes=_parse_int(request.form.get('break_minutes')) or 0,
+                notes=request.form.get('notes'),
+            )
+            db.add(shift)
+            db.commit()
+            flash('シフトを登録しました。', 'success')
+            return redirect(url_for('shortstay.shifts'))
+
+        emp_q = db.query(TJugyoin).filter(TJugyoin.active == True)
+        if store_id:
+            emp_q = emp_q.filter(TJugyoin.store_id == store_id)
+        elif tenant_id:
+            emp_q = emp_q.filter(TJugyoin.tenant_id == tenant_id)
+        employees = emp_q.order_by(TJugyoin.name).all()
+
+        return render_template('shortstay/shift_form.html',
+            shift=None, employees=employees, ShiftType=ShiftType, today=date.today())
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 申し送り
+# ─────────────────────────────────────────────
+
+@bp.route('/staff_notes')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def staff_notes():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSStaffNote)
+        if store_id:
+            q = q.filter(SSStaffNote.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSStaffNote.tenant_id == tenant_id)
+
+        show_resolved = request.args.get('show_resolved', '0') == '1'
+        if not show_resolved:
+            q = q.filter(SSStaffNote.is_resolved == False)
+
+        notes = q.order_by(SSStaffNote.is_urgent.desc(), SSStaffNote.note_date.desc()).limit(50).all()
+        return render_template('shortstay/staff_notes.html',
+            notes=notes, show_resolved=show_resolved)
+    finally:
+        db.close()
+
+
+@bp.route('/staff_notes/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def staff_note_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            note = SSStaffNote(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                written_by=session.get('user_id'),
+                note_date=_parse_date(request.form.get('note_date')) or date.today(),
+                note_time=request.form.get('note_time'),
+                category=request.form.get('category'),
+                content=request.form.get('content', ''),
+                is_urgent=bool(request.form.get('is_urgent')),
+            )
+            db.add(note)
+            db.commit()
+            flash('申し送りを登録しました。', 'success')
+            return redirect(url_for('shortstay.staff_notes'))
+
+        return render_template('shortstay/staff_note_form.html', note=None, today=date.today())
+    finally:
+        db.close()
+
+
+@bp.route('/staff_notes/<int:note_id>/resolve', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def staff_note_resolve(note_id):
+    db = SessionLocal()
+    try:
+        note = db.query(SSStaffNote).filter(SSStaffNote.id == note_id).first()
+        if note:
+            note.is_resolved = True
+            db.commit()
+            flash('申し送りを対応済みにしました。', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('shortstay.staff_notes'))
+
+
+# ─────────────────────────────────────────────
+# 報告書・事故報告
+# ─────────────────────────────────────────────
+
+@bp.route('/reports')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def reports():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSReport)
+        if store_id:
+            q = q.filter(SSReport.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSReport.tenant_id == tenant_id)
+
+        report_type = request.args.get('type', '')
+        if report_type:
+            q = q.filter(SSReport.report_type == report_type)
+
+        reports_list = q.order_by(SSReport.report_date.desc()).limit(50).all()
+        resident_ids = list({r.resident_id for r in reports_list if r.resident_id})
+        residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+
+        return render_template('shortstay/reports.html',
+            reports=reports_list, residents_map=residents_map, report_type=report_type)
+    finally:
+        db.close()
+
+
+@bp.route('/reports/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def report_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            report = SSReport(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id')) if request.form.get('resident_id') else None,
+                created_by=session.get('user_id'),
+                report_type=request.form.get('report_type', 'サービス提供記録'),
+                report_date=_parse_date(request.form.get('report_date')) or date.today(),
+                title=request.form.get('title'),
+                content=request.form.get('content'),
+            )
+            db.add(report)
+            db.commit()
+            flash('報告書を登録しました。', 'success')
+            return redirect(url_for('shortstay.reports'))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/report_form.html',
+            report=None, residents=residents_list, today=date.today())
+    finally:
+        db.close()
+
+
+@bp.route('/incidents')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def incidents():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSIncidentReport)
+        if store_id:
+            q = q.filter(SSIncidentReport.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSIncidentReport.tenant_id == tenant_id)
+
+        incidents_list = q.order_by(SSIncidentReport.incident_date.desc()).limit(50).all()
+        resident_ids = list({i.resident_id for i in incidents_list if i.resident_id})
+        residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+
+        return render_template('shortstay/incidents.html',
+            incidents=incidents_list, residents_map=residents_map)
+    finally:
+        db.close()
+
+
+@bp.route('/incidents/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def incident_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            incident = SSIncidentReport(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=int(request.form.get('resident_id')) if request.form.get('resident_id') else None,
+                reported_by=session.get('user_id'),
+                incident_date=_parse_date(request.form.get('incident_date')) or date.today(),
+                incident_time=request.form.get('incident_time'),
+                incident_type=request.form.get('incident_type'),
+                location=request.form.get('location'),
+                description=request.form.get('description'),
+                injury=request.form.get('injury'),
+                action_taken=request.form.get('action_taken'),
+                prevention=request.form.get('prevention'),
+                is_near_miss=bool(request.form.get('is_near_miss')),
+            )
+            db.add(incident)
+            db.commit()
+            flash('事故・ヒヤリハット報告を登録しました。', 'success')
+            return redirect(url_for('shortstay.incidents'))
+
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/incident_form.html',
+            incident=None, residents=residents_list, today=date.today())
+    finally:
+        db.close()
+
+
+@bp.route('/incidents/<int:incident_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def incident_detail(incident_id):
+    db = SessionLocal()
+    try:
+        incident = db.query(SSIncidentReport).filter(SSIncidentReport.id == incident_id).first()
+        if not incident:
+            flash('報告書が見つかりません。', 'error')
+            return redirect(url_for('shortstay.incidents'))
+        resident = db.query(SSResident).filter(SSResident.id == incident.resident_id).first() if incident.resident_id else None
+        return render_template('shortstay/incident_detail.html',
+            incident=incident, resident=resident)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# ヘルパー関数
+# ─────────────────────────────────────────────
+
+def _parse_date(s):
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(s)
+    except Exception:
+        return None
+
+
+def _parse_int(s):
+    if not s:
+        return None
+    try:
+        return int(s)
+    except Exception:
+        return None
+
+
+def _parse_decimal(s):
+    if not s:
+        return None
+    try:
+        from decimal import Decimal
+        return Decimal(s)
+    except Exception:
+        return None
+
+
+def _get_residents(db, store_id, tenant_id):
+    q = db.query(SSResident).filter(SSResident.active == True)
+    if store_id:
+        q = q.filter(SSResident.store_id == store_id)
+    elif tenant_id:
+        q = q.filter(SSResident.tenant_id == tenant_id)
+    return q.order_by(SSResident.last_name_kana).all()
+
+# ─────────────────────────────────────────────
+# 追加ルート（編集・詳細）
+# ─────────────────────────────────────────────
+
+@bp.route('/billing/<int:billing_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_edit(billing_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        billing = db.query(SSBilling).filter(SSBilling.id == billing_id).first()
+        if not billing:
+            flash('請求書が見つかりません。', 'error')
+            return redirect(url_for('shortstay.billing_list'))
+        if request.method == 'POST':
+            billing.resident_id = _parse_int(request.form.get('resident_id'))
+            billing.reservation_id = _parse_int(request.form.get('reservation_id'))
+            billing.billing_year = _parse_int(request.form.get('billing_year'))
+            billing.billing_month = _parse_int(request.form.get('billing_month'))
+            billing.total_amount = _parse_decimal(request.form.get('total_amount')) or 0
+            billing.insurance_amount = _parse_decimal(request.form.get('insurance_amount')) or 0
+            billing.self_pay_amount = _parse_decimal(request.form.get('self_pay_amount')) or 0
+            billing.meal_fee = _parse_decimal(request.form.get('meal_fee')) or 0
+            billing.accommodation_fee = _parse_decimal(request.form.get('accommodation_fee')) or 0
+            billing.other_fee = _parse_decimal(request.form.get('other_fee')) or 0
+            billing.status = BillingStatus(request.form.get('status', '未発行'))
+            billing.payment_date = _parse_date(request.form.get('payment_date'))
+            billing.payment_method = request.form.get('payment_method')
+            billing.notes = request.form.get('notes')
+            db.commit()
+            flash('請求書を更新しました。', 'success')
+            return redirect(url_for('shortstay.billing_detail', billing_id=billing.id))
+        residents_list = _get_residents(db, store_id, tenant_id)
+        reservations_list = db.query(SSReservation).all()
+        residents_map = {r.id: r for r in residents_list}
+        from datetime import datetime as dt
+        return render_template('shortstay/billing_form.html',
+            billing=billing, residents=residents_list,
+            reservations=reservations_list, residents_map=residents_map,
+            current_year=dt.now().year, current_month=dt.now().month)
+    finally:
+        db.close()
+
+@bp.route('/billing/<int:billing_id>/mark_paid', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def billing_mark_paid(billing_id):
+    db = SessionLocal()
+    try:
+        billing = db.query(SSBilling).filter(SSBilling.id == billing_id).first()
+        if billing:
+            billing.status = BillingStatus.paid
+            billing.payment_date = date.today()
+            db.commit()
+            flash('支払済みに更新しました。', 'success')
+        return redirect(url_for('shortstay.billing_detail', billing_id=billing_id))
+    finally:
+        db.close()
+
+@bp.route('/shifts/<int:shift_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def shift_edit(shift_id):
+    db = SessionLocal()
+    try:
+        shift = db.query(SSShift).filter(SSShift.id == shift_id).first()
+        if not shift:
+            flash('シフトが見つかりません。', 'error')
+            return redirect(url_for('shortstay.shifts'))
+        if request.method == 'POST':
+            shift.staff_name = request.form.get('staff_name')
+            shift.shift_date = _parse_date(request.form.get('shift_date'))
+            shift.shift_type = request.form.get('shift_type')
+            shift.start_time = request.form.get('start_time') or None
+            shift.end_time = request.form.get('end_time') or None
+            shift.break_minutes = _parse_int(request.form.get('break_minutes'))
+            shift.notes = request.form.get('notes')
+            db.commit()
+            flash('シフトを更新しました。', 'success')
+            return redirect(url_for('shortstay.shifts'))
+        return render_template('shortstay/shift_form.html', shift=shift, today=date.today().isoformat())
+    finally:
+        db.close()
+
+@bp.route('/staff_notes/<int:note_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def staff_note_edit(note_id):
+    db = SessionLocal()
+    try:
+        note = db.query(SSStaffNote).filter(SSStaffNote.id == note_id).first()
+        if not note:
+            flash('申し送りが見つかりません。', 'error')
+            return redirect(url_for('shortstay.staff_notes'))
+        if request.method == 'POST':
+            note.note_date = _parse_date(request.form.get('note_date'))
+            note.priority = request.form.get('priority', '通常')
+            note.target_shift = request.form.get('target_shift') or None
+            note.content = request.form.get('content')
+            note.author_name = request.form.get('author_name')
+            db.commit()
+            flash('申し送りを更新しました。', 'success')
+            return redirect(url_for('shortstay.staff_notes'))
+        return render_template('shortstay/staff_note_form.html',
+            note=note, today=date.today().isoformat(), current_user_name=session.get('user_name', ''))
+    finally:
+        db.close()
+
+@bp.route('/reports/<int:report_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def report_detail(report_id):
+    db = SessionLocal()
+    try:
+        report = db.query(SSReport).filter(SSReport.id == report_id).first()
+        if not report:
+            flash('報告書が見つかりません。', 'error')
+            return redirect(url_for('shortstay.reports'))
+        resident = db.query(SSResident).filter(SSResident.id == report.resident_id).first() if report.resident_id else None
+        return render_template('shortstay/report_detail.html', report=report, resident=resident)
+    finally:
+        db.close()
+
+@bp.route('/reports/<int:report_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def report_edit(report_id):
+    db = SessionLocal()
+    try:
+        report = db.query(SSReport).filter(SSReport.id == report_id).first()
+        if not report:
+            flash('報告書が見つかりません。', 'error')
+            return redirect(url_for('shortstay.reports'))
+        if request.method == 'POST':
+            report.resident_id = _parse_int(request.form.get('resident_id'))
+            report.report_type = request.form.get('report_type')
+            report.report_date = _parse_date(request.form.get('report_date'))
+            report.title = request.form.get('title')
+            report.content = request.form.get('content')
+            report.author_name = request.form.get('author_name')
+            db.commit()
+            flash('報告書を更新しました。', 'success')
+            return redirect(url_for('shortstay.report_detail', report_id=report.id))
+        residents_list = _get_residents(db, *_get_store_tenant())
+        return render_template('shortstay/report_form.html',
+            report=report, residents=residents_list,
+            today=date.today().isoformat(), current_user_name=session.get('user_name', ''))
+    finally:
+        db.close()
+
+@bp.route('/incidents/<int:incident_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def incident_edit(incident_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        incident = db.query(SSIncidentReport).filter(SSIncidentReport.id == incident_id).first()
+        if not incident:
+            flash('報告書が見つかりません。', 'error')
+            return redirect(url_for('shortstay.incidents'))
+        if request.method == 'POST':
+            incident.resident_id = _parse_int(request.form.get('resident_id'))
+            incident.incident_type = request.form.get('incident_type')
+            incident.incident_date = _parse_date(request.form.get('incident_date'))
+            incident.incident_time = request.form.get('incident_time') or None
+            incident.location = request.form.get('location')
+            incident.description = request.form.get('description')
+            incident.response = request.form.get('response')
+            incident.prevention = request.form.get('prevention')
+            incident.severity = request.form.get('severity') or None
+            incident.reporter_name = request.form.get('reporter_name')
+            incident.family_notified = bool(request.form.get('family_notified'))
+            incident.authority_notified = bool(request.form.get('authority_notified'))
+            db.commit()
+            flash('報告書を更新しました。', 'success')
+            return redirect(url_for('shortstay.incident_detail', incident_id=incident.id))
+        residents_list = _get_residents(db, store_id, tenant_id)
+        return render_template('shortstay/incident_form.html',
+            incident=incident, residents=residents_list, today=date.today().isoformat())
+    finally:
+        db.close()
+
+@bp.route('/care_plans/<int:plan_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def care_plan_detail(plan_id):
+    db = SessionLocal()
+    try:
+        plan = db.query(SSCarePlan).filter(SSCarePlan.id == plan_id).first()
+        if not plan:
+            flash('ケアプランが見つかりません。', 'error')
+            return redirect(url_for('shortstay.care_plans'))
+        resident = db.query(SSResident).filter(SSResident.id == plan.resident_id).first() if plan.resident_id else None
+        return render_template('shortstay/care_plan_detail.html', plan=plan, resident=resident)
+    finally:
+        db.close()
+

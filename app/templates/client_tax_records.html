@@ -180,6 +180,10 @@
     <div class="page-title">💴 納税実績</div>
     <a href="{{ url_for('clients.add_tax_record', client_id=client.id) }}" class="btn-add">＋ 決算期を追加</a>
   </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}

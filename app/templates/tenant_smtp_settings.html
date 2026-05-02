@@ -38,8 +38,12 @@
     <div class="page-title">📧 SMTPメール設定</div>
     {% if tenant_name %}<div style="color:#6b7280;font-size:0.9em;margin-top:2px">{{ tenant_name }}</div>{% endif %}
   </div>
-  <a href="{{ url_for('tenant_admin.dashboard') }}" class="btn btn-secondary">← ダッシュボードへ</a>
+  <a href="{{ current_dashboard_url }}" class="btn btn-secondary">← ダッシュボードへ</a>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
 <div class="alert alert-{{ category }}">{{ message }}</div>
@@ -151,7 +155,7 @@
 
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">💾 設定を保存</button>
-      <a href="{{ url_for('tenant_admin.dashboard') }}" class="btn btn-secondary">キャンセル</a>
+      <a href="{{ current_dashboard_url }}" class="btn btn-secondary">キャンセル</a>
     </div>
   </form>
 </div>

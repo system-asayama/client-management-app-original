@@ -6,7 +6,8 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
-from app.models_login import TJugyoin, TTenant, TTenpo, TJugyoinTenpo
+from app.models_login import TJugyoin, TTenant, TTenpo, TJugyoinTenpo, TTenpoAppSetting, TTenantAppSetting
+from app.models_truck import TruckDriver
 from sqlalchemy import func, and_, or_
 from ..utils.decorators import ROLES
 from ..utils.decorators import require_roles
@@ -17,8 +18,88 @@ bp = Blueprint('employee', __name__, url_prefix='/employee')
 @bp.route('/dashboard')
 @require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dashboard():
-    """従業員ダッシュボード"""
-    return render_template('employee_dashboard.html')
+    """従業員ダッシュボード（利用可能アプリ一覧）"""
+    from app.blueprints.tenant_admin import AVAILABLE_APPS as TENANT_AVAILABLE_APPS
+    tenant_id = session.get('tenant_id')
+    store_id = session.get('store_id')
+    user_name = session.get('user_name', '')
+    db = SessionLocal()
+    try:
+        tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first() if tenant_id else None
+        store = db.query(TTenpo).filter(TTenpo.id == store_id).first() if store_id else None
+
+        # テナントへの配布設定を取得
+        if tenant_id:
+            tenant_app_settings = db.query(TTenantAppSetting).filter(
+                TTenantAppSetting.tenant_id == tenant_id,
+                TTenantAppSetting.enabled == 1
+            ).all()
+            distributed_app_ids = {s.app_id for s in tenant_app_settings}
+        else:
+            distributed_app_ids = set()
+
+        has_distribution = len(distributed_app_ids) > 0
+
+        # 店舗別URLマッピング
+        STORE_URLS = {
+            'client-management-tenant': lambda sid: f'/store/{sid}/dashboard',
+            'survey':                   lambda sid: f'/apps/survey/store/{sid}/',
+            'stampcard':                lambda sid: f'/apps/stampcard/store/{sid}/settings',
+            'reservation':              lambda sid: f'/apps/reservation/store/{sid}/settings',
+            'breeder-management':       lambda sid: '/breeder/dashboard',
+            'voucher-digitization':     lambda sid: f'/voucher?store_id={sid}',
+            'homepage-builder':         lambda sid: '/homepage',
+            'e-contract':               lambda sid: '/e-contract',
+            'real-estate':              lambda sid: '/apps/property',
+            'company-incorporation':    lambda sid: '/apps/teikan',
+            'truck-operation':          lambda sid: f'/truck/store/{sid}/',
+        }
+
+        enabled_apps = []
+        for app in TENANT_AVAILABLE_APPS:
+            if has_distribution and app['name'] not in distributed_app_ids:
+                continue
+            app_copy = dict(app)
+            if store_id and app_copy['name'] in STORE_URLS:
+                app_copy['url'] = STORE_URLS[app_copy['name']](store_id)
+            enabled_apps.append(app_copy)
+    finally:
+        db.close()
+
+    return render_template(
+        'employee_dashboard.html',
+        apps=enabled_apps,
+        tenant=tenant,
+        store=store,
+        user_name=user_name,
+    )
+
+
+@bp.route('/driver_mypage')
+@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def driver_mypage():
+    """従業員からドライバーマイページへ自動ログイン中継"""
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        employee = db.query(TJugyoin).filter(TJugyoin.id == user_id).first()
+        if not employee:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('employee.mypage'))
+        # 従業員のlogin_idと同じlogin_idを持つTruckDriverを検索
+        driver = db.query(TruckDriver).filter(
+            TruckDriver.login_id == employee.login_id,
+            TruckDriver.active == True
+        ).first()
+        if not driver:
+            flash('ドライバーとして登録されていません。管理者にお問い合わせください。', 'warning')
+            return redirect(url_for('employee.mypage'))
+        # ドライバーセッションをセット（再ログイン不要）
+        session['truck_driver_id'] = driver.id
+        session['truck_driver_name'] = driver.name
+        return redirect(url_for('truck.driver_dashboard'))
+    finally:
+        db.close()
 
 
 @bp.route('/mypage', methods=['GET', 'POST'])
@@ -139,13 +220,18 @@ def mypage():
                     
                     if relation:
                         session['store_id'] = store_id
-                        flash('店舗を選択しました', 'success')
                     else:
                         flash('指定された店舗にアクセスする権限がありません', 'error')
                 
                 return redirect(url_for('employee.mypage'))
         
-        return render_template('employee_mypage.html', user=user, tenant_name=tenant_name, stores=stores, store_list=store_list)
+        # ドライバー登録チェック（同じlogin_idのTruckDriverが存在するか）
+        is_driver = db.query(TruckDriver).filter(
+            TruckDriver.login_id == employee.login_id,
+            TruckDriver.active == True
+        ).first() is not None
+
+        return render_template('employee_mypage.html', user=user, tenant_name=tenant_name, stores=stores, store_list=store_list, is_driver=is_driver)
     finally:
         db.close()
 
@@ -191,5 +277,72 @@ def profile():
                 stores.append(store.名称)
         
         return render_template('employee_profile.html', user=user, tenant_name=tenant_name, stores=stores)
+    finally:
+        db.close()
+
+
+@bp.route('/mypage/profile', methods=['GET', 'POST'])
+@require_roles(ROLES["EMPLOYEE"], ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def mypage_profile():
+    """従業員プロフィール設定ページ"""
+    from sqlalchemy import func as sqlfunc
+    user_id = session.get('user_id')
+    db = SessionLocal()
+    try:
+        employee = db.query(TJugyoin).filter(TJugyoin.id == user_id).first()
+        if not employee:
+            flash('ユーザー情報が見つかりません', 'error')
+            return redirect(url_for('employee.mypage'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'update_profile':
+                login_id = request.form.get('login_id', '').strip()
+                name = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip() or None
+                if not login_id or not name:
+                    flash('ログインIDと氏名は必須です', 'error')
+                else:
+                    # ログインID重複チェック（自分以外）
+                    from sqlalchemy import and_
+                    existing = db.query(TJugyoin).filter(
+                        and_(TJugyoin.login_id == login_id, TJugyoin.id != user_id)
+                    ).first()
+                    if existing:
+                        flash('このログインIDは既に使用されています', 'error')
+                    else:
+                        employee.login_id = login_id
+                        employee.name = name
+                        employee.email = email
+                        if hasattr(employee, 'updated_at'):
+                            employee.updated_at = sqlfunc.now()
+                        db.commit()
+                        flash('プロフィール情報を更新しました', 'success')
+                        return redirect(url_for('employee.mypage_profile'))
+            elif action == 'change_password':
+                current_password = request.form.get('current_password', '').strip()
+                new_password = request.form.get('new_password', '').strip()
+                new_password_confirm = request.form.get('new_password_confirm', '').strip()
+                if new_password != new_password_confirm:
+                    flash('パスワードが一致しません', 'error')
+                elif not employee.password_hash or not check_password_hash(employee.password_hash, current_password):
+                    flash('現在のパスワードが正しくありません', 'error')
+                elif len(new_password) < 8:
+                    flash('パスワードは8文字以上にしてください', 'error')
+                else:
+                    employee.password_hash = generate_password_hash(new_password)
+                    if hasattr(employee, 'updated_at'):
+                        employee.updated_at = sqlfunc.now()
+                    db.commit()
+                    flash('パスワードを変更しました', 'success')
+                    return redirect(url_for('employee.mypage_profile'))
+
+        user = {
+            'id': employee.id,
+            'login_id': employee.login_id,
+            'name': employee.name,
+            'email': getattr(employee, 'email', None),
+        }
+        return render_template('employee_mypage_profile.html', user=user)
     finally:
         db.close()

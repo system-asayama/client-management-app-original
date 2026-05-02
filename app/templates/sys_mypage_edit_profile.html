@@ -40,6 +40,7 @@
 </style>
 {% endblock %}
 {% block title %}プロフィール編集{% endblock %}
+{% block flash_messages %}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div class="page-header-inner">
@@ -49,6 +50,10 @@
     </div>
   </div>
 </div>
+{% if viewing_as_banner %}
+<div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+{% endif %}
+
 
 
 <div class="card" style="max-width:640px">

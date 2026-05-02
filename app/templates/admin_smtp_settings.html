@@ -9,9 +9,14 @@
     body { background: #f8f9fa; }
     .preset-btn { margin: 0 4px 8px 0; font-size: 0.85em; }
     .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 0.9em; color: #1e40af; }
+      .viewing-as-banner { background: #fff8e1; color: #7a5c00; border: 1px solid #ffe082; border-radius: 8px; padding: .6rem 1rem; margin: .5rem 0 1rem; font-size: .9rem; }
   </style>
 </head>
 <body>
+  {% if viewing_as_banner %}
+  <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
+  {% endif %}
+
 <div class="container py-4" style="max-width:700px">
   <div class="d-flex align-items-center gap-2 mb-3">
     <a href="/e-contract/ui/contracts" class="btn btn-outline-secondary btn-sm">← 電子契約へ戻る</a>

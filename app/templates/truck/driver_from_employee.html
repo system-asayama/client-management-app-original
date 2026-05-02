@@ -1,0 +1,128 @@
+{% extends "truck/base.html" %}
+{% block title %}従業員からドライバー登録 - トラック運行管理{% endblock %}
+{% block content %}
+<a href="{{ url_for('truck.drivers') }}" class="back-link">← ドライバー一覧へ戻る</a>
+<div class="page-title">👥 従業員からドライバー登録</div>
+<div class="page-subtitle">登録済みの従業員をドライバーとして追加します</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="{{ 'success-box' if category == 'success' else 'error-box' }}" style="margin-bottom:12px;">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% if employees %}
+<div class="form-card" style="margin-top:16px;">
+  <form method="POST" id="registerForm">
+    <input type="hidden" name="employee_id" id="employee_id_input">
+
+    <div class="form-field">
+      <label>従業員を選択 <span class="required">*</span></label>
+      <div class="employee-list">
+        {% for emp in employees %}
+        <div class="employee-item {% if emp.name in registered_names %}already-registered{% endif %}"
+             onclick="selectEmployee(this, '{{ emp.id }}', '{{ emp.name }}', '{{ emp.login_id }}', '{{ emp.phone or '' }}')"
+             data-id="{{ emp.id }}" data-name="{{ emp.name }}" data-login="{{ emp.login_id }}" data-phone="{{ emp.phone or '' }}">
+          <div class="emp-name">{{ emp.name }}</div>
+          <div class="emp-info">
+            <span>ログインID: {{ emp.login_id }}</span>
+            {% if emp.phone %}<span>📞 {{ emp.phone }}</span>{% endif %}
+            {% if emp.position %}<span>{{ emp.position }}</span>{% endif %}
+          </div>
+          {% if emp.name in registered_names %}
+          <span class="already-badge">ドライバー登録済み</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="driver-fields" style="display:none;">
+      <div class="selected-employee-info" id="selected-info" style="display:none;"></div>
+
+      <div class="form-field">
+        <label>ドライバー用ログインID <span class="required">*</span></label>
+        <input type="text" name="login_id" id="login_id_input" placeholder="例：driver001（トラックアプリへのログインに使用）" required>
+        <div class="form-hint">トラックアプリへのログインに使用するIDです（従業員IDと異なるIDを設定できます）</div>
+      </div>
+
+      <div class="form-field">
+        <label>パスワード <span class="required">*</span></label>
+        <input type="password" name="password" placeholder="パスワードを入力" required>
+        <div class="form-hint">トラックアプリへのログインに使用するパスワードです</div>
+      </div>
+
+      <div class="form-field">
+        <label>免許番号</label>
+        <input type="text" name="license_number" placeholder="例：123456789012">
+      </div>
+
+      <div class="form-field">
+        <label>備考</label>
+        <textarea name="note" placeholder="備考があれば入力してください"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" onclick="return validateForm()">ドライバーとして登録する</button>
+        <a href="{{ url_for('truck.drivers') }}"><button type="button" class="btn btn-secondary">キャンセル</button></a>
+      </div>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="card" style="margin-top:16px;">
+  <div class="empty" style="padding:32px;text-align:center;">
+    登録可能な従業員がいません。<br>
+    先に従業員を登録してください。
+  </div>
+</div>
+{% endif %}
+
+<style>
+.employee-list { display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:8px; }
+.employee-item { padding:12px; border-radius:8px; border:2px solid transparent; cursor:pointer; background:#f8fafc; transition:all .15s; }
+.employee-item:hover:not(.already-registered) { border-color:#3b82f6; background:#eff6ff; }
+.employee-item.selected { border-color:#2563eb; background:#dbeafe; }
+.employee-item.already-registered { opacity:.6; cursor:default; background:#f1f5f9; }
+.emp-name { font-weight:700; font-size:.95rem; color:#1e293b; margin-bottom:4px; }
+.emp-info { display:flex; gap:12px; font-size:.82rem; color:#64748b; flex-wrap:wrap; }
+.already-badge { display:inline-block; margin-top:4px; font-size:.75rem; background:#e2e8f0; color:#64748b; padding:2px 8px; border-radius:12px; }
+.selected-employee-info { background:#dbeafe; border:1px solid #93c5fd; border-radius:8px; padding:12px; margin-bottom:16px; font-size:.9rem; color:#1e40af; }
+.form-hint { font-size:.8rem; color:#64748b; margin-top:4px; }
+.success-box { background:#dcfce7; border:1px solid #86efac; color:#166534; padding:10px 14px; border-radius:8px; }
+.error-box { background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:10px 14px; border-radius:8px; }
+</style>
+
+<script>
+function selectEmployee(el, id, name, loginId, phone) {
+  if (el.classList.contains('already-registered')) return;
+  // 選択解除
+  document.querySelectorAll('.employee-item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  // hidden inputに値をセット
+  document.getElementById('employee_id_input').value = id;
+  // ログインIDにデフォルト値をセット（空の場合のみ）
+  const loginInput = document.getElementById('login_id_input');
+  if (!loginInput.value) {
+    loginInput.value = loginId;
+  }
+  // 選択中の従業員情報を表示
+  const info = document.getElementById('selected-info');
+  info.innerHTML = `<strong>選択中：</strong> ${name}` + (phone ? ` ／ 📞 ${phone}` : '');
+  info.style.display = 'block';
+  // 入力フィールドを表示
+  document.getElementById('driver-fields').style.display = 'block';
+}
+
+function validateForm() {
+  const empId = document.getElementById('employee_id_input').value;
+  if (!empId) {
+    alert('従業員を選択してください');
+    return false;
+  }
+  return true;
+}
+</script>
+{% endblock %}

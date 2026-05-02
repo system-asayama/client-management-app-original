@@ -1,0 +1,101 @@
+{% extends "breeder/base.html" %}
+{% block topbar_title %}繁殖履歴{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📋 繁殖履歴</h1>
+  <p class="page-desc">交配・出産の実績を管理します。</p>
+</div>
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-header"><h2 class="card-title">新規登録</h2></div>
+  <div class="card-body">
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">父犬 <span style="color:red">*</span></label>
+          <select name="sire_id" class="form-control" required>
+            <option value="">-- 選択 --</option>
+            {% for d in dogs %}{% if d.sex == 'male' %}<option value="{{ d.id }}">{{ d.name }}{% if d.breed %} ({{ d.breed }}){% endif %}</option>{% endif %}{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">母犬 <span style="color:red">*</span></label>
+          <select name="dam_id" class="form-control" required>
+            <option value="">-- 選択 --</option>
+            {% for d in dogs %}{% if d.sex == 'female' %}<option value="{{ d.id }}">{{ d.name }}{% if d.breed %} ({{ d.breed }}){% endif %}</option>{% endif %}{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">交配日</label>
+          <input type="date" name="mating_date" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">出産日</label>
+          <input type="date" name="birth_date" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">妊娠結果</label>
+          <select name="pregnancy_result" class="form-control">
+            <option value="">-- 選択 --</option>
+            <option value="success">成功</option>
+            <option value="failed">失敗</option>
+            <option value="miscarriage">流産</option>
+            <option value="unknown">不明</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">出生頭数</label>
+          <input type="number" name="puppy_count" class="form-control" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">生存出生頭数</label>
+          <input type="number" name="live_birth_count" class="form-control" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">死産頭数</label>
+          <input type="number" name="stillbirth_count" class="form-control" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">オプション</label>
+          <label><input type="checkbox" name="c_section"> 帝王切開</label>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">合併症・特記事項</label>
+          <textarea name="complications" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">備考</label>
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><h2 class="card-title">繁殖履歴一覧（{{ histories|length }}件）</h2></div>
+  <div class="card-body">
+    {% if histories %}
+    <table class="table">
+      <thead><tr><th>交配日</th><th>父犬ID</th><th>母犬ID</th><th>結果</th><th>出生</th><th>生存</th><th>死産</th><th>帝王切開</th><th>産子管理</th></tr></thead>
+      <tbody>
+      {% for h in histories %}
+      <tr>
+        <td>{{ h.mating_date or '-' }}</td>
+        <td>{{ h.sire_id }}</td>
+        <td>{{ h.dam_id }}</td>
+        <td>{{ h.pregnancy_result or '-' }}</td>
+        <td>{{ h.puppy_count or '-' }}</td>
+        <td>{{ h.live_birth_count or '-' }}</td>
+        <td>{{ h.stillbirth_count or '-' }}</td>
+        <td>{{ '✅' if h.c_section else '-' }}</td>
+        <td><a href="{{ url_for('breeder.puppy_records', history_id=h.id) }}" class="btn btn-sm btn-secondary">産子管理</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-dim);">繁殖履歴はありません。</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

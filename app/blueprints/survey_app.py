@@ -1088,20 +1088,19 @@ def optimize_probabilities(store_id):
             is_disabled=s.get("is_disabled", False),
             is_default=s.get("is_default", False),
         ) for s in symbols_data]
-        # 有効シンボル（is_disabled=False かつ payout_3 > 0）に対して確率を計算
-        # 配当0のシンボル（リーチ演出など）は確率を変更しない
-        active_symbols = [s for s in symbols if not s.is_disabled and float(s.payout_3) > 0]
+        # is_disabled=Falseのシンボル全てを確率計算対象にする（配当0のリーチシンボルも含む）
+        active_symbols = [s for s in symbols if not s.is_disabled]
+        disabled_symbols = [s for s in symbols if s.is_disabled]
         if active_symbols:
             target_e1 = expected_total_5 / 5.0  # 5回スピンの期待値 → 1回の期待値
             payouts = [float(s.payout_3) for s in active_symbols]
             probs = solve_probs_for_target_expectation(payouts, target_e1)
-            # 有効シンボルに確率を設定（配当0のシンボルは現在の確率を維持）
-            active_idx = 0
-            for s in symbols:
-                if not s.is_disabled and float(s.payout_3) > 0:
-                    s.prob = round(probs[active_idx] * 100.0, 4)
-                    active_idx += 1
-                # 配当0のシンボル（リーチ演出など）はprobをそのまま維持（変更しない）
+            # 有効シンボルに確率を設定
+            for s, p in zip(active_symbols, probs):
+                s.prob = round(p * 100.0, 4)
+        # 不使用役は確率を0に設定
+        for s in disabled_symbols:
+            s.prob = 0.0
         return jsonify({"ok": True, "symbols": [asdict(s) for s in symbols]})
     except Exception as e:
         sys.stderr.write(f"optimize_probabilities error: {e}\n")

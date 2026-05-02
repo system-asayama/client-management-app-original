@@ -1075,33 +1075,73 @@ def save_slot_settings(store_id):
 @bp.post('/store/<int:store_id>/optimize_probabilities')
 @require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def optimize_probabilities(store_id):
-    """確率自動調整API"""
+    """確率自動調整API（Heroku版と同一ロジック）"""
     try:
-        body = request.get_json(silent=True) or {}
-        symbols_data = body.get('symbols', [])
-        expected_total_5 = float(body.get('expected_total_5', 100.0))
-        from app.utils.slot_logic import recalc_probs_inverse_and_expected, solve_probs_for_target_expectation
-        symbols = [Symbol(
-            id=s.get("id", ""), label=s.get("label", ""),
-            payout_3=float(s.get("payout_3", 0)), prob=float(s.get("prob", 0)),
-            color=s.get("color", "#000000"),
-            is_disabled=s.get("is_disabled", False),
-            is_default=s.get("is_default", False),
-        ) for s in symbols_data]
-        # is_disabled=Falseのシンボル全てを確率計算対象にする（配当0のリーチシンボルも含む）
+        from app.utils.slot_logic import solve_probs_for_target_expectation
+        data = request.get_json(silent=True) or {}
+        expected_total_5 = float(data.get('expected_total_5', 100.0))
+        symbols_data = data.get('symbols', [])
+
+        # DBから現在のシンボル情報を取得（is_reach, reach_symbolなどを保持）
+        db_cfg = _get_slot_config(store_id)
+        db_symbols = {s.id: asdict(s) for s in db_cfg.symbols}
+
+        # フロントエンドから受け取ったデータとDBデータをマージ
+        symbols = []
+        for s_data in symbols_data:
+            if s_data['id'] in db_symbols:
+                merged = db_symbols[s_data['id']].copy()
+                merged.update({
+                    'payout_3': s_data.get('payout_3', merged.get('payout_3', 0)),
+                    'is_disabled': s_data.get('is_disabled', merged.get('is_disabled', False)),
+                    'prob': s_data.get('prob', merged.get('prob', 0)),
+                })
+                symbols.append(Symbol(**merged))
+            else:
+                symbols.append(Symbol(
+                    id=s_data.get('id', ''), label=s_data.get('label', ''),
+                    payout_3=float(s_data.get('payout_3', 0)), prob=float(s_data.get('prob', 0)),
+                    color=s_data.get('color', '#000000'),
+                    is_disabled=s_data.get('is_disabled', False),
+                    is_default=s_data.get('is_default', False),
+                    is_reach=s_data.get('is_reach', False),
+                    reach_symbol=s_data.get('reach_symbol', None),
+                ))
+
+        # 不使用役を除外して最適化
         active_symbols = [s for s in symbols if not s.is_disabled]
         disabled_symbols = [s for s in symbols if s.is_disabled]
-        if active_symbols:
-            target_e1 = expected_total_5 / 5.0  # 5回スピンの期待値 → 1回の期待値
-            payouts = [float(s.payout_3) for s in active_symbols]
-            probs = solve_probs_for_target_expectation(payouts, target_e1)
-            # 有効シンボルに確率を設定
-            for s, p in zip(active_symbols, probs):
-                s.prob = round(p * 100.0, 4)
-        # 不使用役は確率を0に設定
+
+        # ハズレ確率を取得してadjusted_target_e1を計算
+        target_e1 = expected_total_5 / 5.0
+        miss_probability = db_cfg.miss_probability if hasattr(db_cfg, 'miss_probability') else 20.0
+        miss_rate = miss_probability / 100.0
+        if miss_rate >= 1.0:
+            return jsonify({"ok": False, "error": "ハズレ確率は100%未満である必要があります"}), 400
+        adjusted_target_e1 = target_e1 / (1.0 - miss_rate)
+
+        # 期待値から確率を逆算
+        payouts = [s.payout_3 for s in active_symbols]
+        probs = solve_probs_for_target_expectation(payouts, adjusted_target_e1)
+        for s, p in zip(active_symbols, probs):
+            s.prob = float(p) * 100.0
+
+        # 不使用役の確率を0に設定
         for s in disabled_symbols:
             s.prob = 0.0
-        return jsonify({"ok": True, "symbols": [asdict(s) for s in symbols]})
+
+        # 元の順序を保持して結果を返す
+        result_symbols = []
+        for orig in symbols:
+            found = next((s for s in active_symbols if s.id == orig.id), None)
+            if found:
+                result_symbols.append(found)
+            else:
+                found = next((s for s in disabled_symbols if s.id == orig.id), None)
+                if found:
+                    result_symbols.append(found)
+
+        return jsonify({"ok": True, "symbols": [asdict(s) for s in result_symbols]})
     except Exception as e:
         sys.stderr.write(f"optimize_probabilities error: {e}\n")
         return jsonify({"ok": False, "error": str(e)}), 500

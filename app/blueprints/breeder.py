@@ -4749,27 +4749,26 @@ def api_create_kpi_snapshot():
     if existing:
         return jsonify({'message': '本日のスナップショットは既に存在します'}), 200
 
+    def safe_count(query_str):
+        try:
+            return db.execute(text(query_str)).fetchone()[0] or 0
+        except Exception:
+            db.rollback()
+            return 0
     try:
         snap = KpiSnapshot(snapshot_date=today)
-        snap.active_breeders = db.execute(text(
-            "SELECT COUNT(DISTINCT tenant_id) FROM dogs WHERE is_deleted = 0"
-        )).fetchone()[0] or 0
-        snap.active_owners = db.execute(text(
-            "SELECT COUNT(*) FROM owners WHERE is_active = 1"
-        )).fetchone()[0] or 0
-        snap.total_dogs = db.execute(text(
-            "SELECT COUNT(*) FROM dogs WHERE is_deleted = 0"
-        )).fetchone()[0] or 0
-        snap.total_health_logs = db.execute(text(
-            "SELECT COUNT(*) FROM health_logs"
-        )).fetchone()[0] or 0
-        snap.total_coi_calcs = db.execute(text(
-            "SELECT COUNT(*) FROM feature_usages WHERE feature_key = 'advanced_coi'"
-        )).fetchone()[0] or 0
-        snap.paying_tenants = db.execute(text(
-            "SELECT COUNT(DISTINCT tenant_id) FROM subscriptions WHERE status = 'active'"
-        )).fetchone()[0] or 0
-
+        snap.active_breeders = safe_count(
+            "SELECT COUNT(DISTINCT tenant_id) FROM dogs WHERE is_deleted = 0")
+        snap.active_owners = safe_count(
+            "SELECT COUNT(*) FROM owners WHERE is_active = 1")
+        snap.total_dogs = safe_count(
+            "SELECT COUNT(*) FROM dogs WHERE is_deleted = 0")
+        snap.total_health_logs = safe_count(
+            "SELECT COUNT(*) FROM health_logs")
+        snap.total_coi_calcs = safe_count(
+            "SELECT COUNT(*) FROM feature_usages WHERE feature_key = 'advanced_coi'")
+        snap.paying_tenants = safe_count(
+            "SELECT COUNT(DISTINCT tenant_id) FROM subscriptions WHERE status = 'active'")
         db.add(snap)
         db.commit()
         return jsonify({'message': 'スナップショット作成完了', 'date': str(today)})

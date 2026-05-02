@@ -8,6 +8,7 @@
     <a href="{{ url_for('survey_app.responses', store_id=store_id) }}" class="btn" style="background:#10b981;color:white;border:none;">📊 回答一覧</a>
     <a href="{{ url_for('survey_app.export_csv', store_id=store_id) }}" class="btn" style="background:#6b7280;color:white;border:none;">⬇️ CSV出力</a>
     <a href="{{ url_for('survey_app.answer', store_id=store_id) }}" class="btn" style="background:#f59e0b;color:white;border:none;" target="_blank">🔗 回答フォームを開く</a>
+    <a href="{{ url_for('survey_app.survey_settings_view', store_id=store_id) }}" class="btn" style="background:#8b5cf6;color:white;border:none;">⚙️ 設定</a>
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">

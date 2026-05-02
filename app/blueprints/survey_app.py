@@ -184,7 +184,7 @@ def run_survey_migrations():
 
 @bp.route("/")
 @bp.route("")
-@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["OWNER"])
+@require_roles(ROLES["ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def index():
     store_id = session.get("store_id")
     if store_id:

@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime, date
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, Date,
-    ForeignKey, Numeric, Enum as SAEnum, JSON
+    ForeignKey, Numeric, Enum as SAEnum, JSON, Float, Boolean
 )
 from sqlalchemy.sql import func
 from app.db import Base

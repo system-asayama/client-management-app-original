@@ -832,3 +832,148 @@ class VaccineSchedule(Base):
     is_completed = Column(Integer, default=0, comment='完了フラグ')
     notes = Column(Text, nullable=True, comment='メモ')
     created_at = Column(DateTime, server_default=func.now())
+
+# ─────────────────────────────────────────────
+# プラン・課金モデル
+# ─────────────────────────────────────────────
+class Plan(Base):
+    """料金プラン定義"""
+    __tablename__ = 'plans'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(50), nullable=False, unique=True, comment='プラン名 (free/standard/pro/enterprise)')
+    display_name = Column(String(100), nullable=False, comment='表示名')
+    price_monthly = Column(Integer, nullable=False, default=0, comment='月額料金（円）')
+    price_yearly = Column(Integer, nullable=False, default=0, comment='年額料金（円）')
+    max_dogs = Column(Integer, nullable=True, comment='犬登録上限（NULLは無制限）')
+    max_owners = Column(Integer, nullable=True, comment='飼い主登録上限（NULLは無制限）')
+    features = Column(JSON, nullable=True, comment='利用可能機能リスト（JSON配列）')
+    is_active = Column(Integer, default=1, comment='有効フラグ')
+    sort_order = Column(Integer, default=0, comment='表示順')
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Subscription(Base):
+    """テナントのサブスクリプション状態"""
+    __tablename__ = 'subscriptions'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+                       nullable=False, index=True)
+    plan_id = Column(Integer, ForeignKey('plans.id'), nullable=False)
+    status = Column(
+        SAEnum('active', 'trialing', 'past_due', 'canceled', 'unpaid',
+               name='subscription_status_enum'),
+        nullable=False, default='active'
+    )
+    trial_start = Column(DateTime, nullable=True, comment='トライアル開始日')
+    trial_end = Column(DateTime, nullable=True, comment='トライアル終了日')
+    current_period_start = Column(DateTime, nullable=True, comment='現在の課金期間開始')
+    current_period_end = Column(DateTime, nullable=True, comment='現在の課金期間終了')
+    stripe_subscription_id = Column(String(255), nullable=True, unique=True, comment='Stripe Subscription ID')
+    canceled_at = Column(DateTime, nullable=True, comment='解約日時')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class StripeCustomer(Base):
+    """Stripe顧客情報"""
+    __tablename__ = 'stripe_customers'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+                       nullable=False, unique=True, index=True)
+    stripe_customer_id = Column(String(255), nullable=False, unique=True, comment='Stripe Customer ID')
+    email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class FeatureUsage(Base):
+    """機能利用ログ（KPI計測・制限管理）"""
+    __tablename__ = 'feature_usages'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+                       nullable=False, index=True)
+    feature_key = Column(String(100), nullable=False, comment='機能キー (coi_calc/avk_calc/report_pdf等)')
+    used_at = Column(DateTime, server_default=func.now(), index=True)
+    user_id = Column(Integer, nullable=True, comment='操作ユーザーID')
+    meta = Column(JSON, nullable=True, comment='追加情報（犬ID等）')
+
+
+# ─────────────────────────────────────────────
+# ブリーダープロフィール・評価スコア
+# ─────────────────────────────────────────────
+class BreederProfile(Base):
+    """ブリーダー公開プロフィール"""
+    __tablename__ = 'breeder_profiles'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+                       nullable=False, unique=True, index=True)
+    kennel_name = Column(String(200), nullable=True, comment='ケネル名')
+    location_prefecture = Column(String(50), nullable=True, comment='都道府県')
+    location_city = Column(String(100), nullable=True, comment='市区町村')
+    website = Column(String(500), nullable=True, comment='WebサイトURL')
+    description = Column(Text, nullable=True, comment='自己紹介・説明文')
+    is_public = Column(Integer, default=0, comment='公開フラグ（1=公開）')
+    is_verified = Column(Integer, default=0, comment='認証済みフラグ')
+    main_breeds = Column(JSON, nullable=True, comment='主な犬種リスト（JSON配列）')
+    years_experience = Column(Integer, nullable=True, comment='繁殖経験年数')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class BreederScore(Base):
+    """ブリーダー評価スコア（定期計算・キャッシュ）"""
+    __tablename__ = 'breeder_scores'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+                       nullable=False, index=True)
+    calculated_at = Column(DateTime, server_default=func.now(), index=True)
+    total_score = Column(Integer, nullable=False, default=0, comment='総合スコア（0-100）')
+    rank = Column(String(2), nullable=False, default='C', comment='ランク（S/A/B/C/D）')
+    avg_coi = Column(Float, nullable=True, comment='平均COI（%）')
+    puppy_survival_rate = Column(Float, nullable=True, comment='産子生存率（%）')
+    disease_incidence_rate = Column(Float, nullable=True, comment='疾患発生率（%）')
+    breeding_success_rate = Column(Float, nullable=True, comment='繁殖成功率（%）')
+    data_completeness_rate = Column(Float, nullable=True, comment='データ登録率（%）')
+    owner_retention_rate = Column(Float, nullable=True, comment='飼い主継続率（%）')
+    strengths = Column(JSON, nullable=True, comment='強み（JSON配列）')
+    weaknesses = Column(JSON, nullable=True, comment='弱み（JSON配列）')
+    improvement_tips = Column(JSON, nullable=True, comment='改善提案（JSON配列）')
+
+
+# ─────────────────────────────────────────────
+# KPIトラッキング
+# ─────────────────────────────────────────────
+class KpiSnapshot(Base):
+    """プラットフォーム全体KPIスナップショット（日次）"""
+    __tablename__ = 'kpi_snapshots'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_date = Column(Date, nullable=False, unique=True, index=True)
+    active_breeders = Column(Integer, default=0, comment='アクティブブリーダー数')
+    active_owners = Column(Integer, default=0, comment='アクティブ飼い主数')
+    total_dogs = Column(Integer, default=0, comment='登録犬総数')
+    total_health_logs = Column(Integer, default=0, comment='健康ログ総数')
+    total_coi_calcs = Column(Integer, default=0, comment='COI計算総数')
+    paying_tenants = Column(Integer, default=0, comment='有料テナント数')
+    mrr = Column(Integer, default=0, comment='月次経常収益（円）')
+    avg_coi_platform = Column(Float, nullable=True, comment='プラットフォーム平均COI')
+    created_at = Column(DateTime, server_default=func.now())
+
+
+# ─────────────────────────────────────────────
+# ブリーダー検索インデックス
+# ─────────────────────────────────────────────
+class BreederSearchIndex(Base):
+    """ブリーダー検索用インデックス（非正規化キャッシュ）"""
+    __tablename__ = 'breeder_search_index'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('tenants.id', ondelete='CASCADE'),
+                       nullable=False, unique=True, index=True)
+    kennel_name = Column(String(200), nullable=True, index=True)
+    location_prefecture = Column(String(50), nullable=True, index=True)
+    breeds = Column(JSON, nullable=True, comment='犬種リスト（JSON配列）')
+    total_score = Column(Integer, default=0, index=True)
+    rank = Column(String(2), default='C', index=True)
+    is_verified = Column(Integer, default=0, index=True)
+    is_public = Column(Integer, default=0, index=True)
+    plan_name = Column(String(50), nullable=True, comment='現在のプラン名')
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -4496,3 +4496,292 @@ def owner_add_dog(owner_id: int):
         return redirect(url_for('breeder.owner_invite_url', owner_id=owner_id))
     finally:
         db.close()
+
+
+# ═══════════════════════════════════════════════════════════════
+# プラットフォーム機能: ブリーダープロフィール・評価スコア・検索・プラン
+# ═══════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────
+# ブリーダープロフィール
+# ─────────────────────────────────────────────
+
+@bp.route('/profile', methods=['GET', 'POST'])
+@require_roles(*BREEDER_ROLES)
+def breeder_profile():
+    """ブリーダープロフィール編集"""
+    from app.models_breeder import BreederProfile
+    from app.services.plan_guard import get_plan_context
+
+    tenant_id = session.get('tenant_id')
+    profile = db.query(BreederProfile).filter_by(tenant_id=tenant_id).first()
+
+    if request.method == 'POST':
+        data = request.form
+        if not profile:
+            profile = BreederProfile(tenant_id=tenant_id)
+            db.add(profile)
+        profile.kennel_name = data.get('kennel_name', '')
+        profile.location_prefecture = data.get('location_prefecture', '')
+        profile.location_city = data.get('location_city', '')
+        profile.website = data.get('website', '')
+        profile.description = data.get('description', '')
+        profile.is_public = 1 if data.get('is_public') else 0
+        profile.years_experience = int(data.get('years_experience') or 0)
+        breeds_raw = data.get('main_breeds', '')
+        profile.main_breeds = [b.strip() for b in breeds_raw.split(',') if b.strip()]
+        db.commit()
+        flash('プロフィールを更新しました', 'success')
+        return redirect(url_for('breeder.breeder_profile'))
+
+    plan_ctx = get_plan_context(db, tenant_id)
+    return render_template('breeder/breeder_profile.html',
+                           profile=profile, **plan_ctx)
+
+
+@bp.route('/profile/public/<int:tenant_id>')
+def public_breeder_profile(tenant_id):
+    """ブリーダー公開プロフィールページ（ログイン不要）"""
+    from app.models_breeder import BreederProfile, BreederScore
+
+    profile = db.query(BreederProfile).filter_by(
+        tenant_id=tenant_id, is_public=1).first()
+    if not profile:
+        abort(404)
+
+    latest_score = db.query(BreederScore).filter_by(
+        tenant_id=tenant_id).order_by(BreederScore.calculated_at.desc()).first()
+
+    return render_template('breeder/public_profile.html',
+                           profile=profile, score=latest_score)
+
+
+# ─────────────────────────────────────────────
+# ブリーダー評価スコア
+# ─────────────────────────────────────────────
+
+@bp.route('/score')
+@require_roles(*BREEDER_ROLES)
+def breeder_score_page():
+    """ブリーダー評価スコアページ"""
+    from app.models_breeder import BreederScore
+    from app.services.breeder_score import calculate_and_save_breeder_score
+    from app.services.plan_guard import get_plan_context, can_use_feature, get_tenant_plan
+
+    tenant_id = session.get('tenant_id')
+    plan_name = get_tenant_plan(db, tenant_id)
+
+    if not can_use_feature(plan_name, 'breeder_score'):
+        flash('ブリーダー評価スコアはプロプラン以上でご利用いただけます', 'warning')
+        return redirect(url_for('breeder.plan_upgrade'))
+
+    latest_score = db.query(BreederScore).filter_by(
+        tenant_id=tenant_id).order_by(BreederScore.calculated_at.desc()).first()
+
+    plan_ctx = get_plan_context(db, tenant_id)
+    return render_template('breeder/breeder_score.html',
+                           score=latest_score, **plan_ctx)
+
+
+@bp.route('/api/score/recalculate', methods=['POST'])
+@require_roles(*BREEDER_ROLES)
+def api_recalculate_score():
+    """評価スコアを再計算するAPI"""
+    from app.services.breeder_score import calculate_and_save_breeder_score
+    from app.services.plan_guard import can_use_feature, get_tenant_plan
+
+    tenant_id = session.get('tenant_id')
+    plan_name = get_tenant_plan(db, tenant_id)
+
+    if not can_use_feature(plan_name, 'breeder_score'):
+        return jsonify({'error': 'plan_limit', 'message': 'プロプラン以上が必要です'}), 403
+
+    result = calculate_and_save_breeder_score(db, tenant_id)
+    return jsonify(result)
+
+
+# ─────────────────────────────────────────────
+# ブリーダー検索（公開）
+# ─────────────────────────────────────────────
+
+@bp.route('/search')
+def breeder_search():
+    """ブリーダー検索ページ（ログイン不要）"""
+    from app.models_breeder import BreederProfile, BreederScore
+
+    prefecture = request.args.get('prefecture', '')
+    breed = request.args.get('breed', '')
+    keyword = request.args.get('q', '')
+
+    query = db.query(BreederProfile).filter_by(is_public=1)
+
+    if prefecture:
+        query = query.filter(BreederProfile.location_prefecture == prefecture)
+    if keyword:
+        query = query.filter(BreederProfile.kennel_name.contains(keyword))
+
+    profiles = query.order_by(BreederProfile.is_verified.desc()).limit(50).all()
+
+    # 各プロフィールに最新スコアを付与
+    results = []
+    for p in profiles:
+        score = db.query(BreederScore).filter_by(
+            tenant_id=p.tenant_id).order_by(BreederScore.calculated_at.desc()).first()
+        results.append({'profile': p, 'score': score})
+
+    # 都道府県リスト
+    prefectures = [
+        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+        '岐阜県', '静岡県', '愛知県', '三重県',
+        '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '徳島県', '香川県', '愛媛県', '高知県',
+        '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+    ]
+
+    return render_template('breeder/breeder_search.html',
+                           results=results, prefectures=prefectures,
+                           prefecture=prefecture, breed=breed, keyword=keyword)
+
+
+# ─────────────────────────────────────────────
+# プラン管理・アップグレード
+# ─────────────────────────────────────────────
+
+@bp.route('/plan')
+@require_roles(*BREEDER_ROLES)
+def plan_upgrade():
+    """プランアップグレードページ"""
+    from app.models_breeder import Subscription, Plan
+    from app.services.plan_guard import get_plan_context, PLAN_FEATURES
+
+    tenant_id = session.get('tenant_id')
+    plan_ctx = get_plan_context(db, tenant_id)
+
+    subscription = db.query(Subscription).filter_by(
+        tenant_id=tenant_id).order_by(Subscription.id.desc()).first()
+
+    return render_template('breeder/plan_upgrade.html',
+                           subscription=subscription,
+                           plan_features=PLAN_FEATURES,
+                           **plan_ctx)
+
+
+@bp.route('/api/plan/current')
+@require_roles(*BREEDER_ROLES)
+def api_current_plan():
+    """現在のプラン情報を返すAPI"""
+    from app.services.plan_guard import get_plan_context
+
+    tenant_id = session.get('tenant_id')
+    ctx = get_plan_context(db, tenant_id)
+    return jsonify({
+        'plan': ctx['current_plan'],
+        'display_name': ctx['current_plan_display'],
+        'features': ctx['available_features'],
+    })
+
+
+# ─────────────────────────────────────────────
+# 管理者ダッシュボード（KPI）
+# ─────────────────────────────────────────────
+
+@bp.route('/admin/kpi')
+@require_roles('owner', 'system_admin')
+def admin_kpi_dashboard():
+    """管理者向けKPIダッシュボード"""
+    from app.models_breeder import KpiSnapshot
+    from sqlalchemy import text
+
+    # 最新KPIスナップショット（過去30日）
+    snapshots = db.query(KpiSnapshot).order_by(
+        KpiSnapshot.snapshot_date.desc()).limit(30).all()
+
+    # リアルタイム集計
+    try:
+        rt = {}
+        rt['total_tenants'] = db.execute(text("SELECT COUNT(*) FROM tenants")).fetchone()[0]
+        rt['active_breeders'] = db.execute(text(
+            "SELECT COUNT(DISTINCT tenant_id) FROM dogs WHERE is_deleted = 0"
+        )).fetchone()[0]
+        rt['total_dogs'] = db.execute(text(
+            "SELECT COUNT(*) FROM dogs WHERE is_deleted = 0"
+        )).fetchone()[0]
+        rt['total_owners'] = db.execute(text("SELECT COUNT(*) FROM owners")).fetchone()[0]
+        rt['total_health_logs'] = db.execute(text("SELECT COUNT(*) FROM health_logs")).fetchone()[0]
+        rt['total_coi_calcs'] = db.execute(text(
+            "SELECT COUNT(*) FROM feature_usages WHERE feature_key = 'advanced_coi'"
+        )).fetchone()[0]
+        rt['paying_tenants'] = db.execute(text(
+            "SELECT COUNT(DISTINCT tenant_id) FROM subscriptions WHERE status = 'active'"
+        )).fetchone()[0]
+    except Exception:
+        rt = {}
+
+    return render_template('breeder/admin_kpi.html',
+                           snapshots=snapshots, rt=rt)
+
+
+@bp.route('/api/admin/kpi/snapshot', methods=['POST'])
+@require_roles('owner', 'system_admin')
+def api_create_kpi_snapshot():
+    """KPIスナップショットを手動作成するAPI"""
+    from app.models_breeder import KpiSnapshot
+    from sqlalchemy import text
+    from datetime import date
+
+    today = date.today()
+    existing = db.query(KpiSnapshot).filter_by(snapshot_date=today).first()
+    if existing:
+        return jsonify({'message': '本日のスナップショットは既に存在します'}), 200
+
+    try:
+        snap = KpiSnapshot(snapshot_date=today)
+        snap.active_breeders = db.execute(text(
+            "SELECT COUNT(DISTINCT tenant_id) FROM dogs WHERE is_deleted = 0"
+        )).fetchone()[0] or 0
+        snap.active_owners = db.execute(text(
+            "SELECT COUNT(*) FROM owners WHERE is_active = 1"
+        )).fetchone()[0] or 0
+        snap.total_dogs = db.execute(text(
+            "SELECT COUNT(*) FROM dogs WHERE is_deleted = 0"
+        )).fetchone()[0] or 0
+        snap.total_health_logs = db.execute(text(
+            "SELECT COUNT(*) FROM health_logs"
+        )).fetchone()[0] or 0
+        snap.total_coi_calcs = db.execute(text(
+            "SELECT COUNT(*) FROM feature_usages WHERE feature_key = 'advanced_coi'"
+        )).fetchone()[0] or 0
+        snap.paying_tenants = db.execute(text(
+            "SELECT COUNT(DISTINCT tenant_id) FROM subscriptions WHERE status = 'active'"
+        )).fetchone()[0] or 0
+
+        db.add(snap)
+        db.commit()
+        return jsonify({'message': 'スナップショット作成完了', 'date': str(today)})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/admin/kpi/summary')
+@require_roles('owner', 'system_admin')
+def api_kpi_summary():
+    """KPIサマリーを返すAPI"""
+    from app.models_breeder import KpiSnapshot
+
+    snapshots = db.query(KpiSnapshot).order_by(
+        KpiSnapshot.snapshot_date.desc()).limit(30).all()
+
+    return jsonify([{
+        'date': str(s.snapshot_date),
+        'active_breeders': s.active_breeders,
+        'active_owners': s.active_owners,
+        'total_dogs': s.total_dogs,
+        'total_health_logs': s.total_health_logs,
+        'total_coi_calcs': s.total_coi_calcs,
+        'paying_tenants': s.paying_tenants,
+        'mrr': s.mrr,
+    } for s in snapshots])

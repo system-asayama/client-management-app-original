@@ -735,6 +735,26 @@
     </div>
 
     <div class="sidebar-section">
+      <div class="sidebar-section-label">プラットフォーム</div>
+      <ul class="sidebar-nav">
+        <li><a href="{{ url_for('breeder.breeder_profile') }}" class="{{ 'active' if request.endpoint == 'breeder.breeder_profile' }}">
+          <span class="nav-icon">👤</span>プロフィール
+        </a></li>
+        <li><a href="{{ url_for('breeder.breeder_score_page') }}" class="{{ 'active' if request.endpoint == 'breeder.breeder_score_page' }}">
+          <span class="nav-icon">⭐</span>評価スコア
+        </a></li>
+        <li><a href="{{ url_for('breeder.plan_upgrade') }}" class="{{ 'active' if request.endpoint == 'breeder.plan_upgrade' }}">
+          <span class="nav-icon">💎</span>プラン管理
+        </a></li>
+        {% if session.get('role') in ('owner', 'system_admin', 'tenant_admin') %}
+        <li><a href="{{ url_for('breeder.admin_kpi_dashboard') }}" class="{{ 'active' if request.endpoint == 'breeder.admin_kpi_dashboard' }}">
+          <span class="nav-icon">📊</span>管理KPI
+        </a></li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
       <div class="sidebar-section-label">設定</div>
       <ul class="sidebar-nav">
         <li><a href="{{ url_for('breeder.settings') }}" class="{{ 'active' if request.endpoint == 'breeder.settings' }}">

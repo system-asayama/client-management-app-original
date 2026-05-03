@@ -169,7 +169,8 @@ class SSResident(Base):
     urinary_control = Column(String(20), nullable=True, default='失禁なし', comment='排尿コントロール（失禁なし/時に失禁/介助）')
     dressing_assistance = Column(String(20), nullable=True, default='自立', comment='更衣（自立/見守り/一部介助/全介助）')
     bowel_control = Column(String(20), nullable=True, default='失禁なし', comment='排便コントロール（失禁なし/時に失禁/介助）')
-    communication = Column(String(20), nullable=True, default='可能', comment='意思疎通（可能/何とか可能/不可能）')
+    communication = Column(String(20), nullable=True, default='可能', comment='意思疏通（可能/何とか可能/不可能）')
+    adl_notes = Column(Text, nullable=True, comment='ADL特記事項')
 
     # 状態
     active = Column(Boolean, default=True, nullable=False, comment='有効フラグ')

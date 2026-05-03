@@ -238,6 +238,7 @@ def resident_new():
                 bowel_control=request.form.get('bowel_control'),
                 dressing_assistance=request.form.get('dressing_assistance'),
                 communication=request.form.get('communication'),
+                adl_notes=request.form.get('adl_notes'),
             )
             db.add(r)
             db.flush()
@@ -397,6 +398,7 @@ def resident_edit(resident_id):
             resident.bowel_control = request.form.get('bowel_control')
             resident.dressing_assistance = request.form.get('dressing_assistance')
             resident.communication = request.form.get('communication')
+            resident.adl_notes = request.form.get('adl_notes')
             resident.updated_at = datetime.utcnow()
 
             # 写真アップロード処理

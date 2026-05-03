@@ -315,9 +315,15 @@
         </select>
       </div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="grid-column: span 3;">
+        <label class="form-label">ADL特記事項</label>
+        <textarea name="adl_notes" class="form-control" rows="3" placeholder="ADLに関する特記事項を入力">{{ resident.adl_notes or '' if resident else '' }}</textarea>
+      </div>
+    </div>
   </div>
 
-  <!-- ⑥ 介護保険情報 -->
+  <!-- ⑧ 介護保険情報 -->
   <div class="card">
     <div class="form-section-title">介護保険情報</div>
     <div class="form-row">

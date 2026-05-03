@@ -257,6 +257,17 @@ def resident_new():
                     )
                     db.add(ec)
 
+            # 住所情報から自宅送迎先を自動登録
+            _upsert_home_transport_address(
+                db=db,
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=r.id,
+                postal_code=request.form.get('postal_code'),
+                address=request.form.get('address'),
+                phone=request.form.get('phone'),
+            )
+
             db.commit()
             flash('利用者を登録しました。', 'success')
             return redirect(url_for('shortstay.resident_detail', resident_id=r.id))
@@ -421,6 +432,17 @@ def resident_edit(resident_id):
                         sort_order=i,
                     )
                     db.add(ec)
+
+            # 住所情報から自宅送迎先を自動登録/更新
+            _upsert_home_transport_address(
+                db=db,
+                tenant_id=tenant_id,
+                store_id=store_id,
+                resident_id=resident_id,
+                postal_code=request.form.get('postal_code'),
+                address=request.form.get('address'),
+                phone=request.form.get('phone'),
+            )
 
             db.commit()
             flash('利用者情報を更新しました。', 'success')
@@ -1592,6 +1614,49 @@ def _parse_date(s):
         return date.fromisoformat(s)
     except Exception:
         return None
+
+
+def _upsert_home_transport_address(db, tenant_id, store_id, resident_id, postal_code, address, phone):
+    """利用者の住所情報を自宅送迎先として自動登録/更新する。
+    手動編集済み（is_manually_edited=True）の場合は上書きしない。
+    """
+    # 住所情報が一つもなければ何もしない
+    if not any([postal_code, address, phone]):
+        return
+
+    # 既存の自宅送迎先を検索（address_type='home'のもの）
+    existing = db.query(SSUserTransportAddress).filter(
+        SSUserTransportAddress.resident_id == resident_id,
+        SSUserTransportAddress.address_type == 'home',
+    ).first()
+
+    if existing:
+        # 手動編集済みフラグがあれば上書きしない
+        if getattr(existing, 'is_manually_edited', False):
+            return
+        existing.postal_code = postal_code or existing.postal_code
+        existing.address = address or existing.address
+        existing.phone = phone or existing.phone
+        existing.is_active = True
+        existing.updated_at = datetime.utcnow()
+    else:
+        # 新規作成
+        new_addr = SSUserTransportAddress(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            resident_id=resident_id,
+            name='自宅',
+            address_type='home',
+            postal_code=postal_code,
+            address=address,
+            phone=phone,
+            is_default_pickup=True,
+            is_default_dropoff=True,
+            is_default=True,
+            is_active=True,
+            display_order=0,
+        )
+        db.add(new_addr)
 
 
 def _parse_int(s):

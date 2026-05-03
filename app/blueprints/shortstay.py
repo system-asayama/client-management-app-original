@@ -2023,7 +2023,7 @@ def transport_addresses(resident_id):
         addresses = db.query(SSUserTransportAddress).filter(
             SSUserTransportAddress.resident_id == resident_id,
             SSUserTransportAddress.is_active == True
-        ).order_by(SSUserTransportAddress.is_default.desc(), SSUserTransportAddress.id).all()
+        ).order_by(SSUserTransportAddress.display_order, SSUserTransportAddress.id).all()
         # NGドライバー一覧
         ng_list = db.query(SSUserDriverRestriction).filter(
             SSUserDriverRestriction.resident_id == resident_id,
@@ -2055,31 +2055,40 @@ def transport_address_new(resident_id):
             flash('利用者が見つかりません。', 'error')
             return redirect(url_for('shortstay.residents'))
         if request.method == 'POST':
-            is_default = bool(request.form.get('is_default'))
-            if is_default:
-                # 既存のデフォルトを解除
+            is_default_pickup = bool(request.form.get('is_default_pickup'))
+            is_default_dropoff = bool(request.form.get('is_default_dropoff'))
+            if is_default_pickup:
                 db.query(SSUserTransportAddress).filter(
                     SSUserTransportAddress.resident_id == resident_id
-                ).update({'is_default': False})
+                ).update({'is_default_pickup': False})
+            if is_default_dropoff:
+                db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == resident_id
+                ).update({'is_default_dropoff': False})
             addr = SSUserTransportAddress(
                 tenant_id=tenant_id, store_id=store_id,
                 resident_id=resident_id,
                 name=request.form.get('name', ''),
-                address_type=request.form.get('address_type', '自宅'),
+                address_type=request.form.get('address_type', 'home'),
                 postal_code=request.form.get('postal_code'),
                 address=request.form.get('address'),
                 building=request.form.get('building'),
                 phone=request.form.get('phone'),
+                latitude=request.form.get('latitude'),
+                longitude=request.form.get('longitude'),
                 wheelchair_required=bool(request.form.get('wheelchair_required')),
                 care_notes=request.form.get('care_notes'),
-                is_default=is_default,
+                is_default=is_default_pickup,  # 後方互換
+                is_default_pickup=is_default_pickup,
+                is_default_dropoff=is_default_dropoff,
+                display_order=_parse_int(request.form.get('display_order')) or 0,
             )
             db.add(addr)
             db.commit()
             flash('送迎先を登録しました。', 'success')
             return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
         return render_template('shortstay/transport_address_form.html',
-            resident=resident, address=None)
+            resident=resident, address=None, is_new=True)
     except Exception as e:
         db.rollback()
         flash(f'登録に失敗しました: {e}', 'error')
@@ -2099,25 +2108,37 @@ def transport_address_edit(resident_id, addr_id):
             flash('送迎先が見つかりません。', 'error')
             return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
         if request.method == 'POST':
-            is_default = bool(request.form.get('is_default'))
-            if is_default:
+            is_default_pickup = bool(request.form.get('is_default_pickup'))
+            is_default_dropoff = bool(request.form.get('is_default_dropoff'))
+            if is_default_pickup:
                 db.query(SSUserTransportAddress).filter(
-                    SSUserTransportAddress.resident_id == resident_id
-                ).update({'is_default': False})
+                    SSUserTransportAddress.resident_id == resident_id,
+                    SSUserTransportAddress.id != addr_id
+                ).update({'is_default_pickup': False})
+            if is_default_dropoff:
+                db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == resident_id,
+                    SSUserTransportAddress.id != addr_id
+                ).update({'is_default_dropoff': False})
             addr.name = request.form.get('name', '')
-            addr.address_type = request.form.get('address_type', '自宅')
+            addr.address_type = request.form.get('address_type', 'home')
             addr.postal_code = request.form.get('postal_code')
             addr.address = request.form.get('address')
             addr.building = request.form.get('building')
             addr.phone = request.form.get('phone')
+            addr.latitude = request.form.get('latitude')
+            addr.longitude = request.form.get('longitude')
             addr.wheelchair_required = bool(request.form.get('wheelchair_required'))
             addr.care_notes = request.form.get('care_notes')
-            addr.is_default = is_default
+            addr.is_default = is_default_pickup  # 後方互換
+            addr.is_default_pickup = is_default_pickup
+            addr.is_default_dropoff = is_default_dropoff
+            addr.display_order = _parse_int(request.form.get('display_order')) or 0
             db.commit()
             flash('送迎先を更新しました。', 'success')
             return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
         return render_template('shortstay/transport_address_form.html',
-            resident=resident, address=addr)
+            resident=resident, address=addr, is_new=False)
     finally:
         db.close()
 
@@ -3421,14 +3442,21 @@ def transport_schedules_generate():
                         skipped_count += 1
                         continue
 
-                # 送迎先を取得（利用者のデフォルト送迎先）
-                addr = db.query(SSUserTransportAddress).filter(
+                # 送迎先を取得（迎え標準拠点を優先）
+                pickup_addr = db.query(SSUserTransportAddress).filter(
                     SSUserTransportAddress.resident_id == res.resident_id,
                     SSUserTransportAddress.is_active == True,
-                    SSUserTransportAddress.is_default == True
+                    SSUserTransportAddress.is_default_pickup == True
                 ).first()
-                if not addr:
-                    addr = db.query(SSUserTransportAddress).filter(
+                if not pickup_addr:
+                    # 後方互換：is_defaultでフォールバック
+                    pickup_addr = db.query(SSUserTransportAddress).filter(
+                        SSUserTransportAddress.resident_id == res.resident_id,
+                        SSUserTransportAddress.is_active == True,
+                        SSUserTransportAddress.is_default == True
+                    ).first()
+                if not pickup_addr:
+                    pickup_addr = db.query(SSUserTransportAddress).filter(
                         SSUserTransportAddress.resident_id == res.resident_id,
                         SSUserTransportAddress.is_active == True
                     ).first()
@@ -3441,7 +3469,9 @@ def transport_schedules_generate():
                     resident_id=res.resident_id,
                     reservation_id=res.id,
                     source_reservation_id=res.id,
-                    transport_address_id=addr.id if addr else None,
+                    transport_address_id=pickup_addr.id if pickup_addr else None,  # 後方互換
+                    pickup_address_id=pickup_addr.id if pickup_addr else None,
+                    dropoff_address_id=None,  # 迎えの場合、送り先は施設
                     desired_time=res.pickup_time,
                     wheelchair_required=res.wheelchair_required if hasattr(res, 'wheelchair_required') else False,
                     care_notes=None,
@@ -3477,13 +3507,20 @@ def transport_schedules_generate():
                         skipped_count += 1
                         continue
 
-                addr = db.query(SSUserTransportAddress).filter(
+                # 送り先を取得（送り標準拠点を優先）
+                dropoff_addr = db.query(SSUserTransportAddress).filter(
                     SSUserTransportAddress.resident_id == res.resident_id,
                     SSUserTransportAddress.is_active == True,
-                    SSUserTransportAddress.is_default == True
+                    SSUserTransportAddress.is_default_dropoff == True
                 ).first()
-                if not addr:
-                    addr = db.query(SSUserTransportAddress).filter(
+                if not dropoff_addr:
+                    dropoff_addr = db.query(SSUserTransportAddress).filter(
+                        SSUserTransportAddress.resident_id == res.resident_id,
+                        SSUserTransportAddress.is_active == True,
+                        SSUserTransportAddress.is_default == True
+                    ).first()
+                if not dropoff_addr:
+                    dropoff_addr = db.query(SSUserTransportAddress).filter(
                         SSUserTransportAddress.resident_id == res.resident_id,
                         SSUserTransportAddress.is_active == True
                     ).first()
@@ -3496,7 +3533,9 @@ def transport_schedules_generate():
                     resident_id=res.resident_id,
                     reservation_id=res.id,
                     source_reservation_id=res.id,
-                    transport_address_id=addr.id if addr else None,
+                    transport_address_id=dropoff_addr.id if dropoff_addr else None,  # 後方互換
+                    pickup_address_id=None,  # 送りの場合、乗車地は施設
+                    dropoff_address_id=dropoff_addr.id if dropoff_addr else None,
                     desired_time=res.dropoff_time if hasattr(res, 'dropoff_time') else None,
                     wheelchair_required=res.wheelchair_required if hasattr(res, 'wheelchair_required') else False,
                     care_notes=None,
@@ -3563,7 +3602,9 @@ def transport_schedule_edit(schedule_id):
 
         if request.method == 'POST':
             ts.transport_type = request.form.get('transport_type', ts.transport_type)
-            ts.transport_address_id = _parse_int(request.form.get('transport_address_id'))
+            ts.transport_address_id = _parse_int(request.form.get('transport_address_id'))  # 後方互換
+            ts.pickup_address_id = _parse_int(request.form.get('pickup_address_id'))
+            ts.dropoff_address_id = _parse_int(request.form.get('dropoff_address_id'))
             ts.wheelchair_required = request.form.get('wheelchair_required') == '1'
             ts.care_notes = request.form.get('care_notes') or None
 
@@ -3647,7 +3688,9 @@ def transport_schedule_add():
                 resident_id=resident_id,
                 reservation_id=_parse_int(request.form.get('reservation_id')),
                 source_reservation_id=None,
-                transport_address_id=_parse_int(request.form.get('transport_address_id')),
+                transport_address_id=_parse_int(request.form.get('transport_address_id')),  # 後方互換
+                pickup_address_id=_parse_int(request.form.get('pickup_address_id')),
+                dropoff_address_id=_parse_int(request.form.get('dropoff_address_id')),
                 wheelchair_required=request.form.get('wheelchair_required') == '1',
                 care_notes=request.form.get('care_notes') or None,
                 is_confirmed=False,

@@ -629,9 +629,11 @@ class SSUserTransportAddress(Base):
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
     store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
     resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False, comment='利用者ID')
-    name = Column(String(100), nullable=False, comment='送迎先名')
-    address_type = Column(String(20), nullable=False, default='自宅',
-                          comment='区分（自宅/勤務先/家族宅/病院/その他）')
+    name = Column(String(100), nullable=False, comment='送迎先名（例：自宅、勤務先）')
+    address_type = Column(
+        String(20), nullable=False, default='home',
+        comment='区分（home/workplace/day_service/hospital/family_home/facility/other）'
+    )
     postal_code = Column(String(10), nullable=True, comment='郵便番号')
     address = Column(String(300), nullable=True, comment='住所')
     building = Column(String(100), nullable=True, comment='建物名')
@@ -640,11 +642,26 @@ class SSUserTransportAddress(Base):
     longitude = Column(String(20), nullable=True, comment='経度（将来API連携用）')
     wheelchair_required = Column(Boolean, default=False, comment='車椅子利用')
     care_notes = Column(Text, nullable=True, comment='介助注意事項')
-    is_default = Column(Boolean, default=False, comment='標準送迎先フラグ')
+    # 標準送迎先（迎え・送り別々に設定）
+    is_default = Column(Boolean, default=False, comment='標準送迎先フラグ（後方互換）')
+    is_default_pickup = Column(Boolean, default=False, comment='迎え標準拠点')
+    is_default_dropoff = Column(Boolean, default=False, comment='送り標準拠点')
+    display_order = Column(Integer, default=0, comment='表示順序')
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resident = relationship('SSResident', backref='transport_addresses')
+    # 送迎スケジュールからの参照（pickup/dropoff）
+    pickup_schedules = relationship(
+        'SSTransportSchedule',
+        foreign_keys='SSTransportSchedule.pickup_address_id',
+        backref='pickup_address'
+    )
+    dropoff_schedules = relationship(
+        'SSTransportSchedule',
+        foreign_keys='SSTransportSchedule.dropoff_address_id',
+        backref='dropoff_address'
+    )
 
 
 class SSUserDriverRestriction(Base):
@@ -676,7 +693,10 @@ class SSTransportSchedule(Base):
     transport_type = Column(String(10), nullable=False, comment='区分（迎え/送り）')
     resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False)
     reservation_id = Column(Integer, ForeignKey('SS_予約.id'), nullable=True)
-    transport_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='送迎先ID')
+    transport_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='送迎先ID（後方互換）')
+    # 拠点別送迎先（迎え・送り別々に設定）
+    pickup_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='迎え先住所ID')
+    dropoff_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='送り先住所ID')
     desired_time = Column(String(10), nullable=True, comment='希望時刻（後方互換）')
     wheelchair_required = Column(Boolean, default=False, comment='車椅子')
     care_notes = Column(Text, nullable=True, comment='注意事項')
@@ -724,7 +744,11 @@ class SSTransportSchedule(Base):
         foreign_keys='SSTransportSchedule.reservation_id',
         backref='transport_schedules'
     )
-    transport_address = relationship('SSUserTransportAddress', backref='transport_schedules')
+    transport_address = relationship(
+        'SSUserTransportAddress',
+        foreign_keys='SSTransportSchedule.transport_address_id',
+        backref='transport_schedules_legacy'
+    )
     source_reservation = relationship(
         'SSReservation',
         foreign_keys='SSTransportSchedule.source_reservation_id',

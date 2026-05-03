@@ -1,64 +1,113 @@
 {% extends "shortstay/base.html" %}
-{% block title %}{% if address %}送迎先編集{% else %}送迎先追加{% endif %} - {{ resident.name }} - ショートステイ運営管理{% endblock %}
+{% block title %}{% if address %}送迎先編集{% else %}送迎先追加{% endif %} - {{ resident.last_name }}{{ resident.first_name }} - ショートステイ運営管理{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1 class="page-title">🏠 {% if address %}送迎先編集{% else %}送迎先追加{% endif %} — {{ resident.name }}</h1>
+  <h1 class="page-title">🏠 {% if address %}送迎先を編集{% else %}送迎先を追加{% endif %} — {{ resident.last_name }}{{ resident.first_name }}</h1>
   <a href="{{ url_for('shortstay.transport_addresses', resident_id=resident.id) }}" class="btn">← 送迎先一覧に戻る</a>
 </div>
 
 <div class="card">
   <form method="post">
+    <!-- 基本情報 -->
+    <div class="form-section-title">📍 基本情報</div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">送迎先種別 <span style="color:var(--danger)">*</span></label>
         <select name="address_type" class="form-control" required>
-          <option value="home" {% if not address or address.address_type == 'home' %}selected{% endif %}>自宅</option>
-          <option value="facility" {% if address and address.address_type == 'facility' %}selected{% endif %}>施設</option>
-          <option value="hospital" {% if address and address.address_type == 'hospital' %}selected{% endif %}>病院</option>
-          <option value="other" {% if address and address.address_type == 'other' %}selected{% endif %}>その他</option>
+          <option value="home"         {% if not address or address.address_type == 'home' %}selected{% endif %}>🏠 自宅</option>
+          <option value="workplace"    {% if address and address.address_type == 'workplace' %}selected{% endif %}>🏢 勤務先</option>
+          <option value="day_service"  {% if address and address.address_type == 'day_service' %}selected{% endif %}>🌞 デイサービス</option>
+          <option value="hospital"     {% if address and address.address_type == 'hospital' %}selected{% endif %}>🏥 病院</option>
+          <option value="family_home"  {% if address and address.address_type == 'family_home' %}selected{% endif %}>👨‍👩‍👧 家族宅</option>
+          <option value="facility"     {% if address and address.address_type == 'facility' %}selected{% endif %}>🏨 施設</option>
+          <option value="other"        {% if address and address.address_type == 'other' %}selected{% endif %}>📍 その他</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">名称（施設名など）</label>
-        <input type="text" name="name" class="form-control" value="{{ address.name if address else '' }}" placeholder="例：田中邸、○○病院">
+        <label class="form-label">名称 <span style="color:var(--danger)">*</span></label>
+        <input type="text" name="name" class="form-control" value="{{ address.name if address else '' }}" required placeholder="例：自宅、田中邸、○○病院">
+        <small style="color:var(--gray-500);">送迎スケジュールのプルダウンに表示される名称です</small>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">住所 <span style="color:var(--danger)">*</span></label>
-      <input type="text" name="address" class="form-control" value="{{ address.address if address else '' }}" required placeholder="例：岡山県岡山市北区○○1-2-3">
+
+    <!-- 住所情報 -->
+    <div class="form-section-title">🗺 住所情報</div>
+    <div class="form-row">
+      <div class="form-group" style="max-width:180px;">
+        <label class="form-label">郵便番号</label>
+        <input type="text" name="postal_code" class="form-control" value="{{ address.postal_code if address else '' }}" placeholder="例：700-0001">
+      </div>
+      <div class="form-group" style="flex:2;">
+        <label class="form-label">住所 <span style="color:var(--danger)">*</span></label>
+        <input type="text" name="address" class="form-control" value="{{ address.address if address else '' }}" required placeholder="例：岡山県岡山市北区○○1-2-3">
+      </div>
     </div>
     <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">建物名・部屋番号</label>
+        <input type="text" name="building" class="form-control" value="{{ address.building if address else '' }}" placeholder="例：○○マンション101号室">
+      </div>
       <div class="form-group">
         <label class="form-label">電話番号</label>
         <input type="tel" name="phone" class="form-control" value="{{ address.phone if address else '' }}" placeholder="例：086-123-4567">
       </div>
-      <div class="form-group">
-        <label class="form-label">乗降時間（分）</label>
-        <input type="number" name="boarding_time_minutes" class="form-control" value="{{ address.boarding_time_minutes if address else 5 }}" min="1" max="60">
-        <small style="color:var(--gray-500);">乗降に要する時間（ルート計算に使用）</small>
-      </div>
     </div>
-    <div class="form-section-title">バリアフリー情報</div>
+
+    <!-- GPS座標（将来のGoogle Maps連携用） -->
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">
-          <input type="checkbox" name="requires_wheelchair" value="1" {% if address and address.requires_wheelchair %}checked{% endif %}>
-          車椅子対応車両が必要
+        <label class="form-label">緯度 <small style="color:var(--gray-400);">（将来のGPS連携用）</small></label>
+        <input type="text" name="latitude" class="form-control" value="{{ address.latitude if address else '' }}" placeholder="例：34.6551">
+      </div>
+      <div class="form-group">
+        <label class="form-label">経度 <small style="color:var(--gray-400);">（将来のGPS連携用）</small></label>
+        <input type="text" name="longitude" class="form-control" value="{{ address.longitude if address else '' }}" placeholder="例：133.9195">
+      </div>
+    </div>
+
+    <!-- 標準設定 -->
+    <div class="form-section-title">⭐ 標準設定</div>
+    <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:8px; padding:1rem; margin-bottom:1rem;">
+      <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+        送迎スケジュール作成時に自動的に選択される標準拠点を設定します。迎えと送りで別々に設定できます。
+      </p>
+      <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.9rem;">
+          <input type="checkbox" name="is_default_pickup" value="1"
+            {% if address and address.is_default_pickup %}checked{% elif not address %}checked{% endif %}>
+          <span>🚗 <strong>迎え標準</strong> — 迎えの場合のデフォルト乗車地点</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.9rem;">
+          <input type="checkbox" name="is_default_dropoff" value="1"
+            {% if address and address.is_default_dropoff %}checked{% endif %}>
+          <span>🏠 <strong>送り標準</strong> — 送りの場合のデフォルト降車地点</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- バリアフリー・介助情報 -->
+    <div class="form-section-title">♿ バリアフリー・介助情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+          <input type="checkbox" name="wheelchair_required" value="1"
+            {% if address and address.wheelchair_required %}checked{% endif %}>
+          <span>♿ 車椅子対応車両が必要</span>
         </label>
       </div>
       <div class="form-group">
-        <label class="form-label">
-          <input type="checkbox" name="is_default" value="1" {% if not address or address.is_default %}checked{% endif %}>
-          デフォルトの送迎先として設定
-        </label>
+        <label class="form-label">表示順序</label>
+        <input type="number" name="display_order" class="form-control" value="{{ address.display_order if address else 0 }}" min="0" max="99" style="max-width:100px;">
+        <small style="color:var(--gray-500);">小さい数字が先に表示されます</small>
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">メモ・備考</label>
-      <textarea name="notes" class="form-control" rows="3" placeholder="例：玄関前に段差あり、インターホン2番">{{ address.notes if address else '' }}</textarea>
+      <label class="form-label">介助注意事項・メモ</label>
+      <textarea name="care_notes" class="form-control" rows="3" placeholder="例：玄関前に段差あり、インターホン2番、家族が在宅の場合は呼び鈴を押す">{{ address.care_notes if address else '' }}</textarea>
     </div>
-    <div style="display:flex; gap:0.75rem; margin-top:1rem;">
-      <button type="submit" class="btn btn-primary">💾 保存</button>
+
+    <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+      <button type="submit" class="btn btn-primary">💾 保存する</button>
       <a href="{{ url_for('shortstay.transport_addresses', resident_id=resident.id) }}" class="btn">キャンセル</a>
     </div>
   </form>

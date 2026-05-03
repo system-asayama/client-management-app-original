@@ -31,13 +31,29 @@
             </select>
           </div>
           <div class="col-6">
-            <label class="form-label fw-bold">送迎先</label>
-            <select name="transport_address_id" class="form-select">
-              <option value="">（未設定）</option>
+            <label class="form-label fw-bold">迎え先（乗車地点）</label>
+            <select name="pickup_address_id" class="form-select">
+              <option value="">（施設 / 未設定）</option>
               {% for addr in addresses %}
               <option value="{{ addr.id }}"
-                {% if ts.transport_address_id == addr.id %}selected{% endif %}>
-                {{ addr.label or addr.address or '住所' }}
+                {% if ts.pickup_address_id == addr.id %}selected
+                {% elif not ts.pickup_address_id and addr.is_default_pickup %}selected{% endif %}>
+                {{ addr.name or addr.address or '住所' }}
+                {% if addr.is_default_pickup %}★迎え標準{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">送り先（降車地点）</label>
+            <select name="dropoff_address_id" class="form-select">
+              <option value="">（施設 / 未設定）</option>
+              {% for addr in addresses %}
+              <option value="{{ addr.id }}"
+                {% if ts.dropoff_address_id == addr.id %}selected
+                {% elif not ts.dropoff_address_id and addr.is_default_dropoff %}selected{% endif %}>
+                {{ addr.name or addr.address or '住所' }}
+                {% if addr.is_default_dropoff %}★送り標準{% endif %}
               </option>
               {% endfor %}
             </select>

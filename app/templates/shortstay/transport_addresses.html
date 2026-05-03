@@ -1,12 +1,104 @@
 {% extends "shortstay/base.html" %}
-{% block title %}送迎先管理 - {{ resident.name }} - ショートステイ運営管理{% endblock %}
+{% block title %}送迎先管理 - {{ resident.last_name }}{{ resident.first_name }} - ショートステイ運営管理{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1 class="page-title">🏠 送迎先管理 — {{ resident.name }}</h1>
+  <h1 class="page-title">🏠 送迎先（拠点）管理 — {{ resident.last_name }}{{ resident.first_name }}</h1>
   <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
     <a href="{{ url_for('shortstay.transport_address_new', resident_id=resident.id) }}" class="btn btn-primary">＋ 送迎先を追加</a>
     <a href="{{ url_for('shortstay.time_constraints', resident_id=resident.id) }}" class="btn btn-warning">⏰ 時刻制約管理</a>
     <a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" class="btn">← 利用者詳細に戻る</a>
+  </div>
+</div>
+
+<!-- 送迎先一覧 -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📍 登録済み送迎先（拠点）一覧</span>
+    <small style="color:var(--gray-500)">送迎は「利用者 × 拠点 × 時間条件」で管理します。複数の拠点を登録できます。</small>
+  </div>
+
+  {% if addresses %}
+  <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:1rem; padding:1rem;">
+    {% for addr in addresses %}
+    <div style="border:1px solid var(--border-color); border-radius:8px; padding:1rem; background:var(--surface-color); position:relative;">
+      <!-- 種別バッジ -->
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+        {% if addr.address_type == 'home' %}<span class="badge badge-blue">🏠 自宅</span>
+        {% elif addr.address_type == 'workplace' %}<span class="badge badge-purple">🏢 勤務先</span>
+        {% elif addr.address_type == 'day_service' %}<span class="badge badge-orange">🌞 デイサービス</span>
+        {% elif addr.address_type == 'hospital' %}<span class="badge badge-yellow">🏥 病院</span>
+        {% elif addr.address_type == 'family_home' %}<span class="badge badge-green">👨‍👩‍👧 家族宅</span>
+        {% elif addr.address_type == 'facility' %}<span class="badge badge-teal">🏨 施設</span>
+        {% else %}<span class="badge badge-gray">📍 その他</span>{% endif %}
+        <strong>{{ addr.name }}</strong>
+      </div>
+
+      <!-- 標準設定バッジ -->
+      <div style="display:flex; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:wrap;">
+        {% if addr.is_default_pickup %}
+        <span class="badge badge-green" style="font-size:0.75rem;">🚗 迎え標準</span>
+        {% endif %}
+        {% if addr.is_default_dropoff %}
+        <span class="badge badge-blue" style="font-size:0.75rem;">🏠 送り標準</span>
+        {% endif %}
+        {% if addr.wheelchair_required %}
+        <span class="badge badge-red" style="font-size:0.75rem;">♿ 車椅子</span>
+        {% endif %}
+      </div>
+
+      <!-- 住所情報 -->
+      <div style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+        {% if addr.postal_code %}<div>〒{{ addr.postal_code }}</div>{% endif %}
+        {% if addr.address %}<div>{{ addr.address }}</div>{% endif %}
+        {% if addr.building %}<div>{{ addr.building }}</div>{% endif %}
+        {% if addr.phone %}<div>📞 {{ addr.phone }}</div>{% endif %}
+        {% if addr.latitude and addr.longitude %}
+        <div style="color:var(--success-color); font-size:0.8rem;">📍 GPS登録済み ({{ addr.latitude }}, {{ addr.longitude }})</div>
+        {% else %}
+        <div style="color:var(--gray-400); font-size:0.8rem;">📍 GPS未登録</div>
+        {% endif %}
+      </div>
+
+      {% if addr.care_notes %}
+      <div style="font-size:0.8rem; background:var(--warning-bg, #fffbeb); border-left:3px solid var(--warning-color); padding:0.4rem 0.6rem; margin-bottom:0.5rem; border-radius:0 4px 4px 0;">
+        ⚠️ {{ addr.care_notes }}
+      </div>
+      {% endif %}
+
+      <!-- 操作ボタン -->
+      <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+        <a href="{{ url_for('shortstay.transport_address_edit', resident_id=resident.id, addr_id=addr.id) }}" class="btn btn-sm">✏️ 編集</a>
+        <form method="post" action="{{ url_for('shortstay.transport_address_delete', resident_id=resident.id, addr_id=addr.id) }}" style="display:inline;" onsubmit="return confirm('この送迎先を削除しますか？');">
+          <button type="submit" class="btn btn-sm btn-danger">🗑 削除</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="padding:2rem; text-align:center; color:var(--gray-500);">
+    <p style="font-size:1.1rem; margin-bottom:1rem;">📍 送迎先が登録されていません</p>
+    <p style="font-size:0.875rem; margin-bottom:1.5rem;">送迎ルートを作成するには、まず送迎先を1件以上登録してください。</p>
+    <a href="{{ url_for('shortstay.transport_address_new', resident_id=resident.id) }}" class="btn btn-primary">＋ 最初の送迎先を登録する</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 送迎パターン説明 -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">💡 送迎パターンについて</span>
+  </div>
+  <div style="padding:1rem; font-size:0.875rem; color:var(--text-secondary);">
+    <p style="margin-bottom:0.75rem;">送迎スケジュールでは、登録済みの拠点から「迎え先」「送り先」をプルダウンで選択します。</p>
+    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:0.5rem;">
+      <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem;">① 自宅 → 施設（迎え）</div>
+      <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem;">② 施設 → 自宅（送り）</div>
+      <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem;">③ 自宅 → デイサービス</div>
+      <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem;">④ 施設 → 病院</div>
+      <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem;">⑤ 勤務先 → 施設</div>
+      <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem;">⑥ 施設 → 家族宅</div>
+    </div>
   </div>
 </div>
 
@@ -17,11 +109,11 @@
     <small style="color:var(--gray-500)">この利用者を担当させないドライバーを設定します</small>
   </div>
   <div style="margin-bottom:1rem;">
-    {% if ng_drivers %}
+    {% if ng_list %}
     <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.75rem;">
-      {% for ng in ng_drivers %}
+      {% for ng in ng_list %}
       <span class="badge badge-red" style="display:flex; align-items:center; gap:0.4rem; padding: 0.3rem 0.75rem;">
-        🚫 {{ ng.driver.name }}
+        🚫 {{ ng.driver.name if ng.driver else ng.driver_id }}
         <form method="post" action="{{ url_for('shortstay.ng_driver_delete', resident_id=resident.id, ng_id=ng.id) }}" style="display:inline;">
           <button type="submit" style="background:none; border:none; cursor:pointer; color:inherit; font-size:0.9rem; padding:0; line-height:1;" title="削除">✕</button>
         </form>
@@ -35,8 +127,10 @@
   <form method="post" action="{{ url_for('shortstay.ng_driver_add', resident_id=resident.id) }}" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
     <select name="driver_id" class="form-control" style="max-width:200px;" required>
       <option value="">ドライバーを選択</option>
-      {% for d in available_drivers %}
+      {% for d in drivers %}
+      {% if d.id not in ng_driver_ids %}
       <option value="{{ d.id }}">{{ d.name }}</option>
+      {% endif %}
       {% endfor %}
     </select>
     <div class="form-group" style="margin-bottom:0; flex:1; min-width:200px;">
@@ -44,64 +138,5 @@
     </div>
     <button type="submit" class="btn btn-danger">🚫 NGに追加</button>
   </form>
-</div>
-
-<!-- 送迎先一覧 -->
-<div class="card">
-  <div class="card-header">
-    <span class="card-title">送迎先一覧</span>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>種別</th>
-          <th>名称</th>
-          <th>住所</th>
-          <th>電話番号</th>
-          <th>乗降時間（分）</th>
-          <th>車椅子</th>
-          <th>デフォルト</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for addr in addresses %}
-        <tr>
-          <td>
-            {% if addr.address_type == 'home' %}<span class="badge badge-blue">自宅</span>
-            {% elif addr.address_type == 'facility' %}<span class="badge badge-green">施設</span>
-            {% elif addr.address_type == 'hospital' %}<span class="badge badge-yellow">病院</span>
-            {% else %}<span class="badge badge-gray">{{ addr.address_type }}</span>{% endif %}
-          </td>
-          <td>{{ addr.name or '-' }}</td>
-          <td>{{ addr.address or '-' }}</td>
-          <td>{{ addr.phone or '-' }}</td>
-          <td>{{ addr.boarding_time_minutes or 5 }}分</td>
-          <td>
-            {% if addr.requires_wheelchair %}
-              <span class="badge badge-blue">必要</span>
-            {% else %}
-              <span class="badge badge-gray">不要</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if addr.is_default %}
-              <span class="badge badge-green">✓ デフォルト</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('shortstay.transport_address_edit', resident_id=resident.id, addr_id=addr.id) }}" class="btn btn-sm">編集</a>
-            <form method="post" action="{{ url_for('shortstay.transport_address_delete', resident_id=resident.id, addr_id=addr.id) }}" style="display:inline;" onsubmit="return confirm('この送迎先を削除しますか？');">
-              <button type="submit" class="btn btn-sm btn-danger">削除</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="8" style="text-align:center; color: var(--gray-500); padding: 2rem;">送迎先が登録されていません</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
 </div>
 {% endblock %}

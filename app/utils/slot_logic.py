@@ -38,14 +38,24 @@ def expected_total5_from_inverse(payouts: List[float]) -> float:
 
 
 def recalc_probs_inverse_and_expected(cfg: Config) -> None:
-    """逆数ベースで確率と期待値を再計算"""
-    payouts = [max(1e-9, float(s.payout_3)) for s in cfg.symbols]
-    inv = [1.0 / p for p in payouts]
+    """逆数ベースで確率と期待値を再計算（リーチシンボルは除外）"""
+    # 通常シンボル（is_reach=False かつ payout_3 > 0）のみで逆数計算
+    normal_symbols = [s for s in cfg.symbols if not (hasattr(s, 'is_reach') and s.is_reach) and float(s.payout_3) > 0]
+    reach_symbols = [s for s in cfg.symbols if hasattr(s, 'is_reach') and s.is_reach]
+    if not normal_symbols:
+        return
+    payouts = [float(s.payout_3) for s in normal_symbols]
+    inv = [1.0 / max(1e-9, p) for p in payouts]
+    # リーチシンボルに割り当てる合計確率（各5%）
+    reach_total_prob = len(reach_symbols) * 5.0
+    normal_total_prob = max(0.0, 100.0 - reach_total_prob)
     S = sum(inv) or 1.0
-    for s, v in zip(cfg.symbols, inv):
-        s.prob = float(v / S * 100.0)
-    # 期待値を正しく計算: E = Σ(配当 × 確率)
-    expected_e1 = sum(p * (v / S) for p, v in zip(payouts, inv))
+    for s, v in zip(normal_symbols, inv):
+        s.prob = float(v / S * normal_total_prob)
+    for s in reach_symbols:
+        s.prob = 5.0
+    # 期待値を正しく計算: E = Σ(配当 × 確率) ÷ 100
+    expected_e1 = sum(p * (v / S) * (normal_total_prob / 100.0) for p, v in zip(payouts, inv))
     cfg.expected_total_5 = float(expected_e1 * 5.0)
 
 

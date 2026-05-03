@@ -216,21 +216,20 @@
             ('眠前', resident.med_bedtime_name, resident.med_bedtime_dose)
           ] %}
             {% if name_val or dose_val %}
-            <div style="margin-bottom:0.4rem;line-height:1.5;">
+            <div style="margin-bottom:0.4rem;">
               <span style="font-weight:bold;color:#1d4ed8;">{{ label }}：</span>
               {% if name_val and dose_val %}
                 {%- set names = name_val.split('\n') -%}
                 {%- set doses = dose_val.split('\n') -%}
+                <span style="display:inline-block;vertical-align:top;">
                 {% for i in range([names|length, doses|length]|max) %}
-                  <span style="display:inline-block;">{{ names[i] if i < names|length else '' }}</span>
-                  <span style="color:#aaa;"> / </span>
-                  <span style="color:#555;">{{ doses[i] if i < doses|length else '' }}</span>
-                  {% if not loop.last %}<br>{% endif %}
+                  <span style="display:block;line-height:1.5;">{{ names[i] if i < names|length else '' }}&nbsp;<span style="color:#aaa;">/</span>&nbsp;{{ doses[i] if i < doses|length else '' }}</span>
                 {% endfor %}
+                </span>
               {% elif name_val %}
-                {{ name_val | replace('\n', '<br>') | safe }}
+                <span style="display:inline-block;vertical-align:top;">{% for line in name_val.split('\n') %}<span style="display:block;line-height:1.5;">{{ line }}</span>{% endfor %}</span>
               {% elif dose_val %}
-                {{ dose_val | replace('\n', '<br>') | safe }}
+                <span style="display:inline-block;vertical-align:top;">{% for line in dose_val.split('\n') %}<span style="display:block;line-height:1.5;">{{ line }}</span>{% endfor %}</span>
               {% endif %}
             </div>
             {% endif %}

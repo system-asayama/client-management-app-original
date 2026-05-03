@@ -695,7 +695,7 @@ class SSTransportRoute(Base):
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
     store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
     route_date = Column(Date, nullable=False, comment='送迎日')
-    transport_type = Column(String(10), nullable=False, comment='区分（迎え/送り）')
+    transport_type = Column(String(10), nullable=False, default='混在', comment='区分（迎え/送り/混在）')
     vehicle_id = Column(Integer, ForeignKey('SS_車両.id'), nullable=True)
     driver_id = Column(Integer, ForeignKey('SS_ドライバー.id'), nullable=True)
     route_name = Column(String(100), nullable=True, comment='ルート名（例：1号車）')
@@ -781,8 +781,16 @@ class SSTransportRouteStop(Base):
     estimated_arrival = Column(String(10), nullable=True, comment='到着予定時刻（自動計算）')
     constraint_status = Column(String(20), nullable=True, comment='制約対応状態（ok/warning/violation）')
     constraint_message = Column(Text, nullable=True, comment='制約警告メッセージ')
+    # 混在ルート対応カラム
+    event_type = Column(String(10), nullable=True, default='facility',
+                        comment='イベント種別（pickup=乗車/dropoff=降車/facility=施設）')
+    reservation_id = Column(Integer, ForeignKey('SS_予約.id'), nullable=True,
+                            comment='予約ID（イベントと予約を結び付ける）')
+    current_passengers = Column(Integer, nullable=True, default=0,
+                                comment='この停車地到着時の車内乗車人数')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     route = relationship('SSTransportRoute', back_populates='stops')
     resident = relationship('SSResident', backref='route_stops')
     transport_address = relationship('SSUserTransportAddress', backref='route_stops')
+    reservation = relationship('SSReservation', backref='route_stops')

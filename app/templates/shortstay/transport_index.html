@@ -19,6 +19,7 @@
             <select name="transport_type" class="form-select" required>
               <option value="迎え">🚐 迎え（自宅→施設）</option>
               <option value="送り">🏠 送り（施設→自宅）</option>
+              <option value="混在">🔀 混在（迎え・送り同時）</option>
             </select>
           </div>
           <div class="col-6 col-md-3">
@@ -63,12 +64,13 @@
 
         <div class="alert alert-info mt-3 mb-2 py-2 small">
           <strong>自動生成ルール：</strong>
-          ① 対象日の予約から送迎対象者を抽出 →
-          ② 車椅子利用者を優先的に車椅子対応車両に割り当て →
-          ③ NGドライバー制約を適用 →
-          ④ <strong>時刻制約（必須→希望→参考）の優先度順・EDF方式でソート</strong> →
-          ⑤ 到着予定時刻を計算し制約チェック →
-          ⑥ 必須制約を満たせない場合は自動確定しない
+          ① 対象日の予約から送迎イベント（乗車/降車）を生成 →
+          ② NGドライバー制約を適用 →
+          ③ <strong>必須制約ありを優先・EDF方式（期限が早い順）で並び替え</strong> →
+          ④ 同一利用者の「乗車→降車」順序を必ず守る →
+          ⑤ 車内人数をリアルタイム監視し定員超過を検知 →
+          ⑥ 必須制約違反・定員超過があれば自動確定しない
+          <br><strong>🔀 混在ルート</strong>：迈え・送りを同一車両で実施できます。乗車した利用者は降車まで必ず同一車両に乗り続けます。
         </div>
 
         <button type="submit" class="btn btn-primary">🔄 ルートを自動生成</button>
@@ -86,6 +88,7 @@
           <option value="">全種別</option>
           <option value="迎え">迎え</option>
           <option value="送り">送り</option>
+          <option value="混在">混在</option>
         </select>
       </div>
     </div>
@@ -111,6 +114,7 @@
             <td>
               {% if route.transport_type == '迎え' %}<span class="badge bg-primary">迎え</span>
               {% elif route.transport_type == '送り' %}<span class="badge bg-success">送り</span>
+              {% elif route.transport_type == '混在' %}<span class="badge bg-info text-dark">🔀 混在</span>
               {% else %}<span class="badge bg-secondary">{{ route.transport_type }}</span>{% endif %}
             </td>
             <td><strong>{{ route.route_name or 'ルート' }}</strong></td>

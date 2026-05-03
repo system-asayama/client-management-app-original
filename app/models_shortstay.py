@@ -127,6 +127,10 @@ class SSResident(Base):
     allergies = Column(Text, nullable=True, comment='アレルギー')
     medical_history = Column(Text, nullable=True, comment='既往歴')
     medications = Column(Text, nullable=True, comment='服薬情報')
+    med_morning = Column(Text, nullable=True, comment='服薬詳細_朝')
+    med_noon = Column(Text, nullable=True, comment='服薬詳細_昼')
+    med_evening = Column(Text, nullable=True, comment='服薬詳細_夕')
+    med_bedtime = Column(Text, nullable=True, comment='服薬詳細_眠前')
     special_notes = Column(Text, nullable=True, comment='特記事項')
 
     # 食事情報

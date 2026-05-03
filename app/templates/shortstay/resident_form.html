@@ -252,13 +252,30 @@
     </div>
     <div class="form-row">
       <div class="form-group" style="grid-column: span 3;">
-        <label class="form-label">服薬情報（薬品名・用量・用法の詳細）</label>
-        <textarea name="medications" class="form-control" rows="3">{{ resident.medications or '' if resident else '' }}</textarea>
+        <label class="form-label" style="font-weight:bold;margin-bottom:0.5rem;">服薬詳細（朝・昼・夕・眠前の薬名・分量）</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <div>
+            <label class="form-label" style="font-size:0.85rem;color:#555;">朝</label>
+            <textarea name="med_morning" class="form-control" rows="2" placeholder="朝の薬名・分量">{{ resident.med_morning or '' if resident else '' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.85rem;color:#555;">昼</label>
+            <textarea name="med_noon" class="form-control" rows="2" placeholder="昼の薬名・分量">{{ resident.med_noon or '' if resident else '' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.85rem;color:#555;">夕</label>
+            <textarea name="med_evening" class="form-control" rows="2" placeholder="夕の薬名・分量">{{ resident.med_evening or '' if resident else '' }}</textarea>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.85rem;color:#555;">眠前</label>
+            <textarea name="med_bedtime" class="form-control" rows="2" placeholder="眠前の薬名・分量">{{ resident.med_bedtime or '' if resident else '' }}</textarea>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ⑤ ADL -->
+  <!-- ⑥ ADL -->
   <div class="card">
     <div class="form-section-title">ADL（日常生活動作）</div>
     <div class="form-row">

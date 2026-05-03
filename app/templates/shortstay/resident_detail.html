@@ -202,14 +202,26 @@
         </td>
       </tr>
       <tr>
+        <!-- 服薬詳細 -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">服薬詳細</td>
+        <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;">
+          {% if resident.med_morning or resident.med_noon or resident.med_evening or resident.med_bedtime %}
+            {% if resident.med_morning %}<div><span style="font-weight:bold;color:#555;">朝：</span>{{ resident.med_morning }}</div>{% endif %}
+            {% if resident.med_noon %}<div><span style="font-weight:bold;color:#555;">昼：</span>{{ resident.med_noon }}</div>{% endif %}
+            {% if resident.med_evening %}<div><span style="font-weight:bold;color:#555;">夕：</span>{{ resident.med_evening }}</div>{% endif %}
+            {% if resident.med_bedtime %}<div><span style="font-weight:bold;color:#555;">眠前：</span>{{ resident.med_bedtime }}</div>{% endif %}
+          {% endif %}
+        </td>
+        <!-- 特記（3行分） -->
+        <td rowspan="3" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
+        <td rowspan="3" colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;min-height:3rem;">{{ resident.medication_special_notes or '' }}</td>
+      </tr>
+      <tr>
         <!-- 形態（とろみ等） -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">形態（とろみ等）</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.meal_form or '' }}
         </td>
-        <!-- 特記（2行分） -->
-        <td rowspan="2" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
-        <td rowspan="2" colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;min-height:3rem;">{{ resident.medication_special_notes or '' }}</td>
       </tr>
       <tr>
         <!-- 好きなもの -->
@@ -218,14 +230,6 @@
           {{ resident.favorite_food or '' }}
         </td>
       </tr>
-
-      <!-- ─── 服薬情報（詳細） ─── -->
-      {% if resident.medications %}
-      <tr>
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬情報</td>
-        <td colspan="6" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;font-size:0.85rem;">{{ resident.medications }}</td>
-      </tr>
-      {% endif %}
 
       <!-- ─── 行10: トイレ動作 / 入浴 ─── -->
       <tr>

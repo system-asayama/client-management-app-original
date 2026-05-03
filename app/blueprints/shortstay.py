@@ -207,6 +207,10 @@ def resident_new():
                 allergies=request.form.get('allergies'),
                 medical_history=request.form.get('medical_history'),
                 medications=request.form.get('medications'),
+                med_morning=request.form.get('med_morning'),
+                med_noon=request.form.get('med_noon'),
+                med_evening=request.form.get('med_evening'),
+                med_bedtime=request.form.get('med_bedtime'),
                 special_notes=request.form.get('special_notes'),
                 meal_type=request.form.get('meal_type'),
                 meal_texture=request.form.get('meal_texture'),
@@ -367,6 +371,10 @@ def resident_edit(resident_id):
             resident.allergies = request.form.get('allergies')
             resident.medical_history = request.form.get('medical_history')
             resident.medications = request.form.get('medications')
+            resident.med_morning = request.form.get('med_morning')
+            resident.med_noon = request.form.get('med_noon')
+            resident.med_evening = request.form.get('med_evening')
+            resident.med_bedtime = request.form.get('med_bedtime')
             resident.special_notes = request.form.get('special_notes')
             resident.meal_type = request.form.get('meal_type')
             resident.meal_texture = request.form.get('meal_texture')

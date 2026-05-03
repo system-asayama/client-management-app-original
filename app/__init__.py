@@ -567,7 +567,7 @@ def create_app() -> Flask:
     # アンケートシステム blueprint登録
     try:
         from .blueprints.survey_app import bp as survey_app_bp, _run_slot_migrations
-        app.register_blueprint(survey_app_bp)
+        app.register_blueprint(survey_app_bp, url_prefix='/apps/survey')
         _run_slot_migrations()
         print("✅ survey_app blueprint 登録完了")
     except Exception as e:

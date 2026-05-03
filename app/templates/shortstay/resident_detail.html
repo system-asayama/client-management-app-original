@@ -181,9 +181,9 @@
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">頓服</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {% if resident.medication_prn %}
-            あり（{{ resident.medication_prn }}）・なし
+            <span style="font-weight:bold;color:#1d4ed8;">あり</span>（{{ resident.medication_prn }}）・<span style="color:#aaa;">なし</span>
           {% else %}
-            あり（　　　　　　）・<span style="font-weight:bold;">なし</span>
+            <span style="color:#aaa;">あり</span>（　　　　　　）・<span style="font-weight:bold;">なし</span>
           {% endif %}
         </td>
       </tr>

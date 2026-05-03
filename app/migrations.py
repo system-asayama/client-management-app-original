@@ -202,8 +202,8 @@ def migrate_store_admins_data(db):
                         if exists == 0:
                             logger.info(f"店舗管理者 admin_id={admin_id} を店舗 store_id={store_id} に登録します")
                             db.execute(text(
-                                'INSERT INTO "T_管理者_店舗" ("admin_id", "store_id", "is_owner", "can_manage_admins", "active") '
-                                'VALUES (:admin_id, :store_id, 0, 0, 1)'
+                                'INSERT INTO "T_管理者_店舗" ("admin_id", "store_id", "is_owner", "can_manage_admins") '
+                                'VALUES (:admin_id, :store_id, 0, 0)'
                             ), {"admin_id": admin_id, "store_id": store_id})
                             db.commit()
                 except Exception as e:
@@ -241,7 +241,7 @@ def migrate_store_admins_data(db):
                         if first_admin_id:
                             db.execute(text(
                                 'UPDATE "T_管理者_店舗" '
-                                'SET "is_owner" = 1, "can_manage_admins" = 1, "active" = 1 '
+                                'SET "is_owner" = 1, "can_manage_admins" = 1 '
                                 'WHERE "store_id" = :store_id AND "admin_id" = :admin_id'
                             ), {"store_id": store_id, "admin_id": first_admin_id})
                             db.commit()

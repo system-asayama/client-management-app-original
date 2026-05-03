@@ -136,8 +136,8 @@
 
       <!-- ─── 行5〜9: 食事（左）＋ 服薬（右）の複合セクション ─── -->
       <tr>
-        <!-- 食事：左ラベル（5行分） -->
-        <td rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">食事</td>
+        <!-- 食事：左ラベル（6行分） -->
+        <td rowspan="6" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">食事</td>
         <!-- 食事動作 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">食事動作</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
@@ -147,14 +147,13 @@
           ・
           <span class="adl-opt {% if resident.meal_action == '介助' %}adl-sel{% endif %}">介助</span>
         </td>
-        <!-- 服薬：左ラベル（5行分） -->
-        <td rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬</td>
+        <!-- 服薬：左ラベル（6行分） -->
+        <td rowspan="6" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬</td>
         <!-- 定期薬 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">定期薬</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {%- set med = resident.medication_regular or '' -%}
           {%- if '・' in med or '○' in med or '×' in med -%}
-            {# 新形式: 朝○・昼×・夕○・眠前○ → 各時間帯を○/×で表示 #}
             <span style="font-size:0.85rem;">
               {% for part in med.split('・') %}
                 {%- if '○' in part -%}
@@ -202,6 +201,11 @@
         </td>
       </tr>
       <tr>
+        <!-- 形態（とろみ等） -->
+        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">形態（とろみ等）</td>
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.meal_form or '' }}
+        </td>
         <!-- 服薬詳細 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">服薬詳細</td>
         <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;">
@@ -212,16 +216,6 @@
             {% if resident.med_bedtime %}<div><span style="font-weight:bold;color:#555;">眠前：</span>{{ resident.med_bedtime }}</div>{% endif %}
           {% endif %}
         </td>
-        <!-- 特記（3行分） -->
-        <td rowspan="3" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
-        <td rowspan="3" colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;min-height:3rem;">{{ resident.medication_special_notes or '' }}</td>
-      </tr>
-      <tr>
-        <!-- 形態（とろみ等） -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">形態（とろみ等）</td>
-        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          {{ resident.meal_form or '' }}
-        </td>
       </tr>
       <tr>
         <!-- 好きなもの -->
@@ -229,6 +223,14 @@
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.favorite_food or '' }}
         </td>
+        <!-- 特記（2行分） -->
+        <td rowspan="2" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
+        <td rowspan="2" colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;min-height:3rem;">{{ resident.medication_special_notes or '' }}</td>
+      </tr>
+      <tr>
+        <!-- 左列空白セル -->
+        <td style="border:1px solid #aaa;padding:0.5rem;"></td>
+        <td style="border:1px solid #aaa;padding:0.5rem;"></td>
       </tr>
 
       <!-- ─── 行10: トイレ動作 / 入浴 ─── -->

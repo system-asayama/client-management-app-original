@@ -70,10 +70,10 @@
           {{ resident.gender.value if resident.gender else '' }}
         </td>
         <td class="th-cell" style="width:8%;text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">相談員</td>
-        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:nowrap;">
+        <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.consultant_name or '' }}
           {% if resident.consultant_organization %}
-          <div style="font-size:0.8rem;color:#666;margin-top:0.2rem;white-space:nowrap;">{{ resident.consultant_organization }}</div>
+          <div style="font-size:0.8rem;color:#666;margin-top:0.2rem;">{{ resident.consultant_organization }}</div>
           {% endif %}
         </td>
       </tr>

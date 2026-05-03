@@ -1,0 +1,3 @@
+[submodule "apps/survey-system-app"]
+	path = apps/survey-system-app
+	url = https://github.com/system-asayama/survey-system-app.git

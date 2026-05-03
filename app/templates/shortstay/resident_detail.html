@@ -152,13 +152,9 @@
         <!-- 食事：左ラベル（5行分） -->
         <td class="th-cell" rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">食事</td>
         <!-- 食事動作 -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">食事動作</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">食事動作</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.meal_action == '自立' %}adl-sel{% endif %}">自立</span>
-          ・
-          <span class="adl-opt {% if resident.meal_action == '見守り' %}adl-sel{% endif %}">見守り</span>
-          ・
-          <span class="adl-opt {% if resident.meal_action == '介助' %}adl-sel{% endif %}">介助</span>
+          {{ resident.meal_action or '' }}
         </td>
         <!-- 服薬：左ラベル（5行分） -->
         <td class="th-cell" rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬</td>
@@ -185,12 +181,12 @@
       </tr>
       <tr>
         <!-- ★アレルギー -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">★アレルギー</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">★アレルギー</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;{% if resident.allergies %}color:#c00;font-weight:bold;{% endif %}">
           {{ resident.allergies or '' }}
         </td>
         <!-- 頓服 -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">頓服</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">頓服</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {% if resident.medication_prn %}
             <span style="font-weight:bold;color:#1d4ed8;">あり</span>（{{ resident.medication_prn }}）・<span style="color:#aaa;">なし</span>
@@ -201,26 +197,24 @@
       </tr>
       <tr>
         <!-- 嫌いなもの -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">嫌いなもの</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">嫌いなもの</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.disliked_food or '' }}
         </td>
         <!-- 管理 -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">管理</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">管理</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.medication_management == '自己管理' %}adl-sel{% endif %}">自己管理</span>
-          ・
-          <span class="adl-opt {% if resident.medication_management == '職員管理' %}adl-sel{% endif %}">職員管理</span>
+          {{ resident.medication_management or '' }}
         </td>
       </tr>
       <tr>
         <!-- 形態（とろみ等） -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">形態（とろみ等）</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">形態（とろみ等）</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.meal_form or '' }}
         </td>
         <!-- 服薬詳細 -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">服薬詳細</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">服薬詳細</td>
         <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;">
           {% for label, name_val, dose_val in [
             ('朝', resident.med_morning_name, resident.med_morning_dose),
@@ -251,12 +245,12 @@
       </tr>
       <tr>
         <!-- 好きなもの -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">好きなもの</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">好きなもの</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.favorite_food or '' }}
         </td>
         <!-- 特記 -->
-        <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">特記</td>
         <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;white-space:pre-wrap;min-height:3rem;">{{ resident.medication_special_notes or '' }}</td>
       </tr>
 
@@ -264,21 +258,11 @@
       <tr>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">トイレ動作</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.toilet_action == '自立' %}adl-sel{% endif %}">自立</span>
-          ・
-          <span class="adl-opt {% if resident.toilet_action == '見守り' %}adl-sel{% endif %}">見守り</span>
-          ・
-          <span class="adl-opt {% if resident.toilet_action == '介助' %}adl-sel{% endif %}">介助</span>
+          {{ resident.toilet_action or '' }}
         </td>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">入浴</td>
         <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.bath_assistance == '自立' %}adl-sel{% endif %}">自立</span>
-          ・
-          <span class="adl-opt {% if resident.bath_assistance == '見守り' %}adl-sel{% endif %}">見守り</span>
-          ・
-          <span class="adl-opt {% if resident.bath_assistance == '一部介助' %}adl-sel{% endif %}">一部介助</span>
-          ・
-          <span class="adl-opt {% if resident.bath_assistance == '全介助' %}adl-sel{% endif %}">全介助</span>
+          {{ resident.bath_assistance or '' }}
         </td>
       </tr>
 
@@ -286,21 +270,11 @@
       <tr>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">排尿コントロール</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.urinary_control == '失禁なし' %}adl-sel{% endif %}">失禁なし</span>
-          ・
-          <span class="adl-opt {% if resident.urinary_control == '時に失禁' %}adl-sel{% endif %}">時に失禁</span>
-          ・
-          <span class="adl-opt {% if resident.urinary_control == '介助' %}adl-sel{% endif %}">介助</span>
+          {{ resident.urinary_control or '' }}
         </td>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">更衣</td>
         <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.dressing_assistance == '自立' %}adl-sel{% endif %}">自立</span>
-          ・
-          <span class="adl-opt {% if resident.dressing_assistance == '見守り' %}adl-sel{% endif %}">見守り</span>
-          ・
-          <span class="adl-opt {% if resident.dressing_assistance == '一部介助' %}adl-sel{% endif %}">一部介助</span>
-          ・
-          <span class="adl-opt {% if resident.dressing_assistance == '全介助' %}adl-sel{% endif %}">全介助</span>
+          {{ resident.dressing_assistance or '' }}
         </td>
       </tr>
 
@@ -308,19 +282,11 @@
       <tr>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">排便コントロール</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.bowel_control == '失禁なし' %}adl-sel{% endif %}">失禁なし</span>
-          ・
-          <span class="adl-opt {% if resident.bowel_control == '時に失禁' %}adl-sel{% endif %}">時に失禁</span>
-          ・
-          <span class="adl-opt {% if resident.bowel_control == '介助' %}adl-sel{% endif %}">介助</span>
+          {{ resident.bowel_control or '' }}
         </td>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">意思疎通</td>
         <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          <span class="adl-opt {% if resident.communication == '可能' %}adl-sel{% endif %}">可能</span>
-          ・
-          <span class="adl-opt {% if resident.communication == '何とか可能' %}adl-sel{% endif %}">何とか可能</span>
-          ・
-          <span class="adl-opt {% if resident.communication == '不可能' %}adl-sel{% endif %}">不可能</span>
+          {{ resident.communication or '' }}
         </td>
       </tr>
 

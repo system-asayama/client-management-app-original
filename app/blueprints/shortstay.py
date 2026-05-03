@@ -199,6 +199,7 @@ def resident_new():
                 care_manager_phone=request.form.get('care_manager_phone'),
                 # フェイスシート対応フィールド
                 consultant_name=request.form.get('consultant_name'),
+                consultant_organization=request.form.get('consultant_organization'),
                 disability_support_category=request.form.get('disability_support_category'),
                 approved_service_amount=request.form.get('approved_service_amount'),
                 certification_valid_from=_parse_date(request.form.get('certification_valid_from')),
@@ -346,6 +347,7 @@ def resident_edit(resident_id):
             resident.care_manager_phone = request.form.get('care_manager_phone')
             # フェイスシート対応フィールド
             resident.consultant_name = request.form.get('consultant_name')
+            resident.consultant_organization = request.form.get('consultant_organization')
             resident.disability_support_category = request.form.get('disability_support_category')
             resident.approved_service_amount = request.form.get('approved_service_amount')
             resident.certification_valid_from = _parse_date(request.form.get('certification_valid_from'))

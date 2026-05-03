@@ -148,6 +148,7 @@ class SSResident(Base):
     service_decision_to = Column(Date, nullable=True, comment='支給決定期間（終了）')
     disability_certification = Column(String(200), nullable=True, comment='障害等認定')
     consultant_name = Column(String(100), nullable=True, comment='相談員')
+    consultant_organization = Column(String(200), nullable=True, comment='相談員所属')
 
     # フェイスシート：食事
     meal_action = Column(String(20), nullable=True, default='自立', comment='食事動作（自立/見守り/介助）')

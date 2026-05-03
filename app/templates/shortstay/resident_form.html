@@ -50,6 +50,10 @@
         <input type="text" name="consultant_name" class="form-control" value="{{ resident.consultant_name or '' if resident else '' }}">
       </div>
       <div class="form-group">
+        <label class="form-label">相談員所属</label>
+        <input type="text" name="consultant_organization" class="form-control" placeholder="事業所名・法人名など" value="{{ resident.consultant_organization or '' if resident else '' }}">
+      </div>
+      <div class="form-group">
         <label class="form-label">電話番号</label>
         <input type="tel" name="phone" class="form-control" value="{{ resident.phone or '' if resident else '' }}">
       </div>

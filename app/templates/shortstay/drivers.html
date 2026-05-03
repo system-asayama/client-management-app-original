@@ -1,0 +1,84 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ドライバー管理 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">👤 ドライバー管理</h1>
+  <a href="{{ url_for('shortstay.driver_new') }}" class="btn btn-primary">＋ ドライバーを追加</a>
+</div>
+
+{% if alerts %}
+<div class="card" style="border-left: 4px solid var(--warning);">
+  <div class="card-header">
+    <span class="card-title" style="color: var(--warning);">⚠️ 免許期限アラート</span>
+  </div>
+  {% for a in alerts %}
+  <div class="alert {% if a.expired %}alert-error{% else %}alert-warning{% endif %}" style="margin-bottom: 0.5rem;">
+    <strong>{{ a.driver.name }}</strong> の免許が
+    {% if a.expired %}
+      <strong>{{ a.days|abs }}日前に期限切れ</strong>です。更新が必要です。
+    {% else %}
+      あと <strong>{{ a.days }}日</strong> で期限切れになります。
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>氏名</th>
+          <th>免許番号</th>
+          <th>免許種別</th>
+          <th>免許期限</th>
+          <th>担当可能車両</th>
+          <th>状態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in drivers %}
+        <tr>
+          <td><strong>{{ d.name }}</strong></td>
+          <td>{{ d.license_number or '-' }}</td>
+          <td>{{ d.license_type or '-' }}</td>
+          <td>
+            {% if d.license_expiry %}
+              {% set days = (d.license_expiry - today).days %}
+              <span class="{% if days < 0 %}badge badge-red{% elif days <= 30 %}badge badge-yellow{% else %}badge badge-green{% endif %}">
+                {{ d.license_expiry.strftime('%Y/%m/%d') }}
+              </span>
+            {% else %}-{% endif %}
+          </td>
+          <td>
+            {% if d.can_drive_wheelchair_vehicle %}
+              <span class="badge badge-blue">車椅子車両可</span>
+            {% endif %}
+            {% if d.preferred_vehicle %}
+              <span class="badge badge-gray">{{ d.preferred_vehicle.name }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if d.is_active %}
+              <span class="badge badge-green">稼働中</span>
+            {% else %}
+              <span class="badge badge-gray">停止中</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('shortstay.driver_edit', driver_id=d.id) }}" class="btn btn-sm">編集</a>
+            <form method="post" action="{{ url_for('shortstay.driver_delete', driver_id=d.id) }}" style="display:inline;" onsubmit="return confirm('このドライバーを削除しますか？');">
+              <button type="submit" class="btn btn-sm btn-danger">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center; color: var(--gray-500); padding: 2rem;">ドライバーが登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

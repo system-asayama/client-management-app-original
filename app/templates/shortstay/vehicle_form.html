@@ -1,0 +1,80 @@
+{% extends "shortstay/base.html" %}
+{% block title %}{% if vehicle %}車両編集{% else %}車両追加{% endif %} - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🚗 {% if vehicle %}車両編集{% else %}車両追加{% endif %}</h1>
+  <a href="{{ url_for('shortstay.vehicles') }}" class="btn">← 一覧に戻る</a>
+</div>
+
+<div class="card">
+  <form method="post">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">車両名 <span style="color:var(--danger)">*</span></label>
+        <input type="text" name="name" class="form-control" value="{{ vehicle.name if vehicle else '' }}" required placeholder="例：送迎車1号">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ナンバープレート</label>
+        <input type="text" name="plate_number" class="form-control" value="{{ vehicle.plate_number if vehicle else '' }}" placeholder="例：岡山 300 あ 1234">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">車種・型式</label>
+        <input type="text" name="vehicle_type" class="form-control" value="{{ vehicle.vehicle_type if vehicle else '' }}" placeholder="例：トヨタ ハイエース">
+      </div>
+      <div class="form-group">
+        <label class="form-label">定員（人）<span style="color:var(--danger)">*</span></label>
+        <input type="number" name="capacity" class="form-control" value="{{ vehicle.capacity if vehicle else 8 }}" min="1" max="50" required>
+      </div>
+    </div>
+    <div class="form-section-title">バリアフリー対応</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" name="wheelchair_accessible" value="1" {% if vehicle and vehicle.wheelchair_accessible %}checked{% endif %}>
+          車椅子対応
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" name="has_lift" value="1" {% if vehicle and vehicle.has_lift %}checked{% endif %}>
+          リフト付き
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">車椅子スペース数</label>
+        <input type="number" name="wheelchair_spaces" class="form-control" value="{{ vehicle.wheelchair_spaces if vehicle else 0 }}" min="0" max="10">
+      </div>
+    </div>
+    <div class="form-section-title">期限管理</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">車検期限</label>
+        <input type="date" name="vehicle_inspection_expiry" class="form-control" value="{{ vehicle.vehicle_inspection_expiry.strftime('%Y-%m-%d') if vehicle and vehicle.vehicle_inspection_expiry else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">自賠責保険期限</label>
+        <input type="date" name="insurance_expiry" class="form-control" value="{{ vehicle.insurance_expiry.strftime('%Y-%m-%d') if vehicle and vehicle.insurance_expiry else '' }}">
+      </div>
+    </div>
+    <div class="form-section-title">その他</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">メモ</label>
+        <textarea name="notes" class="form-control" rows="3">{{ vehicle.notes if vehicle else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" name="is_active" value="1" {% if not vehicle or vehicle.is_active %}checked{% endif %}>
+          稼働中
+        </label>
+      </div>
+    </div>
+    <div style="display:flex; gap:0.75rem; margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">💾 保存</button>
+      <a href="{{ url_for('shortstay.vehicles') }}" class="btn">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

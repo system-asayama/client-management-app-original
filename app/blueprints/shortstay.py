@@ -25,6 +25,8 @@ from ..models_shortstay import (
     SSCareRecord, SSVitalRecord, SSMealRecord, SSExcretionRecord, SSBathRecord,
     SSCarePlan, SSBillingItem, SSBilling, SSBillingDetail,
     SSShift, SSStaffNote, SSReport, SSIncidentReport,
+    SSVehicle, SSDriver, SSUserTransportAddress, SSUserDriverRestriction,
+    SSTransportSchedule, SSTransportRoute, SSTransportRouteStop,
     ReservationStatus, CheckStatus, BillingStatus, ShiftType,
     GenderEnum, CareLevel, MealType, MealAmount, ExcretionType, ExcretionMethod, BathType
 )
@@ -1773,3 +1775,779 @@ def care_plan_detail(plan_id):
     finally:
         db.close()
 
+
+
+# ─────────────────────────────────────────────
+# 送迎管理：車両管理
+# ─────────────────────────────────────────────
+
+@bp.route('/vehicles')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def vehicles():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSVehicle)
+        if store_id:
+            q = q.filter(SSVehicle.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSVehicle.tenant_id == tenant_id)
+        vehicle_list = q.order_by(SSVehicle.name).all()
+        today = date.today()
+        soon = today + timedelta(days=30)
+        # 期限アラート（30日以内に期限切れ）
+        alerts = []
+        for v in vehicle_list:
+            if v.vehicle_inspection_expiry and v.vehicle_inspection_expiry <= soon:
+                days = (v.vehicle_inspection_expiry - today).days
+                alerts.append({'vehicle': v, 'type': '車検', 'days': days, 'expired': days < 0})
+            if v.insurance_expiry and v.insurance_expiry <= soon:
+                days = (v.insurance_expiry - today).days
+                alerts.append({'vehicle': v, 'type': '保険', 'days': days, 'expired': days < 0})
+        return render_template('shortstay/vehicles.html',
+            vehicles=vehicle_list, alerts=alerts, today=today)
+    finally:
+        db.close()
+
+
+@bp.route('/vehicles/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def vehicle_new():
+    store_id, tenant_id = _get_store_tenant()
+    if request.method == 'POST':
+        db = SessionLocal()
+        try:
+            v = SSVehicle(
+                tenant_id=tenant_id, store_id=store_id,
+                name=request.form.get('name', ''),
+                plate_number=request.form.get('plate_number'),
+                vehicle_type=request.form.get('vehicle_type'),
+                capacity=int(request.form.get('capacity') or 4),
+                wheelchair_accessible=bool(request.form.get('wheelchair_accessible')),
+                has_lift=bool(request.form.get('has_lift')),
+                is_active=bool(request.form.get('is_active', True)),
+                inspection_date=_parse_date(request.form.get('inspection_date')),
+                vehicle_inspection_expiry=_parse_date(request.form.get('vehicle_inspection_expiry')),
+                insurance_expiry=_parse_date(request.form.get('insurance_expiry')),
+                notes=request.form.get('notes'),
+            )
+            db.add(v)
+            db.commit()
+            flash('車両を登録しました。', 'success')
+            return redirect(url_for('shortstay.vehicles'))
+        except Exception as e:
+            db.rollback()
+            flash(f'登録に失敗しました: {e}', 'error')
+        finally:
+            db.close()
+    return render_template('shortstay/vehicle_form.html', vehicle=None)
+
+
+@bp.route('/vehicles/<int:vehicle_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def vehicle_edit(vehicle_id):
+    db = SessionLocal()
+    try:
+        v = db.query(SSVehicle).filter(SSVehicle.id == vehicle_id).first()
+        if not v:
+            flash('車両が見つかりません。', 'error')
+            return redirect(url_for('shortstay.vehicles'))
+        if request.method == 'POST':
+            v.name = request.form.get('name', '')
+            v.plate_number = request.form.get('plate_number')
+            v.vehicle_type = request.form.get('vehicle_type')
+            v.capacity = int(request.form.get('capacity') or 4)
+            v.wheelchair_accessible = bool(request.form.get('wheelchair_accessible'))
+            v.has_lift = bool(request.form.get('has_lift'))
+            v.is_active = bool(request.form.get('is_active'))
+            v.inspection_date = _parse_date(request.form.get('inspection_date'))
+            v.vehicle_inspection_expiry = _parse_date(request.form.get('vehicle_inspection_expiry'))
+            v.insurance_expiry = _parse_date(request.form.get('insurance_expiry'))
+            v.notes = request.form.get('notes')
+            db.commit()
+            flash('車両情報を更新しました。', 'success')
+            return redirect(url_for('shortstay.vehicles'))
+        return render_template('shortstay/vehicle_form.html', vehicle=v)
+    finally:
+        db.close()
+
+
+@bp.route('/vehicles/<int:vehicle_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def vehicle_delete(vehicle_id):
+    db = SessionLocal()
+    try:
+        v = db.query(SSVehicle).filter(SSVehicle.id == vehicle_id).first()
+        if v:
+            db.delete(v)
+            db.commit()
+            flash('車両を削除しました。', 'success')
+        return redirect(url_for('shortstay.vehicles'))
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 送迎管理：ドライバー管理
+# ─────────────────────────────────────────────
+
+@bp.route('/drivers')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def drivers():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        q = db.query(SSDriver)
+        if store_id:
+            q = q.filter(SSDriver.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSDriver.tenant_id == tenant_id)
+        driver_list = q.order_by(SSDriver.name).all()
+        today = date.today()
+        soon = today + timedelta(days=30)
+        alerts = []
+        for d in driver_list:
+            if d.license_expiry and d.license_expiry <= soon:
+                days = (d.license_expiry - today).days
+                alerts.append({'driver': d, 'type': '免許', 'days': days, 'expired': days < 0})
+        # 車両リスト（ドロップダウン用）
+        vq = db.query(SSVehicle).filter(SSVehicle.is_active == True)
+        if store_id:
+            vq = vq.filter(SSVehicle.store_id == store_id)
+        elif tenant_id:
+            vq = vq.filter(SSVehicle.tenant_id == tenant_id)
+        vehicle_list = vq.order_by(SSVehicle.name).all()
+        return render_template('shortstay/drivers.html',
+            drivers=driver_list, alerts=alerts, vehicles=vehicle_list, today=today)
+    finally:
+        db.close()
+
+
+@bp.route('/drivers/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def driver_new():
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            d = SSDriver(
+                tenant_id=tenant_id, store_id=store_id,
+                name=request.form.get('name', ''),
+                phone=request.form.get('phone'),
+                license_number=request.form.get('license_number'),
+                license_expiry=_parse_date(request.form.get('license_expiry')),
+                vehicle_id=_parse_int(request.form.get('vehicle_id')),
+                is_active=bool(request.form.get('is_active', True)),
+                notes=request.form.get('notes'),
+            )
+            db.add(d)
+            db.commit()
+            flash('ドライバーを登録しました。', 'success')
+            return redirect(url_for('shortstay.drivers'))
+        vq = db.query(SSVehicle).filter(SSVehicle.is_active == True)
+        if store_id:
+            vq = vq.filter(SSVehicle.store_id == store_id)
+        elif tenant_id:
+            vq = vq.filter(SSVehicle.tenant_id == tenant_id)
+        vehicle_list = vq.order_by(SSVehicle.name).all()
+        return render_template('shortstay/driver_form.html', driver=None, vehicles=vehicle_list)
+    except Exception as e:
+        db.rollback()
+        flash(f'登録に失敗しました: {e}', 'error')
+        return redirect(url_for('shortstay.drivers'))
+    finally:
+        db.close()
+
+
+@bp.route('/drivers/<int:driver_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def driver_edit(driver_id):
+    db = SessionLocal()
+    try:
+        d = db.query(SSDriver).filter(SSDriver.id == driver_id).first()
+        if not d:
+            flash('ドライバーが見つかりません。', 'error')
+            return redirect(url_for('shortstay.drivers'))
+        if request.method == 'POST':
+            d.name = request.form.get('name', '')
+            d.phone = request.form.get('phone')
+            d.license_number = request.form.get('license_number')
+            d.license_expiry = _parse_date(request.form.get('license_expiry'))
+            d.vehicle_id = _parse_int(request.form.get('vehicle_id'))
+            d.is_active = bool(request.form.get('is_active'))
+            d.notes = request.form.get('notes')
+            db.commit()
+            flash('ドライバー情報を更新しました。', 'success')
+            return redirect(url_for('shortstay.drivers'))
+        vq = db.query(SSVehicle).filter(SSVehicle.is_active == True)
+        store_id, tenant_id = _get_store_tenant()
+        if store_id:
+            vq = vq.filter(SSVehicle.store_id == store_id)
+        elif tenant_id:
+            vq = vq.filter(SSVehicle.tenant_id == tenant_id)
+        vehicle_list = vq.order_by(SSVehicle.name).all()
+        return render_template('shortstay/driver_form.html', driver=d, vehicles=vehicle_list)
+    finally:
+        db.close()
+
+
+@bp.route('/drivers/<int:driver_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def driver_delete(driver_id):
+    db = SessionLocal()
+    try:
+        d = db.query(SSDriver).filter(SSDriver.id == driver_id).first()
+        if d:
+            db.delete(d)
+            db.commit()
+            flash('ドライバーを削除しました。', 'success')
+        return redirect(url_for('shortstay.drivers'))
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 送迎管理：送迎先管理・NGドライバー設定
+# ─────────────────────────────────────────────
+
+@bp.route('/residents/<int:resident_id>/transport_addresses')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def transport_addresses(resident_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if not resident:
+            flash('利用者が見つかりません。', 'error')
+            return redirect(url_for('shortstay.residents'))
+        addresses = db.query(SSUserTransportAddress).filter(
+            SSUserTransportAddress.resident_id == resident_id,
+            SSUserTransportAddress.is_active == True
+        ).order_by(SSUserTransportAddress.is_default.desc(), SSUserTransportAddress.id).all()
+        # NGドライバー一覧
+        ng_list = db.query(SSUserDriverRestriction).filter(
+            SSUserDriverRestriction.resident_id == resident_id,
+            SSUserDriverRestriction.is_active == True
+        ).all()
+        # ドライバー一覧（NGドライバー設定用）
+        dq = db.query(SSDriver).filter(SSDriver.is_active == True)
+        if store_id:
+            dq = dq.filter(SSDriver.store_id == store_id)
+        elif tenant_id:
+            dq = dq.filter(SSDriver.tenant_id == tenant_id)
+        driver_list = dq.order_by(SSDriver.name).all()
+        ng_driver_ids = {ng.driver_id for ng in ng_list}
+        return render_template('shortstay/transport_addresses.html',
+            resident=resident, addresses=addresses, ng_list=ng_list,
+            drivers=driver_list, ng_driver_ids=ng_driver_ids)
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/transport_addresses/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_address_new(resident_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if not resident:
+            flash('利用者が見つかりません。', 'error')
+            return redirect(url_for('shortstay.residents'))
+        if request.method == 'POST':
+            is_default = bool(request.form.get('is_default'))
+            if is_default:
+                # 既存のデフォルトを解除
+                db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == resident_id
+                ).update({'is_default': False})
+            addr = SSUserTransportAddress(
+                tenant_id=tenant_id, store_id=store_id,
+                resident_id=resident_id,
+                name=request.form.get('name', ''),
+                address_type=request.form.get('address_type', '自宅'),
+                postal_code=request.form.get('postal_code'),
+                address=request.form.get('address'),
+                building=request.form.get('building'),
+                phone=request.form.get('phone'),
+                wheelchair_required=bool(request.form.get('wheelchair_required')),
+                care_notes=request.form.get('care_notes'),
+                is_default=is_default,
+            )
+            db.add(addr)
+            db.commit()
+            flash('送迎先を登録しました。', 'success')
+            return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+        return render_template('shortstay/transport_address_form.html',
+            resident=resident, address=None)
+    except Exception as e:
+        db.rollback()
+        flash(f'登録に失敗しました: {e}', 'error')
+        return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/transport_addresses/<int:addr_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_address_edit(resident_id, addr_id):
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        addr = db.query(SSUserTransportAddress).filter(SSUserTransportAddress.id == addr_id).first()
+        if not addr:
+            flash('送迎先が見つかりません。', 'error')
+            return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+        if request.method == 'POST':
+            is_default = bool(request.form.get('is_default'))
+            if is_default:
+                db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == resident_id
+                ).update({'is_default': False})
+            addr.name = request.form.get('name', '')
+            addr.address_type = request.form.get('address_type', '自宅')
+            addr.postal_code = request.form.get('postal_code')
+            addr.address = request.form.get('address')
+            addr.building = request.form.get('building')
+            addr.phone = request.form.get('phone')
+            addr.wheelchair_required = bool(request.form.get('wheelchair_required'))
+            addr.care_notes = request.form.get('care_notes')
+            addr.is_default = is_default
+            db.commit()
+            flash('送迎先を更新しました。', 'success')
+            return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+        return render_template('shortstay/transport_address_form.html',
+            resident=resident, address=addr)
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/transport_addresses/<int:addr_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_address_delete(resident_id, addr_id):
+    db = SessionLocal()
+    try:
+        addr = db.query(SSUserTransportAddress).filter(SSUserTransportAddress.id == addr_id).first()
+        if addr:
+            addr.is_active = False
+            db.commit()
+            flash('送迎先を削除しました。', 'success')
+        return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/ng_drivers/add', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def ng_driver_add(resident_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        driver_id = _parse_int(request.form.get('driver_id'))
+        if driver_id:
+            # 既存チェック
+            existing = db.query(SSUserDriverRestriction).filter(
+                SSUserDriverRestriction.resident_id == resident_id,
+                SSUserDriverRestriction.driver_id == driver_id,
+                SSUserDriverRestriction.is_active == True
+            ).first()
+            if not existing:
+                ng = SSUserDriverRestriction(
+                    tenant_id=tenant_id, store_id=store_id,
+                    resident_id=resident_id,
+                    driver_id=driver_id,
+                    reason=request.form.get('reason'),
+                    start_date=_parse_date(request.form.get('start_date')),
+                    end_date=_parse_date(request.form.get('end_date')),
+                )
+                db.add(ng)
+                db.commit()
+                flash('NGドライバーを設定しました。', 'success')
+            else:
+                flash('既に設定済みです。', 'warning')
+        return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+    except Exception as e:
+        db.rollback()
+        flash(f'設定に失敗しました: {e}', 'error')
+        return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/ng_drivers/<int:ng_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def ng_driver_delete(resident_id, ng_id):
+    db = SessionLocal()
+    try:
+        ng = db.query(SSUserDriverRestriction).filter(SSUserDriverRestriction.id == ng_id).first()
+        if ng:
+            ng.is_active = False
+            db.commit()
+            flash('NGドライバー設定を解除しました。', 'success')
+        return redirect(url_for('shortstay.transport_addresses', resident_id=resident_id))
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 送迎管理：ルート管理（一覧・自動生成・編集・印刷）
+# ─────────────────────────────────────────────
+
+def _get_transport_base_query(db, store_id, tenant_id, model):
+    q = db.query(model)
+    if store_id:
+        q = q.filter(model.store_id == store_id)
+    elif tenant_id:
+        q = q.filter(model.tenant_id == tenant_id)
+    return q
+
+
+@bp.route('/transport')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def transport_index():
+    """送迎管理トップ：日付選択 → 送迎対象者一覧"""
+    store_id, tenant_id = _get_store_tenant()
+    target_date_str = request.args.get('date', date.today().isoformat())
+    try:
+        target_date = date.fromisoformat(target_date_str)
+    except ValueError:
+        target_date = date.today()
+
+    db = SessionLocal()
+    try:
+        # 当日の予約から送迎対象者を抽出
+        q = db.query(SSReservation).filter(
+            SSReservation.check_in_date == target_date,
+            SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+        )
+        if store_id:
+            q = q.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSReservation.tenant_id == tenant_id)
+        reservations = q.all()
+
+        pickup_targets = [r for r in reservations if r.pickup_required]
+        dropoff_targets = [r for r in reservations if r.dropoff_required]
+
+        # 既存ルート
+        rq = db.query(SSTransportRoute).filter(SSTransportRoute.route_date == target_date)
+        if store_id:
+            rq = rq.filter(SSTransportRoute.store_id == store_id)
+        elif tenant_id:
+            rq = rq.filter(SSTransportRoute.tenant_id == tenant_id)
+        existing_routes = rq.order_by(SSTransportRoute.transport_type, SSTransportRoute.route_name).all()
+
+        # 車両・ドライバー一覧
+        vq = _get_transport_base_query(db, store_id, tenant_id, SSVehicle).filter(SSVehicle.is_active == True)
+        vehicle_list = vq.order_by(SSVehicle.name).all()
+        dq = _get_transport_base_query(db, store_id, tenant_id, SSDriver).filter(SSDriver.is_active == True)
+        driver_list = dq.order_by(SSDriver.name).all()
+
+        return render_template('shortstay/transport_index.html',
+            target_date=target_date,
+            pickup_count=len(pickup_targets),
+            dropoff_count=len(dropoff_targets),
+            existing_routes=existing_routes,
+            vehicles=vehicle_list,
+            drivers=driver_list,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/transport/generate', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_generate():
+    """送迎ルート自動生成"""
+    store_id, tenant_id = _get_store_tenant()
+    target_date_str = request.form.get('date', date.today().isoformat())
+    transport_type = request.form.get('transport_type', '迎え')  # 迎え or 送り
+    vehicle_id = _parse_int(request.form.get('vehicle_id'))
+    driver_id = _parse_int(request.form.get('driver_id'))
+
+    try:
+        target_date = date.fromisoformat(target_date_str)
+    except ValueError:
+        target_date = date.today()
+
+    db = SessionLocal()
+    try:
+        # 送迎対象者を取得
+        if transport_type == '迎え':
+            q = db.query(SSReservation).filter(
+                SSReservation.check_in_date == target_date,
+                SSReservation.pickup_required == True,
+                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+            )
+        else:
+            q = db.query(SSReservation).filter(
+                SSReservation.check_out_date == target_date,
+                SSReservation.dropoff_required == True,
+                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+            )
+        if store_id:
+            q = q.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSReservation.tenant_id == tenant_id)
+        reservations = q.all()
+
+        if not reservations:
+            flash('送迎対象者がいません。', 'warning')
+            return redirect(url_for('shortstay.transport_index', date=target_date_str))
+
+        # 車両定員チェック
+        vehicle = db.query(SSVehicle).filter(SSVehicle.id == vehicle_id).first() if vehicle_id else None
+        capacity = vehicle.capacity if vehicle else 99
+
+        # NGドライバーを考慮して対象者を絞り込み
+        valid_reservations = []
+        for res in reservations:
+            if driver_id:
+                ng = db.query(SSUserDriverRestriction).filter(
+                    SSUserDriverRestriction.resident_id == res.resident_id,
+                    SSUserDriverRestriction.driver_id == driver_id,
+                    SSUserDriverRestriction.is_active == True
+                ).first()
+                if ng:
+                    flash(f'利用者「{res.resident.last_name}{res.resident.first_name}」はこのドライバーのNGです。スキップしました。', 'warning')
+                    continue
+            valid_reservations.append(res)
+
+        # 定員超過チェック
+        if len(valid_reservations) > capacity:
+            flash(f'対象者数（{len(valid_reservations)}名）が車両定員（{capacity}名）を超えています。複数ルートに分割してください。', 'warning')
+            valid_reservations = valid_reservations[:capacity]
+
+        # ルート名を自動生成
+        existing_count = db.query(SSTransportRoute).filter(
+            SSTransportRoute.route_date == target_date,
+            SSTransportRoute.transport_type == transport_type,
+            SSTransportRoute.tenant_id == tenant_id
+        ).count()
+        route_name = f'{transport_type}ルート {existing_count + 1}号車'
+
+        # ルート作成
+        route = SSTransportRoute(
+            tenant_id=tenant_id, store_id=store_id,
+            route_date=target_date,
+            transport_type=transport_type,
+            vehicle_id=vehicle_id,
+            driver_id=driver_id,
+            route_name=route_name,
+            status='draft',
+        )
+        db.add(route)
+        db.flush()
+
+        # 停車地を生成（迎え：施設スタート→各宅→施設終着、送り：施設スタート→各宅）
+        stops = []
+        if transport_type == '迎え':
+            # 停車地1：施設（出発）
+            stops.append(SSTransportRouteStop(
+                route_id=route.id, stop_order=1,
+                is_facility=True,
+                address_snapshot='施設（出発）',
+                scheduled_time=None,
+            ))
+            # 利用者宅
+            for i, res in enumerate(valid_reservations):
+                # 標準送迎先を取得
+                default_addr = db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == res.resident_id,
+                    SSUserTransportAddress.is_default == True,
+                    SSUserTransportAddress.is_active == True
+                ).first()
+                if not default_addr:
+                    default_addr = db.query(SSUserTransportAddress).filter(
+                        SSUserTransportAddress.resident_id == res.resident_id,
+                        SSUserTransportAddress.is_active == True
+                    ).first()
+                addr_text = default_addr.address if default_addr else (res.pickup_address or '住所未登録')
+                phone_text = default_addr.phone if default_addr else None
+                care_notes = default_addr.care_notes if default_addr else None
+                wheelchair = default_addr.wheelchair_required if default_addr else False
+                stops.append(SSTransportRouteStop(
+                    route_id=route.id, stop_order=i + 2,
+                    resident_id=res.resident_id,
+                    transport_address_id=default_addr.id if default_addr else None,
+                    scheduled_time=res.pickup_time,
+                    address_snapshot=addr_text,
+                    phone_snapshot=phone_text,
+                    care_notes_snapshot=care_notes,
+                    is_facility=False,
+                ))
+            # 最終：施設（到着）
+            stops.append(SSTransportRouteStop(
+                route_id=route.id, stop_order=len(valid_reservations) + 2,
+                is_facility=True,
+                address_snapshot='施設（到着）',
+            ))
+        else:  # 送り
+            stops.append(SSTransportRouteStop(
+                route_id=route.id, stop_order=1,
+                is_facility=True,
+                address_snapshot='施設（出発）',
+            ))
+            for i, res in enumerate(valid_reservations):
+                default_addr = db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == res.resident_id,
+                    SSUserTransportAddress.is_default == True,
+                    SSUserTransportAddress.is_active == True
+                ).first()
+                if not default_addr:
+                    default_addr = db.query(SSUserTransportAddress).filter(
+                        SSUserTransportAddress.resident_id == res.resident_id,
+                        SSUserTransportAddress.is_active == True
+                    ).first()
+                addr_text = default_addr.address if default_addr else (res.pickup_address or '住所未登録')
+                phone_text = default_addr.phone if default_addr else None
+                care_notes = default_addr.care_notes if default_addr else None
+                stops.append(SSTransportRouteStop(
+                    route_id=route.id, stop_order=i + 2,
+                    resident_id=res.resident_id,
+                    transport_address_id=default_addr.id if default_addr else None,
+                    scheduled_time=res.dropoff_time,
+                    address_snapshot=addr_text,
+                    phone_snapshot=phone_text,
+                    care_notes_snapshot=care_notes,
+                    is_facility=False,
+                ))
+
+        for stop in stops:
+            db.add(stop)
+        db.commit()
+        flash(f'送迎ルート「{route_name}」を作成しました（{len(valid_reservations)}名）。', 'success')
+        return redirect(url_for('shortstay.transport_route_detail', route_id=route.id))
+    except Exception as e:
+        db.rollback()
+        flash(f'ルート生成に失敗しました: {e}', 'error')
+        return redirect(url_for('shortstay.transport_index', date=target_date_str))
+    finally:
+        db.close()
+
+
+@bp.route('/transport/routes/<int:route_id>')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def transport_route_detail(route_id):
+    db = SessionLocal()
+    try:
+        route = db.query(SSTransportRoute).filter(SSTransportRoute.id == route_id).first()
+        if not route:
+            flash('ルートが見つかりません。', 'error')
+            return redirect(url_for('shortstay.transport_index'))
+        stops = db.query(SSTransportRouteStop).filter(
+            SSTransportRouteStop.route_id == route_id
+        ).order_by(SSTransportRouteStop.stop_order).all()
+        # 利用者情報を付加
+        stop_data = []
+        for stop in stops:
+            resident = db.query(SSResident).filter(SSResident.id == stop.resident_id).first() if stop.resident_id else None
+            stop_data.append({'stop': stop, 'resident': resident})
+        vehicle = db.query(SSVehicle).filter(SSVehicle.id == route.vehicle_id).first() if route.vehicle_id else None
+        driver = db.query(SSDriver).filter(SSDriver.id == route.driver_id).first() if route.driver_id else None
+        return render_template('shortstay/transport_route_detail.html',
+            route=route, stop_data=stop_data, vehicle=vehicle, driver=driver)
+    finally:
+        db.close()
+
+
+@bp.route('/transport/routes/<int:route_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_route_edit(route_id):
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        route = db.query(SSTransportRoute).filter(SSTransportRoute.id == route_id).first()
+        if not route:
+            flash('ルートが見つかりません。', 'error')
+            return redirect(url_for('shortstay.transport_index'))
+        if request.method == 'POST':
+            route.route_name = request.form.get('route_name', route.route_name)
+            route.vehicle_id = _parse_int(request.form.get('vehicle_id'))
+            route.driver_id = _parse_int(request.form.get('driver_id'))
+            route.notes = request.form.get('notes')
+            # 停車地の時刻更新
+            stop_ids = request.form.getlist('stop_id[]')
+            stop_times = request.form.getlist('scheduled_time[]')
+            stop_notes = request.form.getlist('care_notes[]')
+            for i, sid in enumerate(stop_ids):
+                stop = db.query(SSTransportRouteStop).filter(SSTransportRouteStop.id == int(sid)).first()
+                if stop:
+                    stop.scheduled_time = stop_times[i] if i < len(stop_times) else None
+                    stop.care_notes_snapshot = stop_notes[i] if i < len(stop_notes) else stop.care_notes_snapshot
+            db.commit()
+            flash('ルートを更新しました。', 'success')
+            return redirect(url_for('shortstay.transport_route_detail', route_id=route_id))
+        stops = db.query(SSTransportRouteStop).filter(
+            SSTransportRouteStop.route_id == route_id
+        ).order_by(SSTransportRouteStop.stop_order).all()
+        stop_data = []
+        for stop in stops:
+            resident = db.query(SSResident).filter(SSResident.id == stop.resident_id).first() if stop.resident_id else None
+            stop_data.append({'stop': stop, 'resident': resident})
+        vq = _get_transport_base_query(db, store_id, tenant_id, SSVehicle).filter(SSVehicle.is_active == True)
+        vehicle_list = vq.order_by(SSVehicle.name).all()
+        dq = _get_transport_base_query(db, store_id, tenant_id, SSDriver).filter(SSDriver.is_active == True)
+        driver_list = dq.order_by(SSDriver.name).all()
+        return render_template('shortstay/transport_route_edit.html',
+            route=route, stop_data=stop_data, vehicles=vehicle_list, drivers=driver_list)
+    finally:
+        db.close()
+
+
+@bp.route('/transport/routes/<int:route_id>/confirm', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_route_confirm(route_id):
+    db = SessionLocal()
+    try:
+        route = db.query(SSTransportRoute).filter(SSTransportRoute.id == route_id).first()
+        if route:
+            route.status = 'confirmed'
+            route.confirmed_at = datetime.utcnow()
+            db.commit()
+            flash('ルートを確定しました。', 'success')
+        return redirect(url_for('shortstay.transport_route_detail', route_id=route_id))
+    finally:
+        db.close()
+
+
+@bp.route('/transport/routes/<int:route_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_route_delete(route_id):
+    db = SessionLocal()
+    try:
+        route = db.query(SSTransportRoute).filter(SSTransportRoute.id == route_id).first()
+        if route:
+            target_date = route.route_date.isoformat()
+            db.delete(route)
+            db.commit()
+            flash('ルートを削除しました。', 'success')
+            return redirect(url_for('shortstay.transport_index', date=target_date))
+        return redirect(url_for('shortstay.transport_index'))
+    finally:
+        db.close()
+
+
+@bp.route('/transport/routes/<int:route_id>/print')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def transport_route_print(route_id):
+    """印刷用ルートシート"""
+    db = SessionLocal()
+    try:
+        route = db.query(SSTransportRoute).filter(SSTransportRoute.id == route_id).first()
+        if not route:
+            flash('ルートが見つかりません。', 'error')
+            return redirect(url_for('shortstay.transport_index'))
+        stops = db.query(SSTransportRouteStop).filter(
+            SSTransportRouteStop.route_id == route_id
+        ).order_by(SSTransportRouteStop.stop_order).all()
+        stop_data = []
+        for stop in stops:
+            resident = db.query(SSResident).filter(SSResident.id == stop.resident_id).first() if stop.resident_id else None
+            stop_data.append({'stop': stop, 'resident': resident})
+        vehicle = db.query(SSVehicle).filter(SSVehicle.id == route.vehicle_id).first() if route.vehicle_id else None
+        driver = db.query(SSDriver).filter(SSDriver.id == route.driver_id).first() if route.driver_id else None
+        return render_template('shortstay/transport_route_print.html',
+            route=route, stop_data=stop_data, vehicle=vehicle, driver=driver)
+    finally:
+        db.close()

@@ -1,0 +1,89 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ルート編集 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">✏️ ルート編集</h1>
+  <a href="{{ url_for('shortstay.transport_route_detail', route_id=route.id) }}" class="btn">← 詳細に戻る</a>
+</div>
+
+<div class="card">
+  <form method="post">
+    <div class="form-section-title">基本情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ルート名</label>
+        <input type="text" name="route_name" class="form-control" value="{{ route.route_name or '' }}" placeholder="例：迎えルートA">
+      </div>
+      <div class="form-group">
+        <label class="form-label">出発時刻</label>
+        <input type="time" name="departure_time" class="form-control" value="{{ route.departure_time.strftime('%H:%M') if route.departure_time else '' }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">担当車両</label>
+        <select name="vehicle_id" class="form-control">
+          <option value="">未設定</option>
+          {% for v in vehicles %}
+          <option value="{{ v.id }}" {% if route.vehicle_id == v.id %}selected{% endif %}>
+            {{ v.name }}{% if v.wheelchair_accessible %} (車椅子対応){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">担当ドライバー</label>
+        <select name="driver_id" class="form-control">
+          <option value="">未設定</option>
+          {% for d in drivers %}
+          <option value="{{ d.id }}" {% if route.driver_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <textarea name="notes" class="form-control" rows="2">{{ route.notes or '' }}</textarea>
+    </div>
+
+    <div class="form-section-title">停車地の順序・時刻編集</div>
+    <div id="stopsContainer">
+      {% for stop in route.stops|sort(attribute='stop_order') %}
+      <div class="card" style="margin-bottom:0.75rem; border-left: 3px solid var(--primary);" data-stop-id="{{ stop.id }}">
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; background:var(--primary); color:#fff; border-radius:50%; font-weight:700; flex-shrink:0;">{{ stop.stop_order }}</span>
+          <div style="flex:1; min-width:150px;">
+            <strong>{{ stop.resident.name if stop.resident else '不明' }}</strong>
+            <div style="font-size:0.8rem; color:var(--gray-500);">{{ stop.address or (stop.transport_address.address if stop.transport_address else '-') }}</div>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <div>
+              <label style="font-size:0.75rem; color:var(--gray-500);">順序</label>
+              <input type="number" name="stop_order_{{ stop.id }}" value="{{ stop.stop_order }}" min="1" max="99" class="form-control" style="width:70px;">
+            </div>
+            <div>
+              <label style="font-size:0.75rem; color:var(--gray-500);">到着予定</label>
+              <input type="time" name="arrival_{{ stop.id }}" value="{{ stop.estimated_arrival.strftime('%H:%M') if stop.estimated_arrival else '' }}" class="form-control" style="width:120px;">
+            </div>
+            <div>
+              <label style="font-size:0.75rem; color:var(--gray-500);">乗降(分)</label>
+              <input type="number" name="boarding_{{ stop.id }}" value="{{ stop.boarding_time_minutes or 5 }}" min="1" max="30" class="form-control" style="width:80px;">
+            </div>
+            <div>
+              <label style="font-size:0.75rem; color:var(--gray-500);">備考</label>
+              <input type="text" name="notes_{{ stop.id }}" value="{{ stop.notes or '' }}" class="form-control" style="width:180px;" placeholder="特記事項">
+            </div>
+          </div>
+        </div>
+        <input type="hidden" name="stop_ids" value="{{ stop.id }}">
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex; gap:0.75rem; margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">💾 保存</button>
+      <a href="{{ url_for('shortstay.transport_route_detail', route_id=route.id) }}" class="btn">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

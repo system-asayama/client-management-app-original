@@ -1,0 +1,105 @@
+{% extends "shortstay/base.html" %}
+{% block title %}ルート詳細 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🚐 ルート詳細</h1>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    {% if route.status == 'draft' %}
+    <form method="post" action="{{ url_for('shortstay.transport_route_confirm', route_id=route.id) }}" style="display:inline;">
+      <button type="submit" class="btn btn-success">✓ ルートを確定</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('shortstay.transport_route_edit', route_id=route.id) }}" class="btn btn-primary">✏️ 編集</a>
+    <a href="{{ url_for('shortstay.transport_route_print', route_id=route.id) }}" class="btn" target="_blank">🖨️ 印刷</a>
+    <a href="{{ url_for('shortstay.transport_index') }}" class="btn">← 一覧に戻る</a>
+  </div>
+</div>
+
+<!-- ルート基本情報 -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">{{ route.route_name or 'ルート情報' }}</span>
+    {% if route.status == 'draft' %}<span class="badge badge-yellow">下書き</span>
+    {% elif route.status == 'confirmed' %}<span class="badge badge-green">確定済み</span>
+    {% elif route.status == 'completed' %}<span class="badge badge-gray">完了</span>{% endif %}
+  </div>
+  <div class="form-row">
+    <div>
+      <div class="form-label">日付</div>
+      <div>{{ route.route_date.strftime('%Y年%m月%d日') }}</div>
+    </div>
+    <div>
+      <div class="form-label">種別</div>
+      <div>
+        {% if route.transport_type == 'pickup' %}迎え（施設→自宅）
+        {% elif route.transport_type == 'dropoff' %}送り（自宅→施設）
+        {% else %}{{ route.transport_type }}{% endif %}
+      </div>
+    </div>
+    <div>
+      <div class="form-label">車両</div>
+      <div>{{ route.vehicle.name if route.vehicle else '未設定' }}</div>
+    </div>
+    <div>
+      <div class="form-label">ドライバー</div>
+      <div>{{ route.driver.name if route.driver else '未設定' }}</div>
+    </div>
+    <div>
+      <div class="form-label">出発時刻</div>
+      <div>{{ route.departure_time.strftime('%H:%M') if route.departure_time else '未設定' }}</div>
+    </div>
+  </div>
+  {% if route.notes %}
+  <div style="margin-top:0.75rem;">
+    <div class="form-label">メモ</div>
+    <div style="white-space:pre-wrap;">{{ route.notes }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 停車地一覧 -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">🗺️ 停車地順序</span>
+    <span style="color:var(--gray-500); font-size:0.875rem;">{{ route.stops|length }}箇所</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>順序</th>
+          <th>利用者名</th>
+          <th>住所</th>
+          <th>到着予定</th>
+          <th>乗降時間</th>
+          <th>車椅子</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stop in route.stops|sort(attribute='stop_order') %}
+        <tr>
+          <td>
+            <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; background:var(--primary); color:#fff; border-radius:50%; font-weight:700; font-size:0.875rem;">{{ stop.stop_order }}</span>
+          </td>
+          <td><strong>{{ stop.resident.name if stop.resident else '-' }}</strong></td>
+          <td>{{ stop.address or (stop.transport_address.address if stop.transport_address else '-') }}</td>
+          <td>{{ stop.estimated_arrival.strftime('%H:%M') if stop.estimated_arrival else '-' }}</td>
+          <td>{{ stop.boarding_time_minutes or 5 }}分</td>
+          <td>
+            {% if stop.requires_wheelchair %}
+              <span class="badge badge-blue">必要</span>
+            {% else %}
+              <span class="badge badge-gray">不要</span>
+            {% endif %}
+          </td>
+          <td>{{ stop.notes or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:1.5rem;">停車地が設定されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

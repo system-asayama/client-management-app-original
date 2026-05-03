@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>送迎ルート表 - {{ route.route_date.strftime('%Y/%m/%d') }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Hiragino Sans', Meiryo, sans-serif; font-size: 12pt; color: #000; background: #fff; }
+    .print-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { font-size: 18pt; font-weight: 700; margin-bottom: 8px; }
+    .header-info { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; font-size: 11pt; border-bottom: 2px solid #000; padding-bottom: 10px; }
+    .header-info div { display: flex; gap: 6px; }
+    .header-info .label { font-weight: 600; color: #555; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    thead th { background: #1e293b; color: #fff; padding: 8px 10px; text-align: left; font-size: 10pt; }
+    tbody td { padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 10pt; vertical-align: middle; }
+    tbody tr:nth-child(even) { background: #f9fafb; }
+    .stop-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #2563eb; color: #fff; border-radius: 50%; font-weight: 700; font-size: 10pt; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 9pt; font-weight: 600; }
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+    .badge-gray { background: #f3f4f6; color: #374151; }
+    .notes-section { margin-top: 20px; border: 1px solid #ddd; border-radius: 6px; padding: 12px; }
+    .notes-section h3 { font-size: 11pt; margin-bottom: 8px; }
+    .notes-content { min-height: 60px; font-size: 10pt; white-space: pre-wrap; }
+    .footer { margin-top: 24px; text-align: right; font-size: 9pt; color: #666; }
+    @media print {
+      body { font-size: 10pt; }
+      .no-print { display: none; }
+      .print-container { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="print-container">
+  <div class="no-print" style="margin-bottom:16px;">
+    <button onclick="window.print()" style="padding:8px 20px; background:#2563eb; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:12pt;">🖨️ 印刷する</button>
+    <a href="{{ url_for('shortstay.transport_route_detail', route_id=route.id) }}" style="margin-left:12px; color:#2563eb;">← 詳細に戻る</a>
+  </div>
+
+  <h1>🚐 送迎ルート表</h1>
+  <div class="header-info">
+    <div><span class="label">日付：</span>{{ route.route_date.strftime('%Y年%m月%d日') }}</div>
+    <div><span class="label">種別：</span>
+      {% if route.transport_type == 'pickup' %}迎え（施設→自宅）
+      {% elif route.transport_type == 'dropoff' %}送り（自宅→施設）
+      {% else %}{{ route.transport_type }}{% endif %}
+    </div>
+    <div><span class="label">車両：</span>{{ route.vehicle.name if route.vehicle else '未設定' }}</div>
+    <div><span class="label">ドライバー：</span>{{ route.driver.name if route.driver else '未設定' }}</div>
+    <div><span class="label">出発：</span>{{ route.departure_time.strftime('%H:%M') if route.departure_time else '未設定' }}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:50px;">順序</th>
+        <th>利用者名</th>
+        <th>住所</th>
+        <th style="width:80px;">到着予定</th>
+        <th style="width:70px;">乗降時間</th>
+        <th style="width:70px;">車椅子</th>
+        <th>備考</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stop in route.stops|sort(attribute='stop_order') %}
+      <tr>
+        <td style="text-align:center;"><span class="stop-num">{{ stop.stop_order }}</span></td>
+        <td><strong>{{ stop.resident.name if stop.resident else '-' }}</strong></td>
+        <td>{{ stop.address or (stop.transport_address.address if stop.transport_address else '-') }}</td>
+        <td>{{ stop.estimated_arrival.strftime('%H:%M') if stop.estimated_arrival else '-' }}</td>
+        <td>{{ stop.boarding_time_minutes or 5 }}分</td>
+        <td>
+          {% if stop.requires_wheelchair %}
+            <span class="badge badge-blue">必要</span>
+          {% else %}
+            <span class="badge badge-gray">不要</span>
+          {% endif %}
+        </td>
+        <td>{{ stop.notes or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if route.notes %}
+  <div class="notes-section">
+    <h3>📝 メモ・特記事項</h3>
+    <div class="notes-content">{{ route.notes }}</div>
+  </div>
+  {% endif %}
+
+  <div class="notes-section" style="margin-top:12px;">
+    <h3>✍️ 当日メモ欄</h3>
+    <div class="notes-content" style="min-height:80px;"></div>
+  </div>
+
+  <div class="footer">
+    印刷日時：{{ now.strftime('%Y/%m/%d %H:%M') if now else '' }} ／ ショートステイ運営管理システム
+  </div>
+</div>
+</body>
+</html>

@@ -418,6 +418,16 @@
       <a href="{{ url_for('shortstay.incidents') }}" class="{% if 'incident' in request.endpoint %}active{% endif %}">
         <span class="icon">⚠️</span> 事故・ヒヤリハット
       </a>
+      <div class="sidebar-section">送迎管理</div>
+      <a href="{{ url_for('shortstay.transport_index') }}" class="{% if 'transport' in request.endpoint %}active{% endif %}">
+        <span class="icon">🚐</span> 送迎ルート
+      </a>
+      <a href="{{ url_for('shortstay.vehicles') }}" class="{% if 'vehicle' in request.endpoint %}active{% endif %}">
+        <span class="icon">🚗</span> 車両管理
+      </a>
+      <a href="{{ url_for('shortstay.drivers') }}" class="{% if 'driver' in request.endpoint %}active{% endif %}">
+        <span class="icon">👤</span> ドライバー管理
+      </a>
     </nav>
     <div class="sidebar-footer">
       {% if current_store_name %}{{ current_store_name }}{% elif current_tenant_name %}{{ current_tenant_name }}{% endif %}

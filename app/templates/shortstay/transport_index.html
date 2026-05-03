@@ -1,0 +1,139 @@
+{% extends "shortstay/base.html" %}
+{% block title %}送迎ルート管理 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🚐 送迎ルート管理</h1>
+</div>
+
+<!-- 自動生成フォーム -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📅 ルート自動生成</span>
+  </div>
+  <form method="post" action="{{ url_for('shortstay.transport_generate') }}">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">対象日 <span style="color:var(--danger)">*</span></label>
+        <input type="date" name="target_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">送迎種別 <span style="color:var(--danger)">*</span></label>
+        <select name="transport_type" class="form-control" required>
+          <option value="pickup">迎え（施設→自宅）</option>
+          <option value="dropoff">送り（自宅→施設）</option>
+          <option value="both">迎え＋送り（両方）</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">使用車両（複数選択可）</label>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+          {% for v in vehicles %}
+          <label style="display:flex; align-items:center; gap:0.3rem; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:6px; padding:0.4rem 0.75rem; cursor:pointer;">
+            <input type="checkbox" name="vehicle_ids" value="{{ v.id }}" checked>
+            {{ v.name }}
+            {% if v.wheelchair_accessible %}<span class="badge badge-blue" style="font-size:0.65rem;">車椅子</span>{% endif %}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-info" style="margin-top:0.75rem;">
+      <strong>自動生成ルール：</strong>
+      ① 対象日の予約から送迎対象者を抽出 →
+      ② 車椅子利用者を優先的に車椅子対応車両に割り当て →
+      ③ NGドライバー制約を適用 →
+      ④ 希望時刻に近い順でルートを最適化
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">🔄 ルートを自動生成</button>
+  </form>
+</div>
+
+<!-- 既存ルート一覧 -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 生成済みルート一覧</span>
+  </div>
+
+  <!-- 日付フィルター -->
+  <div class="search-bar">
+    <input type="date" id="filterDate" class="form-control" style="max-width:180px;" value="{{ today.strftime('%Y-%m-%d') }}" onchange="filterRoutes()">
+    <select id="filterType" class="form-control" style="max-width:160px;" onchange="filterRoutes()">
+      <option value="">全種別</option>
+      <option value="pickup">迎え</option>
+      <option value="dropoff">送り</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>種別</th>
+          <th>ルート名</th>
+          <th>車両</th>
+          <th>ドライバー</th>
+          <th>停車地数</th>
+          <th>出発時刻</th>
+          <th>ステータス</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="routeTableBody">
+        {% for route in routes %}
+        <tr data-date="{{ route.route_date.strftime('%Y-%m-%d') }}" data-type="{{ route.transport_type }}">
+          <td>{{ route.route_date.strftime('%Y/%m/%d') }}</td>
+          <td>
+            {% if route.transport_type == 'pickup' %}<span class="badge badge-blue">迎え</span>
+            {% elif route.transport_type == 'dropoff' %}<span class="badge badge-green">送り</span>
+            {% else %}<span class="badge badge-gray">{{ route.transport_type }}</span>{% endif %}
+          </td>
+          <td><strong>{{ route.route_name or 'ルート' ~ loop.index }}</strong></td>
+          <td>{{ route.vehicle.name if route.vehicle else '-' }}</td>
+          <td>{{ route.driver.name if route.driver else '-' }}</td>
+          <td>{{ route.stops|length }}箇所</td>
+          <td>{{ route.departure_time.strftime('%H:%M') if route.departure_time else '-' }}</td>
+          <td>
+            {% if route.status == 'draft' %}<span class="badge badge-yellow">下書き</span>
+            {% elif route.status == 'confirmed' %}<span class="badge badge-green">確定</span>
+            {% elif route.status == 'completed' %}<span class="badge badge-gray">完了</span>
+            {% else %}<span class="badge badge-gray">{{ route.status }}</span>{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('shortstay.transport_route_detail', route_id=route.id) }}" class="btn btn-sm">詳細</a>
+            <a href="{{ url_for('shortstay.transport_route_edit', route_id=route.id) }}" class="btn btn-sm">編集</a>
+            <a href="{{ url_for('shortstay.transport_route_print', route_id=route.id) }}" class="btn btn-sm" target="_blank">🖨️</a>
+            <form method="post" action="{{ url_for('shortstay.transport_route_delete', route_id=route.id) }}" style="display:inline;" onsubmit="return confirm('このルートを削除しますか？');">
+              <button type="submit" class="btn btn-sm btn-danger">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr id="emptyRow"><td colspan="9" style="text-align:center; color: var(--gray-500); padding: 2rem;">ルートが生成されていません。上のフォームから自動生成してください。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function filterRoutes() {
+  const date = document.getElementById('filterDate').value;
+  const type = document.getElementById('filterType').value;
+  const rows = document.querySelectorAll('#routeTableBody tr[data-date]');
+  let visible = 0;
+  rows.forEach(row => {
+    const matchDate = !date || row.dataset.date === date;
+    const matchType = !type || row.dataset.type === type;
+    row.style.display = (matchDate && matchType) ? '' : 'none';
+    if (matchDate && matchType) visible++;
+  });
+  const emptyRow = document.getElementById('emptyRow');
+  if (emptyRow) emptyRow.style.display = visible === 0 ? '' : 'none';
+}
+// 初期フィルター適用
+filterRoutes();
+</script>
+{% endblock %}

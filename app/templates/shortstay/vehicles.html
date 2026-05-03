@@ -1,0 +1,96 @@
+{% extends "shortstay/base.html" %}
+{% block title %}車両管理 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🚗 車両管理</h1>
+  <a href="{{ url_for('shortstay.vehicle_new') }}" class="btn btn-primary">＋ 車両を追加</a>
+</div>
+
+{% if alerts %}
+<div class="card" style="border-left: 4px solid var(--warning);">
+  <div class="card-header">
+    <span class="card-title" style="color: var(--warning);">⚠️ 期限アラート</span>
+  </div>
+  {% for a in alerts %}
+  <div class="alert {% if a.expired %}alert-error{% else %}alert-warning{% endif %}" style="margin-bottom: 0.5rem;">
+    <strong>{{ a.vehicle.name }}</strong>（{{ a.vehicle.plate_number or '-' }}）の
+    <strong>{{ a.type }}</strong>が
+    {% if a.expired %}
+      <strong>{{ a.days|abs }}日前に期限切れ</strong>です。
+    {% else %}
+      あと <strong>{{ a.days }}日</strong> で期限切れになります。
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>車両名</th>
+          <th>ナンバー</th>
+          <th>種別</th>
+          <th>定員</th>
+          <th>車椅子</th>
+          <th>車検期限</th>
+          <th>保険期限</th>
+          <th>状態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vehicles %}
+        <tr>
+          <td><strong>{{ v.name }}</strong></td>
+          <td>{{ v.plate_number or '-' }}</td>
+          <td>{{ v.vehicle_type or '-' }}</td>
+          <td>{{ v.capacity }}名</td>
+          <td>
+            {% if v.wheelchair_accessible %}
+              <span class="badge badge-blue">対応</span>
+              {% if v.has_lift %}<span class="badge badge-green" style="margin-left:4px;">リフト</span>{% endif %}
+            {% else %}
+              <span class="badge badge-gray">なし</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if v.vehicle_inspection_expiry %}
+              {% set days = (v.vehicle_inspection_expiry - today).days %}
+              <span class="{% if days < 0 %}badge badge-red{% elif days <= 30 %}badge badge-yellow{% else %}badge badge-green{% endif %}">
+                {{ v.vehicle_inspection_expiry.strftime('%Y/%m/%d') }}
+              </span>
+            {% else %}-{% endif %}
+          </td>
+          <td>
+            {% if v.insurance_expiry %}
+              {% set days = (v.insurance_expiry - today).days %}
+              <span class="{% if days < 0 %}badge badge-red{% elif days <= 30 %}badge badge-yellow{% else %}badge badge-green{% endif %}">
+                {{ v.insurance_expiry.strftime('%Y/%m/%d') }}
+              </span>
+            {% else %}-{% endif %}
+          </td>
+          <td>
+            {% if v.is_active %}
+              <span class="badge badge-green">稼働中</span>
+            {% else %}
+              <span class="badge badge-gray">停止中</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('shortstay.vehicle_edit', vehicle_id=v.id) }}" class="btn btn-sm">編集</a>
+            <form method="post" action="{{ url_for('shortstay.vehicle_delete', vehicle_id=v.id) }}" style="display:inline;" onsubmit="return confirm('この車両を削除しますか？');">
+              <button type="submit" class="btn btn-sm btn-danger">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" style="text-align:center; color: var(--gray-500); padding: 2rem;">車両が登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

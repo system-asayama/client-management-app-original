@@ -1,0 +1,66 @@
+{% extends "shortstay/base.html" %}
+{% block title %}{% if address %}送迎先編集{% else %}送迎先追加{% endif %} - {{ resident.name }} - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🏠 {% if address %}送迎先編集{% else %}送迎先追加{% endif %} — {{ resident.name }}</h1>
+  <a href="{{ url_for('shortstay.transport_addresses', resident_id=resident.id) }}" class="btn">← 送迎先一覧に戻る</a>
+</div>
+
+<div class="card">
+  <form method="post">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">送迎先種別 <span style="color:var(--danger)">*</span></label>
+        <select name="address_type" class="form-control" required>
+          <option value="home" {% if not address or address.address_type == 'home' %}selected{% endif %}>自宅</option>
+          <option value="facility" {% if address and address.address_type == 'facility' %}selected{% endif %}>施設</option>
+          <option value="hospital" {% if address and address.address_type == 'hospital' %}selected{% endif %}>病院</option>
+          <option value="other" {% if address and address.address_type == 'other' %}selected{% endif %}>その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">名称（施設名など）</label>
+        <input type="text" name="name" class="form-control" value="{{ address.name if address else '' }}" placeholder="例：田中邸、○○病院">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">住所 <span style="color:var(--danger)">*</span></label>
+      <input type="text" name="address" class="form-control" value="{{ address.address if address else '' }}" required placeholder="例：岡山県岡山市北区○○1-2-3">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input type="tel" name="phone" class="form-control" value="{{ address.phone if address else '' }}" placeholder="例：086-123-4567">
+      </div>
+      <div class="form-group">
+        <label class="form-label">乗降時間（分）</label>
+        <input type="number" name="boarding_time_minutes" class="form-control" value="{{ address.boarding_time_minutes if address else 5 }}" min="1" max="60">
+        <small style="color:var(--gray-500);">乗降に要する時間（ルート計算に使用）</small>
+      </div>
+    </div>
+    <div class="form-section-title">バリアフリー情報</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" name="requires_wheelchair" value="1" {% if address and address.requires_wheelchair %}checked{% endif %}>
+          車椅子対応車両が必要
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" name="is_default" value="1" {% if not address or address.is_default %}checked{% endif %}>
+          デフォルトの送迎先として設定
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">メモ・備考</label>
+      <textarea name="notes" class="form-control" rows="3" placeholder="例：玄関前に段差あり、インターホン2番">{{ address.notes if address else '' }}</textarea>
+    </div>
+    <div style="display:flex; gap:0.75rem; margin-top:1rem;">
+      <button type="submit" class="btn btn-primary">💾 保存</button>
+      <a href="{{ url_for('shortstay.transport_addresses', resident_id=resident.id) }}" class="btn">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

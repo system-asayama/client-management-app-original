@@ -573,3 +573,160 @@ class SSIncidentReport(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# ─────────────────────────────────────────────
+# 送迎管理（車両・ドライバー・ルート）
+# ─────────────────────────────────────────────
+
+class SSVehicle(Base):
+    """車両管理"""
+    __tablename__ = 'SS_車両'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    name = Column(String(100), nullable=False, comment='車両名')
+    plate_number = Column(String(20), nullable=True, comment='ナンバー')
+    vehicle_type = Column(String(50), nullable=True, comment='車種')
+    capacity = Column(Integer, nullable=False, default=4, comment='定員（乗客数）')
+    wheelchair_accessible = Column(Boolean, default=False, comment='車椅子対応')
+    has_lift = Column(Boolean, default=False, comment='リフト有無')
+    is_active = Column(Boolean, default=True, comment='稼働状況')
+    inspection_date = Column(Date, nullable=True, comment='点検日')
+    vehicle_inspection_expiry = Column(Date, nullable=True, comment='車検期限')
+    insurance_expiry = Column(Date, nullable=True, comment='保険期限')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    drivers = relationship('SSDriver', back_populates='vehicle')
+    routes = relationship('SSTransportRoute', back_populates='vehicle')
+
+
+class SSDriver(Base):
+    """ドライバー管理"""
+    __tablename__ = 'SS_ドライバー'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    employee_id = Column(Integer, ForeignKey('T_従業員.id'), nullable=True, comment='従業員ID（紐付け）')
+    name = Column(String(100), nullable=False, comment='ドライバー名')
+    phone = Column(String(20), nullable=True, comment='電話番号')
+    license_number = Column(String(30), nullable=True, comment='免許番号')
+    license_expiry = Column(Date, nullable=True, comment='免許有効期限')
+    vehicle_id = Column(Integer, ForeignKey('SS_車両.id'), nullable=True, comment='担当車両')
+    is_active = Column(Boolean, default=True, comment='稼働フラグ')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    vehicle = relationship('SSVehicle', back_populates='drivers')
+    ng_restrictions = relationship('SSUserDriverRestriction', back_populates='driver')
+    routes = relationship('SSTransportRoute', back_populates='driver')
+
+
+class SSUserTransportAddress(Base):
+    """利用者ごとの送迎先管理（複数登録可）"""
+    __tablename__ = 'SS_送迎先'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False, comment='利用者ID')
+    name = Column(String(100), nullable=False, comment='送迎先名')
+    address_type = Column(String(20), nullable=False, default='自宅',
+                          comment='区分（自宅/勤務先/家族宅/病院/その他）')
+    postal_code = Column(String(10), nullable=True, comment='郵便番号')
+    address = Column(String(300), nullable=True, comment='住所')
+    building = Column(String(100), nullable=True, comment='建物名')
+    phone = Column(String(20), nullable=True, comment='電話番号')
+    latitude = Column(String(20), nullable=True, comment='緯度（将来API連携用）')
+    longitude = Column(String(20), nullable=True, comment='経度（将来API連携用）')
+    wheelchair_required = Column(Boolean, default=False, comment='車椅子利用')
+    care_notes = Column(Text, nullable=True, comment='介助注意事項')
+    is_default = Column(Boolean, default=False, comment='標準送迎先フラグ')
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resident = relationship('SSResident', backref='transport_addresses')
+
+
+class SSUserDriverRestriction(Base):
+    """NGドライバー設定（利用者ごと）"""
+    __tablename__ = 'SS_NGドライバー'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False, comment='利用者ID')
+    driver_id = Column(Integer, ForeignKey('SS_ドライバー.id'), nullable=False, comment='NGドライバーID')
+    reason = Column(Text, nullable=True, comment='NG理由（管理者のみ閲覧）')
+    start_date = Column(Date, nullable=True, comment='開始日')
+    end_date = Column(Date, nullable=True, comment='終了日')
+    is_active = Column(Boolean, default=True, comment='有効フラグ')
+    created_by = Column(Integer, ForeignKey('T_従業員.id'), nullable=True, comment='登録者')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resident = relationship('SSResident', backref='driver_restrictions')
+    driver = relationship('SSDriver', back_populates='ng_restrictions')
+
+
+class SSTransportSchedule(Base):
+    """送迎スケジュール（日付・区分ごとの送迎対象リスト）"""
+    __tablename__ = 'SS_送迎スケジュール'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    schedule_date = Column(Date, nullable=False, comment='送迎日')
+    transport_type = Column(String(10), nullable=False, comment='区分（迎え/送り）')
+    resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False)
+    reservation_id = Column(Integer, ForeignKey('SS_予約.id'), nullable=True)
+    transport_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='送迎先ID')
+    desired_time = Column(String(10), nullable=True, comment='希望時刻')
+    wheelchair_required = Column(Boolean, default=False, comment='車椅子')
+    care_notes = Column(Text, nullable=True, comment='注意事項')
+    is_confirmed = Column(Boolean, default=False, comment='確定フラグ')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resident = relationship('SSResident', backref='transport_schedules')
+    reservation = relationship('SSReservation', backref='transport_schedules')
+    transport_address = relationship('SSUserTransportAddress', backref='transport_schedules')
+
+
+class SSTransportRoute(Base):
+    """送迎ルート（車両ごとの確定ルート）"""
+    __tablename__ = 'SS_送迎ルート'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    route_date = Column(Date, nullable=False, comment='送迎日')
+    transport_type = Column(String(10), nullable=False, comment='区分（迎え/送り）')
+    vehicle_id = Column(Integer, ForeignKey('SS_車両.id'), nullable=True)
+    driver_id = Column(Integer, ForeignKey('SS_ドライバー.id'), nullable=True)
+    route_name = Column(String(100), nullable=True, comment='ルート名（例：1号車）')
+    status = Column(String(20), default='draft', comment='状態（draft/confirmed）')
+    notes = Column(Text, nullable=True, comment='備考')
+    created_by = Column(Integer, ForeignKey('T_従業員.id'), nullable=True)
+    confirmed_by = Column(Integer, ForeignKey('T_従業員.id'), nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    vehicle = relationship('SSVehicle', back_populates='routes')
+    driver = relationship('SSDriver', back_populates='routes')
+    stops = relationship('SSTransportRouteStop', back_populates='route',
+                         order_by='SSTransportRouteStop.stop_order', cascade='all, delete-orphan')
+
+
+class SSTransportRouteStop(Base):
+    """送迎ルート停車地（ルートの各停車ポイント）"""
+    __tablename__ = 'SS_送迎ルート停車地'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    route_id = Column(Integer, ForeignKey('SS_送迎ルート.id'), nullable=False)
+    stop_order = Column(Integer, nullable=False, comment='停車順序')
+    resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=True, comment='利用者ID（施設はNULL）')
+    transport_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True)
+    scheduled_time = Column(String(10), nullable=True, comment='予定時刻')
+    address_snapshot = Column(String(300), nullable=True, comment='住所スナップショット（印刷用）')
+    phone_snapshot = Column(String(20), nullable=True, comment='電話スナップショット（印刷用）')
+    care_notes_snapshot = Column(Text, nullable=True, comment='注意事項スナップショット（印刷用）')
+    is_facility = Column(Boolean, default=False, comment='施設フラグ（True=施設、False=利用者宅）')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    route = relationship('SSTransportRoute', back_populates='stops')
+    resident = relationship('SSResident', backref='route_stops')
+    transport_address = relationship('SSUserTransportAddress', backref='route_stops')

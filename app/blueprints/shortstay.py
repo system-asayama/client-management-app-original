@@ -2245,6 +2245,7 @@ def transport_index():
 
         return render_template('shortstay/transport_index.html',
             target_date=target_date,
+            today=date.today(),
             pickup_count=len(pickup_targets),
             dropoff_count=len(dropoff_targets),
             existing_routes=existing_routes,

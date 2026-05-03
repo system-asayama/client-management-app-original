@@ -79,11 +79,18 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">郵便番号</label>
-        <input type="text" name="postal_code" class="form-control" placeholder="000-0000" value="{{ resident.postal_code or '' if resident else '' }}">
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="text" name="postal_code" id="postal_code" class="form-control" placeholder="000-0000"
+                 value="{{ resident.postal_code or '' if resident else '' }}"
+                 oninput="autoFillAddress(this.value)" style="flex:1;">
+          <button type="button" onclick="autoFillAddress(document.getElementById('postal_code').value)"
+                  class="btn btn-secondary" style="white-space:nowrap;">🔍 住所検索</button>
+        </div>
+        <div id="postal-status" style="font-size:0.75rem;margin-top:0.25rem;"></div>
       </div>
       <div class="form-group" style="grid-column: span 2;">
         <label class="form-label">住所</label>
-        <input type="text" name="address" class="form-control" value="{{ resident.address or '' if resident else '' }}">
+        <input type="text" name="address" id="address" class="form-control" value="{{ resident.address or '' if resident else '' }}">
       </div>
     </div>
     <div class="form-row">
@@ -403,6 +410,47 @@
 </form>
 
 <script>
+// 郵便番号から住所を自動入力する（zipcloud API使用）
+let _postalTimer = null;
+function autoFillAddress(val) {
+  const statusEl = document.getElementById('postal-status');
+  // ハイフンを除いた7桁の数字のみ処理
+  const code = val.replace(/-/g, '');
+  if (code.length < 7) {
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
+  if (code.length > 7 || !/^\d{7}$/.test(code)) {
+    if (statusEl) { statusEl.style.color = '#c00'; statusEl.textContent = '郵便番号は7桁の数字で入力してください'; }
+    return;
+  }
+  // デバウンス（300ms）
+  clearTimeout(_postalTimer);
+  _postalTimer = setTimeout(function() {
+    if (statusEl) { statusEl.style.color = '#888'; statusEl.textContent = '検索中...'; }
+    fetch('https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + code)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 200 && data.results && data.results.length > 0) {
+          const r = data.results[0];
+          const fullAddr = r.address1 + r.address2 + r.address3;
+          const addrEl = document.getElementById('address');
+          if (addrEl) {
+            // 住所欄が空か、郵便番号由来の住所のみの場合に上書き
+            addrEl.value = fullAddr;
+          }
+          if (statusEl) { statusEl.style.color = '#080'; statusEl.textContent = '✓ 住所を自動入力しました'; }
+          setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 3000);
+        } else {
+          if (statusEl) { statusEl.style.color = '#c00'; statusEl.textContent = '該当する住所が見つかりませんでした'; }
+        }
+      })
+      .catch(function() {
+        if (statusEl) { statusEl.style.color = '#c00'; statusEl.textContent = '住所検索に失敗しました（通信エラー）'; }
+      });
+  }, 300);
+}
+
 function previewPhoto(input) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();

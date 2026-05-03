@@ -329,28 +329,59 @@ def survey_settings_view(store_id):
     store_name = store_row[0]
     store_slug = store_row[1]
     if request.method == 'POST':
-        openai_api_key = request.form.get('openai_api_key', '').strip() or None
-        google_review_url = request.form.get('google_review_url', '').strip() or None
-        ai_review_mode = request.form.get('ai_review_mode', 'all')
-        business_type = request.form.get('business_type', '').strip() or None
-        ai_instruction = request.form.get('ai_instruction', '').strip() or None
+        form_type = request.form.get('form_type', 'settings')
         cur.execute(_sql(conn, 'SELECT id FROM "T_店舗_アンケート設定" WHERE store_id = %s'), (store_id,))
         existing = cur.fetchone()
-        if existing:
-            cur.execute(_sql(conn, '''UPDATE "T_店舗_アンケート設定"
-                SET openai_api_key = %s, google_review_url = %s,
-                    ai_review_mode = %s, business_type = %s, ai_instruction = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE store_id = %s'''),
-                (openai_api_key, google_review_url, ai_review_mode, business_type, ai_instruction, store_id))
+        if form_type == 'openai_key':
+            # OpenAI APIキーのみ保存
+            openai_api_key = request.form.get('openai_api_key', '').strip() or None
+            if existing:
+                cur.execute(_sql(conn, 'UPDATE "T_店舗_アンケート設定" SET openai_api_key = %s, updated_at = CURRENT_TIMESTAMP WHERE store_id = %s'),
+                    (openai_api_key, store_id))
+            else:
+                cur.execute(_sql(conn, 'INSERT INTO "T_店舗_アンケート設定" (store_id, title, config_json, openai_api_key) VALUES (%s, %s, %s, %s)'),
+                    (store_id, 'お店アンケート', '{}', openai_api_key))
+            conn.commit()
+            conn.close()
+            flash('APIキーを保存しました', 'success')
+        elif form_type == 'ai_review_settings':
+            # 業種・AI指示文のみ保存
+            business_type = request.form.get('business_type', '').strip() or None
+            ai_instruction = request.form.get('ai_instruction', '').strip() or None
+            if existing:
+                cur.execute(_sql(conn, 'UPDATE "T_店舗_アンケート設定" SET business_type = %s, ai_instruction = %s, updated_at = CURRENT_TIMESTAMP WHERE store_id = %s'),
+                    (business_type, ai_instruction, store_id))
+            else:
+                cur.execute(_sql(conn, 'INSERT INTO "T_店舗_アンケート設定" (store_id, title, config_json, business_type, ai_instruction) VALUES (%s, %s, %s, %s, %s)'),
+                    (store_id, 'お店アンケート', '{}', business_type, ai_instruction))
+            conn.commit()
+            conn.close()
+            flash('業種・AI指示文を保存しました', 'success')
         else:
-            cur.execute(_sql(conn, '''INSERT INTO "T_店舗_アンケート設定"
-                (store_id, title, config_json, openai_api_key, google_review_url, ai_review_mode, business_type, ai_instruction)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'''),
-                (store_id, 'お店アンケート', '{}', openai_api_key, google_review_url, ai_review_mode, business_type, ai_instruction))
-        conn.commit()
-        conn.close()
-        flash('設定を保存しました', 'success')
+            # 通常設定（survey_complete_message, google_review_url, slot_spin_count, review_prompt_mode）
+            openai_api_key = request.form.get('openai_api_key', '').strip() or None
+            google_review_url = request.form.get('google_review_url', '').strip() or None
+            ai_review_mode = request.form.get('review_prompt_mode', request.form.get('ai_review_mode', 'all'))
+            business_type = request.form.get('business_type', '').strip() or None
+            ai_instruction = request.form.get('ai_instruction', '').strip() or None
+            survey_complete_message = request.form.get('survey_complete_message', '').strip() or 'アンケートにご協力いただきありがとうございます！スロットをお楽しみください。'
+            slot_spin_count = int(request.form.get('slot_spin_count', 1) or 1)
+            if existing:
+                cur.execute(_sql(conn, '''UPDATE "T_店舗_アンケート設定"
+                    SET openai_api_key = %s, google_review_url = %s,
+                        ai_review_mode = %s, business_type = %s, ai_instruction = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE store_id = %s'''),
+                    (openai_api_key, google_review_url, ai_review_mode, business_type, ai_instruction, store_id))
+            else:
+                cur.execute(_sql(conn, '''INSERT INTO "T_店舗_アンケート設定"
+                    (store_id, title, config_json, openai_api_key, google_review_url, ai_review_mode, business_type, ai_instruction)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'''),
+                    (store_id, 'お店アンケート', '{}', openai_api_key, google_review_url, ai_review_mode, business_type, ai_instruction))
+            _save_slot_settings_db(store_id, slot_spin_count, survey_complete_message)
+            conn.commit()
+            conn.close()
+            flash('設定を保存しました', 'success')
         return redirect(url_for('survey_app.survey_settings_view', store_id=store_id))
 
     conn.close()
@@ -365,8 +396,27 @@ def survey_settings_view(store_id):
             self.store_name = name
             self.slug = slug
     store = _Store(store_id, store_name, store_slug)
+    # テンプレートが期待するai_review_settingsオブジェクトを作成
+    class _AIReviewSettings:
+        def __init__(self, d):
+            self.business_type = d.get('business_type', '')
+            self.ai_instruction = d.get('ai_instruction', '')
+    ai_review_settings = _AIReviewSettings(settings_data)
+    # テンプレートが期待するslot_appオブジェクトを作成
+    class _SlotApp:
+        def __init__(self, d):
+            self.openai_api_key = d.get('openai_api_key', '')
+    slot_app = _SlotApp(settings_data)
+    # slot_settingsからsurvey_complete_message, slot_spin_count, review_prompt_modeを取得
+    survey_complete_message = slot_settings_data.get('survey_complete_message', 'アンケートにご協力いただきありがとうございます！スロットをお楽しみください。')
+    slot_spin_count = slot_settings_data.get('slot_spin_count', 1)
+    review_prompt_mode = settings_data.get('ai_review_mode', 'all')
+    google_review_url = settings_data.get('google_review_url', '')
     return render_template('survey_app_settings.html', admin=admin, store_id=store_id, store_name=store_name, store_slug=store_slug, settings=settings_data,
-                           slot_cfg=slot_cfg, slot_config=slot_cfg, slot_settings=slot_settings_data, prizes=prizes_data, store=store)
+                           slot_cfg=slot_cfg, slot_config=slot_cfg, slot_settings=slot_settings_data, prizes=prizes_data, store=store,
+                           ai_review_settings=ai_review_settings, slot_app=slot_app,
+                           survey_complete_message=survey_complete_message, slot_spin_count=slot_spin_count,
+                           review_prompt_mode=review_prompt_mode, google_review_url=google_review_url)
 
 
 @bp.route('/store/<int:store_id>/responses')

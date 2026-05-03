@@ -304,7 +304,7 @@
       });
       
       try {
-        const response = await fetch('/admin/save_prizes', {
+        const response = await fetch('/apps/survey/store/{{ store.id if store else 0 }}/save_prizes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -423,7 +423,7 @@
       const storeId = {{ store.id if store else 'null' }};
       
       try {
-        const response = await fetch(`/admin/store/${storeId}/optimize_probabilities`, {
+        const response = await fetch(`/apps/survey/store/${storeId}/optimize_probabilities`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -491,8 +491,9 @@
       // ハズレ確率を取得
       const missProbability = parseFloat(document.getElementById('miss_probability').value) || 0.0;
       
+      const storeSlug = '{{ store.slug if store else "" }}';
       try {
-        const response = await fetch('/calc_prob', {
+        const response = await fetch(`/apps/survey/store/${storeSlug}/calc_prob`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -529,10 +530,10 @@
     <h1>📋 アンケートアプリ設定</h1>
     {% if store %}
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <a href="/admin/store/{{ store.id }}/apps" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">🏠 店舗アプリ一覧</a>
+      <a href="{{ url_for('admin.available_apps') }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">🏠 店舗アプリ一覧</a>
       <a href="/admin/store/{{ store.id }}/qr_print" target="_blank" style="padding: 8px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">📱 QR印刷</a>
       <a href="/admin/store/{{ store.id }}/print_prizes" target="_blank" style="padding: 8px 16px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎁 景品一覧印刷</a>
-      <a href="/store/{{ store.slug }}/slot?demo=true" target="_blank" style="padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎰 デモプレイ</a>
+      <a href="/apps/survey/store/{{ store.slug }}/slot?demo=true" target="_blank" style="padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎰 デモプレイ</a>
     </div>
     {% endif %}
   </div>
@@ -550,7 +551,7 @@
       <h2>📝 アンケート設定</h2>
       <p class="help-text" style="margin-bottom: 20px;">アンケートの質問項目を設定できます。</p>
       <div style="margin-bottom: 20px;">
-        <a href="{{ url_for('survey_admin.admin_survey_editor') }}" class="btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px;">📝 アンケートを編集</a>
+        <a href="{{ url_for('survey_app.survey_editor', store_id=store.id) if store else '#' }}" class="btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px;">📝 アンケートを編集</a>
       </div>
       <div class="help-text">
         アンケートの質問内容、選択肢、必須項目などを詳細に設定できます。
@@ -641,7 +642,7 @@
         </div>
 
         <button type="submit" class="btn-primary">保存</button>
-        <a href="{{ url_for('admin.store_info') }}" class="btn-secondary">キャンセル</a>
+        <a href="{{ url_for('survey_app.survey_settings_view', store_id=store.id) if store else url_for('admin.store_info') }}" class="btn-secondary">キャンセル</a>
       </form>
     </div>
 
@@ -660,7 +661,7 @@
       <p class="help-text" style="margin-bottom: 20px;">スロットのシンボルと配当、確率を設定できます。確率は自動調整されますが、手動でも調整可能です。</p>
       
 
-      <form method="post" action="{{ url_for('store_save_slot_config', store_id=store.id) if store else '#' }}">
+      <form method="post" action="{{ url_for('survey_app.save_slot_config', store_id=store.id) if store else '#' }}">
         <div class="form-group">
           <label>5回スピンの期待値</label>
           <input type="number" id="expected_total_5" name="expected_total_5" value="{{ slot_config.expected_total_5 }}" step="0.01" min="0" style="width: 200px;">
@@ -753,8 +754,8 @@
     <div class="section">
       <h2>🏢 業種・AIコメント設定</h2>
       <p class="help-text" style="margin-bottom: 20px;">業種を設定すると、AIが生成する口コミ文章をその業種に合わせた内容に調整します。追加の指示文でさらに細かくカスタマイズできます。</p>
-      <form method="post" action="/admin/save_ai_review_settings">
-        <input type="hidden" name="store_id" value="{{ store.id if store else '' }}">
+      <form method="post" action="{{ url_for('survey_app.survey_settings_view', store_id=store.id) if store else '#' }}">
+        <input type="hidden" name="form_type" value="ai_review_settings">
         <div class="form-group">
           <label for="business_type">業種</label>
           <select id="business_type" name="business_type" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box; background: white;">
@@ -837,8 +838,8 @@
     <div class="section">
       <h2>🤖 OpenAI API設定（アプリ個別）</h2>
       <p class="help-text" style="margin-bottom: 20px;">このアプリ専用のOpenAI APIキーを設定できます。未設定の場合は店舗設定またはテナント設定のキーが使用されます。</p>
-      <form method="post" action="/admin/save_openai_key">
-        <input type="hidden" name="store_id" value="{{ store.id if store else '' }}">
+      <form method="post" action="{{ url_for('survey_app.survey_settings_view', store_id=store.id) if store else '#' }}">
+        <input type="hidden" name="form_type" value="openai_key">
         <div class="form-group">
           <label for="openai_api_key">OpenAI APIキー</label>
           <input type="password" id="openai_api_key" name="openai_api_key" value="{{ slot_app.openai_api_key or '' }}" placeholder="sk-...">

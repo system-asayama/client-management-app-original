@@ -436,10 +436,22 @@ def responses(store_id):
     rows = cur.fetchall()
     conn.close()
     responses_list = [{'id': r[0], 'rating': r[1], 'visit_purpose': r[2], 'atmosphere': r[3], 'recommend': r[4], 'comment': r[5], 'generated_review': r[6], 'response_json': r[7], 'created_at': r[8]} for r in rows]
+    # テンプレートが期待するtotal_responsesとrating_distributionを計算
+    total_responses = len(responses_list)
+    rating_distribution = {}
+    for r in responses_list:
+        rating_val = r.get('rating') or 0
+        try:
+            rating_val = int(rating_val)
+        except (TypeError, ValueError):
+            rating_val = 0
+        rating_distribution[rating_val] = rating_distribution.get(rating_val, 0) + 1
+    avg_rating = (sum(r.get('rating', 0) or 0 for r in responses_list) / total_responses) if total_responses > 0 else 0
     class _Store:
         def __init__(self, id, name): self.id = id; self.store_name = name
     store = _Store(store_id, store_name)
-    return render_template('survey_app_responses.html', admin=admin, store_id=store_id, store_name=store_name, store=store, responses=responses_list)
+    return render_template('survey_app_responses.html', admin=admin, store_id=store_id, store_name=store_name, store=store, responses=responses_list,
+                           total_responses=total_responses, rating_distribution=rating_distribution, avg_rating=avg_rating)
 
 
 @bp.route('/store/<int:store_id>/export_csv')

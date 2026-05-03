@@ -358,8 +358,15 @@ def survey_settings_view(store_id):
     slot_cfg = _get_slot_config(store_id)
     slot_settings_data = _get_slot_settings(store_id)
     prizes_data = _get_prizes(store_id)
+    # テンプレートが期待するstoreオブジェクトを作成
+    class _Store:
+        def __init__(self, id, name, slug):
+            self.id = id
+            self.store_name = name
+            self.slug = slug
+    store = _Store(store_id, store_name, store_slug)
     return render_template('survey_app_settings.html', admin=admin, store_id=store_id, store_name=store_name, store_slug=store_slug, settings=settings_data,
-                           slot_cfg=slot_cfg, slot_settings=slot_settings_data, prizes=prizes_data)
+                           slot_cfg=slot_cfg, slot_config=slot_cfg, slot_settings=slot_settings_data, prizes=prizes_data, store=store)
 
 
 @bp.route('/store/<int:store_id>/responses')

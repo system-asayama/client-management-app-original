@@ -15,8 +15,10 @@
   - 報告書・事故報告
 """
 from __future__ import annotations
+import os
 from datetime import date, datetime, timedelta
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, current_app
+from werkzeug.utils import secure_filename
 from sqlalchemy import and_, or_, func
 from ..db import SessionLocal
 from ..models_login import TTenant, TTenpo, TJugyoin
@@ -167,10 +169,25 @@ def resident_new():
     if request.method == 'POST':
         db = SessionLocal()
         try:
+            # 写真アップロード処理
+            photo_path = None
+            if 'photo' in request.files:
+                photo_file = request.files['photo']
+                if photo_file and photo_file.filename:
+                    ext = os.path.splitext(secure_filename(photo_file.filename))[1].lower()
+                    if ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                        import uuid
+                        fname = f"{uuid.uuid4().hex}{ext}"
+                        upload_dir = current_app.config.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'uploads', 'residents'))
+                        os.makedirs(upload_dir, exist_ok=True)
+                        photo_file.save(os.path.join(upload_dir, fname))
+                        photo_path = f'uploads/residents/{fname}'
+
             r = SSResident(
                 tenant_id=tenant_id,
                 store_id=store_id,
                 last_name=request.form.get('last_name', ''),
+                photo_path=photo_path,
                 first_name=request.form.get('first_name', ''),
                 last_name_kana=request.form.get('last_name_kana'),
                 first_name_kana=request.form.get('first_name_kana'),
@@ -370,6 +387,24 @@ def resident_edit(resident_id):
             resident.dressing_assistance = request.form.get('dressing_assistance')
             resident.communication = request.form.get('communication')
             resident.updated_at = datetime.utcnow()
+
+            # 写真アップロード処理
+            if 'photo' in request.files:
+                photo_file = request.files['photo']
+                if photo_file and photo_file.filename:
+                    ext = os.path.splitext(secure_filename(photo_file.filename))[1].lower()
+                    if ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+                        import uuid
+                        fname = f"{uuid.uuid4().hex}{ext}"
+                        upload_dir = current_app.config.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'uploads', 'residents'))
+                        os.makedirs(upload_dir, exist_ok=True)
+                        # 旧写真を削除
+                        if resident.photo_path:
+                            old_path = os.path.join(os.path.dirname(upload_dir), resident.photo_path)
+                            if os.path.exists(old_path):
+                                os.remove(old_path)
+                        photo_file.save(os.path.join(upload_dir, fname))
+                        resident.photo_path = f'uploads/residents/{fname}'
 
             # 緊急連絡先を更新
             db.query(SSEmergencyContact).filter(SSEmergencyContact.resident_id == resident_id).delete()

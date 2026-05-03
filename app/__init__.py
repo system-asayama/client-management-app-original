@@ -52,6 +52,13 @@ def create_app() -> Flask:
     # SECRET_KEY設定
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+    # アップロードフォルダ設定
+    _base_dir = os.path.dirname(os.path.abspath(__file__))
+    _upload_dir = os.path.join(_base_dir, 'static', 'uploads', 'residents')
+    os.makedirs(_upload_dir, exist_ok=True)
+    app.config['UPLOAD_FOLDER'] = _upload_dir
+    app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB
+
     # デフォルト設定を読み込み（環境変数が無ければ標準値を使う）
     app.config.update(
         APP_NAME=os.getenv("APP_NAME", "login-system-app"),

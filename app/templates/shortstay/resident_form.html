@@ -8,11 +8,31 @@
   <a href="{{ url_for('shortstay.residents') }}" class="btn">← 一覧へ戻る</a>
 </div>
 
-<form method="post">
+<form method="post" enctype="multipart/form-data">
 
   <!-- ① 基本情報 -->
   <div class="card">
     <div class="form-section-title">基本情報</div>
+
+    <!-- 顔写真 -->
+    <div class="form-group" style="margin-bottom:1.5rem;">
+      <label class="form-label">顔写真</label>
+      <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+        {% if resident and resident.photo_path %}
+        <img id="photo-preview" src="{{ url_for('static', filename=resident.photo_path) }}"
+             style="width:100px;height:100px;object-fit:cover;border-radius:50%;border:2px solid #ddd;" alt="顔写真">
+        {% else %}
+        <div id="photo-preview-placeholder" style="width:100px;height:100px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;border:2px dashed #ccc;font-size:2rem;color:#aaa;">👤</div>
+        <img id="photo-preview" src="" style="width:100px;height:100px;object-fit:cover;border-radius:50%;border:2px solid #ddd;display:none;" alt="顔写真">
+        {% endif %}
+        <div>
+          <input type="file" name="photo" id="photo-input" accept="image/*" style="display:none;" onchange="previewPhoto(this)">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('photo-input').click()">📷 写真を選択</button>
+          <div style="font-size:0.75rem;color:#888;margin-top:0.4rem;">対応形式: JPG / PNG / GIF / WebP（5MB以内）</div>
+        </div>
+      </div>
+    </div>
+
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">姓 <span style="color:red;">*</span></label>
@@ -375,6 +395,20 @@
 </form>
 
 <script>
+function previewPhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('photo-preview');
+      const placeholder = document.getElementById('photo-preview-placeholder');
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
 document.getElementById('add-ec').addEventListener('click', function() {
   const row = `<div class="ec-row" style="display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:0.75rem;margin-bottom:0.75rem;align-items:end;">
     <div class="form-group" style="margin:0;"><label class="form-label">氏名</label><input type="text" name="ec_name[]" class="form-control"></div>

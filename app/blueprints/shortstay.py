@@ -1143,6 +1143,7 @@ def billing_list():
     store_id, tenant_id = _get_store_tenant()
     db = SessionLocal()
     try:
+        from datetime import date as _date
         q = db.query(SSBilling)
         if store_id:
             q = q.filter(SSBilling.store_id == store_id)
@@ -1150,17 +1151,40 @@ def billing_list():
             q = q.filter(SSBilling.tenant_id == tenant_id)
 
         status_filter = request.args.get('status', '')
-        if status_filter:
-            q = q.filter(SSBilling.status == status_filter)
+        year_filter = request.args.get('year', '')
+        month_filter = request.args.get('month', '')
 
-        billings = q.order_by(SSBilling.billing_year.desc(), SSBilling.billing_month.desc()).all()
+        q_filtered = q
+        if status_filter:
+            q_filtered = q_filtered.filter(SSBilling.status == status_filter)
+        if year_filter:
+            q_filtered = q_filtered.filter(SSBilling.billing_year == int(year_filter))
+        if month_filter:
+            q_filtered = q_filtered.filter(SSBilling.billing_month == int(month_filter))
+
+        billings = q_filtered.order_by(SSBilling.billing_year.desc(), SSBilling.billing_month.desc()).all()
         resident_ids = list({b.resident_id for b in billings})
         residents_map = {r.id: r for r in db.query(SSResident).filter(SSResident.id.in_(resident_ids)).all()} if resident_ids else {}
+
+        # 集計値
+        all_billings = q.all()
+        total_count = len(all_billings)
+        unpaid_count = sum(1 for b in all_billings if b.status and b.status.value in ('未払い', '発行済'))
+        today = _date.today()
+        monthly_total = sum(
+            (b.total_amount or 0) for b in all_billings
+            if b.billing_year == today.year and b.billing_month == today.month
+        )
 
         return render_template('shortstay/billing_list.html',
             billings=billings,
             residents_map=residents_map,
             status_filter=status_filter,
+            year_filter=year_filter,
+            month_filter=month_filter,
+            total_count=total_count,
+            unpaid_count=unpaid_count,
+            monthly_total=monthly_total,
             BillingStatus=BillingStatus,
         )
     finally:

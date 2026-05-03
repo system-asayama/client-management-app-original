@@ -182,19 +182,58 @@
     </div>
   </div>
 
-  <!-- ④ 服薬 -->
+  <!-- ⑤ 服薬 -->
   <div class="card">
     <div class="form-section-title">服薬</div>
+
+    <!-- 定期薬: 朝・昼・夕・眠前 タップ選択 -->
     <div class="form-row">
       <div class="form-group" style="grid-column: span 2;">
-        <label class="form-label">定期薬（朝・昼・夕・眠前）</label>
-        <input type="text" name="medication_regular" class="form-control" placeholder="例：朝○・昼×・夕○・眠前○" value="{{ resident.medication_regular or '' if resident else '' }}">
+        <label class="form-label">定期薬</label>
+        {%- set med_reg = resident.medication_regular or '' if resident else '' -%}
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-top:0.25rem;">
+          {% for timing in ['朝','昼','夕','眠前'] %}
+          {%- set is_selected = ('○' in med_reg and timing in med_reg and med_reg[med_reg.index(timing)+1:med_reg.index(timing)+2] == '○') or (timing + '○') in med_reg -%}
+          <label style="display:flex;flex-direction:column;align-items:center;gap:0.3rem;cursor:pointer;">
+            <span style="font-size:0.85rem;color:#555;">{{ timing }}</span>
+            <button type="button"
+              id="med-{{ timing }}-btn"
+              data-timing="{{ timing }}"
+              onclick="toggleMedTiming(this)"
+              style="width:2.5rem;height:2.5rem;border-radius:50%;border:2px solid #999;background:{% if is_selected %}#2563eb{% else %}#fff{% endif %};color:{% if is_selected %}#fff{% else %}#333{% endif %};font-size:1.1rem;font-weight:bold;cursor:pointer;transition:all 0.15s;">
+              {% if is_selected %}○{% else %}×{% endif %}
+            </button>
+          </label>
+          {% endfor %}
+        </div>
+        <!-- 隐し入力：朝○・昼×形式で保存 -->
+        <input type="hidden" name="medication_regular" id="medication_regular_hidden"
+               value="{{ med_reg }}">
       </div>
     </div>
+
+    <!-- 頓服: あり/なし ボタン選択 + 薬名入力 -->
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">頓服　あり（　　　　　　）・なし</label>
-        <input type="text" name="medication_prn" class="form-control" placeholder="頓服薬名を入力（なしの場合は空欄）" value="{{ resident.medication_prn or '' if resident else '' }}">
+        <label class="form-label">頓服</label>
+        {%- set prn_val = resident.medication_prn or '' if resident else '' -%}
+        {%- set prn_has = prn_val != '' -%}
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.25rem;">
+          <button type="button" id="prn-ari-btn"
+            onclick="togglePrn(true)"
+            style="padding:0.4rem 1.2rem;border-radius:2rem;border:2px solid {% if prn_has %}#2563eb{% else %}#ccc{% endif %};background:{% if prn_has %}#2563eb{% else %}#fff{% endif %};color:{% if prn_has %}#fff{% else %}#555{% endif %};font-size:0.95rem;cursor:pointer;transition:all 0.15s;">
+            あり
+          </button>
+          <button type="button" id="prn-nashi-btn"
+            onclick="togglePrn(false)"
+            style="padding:0.4rem 1.2rem;border-radius:2rem;border:2px solid {% if not prn_has %}#2563eb{% else %}#ccc{% endif %};background:{% if not prn_has %}#2563eb{% else %}#fff{% endif %};color:{% if not prn_has %}#fff{% else %}#555{% endif %};font-size:0.95rem;cursor:pointer;transition:all 0.15s;">
+            なし
+          </button>
+          <input type="text" name="medication_prn" id="medication_prn_input"
+                 class="form-control" placeholder="薬名を入力"
+                 value="{{ prn_val }}"
+                 style="flex:1;min-width:120px;display:{% if prn_has %}block{% else %}none{% endif %};">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">管理</label>
@@ -410,6 +449,63 @@
 </form>
 
 <script>
+// ─── 定期薬 トグル ───
+const MED_TIMINGS = ['朝','昼','夕','眠前'];
+// 各時間帯の状態を管理
+const medState = {};
+MED_TIMINGS.forEach(function(t) {
+  const btn = document.getElementById('med-' + t + '-btn');
+  medState[t] = btn ? btn.textContent.trim() === '○' : false;
+});
+
+function toggleMedTiming(btn) {
+  const timing = btn.getAttribute('data-timing');
+  medState[timing] = !medState[timing];
+  if (medState[timing]) {
+    btn.textContent = '○';
+    btn.style.background = '#2563eb';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#2563eb';
+  } else {
+    btn.textContent = '×';
+    btn.style.background = '#fff';
+    btn.style.color = '#333';
+    btn.style.borderColor = '#999';
+  }
+  updateMedRegularHidden();
+}
+
+function updateMedRegularHidden() {
+  const parts = MED_TIMINGS.map(function(t) {
+    return t + (medState[t] ? '○' : '×');
+  });
+  const hidden = document.getElementById('medication_regular_hidden');
+  if (hidden) hidden.value = parts.join('・');
+}
+
+// 初期化時に隐し入力を同期
+document.addEventListener('DOMContentLoaded', function() {
+  updateMedRegularHidden();
+});
+
+// 頓服 トグル
+function togglePrn(hasValue) {
+  const ariBtn = document.getElementById('prn-ari-btn');
+  const nashiBtn = document.getElementById('prn-nashi-btn');
+  const input = document.getElementById('medication_prn_input');
+  if (hasValue) {
+    ariBtn.style.background = '#2563eb'; ariBtn.style.color = '#fff'; ariBtn.style.borderColor = '#2563eb';
+    nashiBtn.style.background = '#fff'; nashiBtn.style.color = '#555'; nashiBtn.style.borderColor = '#ccc';
+    input.style.display = 'block';
+    input.focus();
+  } else {
+    ariBtn.style.background = '#fff'; ariBtn.style.color = '#555'; ariBtn.style.borderColor = '#ccc';
+    nashiBtn.style.background = '#2563eb'; nashiBtn.style.color = '#fff'; nashiBtn.style.borderColor = '#2563eb';
+    input.style.display = 'none';
+    input.value = '';
+  }
+}
+
 // 郵便番号から住所を自動入力する（zipcloud API使用）
 let _postalTimer = null;
 function autoFillAddress(val) {

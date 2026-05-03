@@ -208,7 +208,7 @@
         </td>
         <!-- 服薬詳細 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">服薬詳細</td>
-        <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;white-space:pre-wrap;">
+        <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;">
           {% for label, name_val, dose_val in [
             ('朝', resident.med_morning_name, resident.med_morning_dose),
             ('昼', resident.med_noon_name, resident.med_noon_dose),
@@ -216,12 +216,22 @@
             ('眠前', resident.med_bedtime_name, resident.med_bedtime_dose)
           ] %}
             {% if name_val or dose_val %}
-            <div style="margin-bottom:0.25rem;">
-              <span style="font-weight:bold;color:#555;">{{ label }}：</span>
-              <span style="display:inline-flex;gap:1rem;">
-                {% if name_val %}<span>薬名: {{ name_val }}</span>{% endif %}
-                {% if dose_val %}<span>分量: {{ dose_val }}</span>{% endif %}
-              </span>
+            <div style="margin-bottom:0.4rem;line-height:1.5;">
+              <span style="font-weight:bold;color:#1d4ed8;">{{ label }}：</span>
+              {% if name_val and dose_val %}
+                {%- set names = name_val.split('\n') -%}
+                {%- set doses = dose_val.split('\n') -%}
+                {% for i in range([names|length, doses|length]|max) %}
+                  <span style="display:inline-block;">{{ names[i] if i < names|length else '' }}</span>
+                  <span style="color:#aaa;"> / </span>
+                  <span style="color:#555;">{{ doses[i] if i < doses|length else '' }}</span>
+                  {% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+              {% elif name_val %}
+                {{ name_val | replace('\n', '<br>') | safe }}
+              {% elif dose_val %}
+                {{ dose_val | replace('\n', '<br>') | safe }}
+              {% endif %}
             </div>
             {% endif %}
           {% endfor %}

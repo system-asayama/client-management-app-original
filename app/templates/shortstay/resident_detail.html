@@ -136,8 +136,8 @@
 
       <!-- ─── 行5〜9: 食事（左）＋ 服薬（右）の複合セクション ─── -->
       <tr>
-        <!-- 食事：左ラベル（6行分） -->
-        <td rowspan="6" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">食事</td>
+        <!-- 食事：左ラベル（5行分） -->
+        <td rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">食事</td>
         <!-- 食事動作 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">食事動作</td>
         <td style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
@@ -147,8 +147,8 @@
           ・
           <span class="adl-opt {% if resident.meal_action == '介助' %}adl-sel{% endif %}">介助</span>
         </td>
-        <!-- 服薬：左ラベル（6行分） -->
-        <td rowspan="6" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬</td>
+        <!-- 服薬：左ラベル（5行分） -->
+        <td rowspan="5" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">服薬</td>
         <!-- 定期薬 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">定期薬</td>
         <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
@@ -208,7 +208,7 @@
         </td>
         <!-- 服薬詳細 -->
         <td style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;">服薬詳細</td>
-        <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;">
+        <td colspan="2" style="vertical-align:top;border:1px solid #aaa;padding:0.5rem 0.75rem;font-size:0.82rem;white-space:pre-wrap;">
           {% for label, name_val, dose_val in [
             ('朝', resident.med_morning_name, resident.med_morning_dose),
             ('昼', resident.med_noon_name, resident.med_noon_dose),

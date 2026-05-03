@@ -719,7 +719,11 @@ class SSTransportSchedule(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resident = relationship('SSResident', backref='transport_schedules')
-    reservation = relationship('SSReservation', backref='transport_schedules')
+    reservation = relationship(
+        'SSReservation',
+        foreign_keys='SSTransportSchedule.reservation_id',
+        backref='transport_schedules'
+    )
     transport_address = relationship('SSUserTransportAddress', backref='transport_schedules')
     source_reservation = relationship(
         'SSReservation',

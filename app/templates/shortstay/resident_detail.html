@@ -7,6 +7,7 @@
   <div class="page-title">利用者詳細</div>
   <div style="display:flex;gap:0.5rem;">
     <a href="{{ url_for('shortstay.reservation_new') }}?resident_id={{ resident.id }}" class="btn btn-primary">＋ 予約登録</a>
+    <a href="{{ url_for('shortstay.transport_addresses', resident_id=resident.id) }}" class="btn btn-outline-secondary">📍 送迎先管理</a>
     <a href="{{ url_for('shortstay.resident_edit', resident_id=resident.id) }}" class="btn">編集</a>
     <a href="{{ url_for('shortstay.residents') }}" class="btn">← 一覧へ戻る</a>
   </div>

@@ -128,9 +128,17 @@ class SSResident(Base):
     medical_history = Column(Text, nullable=True, comment='既往歴')
     medications = Column(Text, nullable=True, comment='服薬情報')
     med_morning = Column(Text, nullable=True, comment='服薬詳細_朝')
+    med_morning_name = Column(Text, nullable=True, comment='服薬詳細_朝_薬名')
+    med_morning_dose = Column(Text, nullable=True, comment='服薬詳細_朝_分量')
     med_noon = Column(Text, nullable=True, comment='服薬詳細_昼')
+    med_noon_name = Column(Text, nullable=True, comment='服薬詳細_昼_薬名')
+    med_noon_dose = Column(Text, nullable=True, comment='服薬詳細_昼_分量')
     med_evening = Column(Text, nullable=True, comment='服薬詳細_夕')
+    med_evening_name = Column(Text, nullable=True, comment='服薬詳細_夕_薬名')
+    med_evening_dose = Column(Text, nullable=True, comment='服薬詳細_夕_分量')
     med_bedtime = Column(Text, nullable=True, comment='服薬詳細_眠前')
+    med_bedtime_name = Column(Text, nullable=True, comment='服薬詳細_眠前_薬名')
+    med_bedtime_dose = Column(Text, nullable=True, comment='服薬詳細_眠前_分量')
     special_notes = Column(Text, nullable=True, comment='特記事項')
 
     # 食事情報

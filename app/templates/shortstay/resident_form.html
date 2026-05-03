@@ -252,25 +252,31 @@
     </div>
     <div class="form-row">
       <div class="form-group" style="grid-column: span 3;">
-        <label class="form-label" style="font-weight:bold;margin-bottom:0.5rem;">服薬詳細（朝・昼・夕・眠前の薬名・分量）</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-          <div>
-            <label class="form-label" style="font-size:0.85rem;color:#555;">朝</label>
-            <textarea name="med_morning" class="form-control" rows="2" placeholder="朝の薬名・分量">{{ resident.med_morning or '' if resident else '' }}</textarea>
-          </div>
-          <div>
-            <label class="form-label" style="font-size:0.85rem;color:#555;">昼</label>
-            <textarea name="med_noon" class="form-control" rows="2" placeholder="昼の薬名・分量">{{ resident.med_noon or '' if resident else '' }}</textarea>
-          </div>
-          <div>
-            <label class="form-label" style="font-size:0.85rem;color:#555;">夕</label>
-            <textarea name="med_evening" class="form-control" rows="2" placeholder="夕の薬名・分量">{{ resident.med_evening or '' if resident else '' }}</textarea>
-          </div>
-          <div>
-            <label class="form-label" style="font-size:0.85rem;color:#555;">眠前</label>
-            <textarea name="med_bedtime" class="form-control" rows="2" placeholder="眠前の薬名・分量">{{ resident.med_bedtime or '' if resident else '' }}</textarea>
+        <label class="form-label" style="font-weight:bold;margin-bottom:0.5rem;">服薬詳細</label>
+        <!-- タブボタン -->
+        <div style="display:flex;gap:0.25rem;margin-bottom:0.5rem;">
+          {% for tab_id, tab_label in [('morning','朝'),('noon','昼'),('evening','夕'),('bedtime','眠前')] %}
+          <button type="button"
+            onclick="switchMedTab('{{ tab_id }}')"
+            id="med-tab-{{ tab_id }}"
+            style="padding:0.35rem 0.9rem;border-radius:6px 6px 0 0;border:1px solid #ccc;border-bottom:none;background:{% if loop.first %}#fff;font-weight:bold;color:#1d4ed8;{% else %}#f0f0f0;color:#555;{% endif %}cursor:pointer;font-size:0.9rem;">{{ tab_label }}</button>
+          {% endfor %}
+        </div>
+        <!-- 各タブの内容 -->
+        {% for tab_id, tab_label in [('morning','朝'),('noon','昼'),('evening','夕'),('bedtime','眠前')] %}
+        <div id="med-panel-{{ tab_id }}" style="border:1px solid #ccc;border-radius:0 6px 6px 6px;padding:0.75rem;background:#fff;{% if not loop.first %}display:none;{% endif %}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <div>
+              <label class="form-label" style="font-size:0.85rem;color:#555;">薬名</label>
+              <textarea name="med_{{ tab_id }}_name" class="form-control" rows="3" placeholder="{{ tab_label }}の薬名">{{ resident['med_' ~ tab_id ~ '_name'] or '' if resident else '' }}</textarea>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.85rem;color:#555;">分量</label>
+              <textarea name="med_{{ tab_id }}_dose" class="form-control" rows="3" placeholder="{{ tab_label }}の分量">{{ resident['med_' ~ tab_id ~ '_dose'] or '' if resident else '' }}</textarea>
+            </div>
           </div>
         </div>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -613,5 +619,24 @@ document.getElementById('add-ec').addEventListener('click', function() {
   </div>`;
   document.getElementById('ec-list').insertAdjacentHTML('beforeend', row);
 });
+
+function switchMedTab(tabId) {
+  const tabs = ['morning', 'noon', 'evening', 'bedtime'];
+  tabs.forEach(t => {
+    const panel = document.getElementById('med-panel-' + t);
+    const btn = document.getElementById('med-tab-' + t);
+    if (t === tabId) {
+      panel.style.display = '';
+      btn.style.background = '#fff';
+      btn.style.fontWeight = 'bold';
+      btn.style.color = '#1d4ed8';
+    } else {
+      panel.style.display = 'none';
+      btn.style.background = '#f0f0f0';
+      btn.style.fontWeight = 'normal';
+      btn.style.color = '#555';
+    }
+  });
+}
 </script>
 {% endblock %}

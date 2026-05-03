@@ -129,14 +129,10 @@
         </td>
       </tr>
 
-      <!-- ─── 行4b: 電話番号 / 郵便番号 / 住所 ─── -->
+      <!-- ─── 行4b: 郵便番号 / 住所 / 電話番号 ─── -->
       <tr>
-        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">電話番号</td>
-        <td colspan="2" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
-          {{ resident.phone or '' }}
-        </td>
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">郵便番号</td>
-        <td colspan="3" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+        <td colspan="6" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.postal_code or '' }}
         </td>
       </tr>
@@ -144,6 +140,12 @@
         <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">住所</td>
         <td colspan="6" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
           {{ resident.address or '' }}
+        </td>
+      </tr>
+      <tr>
+        <td class="th-cell" style="text-align:center;vertical-align:middle;border:1px solid #aaa;padding:0.5rem;background:#f5f5f5;font-weight:bold;">電話番号</td>
+        <td colspan="6" style="vertical-align:middle;border:1px solid #aaa;padding:0.5rem 0.75rem;">
+          {{ resident.phone or '' }}
         </td>
       </tr>
 

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>スロットマシン - デモプレイ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='slot.css') }}">
+</head>
+<body>
+  <header class="bar">
+    <h1>🎰 スロットマシン - デモプレイ</h1>
+    <div class="spacer"></div>
+    <button id="btn-reset" class="sub">リセット</button>
+  </header>
+
+  <main class="wrap">
+    <!-- デモモード説明 -->
+    <div class="survey-complete-message" style="background:#3b82f6;color:white;padding:1rem;border-radius:8px;margin-bottom:1rem;">
+      <p style="margin:0 0 0.75rem 0;font-size:1.1rem;text-align:center">🎮 デモモード：何度でもスロットをプレイできます</p>
+      {% if prizes %}
+      <div style="background:rgba(255,255,255,0.15);padding:0.75rem;border-radius:6px;">
+        <h3 style="margin:0 0 0.5rem 0;font-size:1rem;font-weight:bold;text-align:center">🎁 景品一覧</h3>
+        <div style="display:grid;gap:0.4rem;font-size:0.9rem;">
+          {% for prize in prizes %}
+          <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.1);padding:0.4rem 0.6rem;border-radius:4px;">
+            <span style="font-weight:bold;">🏆 {{ prize.rank }}</span>
+            <span style="flex:1;margin:0 0.5rem;text-align:left;">{{ prize.name }}</span>
+            <span style="background:rgba(255,255,255,0.25);padding:0.2rem 0.5rem;border-radius:3px;font-weight:bold;">
+              {% if prize.max_score %}
+                {{ prize.min_score }}点～{{ prize.max_score }}点
+              {% else %}
+                {{ prize.min_score }}点～
+              {% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <!-- スロット本体 -->
+    <section class="slot">
+      <div class="window">
+        <div class="reels" id="reels">
+          <div class="reel" data-reel="0"><div class="strip"></div></div>
+          <div class="reel" data-reel="1"><div class="strip"></div></div>
+          <div class="reel" data-reel="2"><div class="strip"></div></div>
+        </div>
+      </div>
+
+      <div class="controls" style="display:flex;align-items:center;gap:.75rem">
+        <button id="btn-spin" class="primary big">5回スピン</button>
+        <span class="muted" id="round-indicator"></span>
+      </div>
+
+      <!-- 合計の下 -->
+      <div id="status" class="status"></div>
+
+      <!-- 🔹 配当表 -->
+      <div class="payout-card" style="margin-top:.75rem">
+        <h3 style="margin:.25rem 0 .5rem;">配当表</h3>
+        <table class="grid" id="payout-table">
+          <thead>
+            <tr>
+              <th style="width:8rem">表示</th>
+              <th style="width:7rem;text-align:right">配当</th>
+            </tr>
+          </thead>
+          <tbody id="payout-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 履歴 -->
+    <section class="history">
+      <h2>履歴</h2>
+      <ul id="history"></ul>
+    </section>
+  </main>
+
+  <script>
+  // リセットボタン
+  document.getElementById("btn-reset").onclick = () => {
+    location.reload();
+  };
+  </script>
+
+  <script src="{{ url_for('static', filename='slot.js') }}?v={{ range(1, 1000000) | random }}"></script>
+</body>
+</html>

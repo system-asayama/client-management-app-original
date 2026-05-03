@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>アンケート設定 - {{ store_name }}</title>
+  <title>アンケートアプリ設定 - 管理画面</title>
   <link rel="stylesheet" href="/static/slot.css">
   <style>
     body {
@@ -151,14 +151,6 @@
         font-size: 13px;
       }
       
-      .prize-field-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: #6b7280;
-        margin-bottom: 2px;
-        margin-top: 4px;
-      }
-      
       .btn-remove {
         width: 100%;
       }
@@ -210,7 +202,7 @@
   </style>
   <script>
     let prizeData = {{ prizes|tojson|safe }};
-    let targetProbabilities = {{ slot_cfg.target_probabilities|tojson|safe }};
+    let targetProbabilities = {{ slot_config.target_probabilities|tojson|safe }};
     
     function renderPrizes() {
       const container = document.getElementById('prize-list');
@@ -227,17 +219,12 @@
       
       prizeData.forEach((prize, index) => {
         const maxScore = prize.max_score !== undefined ? prize.max_score : '';
-        const minScore = (prize.min_score !== undefined && prize.min_score !== null && prize.min_score !== '') ? prize.min_score : '';
         container.innerHTML += `
           <div class="prize-row">
-            <div class="prize-field-label">最低点</div>
-            <input type="number" name="prize_min_score_${index}" value="${minScore}" placeholder="例: 100" min="0">
-            <div class="prize-field-label">最高点</div>
-            <input type="number" name="prize_max_score_${index}" value="${maxScore}" placeholder="例: 499（空欄の場合は無制限）" min="0">
-            <div class="prize-field-label">○等</div>
-            <input type="text" name="prize_rank_${index}" value="${prize.rank}" placeholder="例: 1等">
-            <div class="prize-field-label">景品内容</div>
-            <input type="text" name="prize_name_${index}" value="${prize.name}" placeholder="例: ランチ無料券">
+            <input type="number" name="prize_min_score_${index}" value="${prize.min_score}" placeholder="0" min="0">
+            <input type="number" name="prize_max_score_${index}" value="${maxScore}" placeholder="無制限" min="0">
+            <input type="text" name="prize_rank_${index}" value="${prize.rank}" placeholder="1等">
+            <input type="text" name="prize_name_${index}" value="${prize.name}" placeholder="ランチ無料券">
             <button type="button" class="btn-remove" onclick="removePrize(${index})">削除</button>
           </div>
         `;
@@ -317,8 +304,7 @@
       });
       
       try {
-        const storeIdForPrize = {{ store_id if store_id else 'null' }};
-        const response = await fetch('/apps/survey/store/' + storeIdForPrize + '/save_prizes', {
+        const response = await fetch('/admin/save_prizes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -434,10 +420,10 @@
         });
       });
       
-      const storeId = {{ store_id if store_id else 'null' }};
+      const storeId = {{ store.id if store else 'null' }};
       
       try {
-        const response = await fetch(`/apps/survey/store/${storeId}/optimize_probabilities`, {
+        const response = await fetch(`/admin/store/${storeId}/optimize_probabilities`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -506,8 +492,7 @@
       const missProbability = parseFloat(document.getElementById('miss_probability').value) || 0.0;
       
       try {
-        const storeSlug = '{{ store_slug or "" }}';
-        const response = await fetch('/apps/survey/store/' + storeSlug + '/calc_prob', {
+        const response = await fetch('/calc_prob', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -542,12 +527,12 @@
 <body>
   <div class="admin-header">
     <h1>📋 アンケートアプリ設定</h1>
-    {% if store_id %}
+    {% if store %}
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">🏠 店舗アプリ一覧</a>
-      <a href="/admin/store/{{ store_id }}/qr_print" target="_blank" style="padding: 8px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">📱 QR印刷</a>
-      <a href="/admin/store/{{ store_id }}/print_prizes" target="_blank" style="padding: 8px 16px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎁 景品一覧印刷</a>
-      <a href="/apps/survey/store/{{ store_id }}/slot?demo=true" target="_blank" style="padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎰 デモプレイ</a>
+      <a href="/admin/store/{{ store.id }}/apps" style="padding: 8px 16px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold;">🏠 店舗アプリ一覧</a>
+      <a href="/admin/store/{{ store.id }}/qr_print" target="_blank" style="padding: 8px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">📱 QR印刷</a>
+      <a href="/admin/store/{{ store.id }}/print_prizes" target="_blank" style="padding: 8px 16px; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎁 景品一覧印刷</a>
+      <a href="/store/{{ store.slug }}/slot?demo=true" target="_blank" style="padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">🎰 デモプレイ</a>
     </div>
     {% endif %}
   </div>
@@ -565,7 +550,7 @@
       <h2>📝 アンケート設定</h2>
       <p class="help-text" style="margin-bottom: 20px;">アンケートの質問項目を設定できます。</p>
       <div style="margin-bottom: 20px;">
-        <a href="{{ url_for('survey_app.survey_editor', store_id=store_id) }}" class="btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px;">📝 アンケートを編集</a>
+        <a href="{{ url_for('survey_admin.admin_survey_editor') }}" class="btn-primary" style="text-decoration: none; display: inline-block; padding: 12px 24px;">📝 アンケートを編集</a>
       </div>
       <div class="help-text">
         アンケートの質問内容、選択肢、必須項目などを詳細に設定できます。
@@ -581,7 +566,7 @@
             type="text" 
             id="survey_complete_message" 
             name="survey_complete_message" 
-            value="{{ slot_settings.survey_complete_message or '' }}"
+            value="{{ survey_complete_message }}"
             placeholder="アンケートにご協力いただきありがとうございます！スロットをお楽しみください。"
           >
           <div class="help-text">
@@ -595,7 +580,7 @@
             type="url" 
             id="google_review_url" 
             name="google_review_url" 
-            value="{{ settings.google_review_url or '' }}"
+            value="{{ google_review_url }}"
             placeholder="https://search.google.com/local/writereview?placeid=YOUR_PLACE_ID"
           >
           <div class="help-text">
@@ -610,7 +595,7 @@
             type="number" 
             id="slot_spin_count" 
             name="slot_spin_count" 
-            value="{{ slot_settings.slot_spin_count or 1 }}"
+            value="{{ slot_spin_count|default(1) }}"
             min="1"
             max="5"
             step="1"
@@ -627,7 +612,7 @@
           <label>⭐ 口コミ投稿促進設定</label>
           <div style="margin-top: 12px;">
             <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; background: #f9fafb;">
-              <input type="radio" name="review_prompt_mode" value="all" {{ 'checked' if settings.ai_review_mode != 'high_rating_only' or not review_prompt_mode else '' }} style="margin-right: 12px; width: 20px; height: 20px;">
+              <input type="radio" name="review_prompt_mode" value="all" {{ 'checked' if review_prompt_mode == 'all' or not review_prompt_mode else '' }} style="margin-right: 12px; width: 20px; height: 20px;">
               <div>
                 <div style="font-weight: 600; color: #059669; margin-bottom: 4px;">✅ 全ての評価に投稿を促す（推奨）</div>
                 <div style="font-size: 13px; color: #6b7280;">
@@ -636,7 +621,7 @@
               </div>
             </label>
             <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; border: 2px solid #fbbf24; border-radius: 8px; background: #fffbeb;">
-              <input type="radio" name="review_prompt_mode" value="high_rating_only" {{ 'checked' if settings.ai_review_mode == 'high_rating_only' else '' }} style="margin-right: 12px; width: 20px; height: 20px;">
+              <input type="radio" name="review_prompt_mode" value="high_rating_only" {{ 'checked' if review_prompt_mode == 'high_rating_only' else '' }} style="margin-right: 12px; width: 20px; height: 20px;">
               <div>
                 <div style="font-weight: 600; color: #d97706; margin-bottom: 4px;">⚠️ 星4以上のみ投稿を促す（非推奨・リスクあり）</div>
                 <div style="font-size: 13px; color: #92400e;">
@@ -656,7 +641,7 @@
         </div>
 
         <button type="submit" class="btn-primary">保存</button>
-        <a href="{{ url_for('survey_app.dashboard', store_id=store_id) }}" class="btn-secondary">キャンセル</a>
+        <a href="{{ url_for('admin.store_info') }}" class="btn-secondary">キャンセル</a>
       </form>
     </div>
 
@@ -675,16 +660,16 @@
       <p class="help-text" style="margin-bottom: 20px;">スロットのシンボルと配当、確率を設定できます。確率は自動調整されますが、手動でも調整可能です。</p>
       
 
-      <form method="post" action="{{ url_for('survey_app.save_slot_config', store_id=store_id) }}">
+      <form method="post" action="{{ url_for('store_save_slot_config', store_id=store.id) if store else '#' }}">
         <div class="form-group">
           <label>5回スピンの期待値</label>
-          <input type="number" id="expected_total_5" name="expected_total_5" value="{{ slot_cfg.expected_total_5 }}" step="0.01" min="0" style="width: 200px;">
+          <input type="number" id="expected_total_5" name="expected_total_5" value="{{ slot_config.expected_total_5 }}" step="0.01" min="0" style="width: 200px;">
           <div class="help-text">スロットを5回スピンしたときの平均合計点数です。</div>
         </div>
         
         <div class="form-group">
           <label>ハズレ確率 (%)</label>
-          <input type="number" id="miss_probability" name="miss_probability" value="{{ slot_cfg.miss_probability }}" step="0.01" min="0" max="100" style="width: 200px;">
+          <input type="number" id="miss_probability" name="miss_probability" value="{{ slot_config.miss_probability }}" step="0.01" min="0" max="100" style="width: 200px;">
           <div class="help-text">1回のスピンでハズレになる確率です。「確率を自動調整」を押すと、ハズレ確率と期待値に基づいて各シンボルが3つ揃う確率が自動計算されます。</div>
         </div>
         
@@ -701,7 +686,7 @@
               </tr>
             </thead>
             <tbody id="slot-symbols">
-              {% for symbol in slot_cfg.symbols %}
+              {% for symbol in slot_config.symbols %}
               <tr data-is-default="{{ symbol.is_default|default(false)|lower }}">
                 <td><input type="text" name="symbol_id_{{ loop.index0 }}" value="{{ symbol.id }}" style="width: 90px;" {% if symbol.is_default %}readonly{% endif %}></td>
                 <td><input type="text" name="symbol_label_{{ loop.index0 }}" value="{{ symbol.label }}" style="width: 90px;"></td>
@@ -730,7 +715,7 @@
         <div style="margin-top: 16px; display: flex; gap: 12px;">
           <button type="button" class="btn-secondary" onclick="addSlotSymbol()">+ シンボルを追加</button>
           <button type="button" class="btn-secondary" onclick="autoAdjustProb()">確率を自動調整</button>
-          <input type="hidden" name="symbol_count" id="symbol_count" value="{{ slot_cfg.symbols|length }}">
+          <input type="hidden" name="symbol_count" id="symbol_count" value="{{ slot_config.symbols|length }}">
         </div>
         
         <div style="margin-top: 20px;">
@@ -769,35 +754,35 @@
       <h2>🏢 業種・AIコメント設定</h2>
       <p class="help-text" style="margin-bottom: 20px;">業種を設定すると、AIが生成する口コミ文章をその業種に合わせた内容に調整します。追加の指示文でさらに細かくカスタマイズできます。</p>
       <form method="post" action="/admin/save_ai_review_settings">
-        <input type="hidden" name="store_id" value="{{ store_id }}">
+        <input type="hidden" name="store_id" value="{{ store.id if store else '' }}">
         <div class="form-group">
           <label for="business_type">業種</label>
           <select id="business_type" name="business_type" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; box-sizing: border-box; background: white;">
-            <option value="" {% if not settings.business_type %}selected{% endif %}>未設定（汎用）</option>
-            <option value="飲食店（レストラン）" {% if settings.business_type == '飲食店（レストラン）' %}selected{% endif %}>飲食店（レストラン）</option>
-            <option value="カフェ・喫茶店" {% if settings.business_type == 'カフェ・喫茶店' %}selected{% endif %}>カフェ・喫茶店</option>
-            <option value="居酒屋・バー" {% if settings.business_type == '居酒屋・バー' %}selected{% endif %}>居酒屋・バー</option>
-            <option value="美容室・美容院" {% if settings.business_type == '美容室・美容院' %}selected{% endif %}>美容室・美容院</option>
-            <option value="美容室（ヘアサロン）" {% if settings.business_type == '美容室（ヘアサロン）' %}selected{% endif %}>美容室（ヘアサロン）</option>
-            <option value="エステ・マッサージサロン" {% if settings.business_type == 'エステ・マッサージサロン' %}selected{% endif %}>エステ・マッサージサロン</option>
-            <option value="小売店・ショップ" {% if settings.business_type == '小売店・ショップ' %}selected{% endif %}>小売店・ショップ</option>
-            <option value="医院・クリニック" {% if settings.business_type == '医院・クリニック' %}selected{% endif %}>医院・クリニック</option>
-            <option value="歯科医院" {% if settings.business_type == '歯科医院' %}selected{% endif %}>歯科医院</option>
-            <option value="フィットネスジム・スポーツクラブ" {% if settings.business_type == 'フィットネスジム・スポーツクラブ' %}selected{% endif %}>フィットネスジム・スポーツクラブ</option>
-            <option value="学習塔・教育施設" {% if settings.business_type == '学習塔・教育施設' %}selected{% endif %}>学習塔・教育施設</option>
-            <option value="宿泊施設・ホテル" {% if settings.business_type == '宿泊施設・ホテル' %}selected{% endif %}>宿泊施設・ホテル</option>
-            <option value="自動車・バイク関連" {% if settings.business_type == '自動車・バイク関連' %}selected{% endif %}>自動車・バイク関連</option>
-            <option value="ペットショップ・トリミング" {% if settings.business_type == 'ペットショップ・トリミング' %}selected{% endif %}>ペットショップ・トリミング</option>
-            <option value="その他" {% if settings.business_type == 'その他' or (settings.business_type and settings.business_type not in ['', '飲食店（レストラン）', 'カフェ・喫茶店', '居酒屋・バー', '美容室・美容院', '美容室（ヘアサロン）', 'エステ・マッサージサロン', '小売店・ショップ', '医院・クリニック', '歯科医院', 'フィットネスジム・スポーツクラブ', '学習塔・教育施設', '宿泊施設・ホテル', '自動車・バイク関連', 'ペットショップ・トリミング']) %}selected{% endif %}>その他（自由入力）</option>
+            <option value="" {% if not ai_review_settings.business_type %}selected{% endif %}>未設定（汎用）</option>
+            <option value="飲食店（レストラン）" {% if ai_review_settings.business_type == '飲食店（レストラン）' %}selected{% endif %}>飲食店（レストラン）</option>
+            <option value="カフェ・喫茶店" {% if ai_review_settings.business_type == 'カフェ・喫茶店' %}selected{% endif %}>カフェ・喫茶店</option>
+            <option value="居酒屋・バー" {% if ai_review_settings.business_type == '居酒屋・バー' %}selected{% endif %}>居酒屋・バー</option>
+            <option value="美容室・美容院" {% if ai_review_settings.business_type == '美容室・美容院' %}selected{% endif %}>美容室・美容院</option>
+            <option value="美容室（ヘアサロン）" {% if ai_review_settings.business_type == '美容室（ヘアサロン）' %}selected{% endif %}>美容室（ヘアサロン）</option>
+            <option value="エステ・マッサージサロン" {% if ai_review_settings.business_type == 'エステ・マッサージサロン' %}selected{% endif %}>エステ・マッサージサロン</option>
+            <option value="小売店・ショップ" {% if ai_review_settings.business_type == '小売店・ショップ' %}selected{% endif %}>小売店・ショップ</option>
+            <option value="医院・クリニック" {% if ai_review_settings.business_type == '医院・クリニック' %}selected{% endif %}>医院・クリニック</option>
+            <option value="歯科医院" {% if ai_review_settings.business_type == '歯科医院' %}selected{% endif %}>歯科医院</option>
+            <option value="フィットネスジム・スポーツクラブ" {% if ai_review_settings.business_type == 'フィットネスジム・スポーツクラブ' %}selected{% endif %}>フィットネスジム・スポーツクラブ</option>
+            <option value="学習塔・教育施設" {% if ai_review_settings.business_type == '学習塔・教育施設' %}selected{% endif %}>学習塔・教育施設</option>
+            <option value="宿泊施設・ホテル" {% if ai_review_settings.business_type == '宿泊施設・ホテル' %}selected{% endif %}>宿泊施設・ホテル</option>
+            <option value="自動車・バイク関連" {% if ai_review_settings.business_type == '自動車・バイク関連' %}selected{% endif %}>自動車・バイク関連</option>
+            <option value="ペットショップ・トリミング" {% if ai_review_settings.business_type == 'ペットショップ・トリミング' %}selected{% endif %}>ペットショップ・トリミング</option>
+            <option value="その他" {% if ai_review_settings.business_type == 'その他' or (ai_review_settings.business_type and ai_review_settings.business_type not in ['', '飲食店（レストラン）', 'カフェ・喫茶店', '居酒屋・バー', '美容室・美容院', '美容室（ヘアサロン）', 'エステ・マッサージサロン', '小売店・ショップ', '医院・クリニック', '歯科医院', 'フィットネスジム・スポーツクラブ', '学習塔・教育施設', '宿泊施設・ホテル', '自動車・バイク関連', 'ペットショップ・トリミング']) %}selected{% endif %}>その他（自由入力）</option>
           </select>
           {# 「その他」選択時の自由入力欄 #}
           {% set _known = ['', '飲食店（レストラン）', 'カフェ・喫茶店', '居酒屋・バー', '美容室・美容院', '美容室（ヘアサロン）', 'エステ・マッサージサロン', '小売店・ショップ', '医院・クリニック', '歯科医院', 'フィットネスジム・スポーツクラブ', '学習塔・教育施設', '宿泊施設・ホテル', '自動車・バイク関連', 'ペットショップ・トリミング', 'その他'] %}
-          <div id="business_type_custom_wrap" style="margin-top: 10px; display: {% if settings.business_type and settings.business_type not in _known %}block{% else %}none{% endif %};">
+          <div id="business_type_custom_wrap" style="margin-top: 10px; display: {% if ai_review_settings.business_type and ai_review_settings.business_type not in _known %}block{% else %}none{% endif %};">
             <input
               type="text"
               id="business_type_custom"
               name="business_type_custom"
-              value="{{ settings.business_type if settings.business_type and settings.business_type not in _known else '' }}"
+              value="{{ ai_review_settings.business_type if ai_review_settings.business_type and ai_review_settings.business_type not in _known else '' }}"
               placeholder="業種を自由に入力してください（例：フラワーショップ、写真館など）"
               style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box;"
             >
@@ -842,7 +827,7 @@
             rows="4"
             placeholder="例：カジュアルで親しみやすい雰囲気を強調してください。スタッフの丁寧な対応をアピールしてください。"
             style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box; resize: vertical;"
-          >{{ settings.ai_instruction or '' }}</textarea>
+          >{{ ai_review_settings.ai_instruction or '' }}</textarea>
           <p class="help-text">AIが口コミを生成する際の追加指示を自由に入力できます。強調したいポイントや雰囲気などを記載してください。</p>
         </div>
         <button type="submit" class="btn-primary">💾 業種・AI指示文を保存</button>
@@ -852,11 +837,11 @@
     <div class="section">
       <h2>🤖 OpenAI API設定（アプリ個別）</h2>
       <p class="help-text" style="margin-bottom: 20px;">このアプリ専用のOpenAI APIキーを設定できます。未設定の場合は店舗設定またはテナント設定のキーが使用されます。</p>
-      <form method="post" action="{{ url_for('survey_app.survey_settings_view', store_id=store_id) }}">
-        <input type="hidden" name="store_id" value="{{ store_id }}">
+      <form method="post" action="/admin/save_openai_key">
+        <input type="hidden" name="store_id" value="{{ store.id if store else '' }}">
         <div class="form-group">
           <label for="openai_api_key">OpenAI APIキー</label>
-          <input type="password" id="openai_api_key" name="openai_api_key" value="{{ settings.openai_api_key or '' }}" placeholder="sk-...">
+          <input type="password" id="openai_api_key" name="openai_api_key" value="{{ slot_app.openai_api_key or '' }}" placeholder="sk-...">
           <p class="help-text">APIキーは <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a> で取得できます。<br>優先順位: <strong>アプリ設定 > 店舗設定 > テナント設定 > 環境変数</strong></p>
         </div>
         <button type="submit" class="btn-primary">💾 APIキーを保存</button>
@@ -865,11 +850,11 @@
 
     <div class="section">
       <h2>アカウント情報</h2>
-      <p><strong>店舗コード:</strong> {{ store_slug or '' }}</p>
-      <p><strong>ログインID:</strong> {{ admin.login_id if admin else '' }}</p>
-      <p><strong>名前:</strong> {{ admin.name if admin else '' }}</p>
-      <p><strong>メールアドレス:</strong> {{ admin.email if admin else '' }}</p>
-      <p><strong>最終ログイン:</strong> {{ admin.last_login if admin and admin.last_login else '未記録' }}</p>
+      <p><strong>店舗コード:</strong> {{ admin.store_code }}</p>
+      <p><strong>ログインID:</strong> {{ admin.login_id }}</p>
+      <p><strong>名前:</strong> {{ admin.name }}</p>
+      <p><strong>メールアドレス:</strong> {{ admin.email }}</p>
+      <p><strong>最終ログイン:</strong> {{ admin.last_login or '未記録' }}</p>
     </div>
   </div>
 </body>

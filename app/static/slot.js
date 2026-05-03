@@ -422,7 +422,7 @@ function previewRecalcProb(){
 
 async function loadConfig(){
   try {
-    const storeSlug = window.location.pathname.split('/')[4];
+    const storeSlug = window.location.pathname.split('/')[2];
     const cfg = await fetchJSON(`/apps/survey/store/${storeSlug}/config`);
     console.log('[loadConfig] cfg.symbols:', cfg.symbols);
     window.__symbols = cfg.symbols;
@@ -459,7 +459,6 @@ function bindRowEvents(){
 }
 
 async function saveConfig(){
-  const storeSlug = window.location.pathname.split('/')[4];
   const adminEl = $('#admin-token');
   const adminToken = adminEl ? (adminEl.value || '').trim() : '';
 
@@ -476,7 +475,7 @@ async function saveConfig(){
   const headers = {'Content-Type':'application/json'};
   if(adminToken) headers['X-Admin-Token'] = adminToken;
 
-  await fetchJSON(`/apps/survey/store/${storeSlug}/config`, { method:'POST', headers, body: JSON.stringify(body) });
+  await fetchJSON('/config', { method:'POST', headers, body: JSON.stringify(body) });
   await loadConfig();
   alert('保存しました（確率を再計算して保存）');
 }
@@ -589,7 +588,7 @@ async function animateFiveSpins(spins){
       $('#round-indicator').textContent = `Round ${i+1}/5：${one.symbol.label} 揃った！ (+${one.payout})`;
       
       // BAR以上が揃ったときの特別な効果音
-      if (one.symbol.id === 'GOD') {
+      if (one.symbol.id === 'god') {
         playSoundGodWin();
       } else if (one.symbol.id === 'seven') {
         playSoundBarWin();
@@ -647,7 +646,7 @@ async function play(){
 
   let data;
   try{
-    const storeSlug = window.location.pathname.split('/')[4];
+    const storeSlug = window.location.pathname.split('/')[2];
     data = await fetchJSON(`/apps/survey/store/${storeSlug}/spin`, { method:'POST', body: JSON.stringify({}) });
   }catch(e){
     $('#status').textContent = 'エラー: ' + (e.message || e);
@@ -705,8 +704,8 @@ async function play(){
     
     // 結果をセッションに保存するためにサーバーに送信
     try {
-      const storeSlug = window.location.pathname.split('/')[4];
-      await fetchJSON(`/apps/survey/store/${storeSlug}/slot/save_result`, {
+      const storeSlug = window.location.pathname.split('/')[2];
+      await fetchJSON(`/store/${storeSlug}/slot/save_result`, {
         method: 'POST',
         body: JSON.stringify({
           total_score: totalScore,
@@ -718,7 +717,7 @@ async function play(){
       
       // 結果ページにリダイレクト
       setTimeout(() => {
-        window.location.href = `/apps/survey/store/${storeSlug}/slot/result`;
+        window.location.href = `/store/${storeSlug}/slot/result`;
       }, 1500); // 1.5秒後にリダイレクト（結果を見せるため）
     } catch (e) {
       console.error('結果保存エラー:', e);
@@ -755,8 +754,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(tmax !== null && Number.isFinite(tmax)) payload.threshold_max = tmax;
 
     try{
-      const storeSlug = window.location.pathname.split('/')[4];
-      const j = await fetchJSON(`/apps/survey/store/${storeSlug}/calc_prob`, { method:'POST', body: JSON.stringify(payload) });
+      const storeSlug = window.location.pathname.split('/')[2];
+      const j = await fetchJSON(`/store/${storeSlug}/calc_prob`, { method:'POST', body: JSON.stringify(payload) });
       const el = $('#prob-result');
       if(!el) return;
       if('prob_range' in j && tmax !== null){
@@ -777,9 +776,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('#btn-reset-survey')?.addEventListener('click', async ()=>{
     if(confirm('アンケートをリセットして最初からやり直しますか？')){
       try{
-        const storeSlug = window.location.pathname.split('/')[4];
-        await fetchJSON(`/apps/survey/store/${storeSlug}/reset_survey`, { method:'POST', body: JSON.stringify({}) });
-        window.location.href = `/apps/survey/store/${storeSlug}/answer`;
+        const storeSlug = window.location.pathname.split('/')[2];
+        await fetchJSON(`/store/${storeSlug}/apps/survey/store/${storeSlug}/reset_survey`, { method:'POST', body: JSON.stringify({}) });
+        window.location.href = `/store/${storeSlug}/survey`;
       }catch(e){
         alert('リセットに失敗しました: ' + (e.message || e));
       }

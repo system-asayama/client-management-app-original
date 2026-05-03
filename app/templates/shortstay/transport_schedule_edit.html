@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}送迎スケジュール編集 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" style="max-width:700px">
+  <div class="d-flex align-items-center mb-3 gap-2">
+    <a href="{{ url_for('shortstay.transport_schedules', date=ts.schedule_date.isoformat()) }}"
+       class="btn btn-sm btn-outline-secondary">← 一覧に戻る</a>
+    <h5 class="mb-0">✏️ 送迎スケジュール編集</h5>
+  </div>
+
+  {% if ts.is_manually_edited %}
+  <div class="alert alert-info py-2 mb-3 small">
+    <strong>✏️ 手動編集済み</strong> — このスケジュールは手動編集されているため、予約から再生成しても上書きされません。
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-header fw-bold py-2">
+      {{ resident.last_name ~ resident.first_name if resident else '利用者不明' }}
+      — {{ ts.schedule_date.strftime('%Y年%m月%d日') }}
+    </div>
+    <div class="card-body">
+      <form method="post">
+        <!-- 基本情報 -->
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">送迎区分 <span class="text-danger">*</span></label>
+            <select name="transport_type" class="form-select" required>
+              <option value="迎え" {% if ts.transport_type == '迎え' %}selected{% endif %}>🚐 迎え</option>
+              <option value="送り" {% if ts.transport_type == '送り' %}selected{% endif %}>🏠 送り</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">送迎先</label>
+            <select name="transport_address_id" class="form-select">
+              <option value="">（未設定）</option>
+              {% for addr in addresses %}
+              <option value="{{ addr.id }}"
+                {% if ts.transport_address_id == addr.id %}selected{% endif %}>
+                {{ addr.label or addr.address or '住所' }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">車椅子</label>
+            <select name="wheelchair_required" class="form-select">
+              <option value="0" {% if not ts.wheelchair_required %}selected{% endif %}>不要</option>
+              <option value="1" {% if ts.wheelchair_required %}selected{% endif %}>必要</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">注意事項</label>
+            <textarea name="care_notes" class="form-control" rows="2">{{ ts.care_notes or '' }}</textarea>
+          </div>
+        </div>
+
+        <hr>
+
+        <!-- 時間条件 -->
+        <h6 class="fw-bold mb-3">⏰ 送迎時間条件</h6>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">時間条件タイプ</label>
+            <select name="time_constraint_type" class="form-select" id="timeConstraintType"
+                    onchange="updateTimeFields()">
+              <option value="none" {% if (ts.time_constraint_type or 'none') == 'none' %}selected{% endif %}>指定なし</option>
+              <option value="exact" {% if ts.time_constraint_type == 'exact' %}selected{% endif %}>⏱ 指定時刻</option>
+              <option value="window" {% if ts.time_constraint_type == 'window' %}selected{% endif %}>📅 何時〜何時の間</option>
+              <option value="before" {% if ts.time_constraint_type == 'before' %}selected{% endif %}>⬅ 何時まで</option>
+              <option value="after" {% if ts.time_constraint_type == 'after' %}selected{% endif %}>➡ 何時以降</option>
+              <option value="preferred" {% if ts.time_constraint_type == 'preferred' %}selected{% endif %}>💬 希望時刻</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">時間条件の重要度</label>
+            <select name="time_priority" class="form-select">
+              <option value="required" {% if ts.time_priority == 'required' %}selected{% endif %}>🔴 必須（違反時は確定しない）</option>
+              <option value="preferred" {% if (ts.time_priority or 'preferred') == 'preferred' %}selected{% endif %}>🟡 希望（違反時は警告）</option>
+              <option value="reference" {% if ts.time_priority == 'reference' %}selected{% endif %}>⚪ 参考（情報のみ）</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- exact: 指定時刻 -->
+        <div id="field-exact" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">指定時刻</label>
+          <input type="time" name="target_time" class="form-control"
+                 value="{{ ts.target_time or '' }}" style="width:150px">
+          <div class="form-text">この時刻に到着または出発する</div>
+        </div>
+
+        <!-- window: 時間帯 -->
+        <div id="field-window" class="time-field-group mb-3" style="display:none">
+          <div class="row g-2">
+            <div class="col-auto">
+              <label class="form-label fw-bold">開始時刻</label>
+              <input type="time" name="window_start_time" class="form-control"
+                     value="{{ ts.window_start_time or '' }}" style="width:150px">
+            </div>
+            <div class="col-auto d-flex align-items-end pb-1">〜</div>
+            <div class="col-auto">
+              <label class="form-label fw-bold">終了時刻</label>
+              <input type="time" name="window_end_time" class="form-control"
+                     value="{{ ts.window_end_time or '' }}" style="width:150px">
+            </div>
+          </div>
+          <div class="form-text">この時間帯内に到着または出発する</div>
+        </div>
+
+        <!-- before: 〜まで -->
+        <div id="field-before" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">期限時刻</label>
+          <input type="time" name="deadline_time" class="form-control"
+                 value="{{ ts.deadline_time or '' }}" style="width:150px">
+          <div class="form-text">この時刻までに到着または出発する</div>
+        </div>
+
+        <!-- after: 以降 -->
+        <div id="field-after" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">開始可能時刻</label>
+          <input type="time" name="not_before_time" class="form-control"
+                 value="{{ ts.not_before_time or '' }}" style="width:150px">
+          <div class="form-text">この時刻以降でないと対応できない</div>
+        </div>
+
+        <!-- preferred: 希望時刻 -->
+        <div id="field-preferred" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">希望時刻</label>
+          <input type="time" name="preferred_time" class="form-control"
+                 value="{{ ts.preferred_time or '' }}" style="width:150px">
+          <div class="form-text">できればこの時刻に近づける（満たせなくても警告のみ）</div>
+        </div>
+
+        <!-- 詳細設定 -->
+        <div class="row g-3 mb-3">
+          <div class="col-4">
+            <label class="form-label fw-bold">乗降時間（分）</label>
+            <div class="input-group" style="width:120px">
+              <input type="number" name="boarding_time_minutes" class="form-control"
+                     value="{{ ts.boarding_time_minutes or 5 }}" min="0" max="30">
+              <span class="input-group-text">分</span>
+            </div>
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-bold">余裕時間（分）</label>
+            <div class="input-group" style="width:120px">
+              <input type="number" name="buffer_minutes" class="form-control"
+                     value="{{ ts.buffer_minutes or 5 }}" min="0" max="30">
+              <span class="input-group-text">分</span>
+            </div>
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-bold">遅延許容（分）</label>
+            <div class="input-group" style="width:120px">
+              <input type="number" name="delay_tolerance_minutes" class="form-control"
+                     value="{{ ts.delay_tolerance_minutes or 0 }}" min="0" max="60">
+              <span class="input-group-text">分</span>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">時間条件の説明メモ</label>
+            <input type="text" name="time_constraint_note" class="form-control"
+                   value="{{ ts.time_constraint_note or '' }}"
+                   placeholder="例：家族が17:00以降でないと在宅していない">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-primary">💾 保存</button>
+          <a href="{{ url_for('shortstay.transport_schedules', date=ts.schedule_date.isoformat()) }}"
+             class="btn btn-outline-secondary">キャンセル</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function updateTimeFields() {
+  const type = document.getElementById('timeConstraintType').value;
+  document.querySelectorAll('.time-field-group').forEach(el => el.style.display = 'none');
+  const map = {
+    'exact': 'field-exact',
+    'window': 'field-window',
+    'before': 'field-before',
+    'after': 'field-after',
+    'preferred': 'field-preferred',
+  };
+  if (map[type]) {
+    document.getElementById(map[type]).style.display = 'block';
+  }
+}
+// ページ読み込み時に現在の値に合わせて表示
+document.addEventListener('DOMContentLoaded', updateTimeFields);
+</script>
+{% endblock %}

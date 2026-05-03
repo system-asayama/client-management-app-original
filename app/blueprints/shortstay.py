@@ -2277,28 +2277,212 @@ def _minutes_to_time_str(minutes: int) -> str:
     return f'{minutes // 60:02d}:{minutes % 60:02d}'
 
 
-def _build_mixed_route_events(db, reservations, target_date, transport_type, constraints_map):
+def _get_schedule_deadline_minutes(ts) -> int | None:
     """
-    予約リストから送迎イベントリストを生成する。
+    SSTransportScheduleの時間条件から「期限時刻（分）」を計算する。
+    EDF（Earliest Deadline First）ソートのキーとして使用する。
+    """
+    ct = ts.time_constraint_type or 'none'
+    if ct == 'exact':
+        return _time_str_to_minutes(ts.target_time)
+    elif ct == 'window':
+        # 時間帯の終了時刻を期限とする
+        return _time_str_to_minutes(ts.window_end_time)
+    elif ct == 'before':
+        return _time_str_to_minutes(ts.deadline_time)
+    elif ct == 'after':
+        # 開始可能時刻は「期限」ではなく「最早時刻」なので期限は設定しない
+        return None
+    elif ct == 'preferred':
+        return _time_str_to_minutes(ts.preferred_time)
+    return None
 
-    各予約に対して以下のイベントを生成する:
-      - pickup: 自宅等での乗車イベント
-      - dropoff: 目的地（施設または別送迎先）での降車イベント
+
+def _get_schedule_priority(ts) -> int:
+    """SSTransportScheduleの重要度を数値に変換する（0=必須, 1=希望, 2=参考, 3=なし）"""
+    p = ts.time_priority or 'preferred'
+    return {'required': 0, 'preferred': 1, 'reference': 2}.get(p, 3)
+
+
+def _check_schedule_constraints(ts, resident_name: str, event_type: str,
+                                estimated_arrival_str: str) -> tuple[str, str | None]:
+    """
+    SSTransportScheduleの時間条件（time_constraint_type）に基づいて到着予定時刻を検証する。
+    返り値: (constraint_status, constraint_message)
+    """
+    if not estimated_arrival_str:
+        return 'ok', None
+
+    ct = ts.time_constraint_type or 'none'
+    priority = ts.time_priority or 'preferred'
+    tolerance = ts.delay_tolerance_minutes or 0
+    status = 'ok'
+    message = None
+
+    def _is_violation(is_over: bool) -> str:
+        if is_over:
+            return 'violation' if priority == 'required' else 'warning'
+        return 'ok'
+
+    if ct == 'exact':
+        if ts.target_time:
+            # 指定時刻から許容時間内かチェック
+            target_m = _time_str_to_minutes(ts.target_time)
+            actual_m = _time_str_to_minutes(estimated_arrival_str)
+            if target_m is not None and actual_m is not None:
+                diff = abs(actual_m - target_m)
+                if diff > tolerance:
+                    status = _is_violation(True)
+                    message = (f'{resident_name}さんは{ts.target_time}到着指定ですが、'
+                               f'{estimated_arrival_str}到着見込みです（差{diff}分）。')
+
+    elif ct == 'window':
+        start_m = _time_str_to_minutes(ts.window_start_time)
+        end_m = _time_str_to_minutes(ts.window_end_time)
+        actual_m = _time_str_to_minutes(estimated_arrival_str)
+        if actual_m is not None:
+            if start_m is not None and actual_m < start_m:
+                status = _is_violation(True)
+                message = (f'{resident_name}さんの受入可能開始は{ts.window_start_time}ですが、'
+                           f'{estimated_arrival_str}到着見込みです（早すぎます）。')
+            elif end_m is not None and actual_m > end_m + tolerance:
+                status = _is_violation(True)
+                message = (f'{resident_name}さんの受入可能終了は{ts.window_end_time}ですが、'
+                           f'{estimated_arrival_str}到着見込みです（遅すぎます）。')
+
+    elif ct == 'before':
+        if ts.deadline_time:
+            deadline_m = _time_str_to_minutes(ts.deadline_time)
+            actual_m = _time_str_to_minutes(estimated_arrival_str)
+            if deadline_m is not None and actual_m is not None:
+                if actual_m > deadline_m + tolerance:
+                    status = _is_violation(True)
+                    message = (f'{resident_name}さんは{ts.deadline_time}までに到着必要ですが、'
+                               f'{estimated_arrival_str}到着見込みです。')
+
+    elif ct == 'after':
+        if ts.not_before_time:
+            not_before_m = _time_str_to_minutes(ts.not_before_time)
+            actual_m = _time_str_to_minutes(estimated_arrival_str)
+            if not_before_m is not None and actual_m is not None:
+                if actual_m < not_before_m:
+                    status = _is_violation(True)
+                    message = (f'{resident_name}さんは{ts.not_before_time}以降でないと対応不可ですが、'
+                               f'{estimated_arrival_str}到着見込みです（早すぎます）。')
+
+    elif ct == 'preferred':
+        if ts.preferred_time:
+            pref_m = _time_str_to_minutes(ts.preferred_time)
+            actual_m = _time_str_to_minutes(estimated_arrival_str)
+            if pref_m is not None and actual_m is not None:
+                diff = abs(actual_m - pref_m)
+                if diff > 15:  # 希望から15分以上ずれたら警告
+                    status = 'warning'
+                    message = (f'{resident_name}さんの希望時刻は{ts.preferred_time}ですが、'
+                               f'{estimated_arrival_str}到着見込みです（差{diff}分）。')
+
+    return status, message
+
+
+def _build_events_from_schedules(db, schedules, transport_type):
+    """
+    SSTransportScheduleリストから送迎イベントリストを生成する。
+    （transport_schedules経由のルート生成に使用）
 
     返り値: list of dict {
         'event_type': 'pickup' | 'dropoff',
         'resident_id': int,
-        'reservation_id': int,
+        'reservation_id': int | None,
+        'schedule_id': int,
         'address': str,
         'phone': str | None,
         'care_notes': str | None,
         'resident_name': str,
         'requires_wheelchair': bool,
         'boarding_time': int,  # 分
-        'constraint': SSTransportTimeConstraint | None,
-        'deadline_minutes': int | None,  # 期限時刻（分）ソート用
-        'priority': int,  # 0=必須 1=希望 2=参考 3=なし
+        'schedule': SSTransportSchedule,
+        'deadline_minutes': int | None,
+        'priority': int,
+        'scheduled_time': str | None,
     }
+    """
+    events = []
+    for ts in schedules:
+        resident = db.query(SSResident).filter(SSResident.id == ts.resident_id).first()
+        if not resident:
+            continue
+        resident_name = f'{resident.last_name}{resident.first_name}'
+
+        # 送迎先アドレスを取得
+        addr_obj = None
+        if ts.transport_address_id:
+            addr_obj = db.query(SSUserTransportAddress).filter(
+                SSUserTransportAddress.id == ts.transport_address_id
+            ).first()
+        if not addr_obj:
+            addr_obj = db.query(SSUserTransportAddress).filter(
+                SSUserTransportAddress.resident_id == ts.resident_id,
+                SSUserTransportAddress.is_default == True,
+                SSUserTransportAddress.is_active == True
+            ).first()
+        if not addr_obj:
+            addr_obj = db.query(SSUserTransportAddress).filter(
+                SSUserTransportAddress.resident_id == ts.resident_id,
+                SSUserTransportAddress.is_active == True
+            ).first()
+
+        addr_text = addr_obj.address if addr_obj else '住所未登録'
+        phone_text = addr_obj.phone if addr_obj else None
+        care_notes = ts.care_notes or (addr_obj.care_notes if addr_obj else None)
+        boarding_time = ts.boarding_time_minutes or 5
+        requires_wc = ts.wheelchair_required or False
+
+        deadline_m = _get_schedule_deadline_minutes(ts)
+        priority = _get_schedule_priority(ts)
+
+        # 迎え → pickup（自宅で乗車）
+        if ts.transport_type == '迎え':
+            events.append({
+                'event_type': 'pickup',
+                'resident_id': ts.resident_id,
+                'reservation_id': ts.reservation_id,
+                'schedule_id': ts.id,
+                'address': addr_text,
+                'phone': phone_text,
+                'care_notes': care_notes,
+                'resident_name': resident_name,
+                'requires_wheelchair': requires_wc,
+                'boarding_time': boarding_time,
+                'schedule': ts,
+                'deadline_minutes': deadline_m,
+                'priority': priority,
+                'scheduled_time': ts.desired_time or ts.preferred_time or ts.target_time,
+            })
+        # 送り → dropoff（送迎先で降車）
+        elif ts.transport_type == '送り':
+            events.append({
+                'event_type': 'dropoff',
+                'resident_id': ts.resident_id,
+                'reservation_id': ts.reservation_id,
+                'schedule_id': ts.id,
+                'address': addr_text,
+                'phone': phone_text,
+                'care_notes': care_notes,
+                'resident_name': resident_name,
+                'requires_wheelchair': requires_wc,
+                'boarding_time': boarding_time,
+                'schedule': ts,
+                'deadline_minutes': deadline_m,
+                'priority': priority,
+                'scheduled_time': ts.desired_time or ts.preferred_time or ts.target_time,
+            })
+    return events
+
+
+def _build_mixed_route_events(db, reservations, target_date, transport_type, constraints_map):
+    """
+    予約リストから送迎イベントリストを生成する（後方互換用）。
+    新規ルート生成は _build_events_from_schedules を使用すること。
     """
     events = []
     for res in reservations:
@@ -2306,7 +2490,6 @@ def _build_mixed_route_events(db, reservations, target_date, transport_type, con
         resident_name = f'{resident.last_name}{resident.first_name}'
         tc = constraints_map.get(res.resident_id)
 
-        # 送迎先アドレスを取得
         default_addr = db.query(SSUserTransportAddress).filter(
             SSUserTransportAddress.resident_id == res.resident_id,
             SSUserTransportAddress.is_default == True,
@@ -2324,15 +2507,12 @@ def _build_mixed_route_events(db, reservations, target_date, transport_type, con
         boarding_time = (tc.boarding_time_minutes or 5) if tc else 5
         requires_wc = res.resident.wheelchair_required if hasattr(res.resident, 'wheelchair_required') else False
 
-        # 制約優先度と期限時刻
         if tc:
             priority = 0 if tc.constraint_type == '必須' else (1 if tc.constraint_type == '希望' else 2)
         else:
             priority = 3
 
-        # 迈えイベント（pickup: 自宅で乗車、dropoff: 施設で降車）
-        if transport_type in ('迈え', '混在') and res.pickup_required:
-            # pickupの期限：施設到着期限または到着必須時刻
+        if transport_type in ('迎え', '混在') and res.pickup_required:
             deadlines = [_time_str_to_minutes(t) for t in [
                 tc.facility_arrival_deadline if tc else None,
                 tc.required_arrival_time if tc else None,
@@ -2343,6 +2523,7 @@ def _build_mixed_route_events(db, reservations, target_date, transport_type, con
                 'event_type': 'pickup',
                 'resident_id': res.resident_id,
                 'reservation_id': res.id,
+                'schedule_id': None,
                 'address': addr_text,
                 'phone': phone_text,
                 'care_notes': care_notes,
@@ -2350,14 +2531,13 @@ def _build_mixed_route_events(db, reservations, target_date, transport_type, con
                 'requires_wheelchair': requires_wc,
                 'boarding_time': boarding_time,
                 'constraint': tc,
+                'schedule': None,
                 'deadline_minutes': deadline_m,
                 'priority': priority,
                 'scheduled_time': res.pickup_time,
             })
 
-        # 送りイベント（pickup: 施設で乗車、dropoff: 送迎先で降車）
         if transport_type in ('送り', '混在') and res.dropoff_required:
-            # dropoffの期限：送迎先到着期限または到着必須時刻
             deadlines = [_time_str_to_minutes(t) for t in [
                 tc.destination_arrival_deadline if tc else None,
                 tc.required_arrival_time if tc else None,
@@ -2368,6 +2548,7 @@ def _build_mixed_route_events(db, reservations, target_date, transport_type, con
                 'event_type': 'dropoff',
                 'resident_id': res.resident_id,
                 'reservation_id': res.id,
+                'schedule_id': None,
                 'address': addr_text,
                 'phone': phone_text,
                 'care_notes': care_notes,
@@ -2375,6 +2556,7 @@ def _build_mixed_route_events(db, reservations, target_date, transport_type, con
                 'requires_wheelchair': requires_wc,
                 'boarding_time': boarding_time,
                 'constraint': tc,
+                'schedule': None,
                 'deadline_minutes': deadline_m,
                 'priority': priority,
                 'scheduled_time': res.dropoff_time,
@@ -2504,78 +2686,133 @@ def transport_generate():
 
     db = SessionLocal()
     try:
-        # 混在ルートの場合、迈え・送り両方の予約を取得
-        if transport_type == '迈え':
-            q = db.query(SSReservation).filter(
-                SSReservation.check_in_date == target_date,
-                SSReservation.pickup_required == True,
-                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
-            )
+        # ─────────────────────────────────────────────
+        # 送迎スケジュールからイベントを生成（正式フロー）
+        # ─────────────────────────────────────────────
+        # 対象日の送迎スケジュールを取得
+        sq = db.query(SSTransportSchedule).filter(
+            SSTransportSchedule.schedule_date == target_date
+        )
+        if store_id:
+            sq = sq.filter(SSTransportSchedule.store_id == store_id)
+        elif tenant_id:
+            sq = sq.filter(SSTransportSchedule.tenant_id == tenant_id)
+
+        # 送迎区分でフィルタ（混在は両方取得）
+        if transport_type == '迎え':
+            sq = sq.filter(SSTransportSchedule.transport_type == '迎え')
         elif transport_type == '送り':
-            q = db.query(SSReservation).filter(
-                SSReservation.check_out_date == target_date,
-                SSReservation.dropoff_required == True,
-                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
-            )
-        else:  # 混在
-            # 迈え対象（入所日）と送り対象（退所日）の両方を取得
-            q_pickup = db.query(SSReservation).filter(
-                SSReservation.check_in_date == target_date,
-                SSReservation.pickup_required == True,
-                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
-            )
-            q_dropoff = db.query(SSReservation).filter(
-                SSReservation.check_out_date == target_date,
-                SSReservation.dropoff_required == True,
-                SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
-            )
-            if store_id:
-                q_pickup = q_pickup.filter(SSReservation.store_id == store_id)
-                q_dropoff = q_dropoff.filter(SSReservation.store_id == store_id)
-            elif tenant_id:
-                q_pickup = q_pickup.filter(SSReservation.tenant_id == tenant_id)
-                q_dropoff = q_dropoff.filter(SSReservation.tenant_id == tenant_id)
-            # 重複を除いてマージ
-            pickup_ids = {r.id for r in q_pickup.all()}
-            all_res = {r.id: r for r in q_pickup.all()}
-            for r in q_dropoff.all():
-                all_res[r.id] = r
-            reservations = list(all_res.values())
+            sq = sq.filter(SSTransportSchedule.transport_type == '送り')
+        # 混在の場合は両方取得（フィルタなし）
 
-        if transport_type != '混在':
-            if store_id:
-                q = q.filter(SSReservation.store_id == store_id)
-            elif tenant_id:
-                q = q.filter(SSReservation.tenant_id == tenant_id)
-            reservations = q.all()
+        schedules = sq.order_by(SSTransportSchedule.transport_type, SSTransportSchedule.resident_id).all()
 
-        if not reservations:
-            flash('送迎対象者がいません。', 'warning')
-            return redirect(url_for('shortstay.transport_index', date=target_date_str))
+        # 送迎スケジュールがない場合はフォールバック：予約から直接生成
+        use_schedules = len(schedules) > 0
+
+        if not use_schedules:
+            # 送迎スケジュールがない場合、予約から直接イベント化（後方互換）
+            if transport_type == '迎え':
+                q = db.query(SSReservation).filter(
+                    SSReservation.check_in_date == target_date,
+                    SSReservation.pickup_required == True,
+                    SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+                )
+            elif transport_type == '送り':
+                q = db.query(SSReservation).filter(
+                    SSReservation.check_out_date == target_date,
+                    SSReservation.dropoff_required == True,
+                    SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+                )
+            else:
+                q_pickup = db.query(SSReservation).filter(
+                    SSReservation.check_in_date == target_date,
+                    SSReservation.pickup_required == True,
+                    SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+                )
+                q_dropoff = db.query(SSReservation).filter(
+                    SSReservation.check_out_date == target_date,
+                    SSReservation.dropoff_required == True,
+                    SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+                )
+                if store_id:
+                    q_pickup = q_pickup.filter(SSReservation.store_id == store_id)
+                    q_dropoff = q_dropoff.filter(SSReservation.store_id == store_id)
+                elif tenant_id:
+                    q_pickup = q_pickup.filter(SSReservation.tenant_id == tenant_id)
+                    q_dropoff = q_dropoff.filter(SSReservation.tenant_id == tenant_id)
+                all_res = {r.id: r for r in q_pickup.all()}
+                for r in q_dropoff.all():
+                    all_res[r.id] = r
+                reservations = list(all_res.values())
+
+            if transport_type != '混在':
+                if store_id:
+                    q = q.filter(SSReservation.store_id == store_id)
+                elif tenant_id:
+                    q = q.filter(SSReservation.tenant_id == tenant_id)
+                reservations = q.all()
+
+            if not reservations:
+                flash('送迎対象者がいません。まず送迎スケジュールを生成してください。', 'warning')
+                return redirect(url_for('shortstay.transport_schedules', date=target_date_str))
 
         # 車両定員・車椅子対応台数を取得
         vehicle = db.query(SSVehicle).filter(SSVehicle.id == vehicle_id).first() if vehicle_id else None
         capacity = vehicle.capacity if vehicle else 99
         wc_capacity = vehicle.wheelchair_capacity if vehicle and hasattr(vehicle, 'wheelchair_capacity') else capacity
 
-        # NGドライバーを考慮して対象者を絞り込み
-        valid_reservations = []
-        for res in reservations:
-            if driver_id:
-                ng = db.query(SSUserDriverRestriction).filter(
-                    SSUserDriverRestriction.resident_id == res.resident_id,
-                    SSUserDriverRestriction.driver_id == driver_id,
-                    SSUserDriverRestriction.is_active == True
-                ).first()
-                if ng:
-                    flash(f'利用者「{res.resident.last_name}{res.resident.first_name}」はこのドライバーのNGです。スキップしました。', 'warning')
-                    continue
-            valid_reservations.append(res)
+        # ─────────────────────────────────────────────
+        # イベント化（transport_schedules経由 or 予約フォールバック）
+        # ─────────────────────────────────────────────
+        if use_schedules:
+            # 送迎スケジュールからイベント化
+            all_events_raw = _build_events_from_schedules(db, schedules, transport_type)
 
-        # 定員超過チェック（混在ルートは「同時乗車最大人数」で判定）
-        if len(valid_reservations) > capacity:
-            flash(f'対象者数（{len(valid_reservations)}名）が車両定員（{capacity}名）を超えています。複数ルートに分割してください。', 'warning')
-            valid_reservations = valid_reservations[:capacity]
+            # NGドライバーチェック
+            events_filtered = []
+            for ev in all_events_raw:
+                if driver_id:
+                    ng = db.query(SSUserDriverRestriction).filter(
+                        SSUserDriverRestriction.resident_id == ev['resident_id'],
+                        SSUserDriverRestriction.driver_id == driver_id,
+                        SSUserDriverRestriction.is_active == True
+                    ).first()
+                    if ng:
+                        resident = db.query(SSResident).filter(SSResident.id == ev['resident_id']).first()
+                        rname = f"{resident.last_name}{resident.first_name}" if resident else str(ev['resident_id'])
+                        flash(f'利用者「{rname}」はこのドライバーのNGです。スキップしました。', 'warning')
+                        continue
+                events_filtered.append(ev)
+
+            # 定員超過チェック（ユニーク利用者数で判定）
+            unique_residents = len({ev['resident_id'] for ev in events_filtered})
+            if unique_residents > capacity:
+                flash(f'対象者数（{unique_residents}名）が車両定員（{capacity}名）を超えています。複数ルートに分割してください。', 'warning')
+
+            if not events_filtered:
+                flash('送迎対象者がいません。', 'warning')
+                return redirect(url_for('shortstay.transport_schedules', date=target_date_str))
+
+            valid_reservations = []  # 後のコードとの互換性のため空リスト
+        else:
+            # 予約フォールバック: NGドライバーチェック
+            valid_reservations = []
+            for res in reservations:
+                if driver_id:
+                    ng = db.query(SSUserDriverRestriction).filter(
+                        SSUserDriverRestriction.resident_id == res.resident_id,
+                        SSUserDriverRestriction.driver_id == driver_id,
+                        SSUserDriverRestriction.is_active == True
+                    ).first()
+                    if ng:
+                        flash(f'利用者「{res.resident.last_name}{res.resident.first_name}」はこのドライバーのNGです。スキップしました。', 'warning')
+                        continue
+                valid_reservations.append(res)
+
+            if len(valid_reservations) > capacity:
+                flash(f'対象者数（{len(valid_reservations)}名）が車両定員（{capacity}名）を超えています。複数ルートに分割してください。', 'warning')
+                valid_reservations = valid_reservations[:capacity]
 
         # 利用者ごとの時刻制約を取得（対象日に有効なもの）
         constraints_map = {}  # resident_id -> SSTransportTimeConstraint
@@ -2623,10 +2860,14 @@ def transport_generate():
         db.flush()
 
         # ─────────────────────────────────────────────
-        # 混在ルートイベント化・ソート・停車地生成
+        # イベント化・ソート・停車地生成
         # ─────────────────────────────────────────────
-        # 各予約をイベント（pickup/dropoff）に分解する
-        events = _build_mixed_route_events(db, valid_reservations, target_date, transport_type, constraints_map)
+        if use_schedules:
+            # transport_schedules経由：イベントはすでに生成済み
+            events = events_filtered
+        else:
+            # 予約フォールバック：予約からイベント化
+            events = _build_mixed_route_events(db, valid_reservations, target_date, transport_type, constraints_map)
         # EDF方式でソート（pickup->dropoff順序を必ず守る）
         sorted_events = _sort_events_mixed(events)
 
@@ -2679,7 +2920,15 @@ def transport_generate():
 
             # 時刻制約チェック
             if constraint_status == 'ok':
-                constraint_status, constraint_message = _check_event_constraints(ev, estimated_arrival_str)
+                ts = ev.get('schedule')  # transport_schedules経由の場合
+                if ts is not None:
+                    # 送迎スケジュールのtime_constraint_typeに基づくチェック
+                    constraint_status, constraint_message = _check_schedule_constraints(
+                        ts, ev['resident_name'], ev['event_type'], estimated_arrival_str
+                    )
+                else:
+                    # 予約フォールバック: 旧制約チェック
+                    constraint_status, constraint_message = _check_event_constraints(ev, estimated_arrival_str)
                 if constraint_status == 'violation':
                     route_has_violation = True
 
@@ -3027,5 +3276,414 @@ def time_constraint_delete(resident_id, tc_id):
             db.commit()
             flash('時刻制約を削除しました。', 'success')
         return redirect(url_for('shortstay.time_constraints', resident_id=resident_id))
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 送迎スケジュール管理（transport_schedules）
+# 予約 → 送迎スケジュール生成 → 編集 → ルート作成 の正式フロー
+# ─────────────────────────────────────────────
+
+def _build_time_constraint_display(ts):
+    """送迎スケジュールの時間条件を表示用文字列に変換する"""
+    ct = ts.time_constraint_type or 'none'
+    priority_map = {'required': '必須', 'preferred': '希望', 'reference': '参考'}
+    priority = priority_map.get(ts.time_priority or 'preferred', '希望')
+
+    if ct == 'exact':
+        return f"{priority}：{ts.target_time or '?'}に到着"
+    elif ct == 'window':
+        return f"{priority}：{ts.window_start_time or '?'}〜{ts.window_end_time or '?'}の間"
+    elif ct == 'before':
+        return f"{priority}：{ts.deadline_time or '?'}まで"
+    elif ct == 'after':
+        return f"{priority}：{ts.not_before_time or '?'}以降"
+    elif ct == 'preferred':
+        return f"希望：{ts.preferred_time or '?'}頃"
+    else:
+        return '指定なし'
+
+
+@bp.route('/transport/schedules')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["EMPLOYEE"])
+def transport_schedules():
+    """送迎スケジュール一覧（日付別）"""
+    store_id, tenant_id = _get_store_tenant()
+    target_date_str = request.args.get('date', date.today().isoformat())
+    try:
+        target_date = date.fromisoformat(target_date_str)
+    except ValueError:
+        target_date = date.today()
+
+    db = SessionLocal()
+    try:
+        q = db.query(SSTransportSchedule).filter(
+            SSTransportSchedule.schedule_date == target_date
+        )
+        if store_id:
+            q = q.filter(SSTransportSchedule.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSTransportSchedule.tenant_id == tenant_id)
+        schedules = q.order_by(
+            SSTransportSchedule.transport_type,
+            SSTransportSchedule.resident_id
+        ).all()
+
+        # 当日の予約（生成ボタン用）
+        rq = db.query(SSReservation).filter(
+            SSReservation.check_in_date == target_date,
+            SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+        )
+        if store_id:
+            rq = rq.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            rq = rq.filter(SSReservation.tenant_id == tenant_id)
+        reservations = rq.all()
+
+        # スケジュールに利用者・送迎先情報を付加
+        schedule_data = []
+        for ts in schedules:
+            resident = db.query(SSResident).filter(SSResident.id == ts.resident_id).first()
+            addr = db.query(SSUserTransportAddress).filter(
+                SSUserTransportAddress.id == ts.transport_address_id
+            ).first() if ts.transport_address_id else None
+            schedule_data.append({
+                'schedule': ts,
+                'resident': resident,
+                'address': addr,
+                'constraint_display': _build_time_constraint_display(ts),
+            })
+
+        return render_template('shortstay/transport_schedules.html',
+            target_date=target_date,
+            today=date.today(),
+            schedule_data=schedule_data,
+            reservations=reservations,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/transport/schedules/generate', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_schedules_generate():
+    """予約から送迎スケジュールを生成する"""
+    store_id, tenant_id = _get_store_tenant()
+    target_date_str = request.form.get('date', date.today().isoformat())
+    overwrite_mode = request.form.get('overwrite_mode', 'skip')  # skip / overwrite / diff
+
+    try:
+        target_date = date.fromisoformat(target_date_str)
+    except ValueError:
+        target_date = date.today()
+
+    db = SessionLocal()
+    try:
+        # 対象日の予約を取得
+        q = db.query(SSReservation).filter(
+            SSReservation.check_in_date == target_date,
+            SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+        )
+        if store_id:
+            q = q.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            q = q.filter(SSReservation.tenant_id == tenant_id)
+        reservations = q.all()
+
+        created_count = 0
+        skipped_count = 0
+        updated_count = 0
+
+        for res in reservations:
+            # 迎え
+            if res.pickup_required:
+                existing = db.query(SSTransportSchedule).filter(
+                    SSTransportSchedule.source_reservation_id == res.id,
+                    SSTransportSchedule.transport_type == '迎え',
+                    SSTransportSchedule.schedule_date == target_date
+                ).first()
+
+                if existing:
+                    if overwrite_mode == 'skip':
+                        skipped_count += 1
+                        continue
+                    elif overwrite_mode == 'overwrite' and not existing.is_manually_edited:
+                        # 手動編集済みは上書きしない
+                        _update_schedule_from_reservation(existing, res, '迎え', tenant_id, store_id)
+                        updated_count += 1
+                        continue
+                    elif overwrite_mode == 'diff' and not existing.is_manually_edited:
+                        _update_schedule_from_reservation(existing, res, '迎え', tenant_id, store_id)
+                        updated_count += 1
+                        continue
+                    else:
+                        skipped_count += 1
+                        continue
+
+                # 送迎先を取得（利用者のデフォルト送迎先）
+                addr = db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == res.resident_id,
+                    SSUserTransportAddress.is_active == True,
+                    SSUserTransportAddress.is_default == True
+                ).first()
+                if not addr:
+                    addr = db.query(SSUserTransportAddress).filter(
+                        SSUserTransportAddress.resident_id == res.resident_id,
+                        SSUserTransportAddress.is_active == True
+                    ).first()
+
+                ts = SSTransportSchedule(
+                    tenant_id=tenant_id,
+                    store_id=store_id,
+                    schedule_date=target_date,
+                    transport_type='迎え',
+                    resident_id=res.resident_id,
+                    reservation_id=res.id,
+                    source_reservation_id=res.id,
+                    transport_address_id=addr.id if addr else None,
+                    desired_time=res.pickup_time,
+                    wheelchair_required=res.wheelchair_required if hasattr(res, 'wheelchair_required') else False,
+                    care_notes=None,
+                    is_confirmed=False,
+                    time_constraint_type='none',
+                    time_priority='preferred',
+                    is_manually_edited=False,
+                )
+                # 予約の希望時刻があれば preferred として設定
+                if res.pickup_time:
+                    ts.time_constraint_type = 'preferred'
+                    ts.preferred_time = res.pickup_time
+                db.add(ts)
+                created_count += 1
+
+            # 送り
+            if res.dropoff_required:
+                existing = db.query(SSTransportSchedule).filter(
+                    SSTransportSchedule.source_reservation_id == res.id,
+                    SSTransportSchedule.transport_type == '送り',
+                    SSTransportSchedule.schedule_date == target_date
+                ).first()
+
+                if existing:
+                    if overwrite_mode == 'skip':
+                        skipped_count += 1
+                        continue
+                    elif overwrite_mode in ('overwrite', 'diff') and not existing.is_manually_edited:
+                        _update_schedule_from_reservation(existing, res, '送り', tenant_id, store_id)
+                        updated_count += 1
+                        continue
+                    else:
+                        skipped_count += 1
+                        continue
+
+                addr = db.query(SSUserTransportAddress).filter(
+                    SSUserTransportAddress.resident_id == res.resident_id,
+                    SSUserTransportAddress.is_active == True,
+                    SSUserTransportAddress.is_default == True
+                ).first()
+                if not addr:
+                    addr = db.query(SSUserTransportAddress).filter(
+                        SSUserTransportAddress.resident_id == res.resident_id,
+                        SSUserTransportAddress.is_active == True
+                    ).first()
+
+                ts = SSTransportSchedule(
+                    tenant_id=tenant_id,
+                    store_id=store_id,
+                    schedule_date=target_date,
+                    transport_type='送り',
+                    resident_id=res.resident_id,
+                    reservation_id=res.id,
+                    source_reservation_id=res.id,
+                    transport_address_id=addr.id if addr else None,
+                    desired_time=res.dropoff_time if hasattr(res, 'dropoff_time') else None,
+                    wheelchair_required=res.wheelchair_required if hasattr(res, 'wheelchair_required') else False,
+                    care_notes=None,
+                    is_confirmed=False,
+                    time_constraint_type='none',
+                    time_priority='preferred',
+                    is_manually_edited=False,
+                )
+                if hasattr(res, 'dropoff_time') and res.dropoff_time:
+                    ts.time_constraint_type = 'preferred'
+                    ts.preferred_time = res.dropoff_time
+                db.add(ts)
+                created_count += 1
+
+        db.commit()
+        parts = []
+        if created_count:
+            parts.append(f'{created_count}件を新規生成')
+        if updated_count:
+            parts.append(f'{updated_count}件を更新')
+        if skipped_count:
+            parts.append(f'{skipped_count}件をスキップ')
+        flash(f'送迎スケジュールを生成しました（{" / ".join(parts) if parts else "変更なし"}）。', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'生成に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+
+    return redirect(url_for('shortstay.transport_schedules', date=target_date_str))
+
+
+def _update_schedule_from_reservation(ts, res, transport_type, tenant_id, store_id):
+    """予約データで送迎スケジュールを更新する（手動編集済みは除く）"""
+    if transport_type == '迎え' and res.pickup_time:
+        ts.desired_time = res.pickup_time
+        if ts.time_constraint_type == 'none':
+            ts.time_constraint_type = 'preferred'
+            ts.preferred_time = res.pickup_time
+    elif transport_type == '送り' and hasattr(res, 'dropoff_time') and res.dropoff_time:
+        ts.desired_time = res.dropoff_time
+        if ts.time_constraint_type == 'none':
+            ts.time_constraint_type = 'preferred'
+            ts.preferred_time = res.dropoff_time
+
+
+@bp.route('/transport/schedules/<int:schedule_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_schedule_edit(schedule_id):
+    """送迎スケジュールの個別編集"""
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        ts = db.query(SSTransportSchedule).filter(SSTransportSchedule.id == schedule_id).first()
+        if not ts:
+            flash('送迎スケジュールが見つかりません。', 'error')
+            return redirect(url_for('shortstay.transport_schedules'))
+
+        resident = db.query(SSResident).filter(SSResident.id == ts.resident_id).first()
+        addresses = db.query(SSUserTransportAddress).filter(
+            SSUserTransportAddress.resident_id == ts.resident_id,
+            SSUserTransportAddress.is_active == True
+        ).all()
+
+        if request.method == 'POST':
+            ts.transport_type = request.form.get('transport_type', ts.transport_type)
+            ts.transport_address_id = _parse_int(request.form.get('transport_address_id'))
+            ts.wheelchair_required = request.form.get('wheelchair_required') == '1'
+            ts.care_notes = request.form.get('care_notes') or None
+
+            # 時間条件
+            ts.time_constraint_type = request.form.get('time_constraint_type', 'none')
+            ts.time_priority = request.form.get('time_priority', 'preferred')
+            ts.target_time = request.form.get('target_time') or None
+            ts.window_start_time = request.form.get('window_start_time') or None
+            ts.window_end_time = request.form.get('window_end_time') or None
+            ts.deadline_time = request.form.get('deadline_time') or None
+            ts.not_before_time = request.form.get('not_before_time') or None
+            ts.preferred_time = request.form.get('preferred_time') or None
+            ts.boarding_time_minutes = _parse_int(request.form.get('boarding_time_minutes')) or 5
+            ts.buffer_minutes = _parse_int(request.form.get('buffer_minutes')) or 5
+            ts.delay_tolerance_minutes = _parse_int(request.form.get('delay_tolerance_minutes')) or 0
+            ts.time_constraint_note = request.form.get('time_constraint_note') or None
+
+            # 手動編集フラグを立てる（再生成時に上書きしない）
+            ts.is_manually_edited = True
+
+            db.commit()
+            flash('送迎スケジュールを更新しました。', 'success')
+            return redirect(url_for('shortstay.transport_schedules', date=ts.schedule_date.isoformat()))
+
+        return render_template('shortstay/transport_schedule_edit.html',
+            ts=ts, resident=resident, addresses=addresses)
+    finally:
+        db.close()
+
+
+@bp.route('/transport/schedules/<int:schedule_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_schedule_delete(schedule_id):
+    """送迎スケジュールの削除"""
+    db = SessionLocal()
+    try:
+        ts = db.query(SSTransportSchedule).filter(SSTransportSchedule.id == schedule_id).first()
+        target_date = ts.schedule_date.isoformat() if ts else date.today().isoformat()
+        if ts:
+            db.delete(ts)
+            db.commit()
+            flash('送迎スケジュールを削除しました。', 'success')
+        return redirect(url_for('shortstay.transport_schedules', date=target_date))
+    finally:
+        db.close()
+
+
+@bp.route('/transport/schedules/add', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def transport_schedule_add():
+    """送迎スケジュールの手動追加"""
+    store_id, tenant_id = _get_store_tenant()
+    target_date_str = request.args.get('date', date.today().isoformat())
+
+    db = SessionLocal()
+    try:
+        # 利用者一覧（当日予約がある人）
+        try:
+            target_date = date.fromisoformat(target_date_str)
+        except ValueError:
+            target_date = date.today()
+
+        rq = db.query(SSReservation).filter(
+            SSReservation.check_in_date == target_date,
+            SSReservation.status.in_([ReservationStatus.confirmed, ReservationStatus.tentative])
+        )
+        if store_id:
+            rq = rq.filter(SSReservation.store_id == store_id)
+        elif tenant_id:
+            rq = rq.filter(SSReservation.tenant_id == tenant_id)
+        reservations = rq.all()
+        residents = [r.resident for r in reservations if r.resident]
+
+        if request.method == 'POST':
+            resident_id = _parse_int(request.form.get('resident_id'))
+            ts = SSTransportSchedule(
+                tenant_id=tenant_id,
+                store_id=store_id,
+                schedule_date=target_date,
+                transport_type=request.form.get('transport_type', '迎え'),
+                resident_id=resident_id,
+                reservation_id=_parse_int(request.form.get('reservation_id')),
+                source_reservation_id=None,
+                transport_address_id=_parse_int(request.form.get('transport_address_id')),
+                wheelchair_required=request.form.get('wheelchair_required') == '1',
+                care_notes=request.form.get('care_notes') or None,
+                is_confirmed=False,
+                time_constraint_type=request.form.get('time_constraint_type', 'none'),
+                time_priority=request.form.get('time_priority', 'preferred'),
+                target_time=request.form.get('target_time') or None,
+                window_start_time=request.form.get('window_start_time') or None,
+                window_end_time=request.form.get('window_end_time') or None,
+                deadline_time=request.form.get('deadline_time') or None,
+                not_before_time=request.form.get('not_before_time') or None,
+                preferred_time=request.form.get('preferred_time') or None,
+                boarding_time_minutes=_parse_int(request.form.get('boarding_time_minutes')) or 5,
+                buffer_minutes=_parse_int(request.form.get('buffer_minutes')) or 5,
+                delay_tolerance_minutes=_parse_int(request.form.get('delay_tolerance_minutes')) or 0,
+                time_constraint_note=request.form.get('time_constraint_note') or None,
+                is_manually_edited=True,
+            )
+            db.add(ts)
+            db.commit()
+            flash('送迎スケジュールを追加しました。', 'success')
+            return redirect(url_for('shortstay.transport_schedules', date=target_date_str))
+
+        # 選択された利用者の送迎先を取得（AJAX不使用のため全利用者分）
+        resident_addresses = {}
+        for res in residents:
+            addrs = db.query(SSUserTransportAddress).filter(
+                SSUserTransportAddress.resident_id == res.id,
+                SSUserTransportAddress.is_active == True
+            ).all()
+            resident_addresses[res.id] = addrs
+
+        return render_template('shortstay/transport_schedule_add.html',
+            target_date=target_date,
+            residents=residents,
+            reservations=reservations,
+            resident_addresses=resident_addresses,
+        )
     finally:
         db.close()

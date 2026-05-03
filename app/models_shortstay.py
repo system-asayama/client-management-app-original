@@ -677,15 +677,55 @@ class SSTransportSchedule(Base):
     resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False)
     reservation_id = Column(Integer, ForeignKey('SS_予約.id'), nullable=True)
     transport_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='送迎先ID')
-    desired_time = Column(String(10), nullable=True, comment='希望時刻')
+    desired_time = Column(String(10), nullable=True, comment='希望時刻（後方互換）')
     wheelchair_required = Column(Boolean, default=False, comment='車椅子')
     care_notes = Column(Text, nullable=True, comment='注意事項')
     is_confirmed = Column(Boolean, default=False, comment='確定フラグ')
+
+    # ── 時間条件タイプ（exact/window/before/after/preferred/none）
+    time_constraint_type = Column(
+        String(20), nullable=True, default='none',
+        comment='時間条件タイプ（exact/window/before/after/preferred/none）'
+    )
+    # 時間条件の重要度（required/preferred/reference）
+    time_priority = Column(
+        String(20), nullable=True, default='preferred',
+        comment='時間条件の重要度（required=必須/preferred=希望/reference=参考）'
+    )
+    # exact: 指定時刻
+    target_time = Column(String(10), nullable=True, comment='指定時刻（exact用）')
+    # window: 時間帯指定
+    window_start_time = Column(String(10), nullable=True, comment='時間帯開始（window用）')
+    window_end_time = Column(String(10), nullable=True, comment='時間帯終了（window用）')
+    # before: 期限時刻
+    deadline_time = Column(String(10), nullable=True, comment='期限時刻（before用）')
+    # after: 開始可能時刻
+    not_before_time = Column(String(10), nullable=True, comment='開始可能時刻（after用）')
+    # preferred: 希望時刻
+    preferred_time = Column(String(10), nullable=True, comment='希望時刻（preferred用）')
+    # 乗降時間・余裕時間
+    boarding_time_minutes = Column(Integer, nullable=True, default=5, comment='乗降時間（分）')
+    buffer_minutes = Column(Integer, nullable=True, default=5, comment='余裕時間（分）')
+    delay_tolerance_minutes = Column(Integer, nullable=True, default=0, comment='遅延許容時間（分）')
+    # 制約の説明メモ
+    time_constraint_note = Column(Text, nullable=True, comment='時間条件の説明メモ')
+    # 予約からのコピー元フラグ（再生成時に上書きしないための管理）
+    is_manually_edited = Column(Boolean, default=False, comment='手動編集済みフラグ（再生成時に上書きしない）')
+    source_reservation_id = Column(
+        Integer, ForeignKey('SS_予約.id'), nullable=True,
+        comment='生成元予約ID（予約から生成した場合）'
+    )
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resident = relationship('SSResident', backref='transport_schedules')
     reservation = relationship('SSReservation', backref='transport_schedules')
     transport_address = relationship('SSUserTransportAddress', backref='transport_schedules')
+    source_reservation = relationship(
+        'SSReservation',
+        foreign_keys='SSTransportSchedule.source_reservation_id',
+        backref='generated_transport_schedules'
+    )
 
 
 class SSTransportRoute(Base):

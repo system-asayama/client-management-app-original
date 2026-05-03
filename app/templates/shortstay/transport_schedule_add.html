@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}送迎スケジュール手動追加 - ショートステイ運営管理{% endblock %}
+{% block content %}
+<div class="container-fluid py-3" style="max-width:700px">
+  <div class="d-flex align-items-center mb-3 gap-2">
+    <a href="{{ url_for('shortstay.transport_schedules', date=target_date.isoformat()) }}"
+       class="btn btn-sm btn-outline-secondary">← 一覧に戻る</a>
+    <h5 class="mb-0">➕ 送迎スケジュール手動追加</h5>
+    <span class="text-muted small">{{ target_date.strftime('%Y年%m月%d日') }}</span>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post">
+        <input type="hidden" name="date" value="{{ target_date.isoformat() }}">
+
+        <!-- 基本情報 -->
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">利用者 <span class="text-danger">*</span></label>
+            <select name="resident_id" class="form-select" id="residentSelect"
+                    onchange="updateAddresses()" required>
+              <option value="">利用者を選択</option>
+              {% for res in residents %}
+              <option value="{{ res.id }}">{{ res.last_name }}{{ res.first_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">送迎区分 <span class="text-danger">*</span></label>
+            <select name="transport_type" class="form-select" required>
+              <option value="迎え">🚐 迎え</option>
+              <option value="送り">🏠 送り</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">送迎先</label>
+            <select name="transport_address_id" class="form-select" id="addressSelect">
+              <option value="">（未設定）</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">車椅子</label>
+            <select name="wheelchair_required" class="form-select">
+              <option value="0">不要</option>
+              <option value="1">必要</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">注意事項</label>
+            <textarea name="care_notes" class="form-control" rows="2" placeholder="乗降時の注意事項など"></textarea>
+          </div>
+        </div>
+
+        <hr>
+
+        <!-- 時間条件 -->
+        <h6 class="fw-bold mb-3">⏰ 送迎時間条件</h6>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">時間条件タイプ</label>
+            <select name="time_constraint_type" class="form-select" id="timeConstraintType"
+                    onchange="updateTimeFields()">
+              <option value="none">指定なし</option>
+              <option value="exact">⏱ 指定時刻</option>
+              <option value="window">📅 何時〜何時の間</option>
+              <option value="before">⬅ 何時まで</option>
+              <option value="after">➡ 何時以降</option>
+              <option value="preferred">💬 希望時刻</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">時間条件の重要度</label>
+            <select name="time_priority" class="form-select">
+              <option value="required">🔴 必須</option>
+              <option value="preferred" selected>🟡 希望</option>
+              <option value="reference">⚪ 参考</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="field-exact" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">指定時刻</label>
+          <input type="time" name="target_time" class="form-control" style="width:150px">
+        </div>
+        <div id="field-window" class="time-field-group mb-3" style="display:none">
+          <div class="row g-2">
+            <div class="col-auto">
+              <label class="form-label fw-bold">開始時刻</label>
+              <input type="time" name="window_start_time" class="form-control" style="width:150px">
+            </div>
+            <div class="col-auto d-flex align-items-end pb-1">〜</div>
+            <div class="col-auto">
+              <label class="form-label fw-bold">終了時刻</label>
+              <input type="time" name="window_end_time" class="form-control" style="width:150px">
+            </div>
+          </div>
+        </div>
+        <div id="field-before" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">期限時刻</label>
+          <input type="time" name="deadline_time" class="form-control" style="width:150px">
+          <div class="form-text">この時刻までに到着または出発する</div>
+        </div>
+        <div id="field-after" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">開始可能時刻</label>
+          <input type="time" name="not_before_time" class="form-control" style="width:150px">
+          <div class="form-text">この時刻以降でないと対応できない</div>
+        </div>
+        <div id="field-preferred" class="time-field-group mb-3" style="display:none">
+          <label class="form-label fw-bold">希望時刻</label>
+          <input type="time" name="preferred_time" class="form-control" style="width:150px">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-4">
+            <label class="form-label fw-bold">乗降時間（分）</label>
+            <input type="number" name="boarding_time_minutes" class="form-control" value="5" min="0" max="30">
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-bold">余裕時間（分）</label>
+            <input type="number" name="buffer_minutes" class="form-control" value="5" min="0" max="30">
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-bold">遅延許容（分）</label>
+            <input type="number" name="delay_tolerance_minutes" class="form-control" value="0" min="0" max="60">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold">時間条件の説明メモ</label>
+            <input type="text" name="time_constraint_note" class="form-control"
+                   placeholder="例：病院受診のため10:30までに到着必須">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-success">➕ 追加</button>
+          <a href="{{ url_for('shortstay.transport_schedules', date=target_date.isoformat()) }}"
+             class="btn btn-outline-secondary">キャンセル</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// 利用者ごとの送迎先データ
+const residentAddresses = {
+  {% for res in residents %}
+  {{ res.id }}: [
+    {% if res.id in resident_addresses %}
+    {% for addr in resident_addresses[res.id] %}
+    { id: {{ addr.id }}, label: "{{ (addr.label or addr.address or '住所') | replace('"', '\\"') }}" },
+    {% endfor %}
+    {% endif %}
+  ],
+  {% endfor %}
+};
+
+function updateAddresses() {
+  const resId = parseInt(document.getElementById('residentSelect').value);
+  const sel = document.getElementById('addressSelect');
+  sel.innerHTML = '<option value="">（未設定）</option>';
+  if (resId && residentAddresses[resId]) {
+    residentAddresses[resId].forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.label;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+function updateTimeFields() {
+  const type = document.getElementById('timeConstraintType').value;
+  document.querySelectorAll('.time-field-group').forEach(el => el.style.display = 'none');
+  const map = { 'exact': 'field-exact', 'window': 'field-window', 'before': 'field-before',
+                'after': 'field-after', 'preferred': 'field-preferred' };
+  if (map[type]) document.getElementById(map[type]).style.display = 'block';
+}
+</script>
+{% endblock %}

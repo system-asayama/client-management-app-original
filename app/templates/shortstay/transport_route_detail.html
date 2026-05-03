@@ -1,105 +1,158 @@
 {% extends "shortstay/base.html" %}
 {% block title %}ルート詳細 - ショートステイ運営管理{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title">🚐 ルート詳細</h1>
-  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-    {% if route.status == 'draft' %}
-    <form method="post" action="{{ url_for('shortstay.transport_route_confirm', route_id=route.id) }}" style="display:inline;">
-      <button type="submit" class="btn btn-success">✓ ルートを確定</button>
-    </form>
-    {% endif %}
-    <a href="{{ url_for('shortstay.transport_route_edit', route_id=route.id) }}" class="btn btn-primary">✏️ 編集</a>
-    <a href="{{ url_for('shortstay.transport_route_print', route_id=route.id) }}" class="btn" target="_blank">🖨️ 印刷</a>
-    <a href="{{ url_for('shortstay.transport_index') }}" class="btn">← 一覧に戻る</a>
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+    <a href="{{ url_for('shortstay.transport_index') }}" class="btn btn-sm btn-outline-secondary">← 一覧に戻る</a>
+    <h4 class="mb-0">🚐 ルート詳細</h4>
+    <span class="badge fs-6
+      {% if route.status == 'draft' %}bg-warning text-dark
+      {% elif route.status == 'confirmed' %}bg-success
+      {% else %}bg-secondary{% endif %}">
+      {% if route.status == 'draft' %}下書き{% elif route.status == 'confirmed' %}確定済み{% else %}{{ route.status }}{% endif %}
+    </span>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+      {% if route.status == 'draft' %}
+        {# 必須制約違反がある場合は確定ボタンを無効化 #}
+        {% set has_violation = stop_data|selectattr('stop.constraint_status', 'equalto', 'violation')|list %}
+        {% if has_violation %}
+        <button class="btn btn-success" disabled title="必須制約違反があるため確定できません">✓ ルートを確定（制約違反あり）</button>
+        {% else %}
+        <form method="post" action="{{ url_for('shortstay.transport_route_confirm', route_id=route.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-success">✓ ルートを確定</button>
+        </form>
+        {% endif %}
+      {% endif %}
+      <a href="{{ url_for('shortstay.transport_route_edit', route_id=route.id) }}" class="btn btn-primary btn-sm">✏️ 編集</a>
+      <a href="{{ url_for('shortstay.transport_route_print', route_id=route.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">🖨️ 印刷</a>
+    </div>
   </div>
-</div>
 
-<!-- ルート基本情報 -->
-<div class="card">
-  <div class="card-header">
-    <span class="card-title">{{ route.route_name or 'ルート情報' }}</span>
-    {% if route.status == 'draft' %}<span class="badge badge-yellow">下書き</span>
-    {% elif route.status == 'confirmed' %}<span class="badge badge-green">確定済み</span>
-    {% elif route.status == 'completed' %}<span class="badge badge-gray">完了</span>{% endif %}
-  </div>
-  <div class="form-row">
-    <div>
-      <div class="form-label">日付</div>
-      <div>{{ route.route_date.strftime('%Y年%m月%d日') }}</div>
-    </div>
-    <div>
-      <div class="form-label">種別</div>
-      <div>
-        {% if route.transport_type == 'pickup' %}迎え（施設→自宅）
-        {% elif route.transport_type == 'dropoff' %}送り（自宅→施設）
-        {% else %}{{ route.transport_type }}{% endif %}
-      </div>
-    </div>
-    <div>
-      <div class="form-label">車両</div>
-      <div>{{ route.vehicle.name if route.vehicle else '未設定' }}</div>
-    </div>
-    <div>
-      <div class="form-label">ドライバー</div>
-      <div>{{ route.driver.name if route.driver else '未設定' }}</div>
-    </div>
-    <div>
-      <div class="form-label">出発時刻</div>
-      <div>{{ route.departure_time.strftime('%H:%M') if route.departure_time else '未設定' }}</div>
-    </div>
-  </div>
-  {% if route.notes %}
-  <div style="margin-top:0.75rem;">
-    <div class="form-label">メモ</div>
-    <div style="white-space:pre-wrap;">{{ route.notes }}</div>
+  <!-- 制約違反・警告サマリー -->
+  {% set violations = stop_data|selectattr('stop.constraint_status', 'equalto', 'violation')|list %}
+  {% set warnings = stop_data|selectattr('stop.constraint_status', 'equalto', 'warning')|list %}
+  {% if violations %}
+  <div class="alert alert-danger py-2 mb-3">
+    <strong>🚨 必須制約違反（{{ violations|length }}件）— このルートは確定できません</strong>
+    <ul class="mb-0 mt-1 small">
+      {% for sd in violations %}
+      <li>{{ sd.stop.constraint_message }}</li>
+      {% endfor %}
+    </ul>
   </div>
   {% endif %}
-</div>
-
-<!-- 停車地一覧 -->
-<div class="card">
-  <div class="card-header">
-    <span class="card-title">🗺️ 停車地順序</span>
-    <span style="color:var(--gray-500); font-size:0.875rem;">{{ route.stops|length }}箇所</span>
+  {% if warnings %}
+  <div class="alert alert-warning py-2 mb-3">
+    <strong>⚠️ 希望時刻に関する警告（{{ warnings|length }}件）</strong>
+    <ul class="mb-0 mt-1 small">
+      {% for sd in warnings %}
+      <li>{{ sd.stop.constraint_message }}</li>
+      {% endfor %}
+    </ul>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>順序</th>
-          <th>利用者名</th>
-          <th>住所</th>
-          <th>到着予定</th>
-          <th>乗降時間</th>
-          <th>車椅子</th>
-          <th>備考</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for stop in route.stops|sort(attribute='stop_order') %}
-        <tr>
-          <td>
-            <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; background:var(--primary); color:#fff; border-radius:50%; font-weight:700; font-size:0.875rem;">{{ stop.stop_order }}</span>
-          </td>
-          <td><strong>{{ stop.resident.name if stop.resident else '-' }}</strong></td>
-          <td>{{ stop.address or (stop.transport_address.address if stop.transport_address else '-') }}</td>
-          <td>{{ stop.estimated_arrival.strftime('%H:%M') if stop.estimated_arrival else '-' }}</td>
-          <td>{{ stop.boarding_time_minutes or 5 }}分</td>
-          <td>
-            {% if stop.requires_wheelchair %}
-              <span class="badge badge-blue">必要</span>
-            {% else %}
-              <span class="badge badge-gray">不要</span>
-            {% endif %}
-          </td>
-          <td>{{ stop.notes or '-' }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="7" style="text-align:center; color:var(--gray-500); padding:1.5rem;">停車地が設定されていません</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  {% endif %}
+
+  <!-- ルート基本情報 -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header fw-bold py-2">{{ route.route_name or 'ルート情報' }}</div>
+    <div class="card-body py-2">
+      <div class="row g-2 small">
+        <div class="col-6 col-md-2"><div class="text-muted">日付</div><div class="fw-bold">{{ route.route_date.strftime('%Y年%m月%d日') }}</div></div>
+        <div class="col-6 col-md-2"><div class="text-muted">種別</div>
+          <div>{% if route.transport_type == '迎え' %}<span class="badge bg-primary">迎え</span>
+          {% elif route.transport_type == '送り' %}<span class="badge bg-success">送り</span>
+          {% else %}{{ route.transport_type }}{% endif %}</div>
+        </div>
+        <div class="col-6 col-md-2"><div class="text-muted">車両</div><div>{{ vehicle.name if vehicle else '未設定' }}</div></div>
+        <div class="col-6 col-md-2"><div class="text-muted">ドライバー</div><div>{{ driver.name if driver else '未設定' }}</div></div>
+        <div class="col-6 col-md-2"><div class="text-muted">出発時刻</div>
+          <div>{% set fac = stop_data|selectattr('stop.is_facility')|first %}
+            {{ fac.stop.scheduled_time if fac and fac.stop.scheduled_time else '未設定' }}</div>
+        </div>
+      </div>
+      {% if route.notes %}
+      <div class="mt-2 small text-muted">{{ route.notes }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 停車地一覧 -->
+  <div class="card shadow-sm">
+    <div class="card-header fw-bold py-2 d-flex justify-content-between">
+      <span>🗺️ 停車地順序</span>
+      <span class="text-muted small">{{ stop_data|length }}箇所</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width:50px">順序</th>
+            <th>利用者名</th>
+            <th>住所</th>
+            <th>予定時刻</th>
+            <th>到着予定</th>
+            <th>制約状態</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sd in stop_data %}
+          {% set stop = sd.stop %}
+          {% set resident = sd.resident %}
+          <tr class="
+            {% if stop.constraint_status == 'violation' %}table-danger
+            {% elif stop.constraint_status == 'warning' %}table-warning
+            {% endif %}">
+            <td class="text-center">
+              <span class="badge rounded-pill
+                {% if stop.is_facility %}bg-secondary{% else %}bg-primary{% endif %}
+                fs-6">{{ stop.stop_order }}</span>
+            </td>
+            <td>
+              {% if stop.is_facility %}
+              <span class="fw-bold text-muted">🏥 {{ stop.address_snapshot or '施設' }}</span>
+              {% else %}
+              <strong>{{ resident.last_name ~ resident.first_name if resident else stop.address_snapshot or '―' }}</strong>
+              {% if resident %}
+              <br><a href="{{ url_for('shortstay.time_constraints', resident_id=resident.id) }}" class="small text-muted">⏰ 時刻制約</a>
+              {% endif %}
+              {% endif %}
+            </td>
+            <td class="small">{{ stop.address_snapshot or '―' }}</td>
+            <td>{{ stop.scheduled_time or '―' }}</td>
+            <td>
+              {% if stop.estimated_arrival %}
+              <span class="fw-bold
+                {% if stop.constraint_status == 'violation' %}text-danger
+                {% elif stop.constraint_status == 'warning' %}text-warning
+                {% else %}text-success{% endif %}">
+                {{ stop.estimated_arrival }}
+              </span>
+              {% else %}―{% endif %}
+            </td>
+            <td>
+              {% if stop.constraint_status == 'violation' %}
+              <span class="badge bg-danger">🚨 必須違反</span>
+              {% elif stop.constraint_status == 'warning' %}
+              <span class="badge bg-warning text-dark">⚠ 希望超過</span>
+              {% elif stop.constraint_status == 'ok' and not stop.is_facility %}
+              <span class="badge bg-success">✓ OK</span>
+              {% else %}―{% endif %}
+            </td>
+            <td class="small">
+              {% if stop.constraint_message %}
+              <span class="text-danger small">{{ stop.constraint_message }}</span>
+              {% elif stop.care_notes_snapshot %}
+              {{ stop.care_notes_snapshot }}
+              {% else %}―{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">停車地が設定されていません</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 {% endblock %}

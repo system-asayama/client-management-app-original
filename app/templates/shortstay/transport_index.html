@@ -1,120 +1,153 @@
 {% extends "shortstay/base.html" %}
 {% block title %}送迎ルート管理 - ショートステイ運営管理{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title">🚐 送迎ルート管理</h1>
-</div>
+<div class="container-fluid py-3">
+  <h4 class="mb-3">🚐 送迎ルート管理</h4>
 
-<!-- 自動生成フォーム -->
-<div class="card">
-  <div class="card-header">
-    <span class="card-title">📅 ルート自動生成</span>
+  <!-- ルート自動生成フォーム -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold py-2">📅 ルート自動生成</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('shortstay.transport_generate') }}">
+        <div class="row g-3">
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-bold">対象日 <span class="text-danger">*</span></label>
+            <input type="date" name="date" class="form-control" value="{{ target_date.isoformat() }}" required>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-bold">送迎種別 <span class="text-danger">*</span></label>
+            <select name="transport_type" class="form-select" required>
+              <option value="迎え">🚐 迎え（自宅→施設）</option>
+              <option value="送り">🏠 送り（施設→自宅）</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-bold">施設出発時刻</label>
+            <input type="time" name="departure_time" class="form-control" placeholder="例：08:30">
+            <div class="form-text">到着予定時刻の計算に使用</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-bold">停車間移動時間（分）</label>
+            <div class="input-group">
+              <input type="number" name="avg_travel_minutes" class="form-control" value="10" min="1" max="60">
+              <span class="input-group-text">分</span>
+            </div>
+            <div class="form-text">停車地間の平均移動時間</div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold">使用車両</label>
+            <select name="vehicle_id" class="form-select">
+              <option value="">（車両未指定）</option>
+              {% for v in vehicles %}
+              <option value="{{ v.id }}">
+                {{ v.name }}
+                {% if v.wheelchair_accessible %}[車椅子対応]{% endif %}
+                （定員{{ v.capacity }}名）
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold">ドライバー</label>
+            <select name="driver_id" class="form-select">
+              <option value="">（ドライバー未指定）</option>
+              {% for d in drivers %}
+              <option value="{{ d.id }}">{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="alert alert-info mt-3 mb-2 py-2 small">
+          <strong>自動生成ルール：</strong>
+          ① 対象日の予約から送迎対象者を抽出 →
+          ② 車椅子利用者を優先的に車椅子対応車両に割り当て →
+          ③ NGドライバー制約を適用 →
+          ④ <strong>時刻制約（必須→希望→参考）の優先度順・EDF方式でソート</strong> →
+          ⑤ 到着予定時刻を計算し制約チェック →
+          ⑥ 必須制約を満たせない場合は自動確定しない
+        </div>
+
+        <button type="submit" class="btn btn-primary">🔄 ルートを自動生成</button>
+      </form>
+    </div>
   </div>
-  <form method="post" action="{{ url_for('shortstay.transport_generate') }}">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">対象日 <span style="color:var(--danger)">*</span></label>
-        <input type="date" name="target_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">送迎種別 <span style="color:var(--danger)">*</span></label>
-        <select name="transport_type" class="form-control" required>
-          <option value="pickup">迎え（施設→自宅）</option>
-          <option value="dropoff">送り（自宅→施設）</option>
-          <option value="both">迎え＋送り（両方）</option>
+
+  <!-- 生成済みルート一覧 -->
+  <div class="card shadow-sm">
+    <div class="card-header fw-bold py-2 d-flex justify-content-between align-items-center">
+      <span>📋 生成済みルート一覧</span>
+      <div class="d-flex gap-2">
+        <input type="date" id="filterDate" class="form-control form-control-sm" style="width:150px" value="{{ target_date.isoformat() }}" onchange="filterRoutes()">
+        <select id="filterType" class="form-select form-select-sm" style="width:120px" onchange="filterRoutes()">
+          <option value="">全種別</option>
+          <option value="迎え">迎え</option>
+          <option value="送り">送り</option>
         </select>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">使用車両（複数選択可）</label>
-        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
-          {% for v in vehicles %}
-          <label style="display:flex; align-items:center; gap:0.3rem; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:6px; padding:0.4rem 0.75rem; cursor:pointer;">
-            <input type="checkbox" name="vehicle_ids" value="{{ v.id }}" checked>
-            {{ v.name }}
-            {% if v.wheelchair_accessible %}<span class="badge badge-blue" style="font-size:0.65rem;">車椅子</span>{% endif %}
-          </label>
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>日付</th>
+            <th>種別</th>
+            <th>ルート名</th>
+            <th>車両</th>
+            <th>ドライバー</th>
+            <th>停車地数</th>
+            <th>出発時刻</th>
+            <th>ステータス</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="routeTableBody">
+          {% for route in existing_routes %}
+          <tr data-date="{{ route.route_date.isoformat() }}" data-type="{{ route.transport_type }}">
+            <td>{{ route.route_date.strftime('%Y/%m/%d') }}</td>
+            <td>
+              {% if route.transport_type == '迎え' %}<span class="badge bg-primary">迎え</span>
+              {% elif route.transport_type == '送り' %}<span class="badge bg-success">送り</span>
+              {% else %}<span class="badge bg-secondary">{{ route.transport_type }}</span>{% endif %}
+            </td>
+            <td><strong>{{ route.route_name or 'ルート' }}</strong></td>
+            <td>{{ route.vehicle.name if route.vehicle else '―' }}</td>
+            <td>{{ route.driver.name if route.driver else '―' }}</td>
+            <td>{{ route.stops|length }}箇所</td>
+            <td>
+              {% set fac_stop = route.stops|selectattr('is_facility')|first %}
+              {{ fac_stop.scheduled_time if fac_stop and fac_stop.scheduled_time else '―' }}
+            </td>
+            <td>
+              {% if route.status == 'draft' %}<span class="badge bg-warning text-dark">下書き</span>
+              {% elif route.status == 'confirmed' %}<span class="badge bg-success">確定</span>
+              {% else %}<span class="badge bg-secondary">{{ route.status }}</span>{% endif %}
+              {# 必須制約違反がある停車地があれば警告アイコン #}
+              {% set has_violation = route.stops|selectattr('constraint_status', 'equalto', 'violation')|list %}
+              {% if has_violation %}
+              <span class="badge bg-danger ms-1" title="必須制約違反あり">⚠ 制約違反</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <a href="{{ url_for('shortstay.transport_route_detail', route_id=route.id) }}" class="btn btn-outline-primary btn-sm">詳細</a>
+                <a href="{{ url_for('shortstay.transport_route_edit', route_id=route.id) }}" class="btn btn-outline-secondary btn-sm">編集</a>
+                <a href="{{ url_for('shortstay.transport_route_print', route_id=route.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">🖨️</a>
+                <form method="post" action="{{ url_for('shortstay.transport_route_delete', route_id=route.id) }}" style="display:inline;" onsubmit="return confirm('このルートを削除しますか？');">
+                  <button type="submit" class="btn btn-outline-danger btn-sm">削除</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr id="emptyRow"><td colspan="9" class="text-center text-muted py-4">ルートが生成されていません。上のフォームから自動生成してください。</td></tr>
           {% endfor %}
-        </div>
-      </div>
+        </tbody>
+      </table>
     </div>
-    <div class="alert alert-info" style="margin-top:0.75rem;">
-      <strong>自動生成ルール：</strong>
-      ① 対象日の予約から送迎対象者を抽出 →
-      ② 車椅子利用者を優先的に車椅子対応車両に割り当て →
-      ③ NGドライバー制約を適用 →
-      ④ 希望時刻に近い順でルートを最適化
-    </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">🔄 ルートを自動生成</button>
-  </form>
-</div>
-
-<!-- 既存ルート一覧 -->
-<div class="card">
-  <div class="card-header">
-    <span class="card-title">📋 生成済みルート一覧</span>
-  </div>
-
-  <!-- 日付フィルター -->
-  <div class="search-bar">
-    <input type="date" id="filterDate" class="form-control" style="max-width:180px;" value="{{ today.strftime('%Y-%m-%d') }}" onchange="filterRoutes()">
-    <select id="filterType" class="form-control" style="max-width:160px;" onchange="filterRoutes()">
-      <option value="">全種別</option>
-      <option value="pickup">迎え</option>
-      <option value="dropoff">送り</option>
-    </select>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>日付</th>
-          <th>種別</th>
-          <th>ルート名</th>
-          <th>車両</th>
-          <th>ドライバー</th>
-          <th>停車地数</th>
-          <th>出発時刻</th>
-          <th>ステータス</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="routeTableBody">
-        {% for route in routes %}
-        <tr data-date="{{ route.route_date.strftime('%Y-%m-%d') }}" data-type="{{ route.transport_type }}">
-          <td>{{ route.route_date.strftime('%Y/%m/%d') }}</td>
-          <td>
-            {% if route.transport_type == 'pickup' %}<span class="badge badge-blue">迎え</span>
-            {% elif route.transport_type == 'dropoff' %}<span class="badge badge-green">送り</span>
-            {% else %}<span class="badge badge-gray">{{ route.transport_type }}</span>{% endif %}
-          </td>
-          <td><strong>{{ route.route_name or 'ルート' ~ loop.index }}</strong></td>
-          <td>{{ route.vehicle.name if route.vehicle else '-' }}</td>
-          <td>{{ route.driver.name if route.driver else '-' }}</td>
-          <td>{{ route.stops|length }}箇所</td>
-          <td>{{ route.departure_time.strftime('%H:%M') if route.departure_time else '-' }}</td>
-          <td>
-            {% if route.status == 'draft' %}<span class="badge badge-yellow">下書き</span>
-            {% elif route.status == 'confirmed' %}<span class="badge badge-green">確定</span>
-            {% elif route.status == 'completed' %}<span class="badge badge-gray">完了</span>
-            {% else %}<span class="badge badge-gray">{{ route.status }}</span>{% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('shortstay.transport_route_detail', route_id=route.id) }}" class="btn btn-sm">詳細</a>
-            <a href="{{ url_for('shortstay.transport_route_edit', route_id=route.id) }}" class="btn btn-sm">編集</a>
-            <a href="{{ url_for('shortstay.transport_route_print', route_id=route.id) }}" class="btn btn-sm" target="_blank">🖨️</a>
-            <form method="post" action="{{ url_for('shortstay.transport_route_delete', route_id=route.id) }}" style="display:inline;" onsubmit="return confirm('このルートを削除しますか？');">
-              <button type="submit" class="btn btn-sm btn-danger">削除</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr id="emptyRow"><td colspan="9" style="text-align:center; color: var(--gray-500); padding: 2rem;">ルートが生成されていません。上のフォームから自動生成してください。</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
   </div>
 </div>
 
@@ -133,7 +166,6 @@ function filterRoutes() {
   const emptyRow = document.getElementById('emptyRow');
   if (emptyRow) emptyRow.style.display = visible === 0 ? '' : 'none';
 }
-// 初期フィルター適用
 filterRoutes();
 </script>
 {% endblock %}

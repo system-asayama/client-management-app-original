@@ -1,0 +1,96 @@
+{% extends "shortstay/base.html" %}
+{% block title %}時刻制約管理 - {{ resident.last_name }}{{ resident.first_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+    <a href="{{ url_for('shortstay.transport_addresses', resident_id=resident.id) }}" class="btn btn-sm btn-outline-secondary">← 送迎先管理へ戻る</a>
+    <h4 class="mb-0">⏰ 時刻制約管理</h4>
+    <span class="badge bg-secondary fs-6">{{ resident.last_name }}{{ resident.first_name }} 様</span>
+  </div>
+
+  <div class="alert alert-info py-2 small">
+    <strong>時刻制約とは？</strong>
+    「9:00までに施設到着」「15:30以降でないと自宅に送れない」など、利用者ごとの送迎時間に関する条件を登録します。
+    <strong>必須</strong>制約を満たせないルートは自動確定されません。
+  </div>
+
+  <div class="d-flex justify-content-end mb-3">
+    <a href="{{ url_for('shortstay.time_constraint_new', resident_id=resident.id) }}" class="btn btn-primary btn-sm">
+      ＋ 時刻制約を追加
+    </a>
+  </div>
+
+  {% if constraints %}
+  <div class="row g-3">
+    {% for tc in constraints %}
+    <div class="col-12 col-md-6">
+      <div class="card shadow-sm h-100 border-{% if tc.constraint_type == '必須' %}danger{% elif tc.constraint_type == '希望' %}warning{% else %}secondary{% endif %}">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+          <div>
+            <span class="badge bg-{% if tc.constraint_type == '必須' %}danger{% elif tc.constraint_type == '希望' %}warning text-dark{% else %}secondary{% endif %} me-1">{{ tc.constraint_type }}</span>
+            <span class="badge bg-{% if tc.transport_type == '迎え' %}primary{% else %}success{% endif %}">{{ tc.transport_type }}</span>
+            {% if tc.transport_address %}
+            <span class="ms-1 small text-muted">{{ tc.transport_address.name }}</span>
+            {% endif %}
+          </div>
+          <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('shortstay.time_constraint_edit', resident_id=resident.id, tc_id=tc.id) }}" class="btn btn-outline-primary btn-sm">編集</a>
+            <form method="post" action="{{ url_for('shortstay.time_constraint_delete', resident_id=resident.id, tc_id=tc.id) }}" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-outline-danger btn-sm">削除</button>
+            </form>
+          </div>
+        </div>
+        <div class="card-body py-2">
+          <table class="table table-sm table-borderless mb-0 small">
+            {% if tc.required_arrival_time %}
+            <tr><th class="text-danger pe-2" style="width:50%">到着必須時刻</th><td class="fw-bold text-danger">{{ tc.required_arrival_time }}</td></tr>
+            {% endif %}
+            {% if tc.desired_arrival_time %}
+            <tr><th class="pe-2">到着希望時刻</th><td>{{ tc.desired_arrival_time }}</td></tr>
+            {% endif %}
+            {% if tc.facility_arrival_deadline %}
+            <tr><th class="pe-2">施設到着期限</th><td>{{ tc.facility_arrival_deadline }}</td></tr>
+            {% endif %}
+            {% if tc.destination_arrival_deadline %}
+            <tr><th class="pe-2">送迎先到着期限</th><td>{{ tc.destination_arrival_deadline }}</td></tr>
+            {% endif %}
+            {% if tc.earliest_departure_time %}
+            <tr><th class="pe-2">出発可能時刻（最早）</th><td>{{ tc.earliest_departure_time }}</td></tr>
+            {% endif %}
+            {% if tc.earliest_boarding_time %}
+            <tr><th class="pe-2">乗車可能開始</th><td>{{ tc.earliest_boarding_time }}</td></tr>
+            {% endif %}
+            {% if tc.latest_boarding_time %}
+            <tr><th class="pe-2">乗車可能終了</th><td>{{ tc.latest_boarding_time }}</td></tr>
+            {% endif %}
+            {% if tc.required_destination_arrival_time %}
+            <tr><th class="pe-2">滞在先到着必須</th><td class="text-danger fw-bold">{{ tc.required_destination_arrival_time }}</td></tr>
+            {% endif %}
+            <tr><th class="pe-2">乗降時間</th><td>{{ tc.boarding_time_minutes or 5 }}分</td></tr>
+            <tr><th class="pe-2">余裕時間</th><td>{{ tc.buffer_minutes or 5 }}分</td></tr>
+            {% if tc.delay_tolerance_minutes %}
+            <tr><th class="pe-2">遅延許容</th><td>{{ tc.delay_tolerance_minutes }}分</td></tr>
+            {% endif %}
+            {% if tc.valid_from or tc.valid_to %}
+            <tr><th class="pe-2">有効期間</th><td>{{ tc.valid_from or '―' }} 〜 {{ tc.valid_to or '―' }}</td></tr>
+            {% endif %}
+          </table>
+          {% if tc.constraint_reason %}
+          <div class="mt-2 p-2 bg-light rounded small text-muted">
+            <strong>理由：</strong>{{ tc.constraint_reason }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-5">
+    <p>時刻制約が登録されていません。</p>
+    <a href="{{ url_for('shortstay.time_constraint_new', resident_id=resident.id) }}" class="btn btn-primary">＋ 時刻制約を追加する</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

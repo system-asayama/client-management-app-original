@@ -3,8 +3,9 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">🏠 送迎先管理 — {{ resident.name }}</h1>
-  <div style="display:flex; gap:0.5rem;">
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
     <a href="{{ url_for('shortstay.transport_address_new', resident_id=resident.id) }}" class="btn btn-primary">＋ 送迎先を追加</a>
+    <a href="{{ url_for('shortstay.time_constraints', resident_id=resident.id) }}" class="btn btn-warning">⏰ 時刻制約管理</a>
     <a href="{{ url_for('shortstay.resident_detail', resident_id=resident.id) }}" class="btn">← 利用者詳細に戻る</a>
   </div>
 </div>

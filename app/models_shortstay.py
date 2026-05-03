@@ -712,6 +712,59 @@ class SSTransportRoute(Base):
                          order_by='SSTransportRouteStop.stop_order', cascade='all, delete-orphan')
 
 
+class SSTransportTimeConstraint(Base):
+    """
+    送迎時刻制約
+    利用者ごと・予約ごとに「何時までにどこへ」という時間制約を管理する。
+    constraint_type で「必須」「希望」「参考」の優先度を区別する。
+    """
+    __tablename__ = 'SS_送迎時刻制約'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)
+    resident_id = Column(Integer, ForeignKey('SS_利用者.id'), nullable=False, comment='利用者ID')
+    reservation_id = Column(Integer, ForeignKey('SS_予約.id'), nullable=True, comment='予約ID（特定予約に紐付ける場合）')
+    transport_address_id = Column(Integer, ForeignKey('SS_送迎先.id'), nullable=True, comment='送迎先ID')
+
+    # 送迎区分
+    transport_type = Column(String(10), nullable=False, default='迎え', comment='送迎区分（迎え/送り）')
+
+    # 時刻制約の優先度
+    constraint_type = Column(String(10), nullable=False, default='希望',
+                             comment='制約種別（必須/希望/参考）')
+
+    # 時刻制約の各項目
+    earliest_departure_time = Column(String(10), nullable=True, comment='出発可能時刻（これ以前は出発不可）')
+    desired_arrival_time = Column(String(10), nullable=True, comment='到着希望時刻')
+    required_arrival_time = Column(String(10), nullable=True, comment='到着必須時刻（必須制約）')
+    facility_arrival_deadline = Column(String(10), nullable=True, comment='施設到着期限')
+    destination_arrival_deadline = Column(String(10), nullable=True, comment='送迎先到着期限')
+    earliest_boarding_time = Column(String(10), nullable=True, comment='乗車可能開始時刻')
+    latest_boarding_time = Column(String(10), nullable=True, comment='乗車可能終了時刻')
+    required_destination_arrival_time = Column(String(10), nullable=True, comment='滞在先への到着必須時刻')
+
+    # 時間加算値（分単位）
+    boarding_time_minutes = Column(Integer, nullable=True, default=5, comment='乗降に必要な時間（分）')
+    buffer_minutes = Column(Integer, nullable=True, default=5, comment='余裕時間（分）')
+    delay_tolerance_minutes = Column(Integer, nullable=True, default=0, comment='遅延許容時間（分）')
+
+    # 制約の説明（管理者向けメモ）
+    constraint_reason = Column(Text, nullable=True, comment='制約の理由・説明（例：家族が17:00以降でないと在宅していない）')
+
+    # 有効期間
+    valid_from = Column(Date, nullable=True, comment='有効開始日（空欄=常時有効）')
+    valid_to = Column(Date, nullable=True, comment='有効終了日（空欄=常時有効）')
+    is_active = Column(Boolean, default=True, comment='有効フラグ')
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # リレーション
+    resident = relationship('SSResident', backref='time_constraints')
+    reservation = relationship('SSReservation', backref='time_constraints')
+    transport_address = relationship('SSUserTransportAddress', backref='time_constraints')
+
+
 class SSTransportRouteStop(Base):
     """送迎ルート停車地（ルートの各停車ポイント）"""
     __tablename__ = 'SS_送迎ルート停車地'
@@ -725,6 +778,9 @@ class SSTransportRouteStop(Base):
     phone_snapshot = Column(String(20), nullable=True, comment='電話スナップショット（印刷用）')
     care_notes_snapshot = Column(Text, nullable=True, comment='注意事項スナップショット（印刷用）')
     is_facility = Column(Boolean, default=False, comment='施設フラグ（True=施設、False=利用者宅）')
+    estimated_arrival = Column(String(10), nullable=True, comment='到着予定時刻（自動計算）')
+    constraint_status = Column(String(20), nullable=True, comment='制約対応状態（ok/warning/violation）')
+    constraint_message = Column(Text, nullable=True, comment='制約警告メッセージ')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     route = relationship('SSTransportRoute', back_populates='stops')

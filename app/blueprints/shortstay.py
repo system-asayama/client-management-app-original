@@ -26,7 +26,7 @@ from ..models_shortstay import (
     SSCarePlan, SSBillingItem, SSBilling, SSBillingDetail,
     SSShift, SSStaffNote, SSReport, SSIncidentReport,
     SSVehicle, SSDriver, SSUserTransportAddress, SSUserDriverRestriction,
-    SSTransportSchedule, SSTransportRoute, SSTransportRouteStop,
+    SSTransportSchedule, SSTransportRoute, SSTransportRouteStop, SSTransportTimeConstraint,
     ReservationStatus, CheckStatus, BillingStatus, ShiftType,
     GenderEnum, CareLevel, MealType, MealAmount, ExcretionType, ExcretionMethod, BathType
 )
@@ -2259,12 +2259,14 @@ def transport_index():
 @bp.route('/transport/generate', methods=['POST'])
 @require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def transport_generate():
-    """送迎ルート自動生成"""
+    """送迎ルート自動生成（時刻制約対応版）"""
     store_id, tenant_id = _get_store_tenant()
     target_date_str = request.form.get('date', date.today().isoformat())
-    transport_type = request.form.get('transport_type', '迎え')  # 迎え or 送り
+    transport_type = request.form.get('transport_type', '迎え')
     vehicle_id = _parse_int(request.form.get('vehicle_id'))
     driver_id = _parse_int(request.form.get('driver_id'))
+    departure_time_str = request.form.get('departure_time', '')  # 施設出発時刻
+    avg_travel_minutes = _parse_int(request.form.get('avg_travel_minutes')) or 10  # 停車間平均移動時間（分）
 
     try:
         target_date = date.fromisoformat(target_date_str)
@@ -2319,6 +2321,58 @@ def transport_generate():
             flash(f'対象者数（{len(valid_reservations)}名）が車両定員（{capacity}名）を超えています。複数ルートに分割してください。', 'warning')
             valid_reservations = valid_reservations[:capacity]
 
+        # 利用者ごとの時刻制約を取得（対象日に有効なもの）
+        constraints_map = {}  # resident_id -> SSTransportTimeConstraint
+        for res in valid_reservations:
+            tc = db.query(SSTransportTimeConstraint).filter(
+                SSTransportTimeConstraint.resident_id == res.resident_id,
+                SSTransportTimeConstraint.transport_type == transport_type,
+                SSTransportTimeConstraint.is_active == True,
+                or_(
+                    SSTransportTimeConstraint.valid_from == None,
+                    SSTransportTimeConstraint.valid_from <= target_date
+                ),
+                or_(
+                    SSTransportTimeConstraint.valid_to == None,
+                    SSTransportTimeConstraint.valid_to >= target_date
+                )
+            ).order_by(
+                # 必須 > 希望 > 参考 の順に優先
+                SSTransportTimeConstraint.constraint_type
+            ).first()
+            if tc:
+                constraints_map[res.resident_id] = tc
+
+        # 時刻制約に基づくソート（EDF: Earliest Deadline First）
+        # 必須制約あり利用者を優先、次に希望制約、最後に制約なし
+        def get_sort_key(res):
+            tc = constraints_map.get(res.resident_id)
+            if not tc:
+                # 制約なし：希望時刻でソート
+                time_str = res.pickup_time if transport_type == '迎え' else res.dropoff_time
+                return (2, time_str or '99:99')
+            # 制約種別の優先度
+            priority = 0 if tc.constraint_type == '必須' else (1 if tc.constraint_type == '希望' else 2)
+            # 最も小さい（早い）期限時刻を取得
+            deadlines = [t for t in [
+                tc.required_arrival_time,
+                tc.facility_arrival_deadline if transport_type == '迎え' else tc.destination_arrival_deadline,
+                tc.desired_arrival_time
+            ] if t]
+            deadline = min(deadlines) if deadlines else '99:99'
+            return (priority, deadline)
+
+        valid_reservations.sort(key=get_sort_key)
+
+        # 施設出発時刻のパース
+        departure_minutes = None
+        if departure_time_str:
+            try:
+                h, m = map(int, departure_time_str.split(':'))
+                departure_minutes = h * 60 + m
+            except Exception:
+                departure_minutes = None
+
         # ルート名を自動生成
         existing_count = db.query(SSTransportRoute).filter(
             SSTransportRoute.route_date == target_date,
@@ -2340,84 +2394,186 @@ def transport_generate():
         db.add(route)
         db.flush()
 
-        # 停車地を生成（迎え：施設スタート→各宅→施設終着、送り：施設スタート→各宅）
+        # 停車地を生成し、到着予定時刻を計算する
         stops = []
-        if transport_type == '迎え':
-            # 停車地1：施設（出発）
-            stops.append(SSTransportRouteStop(
-                route_id=route.id, stop_order=1,
-                is_facility=True,
-                address_snapshot='施設（出発）',
-                scheduled_time=None,
-            ))
-            # 利用者宅
-            for i, res in enumerate(valid_reservations):
-                # 標準送迎先を取得
+        route_has_violation = False  # 必須制約違反があるか
+        route_warnings = []  # 警告メッセージ一覧
+
+        # 施設出発停車地
+        facility_stop = SSTransportRouteStop(
+            route_id=route.id, stop_order=1,
+            is_facility=True,
+            address_snapshot='施設（出発）',
+            scheduled_time=departure_time_str or None,
+            estimated_arrival=departure_time_str or None,
+        )
+        stops.append(facility_stop)
+
+        # 現在の累積時刻（分単位）を追跡
+        current_minutes = departure_minutes  # Noneの場合は計算なし
+
+        for i, res in enumerate(valid_reservations):
+            # 標準送迎先を取得
+            default_addr = db.query(SSUserTransportAddress).filter(
+                SSUserTransportAddress.resident_id == res.resident_id,
+                SSUserTransportAddress.is_default == True,
+                SSUserTransportAddress.is_active == True
+            ).first()
+            if not default_addr:
                 default_addr = db.query(SSUserTransportAddress).filter(
                     SSUserTransportAddress.resident_id == res.resident_id,
-                    SSUserTransportAddress.is_default == True,
                     SSUserTransportAddress.is_active == True
                 ).first()
-                if not default_addr:
-                    default_addr = db.query(SSUserTransportAddress).filter(
-                        SSUserTransportAddress.resident_id == res.resident_id,
-                        SSUserTransportAddress.is_active == True
-                    ).first()
-                addr_text = default_addr.address if default_addr else (res.pickup_address or '住所未登録')
-                phone_text = default_addr.phone if default_addr else None
-                care_notes = default_addr.care_notes if default_addr else None
-                wheelchair = default_addr.wheelchair_required if default_addr else False
-                stops.append(SSTransportRouteStop(
-                    route_id=route.id, stop_order=i + 2,
-                    resident_id=res.resident_id,
-                    transport_address_id=default_addr.id if default_addr else None,
-                    scheduled_time=res.pickup_time,
-                    address_snapshot=addr_text,
-                    phone_snapshot=phone_text,
-                    care_notes_snapshot=care_notes,
-                    is_facility=False,
-                ))
-            # 最終：施設（到着）
+
+            addr_text = default_addr.address if default_addr else (res.pickup_address or '住所未登録')
+            phone_text = default_addr.phone if default_addr else None
+            care_notes = default_addr.care_notes if default_addr else None
+            resident_name = f'{res.resident.last_name}{res.resident.first_name}'
+
+            # 時刻制約を取得
+            tc = constraints_map.get(res.resident_id)
+
+            # 到着予定時刻を計算
+            estimated_arrival_str = None
+            if current_minutes is not None:
+                # 前の停車地からの移動時間 + 乗降時間
+                boarding_mins = (tc.boarding_time_minutes or 5) if tc else 5
+                current_minutes += avg_travel_minutes
+                arrival_mins = current_minutes
+                estimated_arrival_str = f'{arrival_mins // 60:02d}:{arrival_mins % 60:02d}'
+                current_minutes += boarding_mins  # 乗降後の時刻
+
+            # 制約チェック
+            constraint_status = 'ok'
+            constraint_message = None
+
+            if tc and estimated_arrival_str:
+                # 到着必須時刻チェック
+                if tc.required_arrival_time:
+                    if estimated_arrival_str > tc.required_arrival_time:
+                        tolerance = tc.delay_tolerance_minutes or 0
+                        # 遅延許容時間を考慮
+                        if tolerance > 0:
+                            h, m = map(int, tc.required_arrival_time.split(':'))
+                            deadline_with_tolerance = (h * 60 + m + tolerance)
+                            deadline_str = f'{deadline_with_tolerance // 60:02d}:{deadline_with_tolerance % 60:02d}'
+                            if estimated_arrival_str > deadline_str:
+                                constraint_status = 'violation'
+                                constraint_message = (
+                                    f'{resident_name}さんは{tc.required_arrival_time}到着必須ですが、'
+                                    f'現在のルートでは{estimated_arrival_str}到着見込みです（許容遅延{tolerance}分超過）。'
+                                )
+                                route_has_violation = True
+                            else:
+                                constraint_status = 'warning'
+                                constraint_message = (
+                                    f'{resident_name}さんは{tc.required_arrival_time}到着必須ですが、'
+                                    f'現在のルートでは{estimated_arrival_str}到着見込みです（許容遅延内）。'
+                                )
+                        else:
+                            constraint_status = 'violation'
+                            constraint_message = (
+                                f'{resident_name}さんは{tc.required_arrival_time}到着必須ですが、'
+                                f'現在のルートでは{estimated_arrival_str}到着見込みです。'
+                            )
+                            route_has_violation = True
+
+                # 到着希望時刻チェック（必須違反がない場合のみ）
+                elif tc.desired_arrival_time and constraint_status == 'ok':
+                    if estimated_arrival_str > tc.desired_arrival_time:
+                        constraint_status = 'warning'
+                        constraint_message = (
+                            f'{resident_name}さんの到着希望時刻は{tc.desired_arrival_time}ですが、'
+                            f'現在のルートでは{estimated_arrival_str}到着見込みです。'
+                        )
+
+                # 施設到着期限チェック（迎えの場合）
+                if transport_type == '迎え' and tc.facility_arrival_deadline:
+                    # 全利用者を乗せた後の施設到着時刻を計算（簡易計算）
+                    remaining = len(valid_reservations) - i - 1
+                    est_facility_mins = (current_minutes or 0) + remaining * (avg_travel_minutes + 5)
+                    est_facility_str = f'{est_facility_mins // 60:02d}:{est_facility_mins % 60:02d}'
+                    if est_facility_str > tc.facility_arrival_deadline:
+                        msg = (
+                            f'{resident_name}さんの施設到着期限は{tc.facility_arrival_deadline}ですが、'
+                            f'施設到着見込みは{est_facility_str}です。'
+                        )
+                        if tc.constraint_type == '必須':
+                            constraint_status = 'violation'
+                            constraint_message = (constraint_message or '') + ' ' + msg
+                            route_has_violation = True
+                        else:
+                            if constraint_status == 'ok':
+                                constraint_status = 'warning'
+                                constraint_message = msg
+
+                # 乗車可能時間チェック
+                if tc.earliest_boarding_time and estimated_arrival_str < tc.earliest_boarding_time:
+                    msg = f'{resident_name}さんの乗車可能開始時刻は{tc.earliest_boarding_time}ですが、{estimated_arrival_str}に到着見込みです。'
+                    if constraint_status == 'ok':
+                        constraint_status = 'warning'
+                        constraint_message = msg
+
+                if tc.latest_boarding_time and estimated_arrival_str > tc.latest_boarding_time:
+                    msg = f'{resident_name}さんの乗車可能終了時刻は{tc.latest_boarding_time}ですが、{estimated_arrival_str}に到着見込みです。'
+                    if tc.constraint_type == '必須':
+                        constraint_status = 'violation'
+                        constraint_message = (constraint_message or '') + ' ' + msg
+                        route_has_violation = True
+                    elif constraint_status == 'ok':
+                        constraint_status = 'warning'
+                        constraint_message = msg
+
+            if constraint_message:
+                route_warnings.append({'name': resident_name, 'status': constraint_status, 'message': constraint_message})
+
+            # 希望時刻（制約がない場合は予約の希望時刻を使用）
+            scheduled_time = (
+                res.pickup_time if transport_type == '迎え' else res.dropoff_time
+            )
+
+            stops.append(SSTransportRouteStop(
+                route_id=route.id, stop_order=i + 2,
+                resident_id=res.resident_id,
+                transport_address_id=default_addr.id if default_addr else None,
+                scheduled_time=scheduled_time,
+                estimated_arrival=estimated_arrival_str,
+                address_snapshot=addr_text,
+                phone_snapshot=phone_text,
+                care_notes_snapshot=care_notes,
+                is_facility=False,
+                constraint_status=constraint_status,
+                constraint_message=constraint_message,
+            ))
+
+        # 迎えの場合は施設到着停車地を追加
+        if transport_type == '迎え':
+            facility_arrival_str = None
+            if current_minutes is not None:
+                current_minutes += avg_travel_minutes
+                facility_arrival_str = f'{current_minutes // 60:02d}:{current_minutes % 60:02d}'
             stops.append(SSTransportRouteStop(
                 route_id=route.id, stop_order=len(valid_reservations) + 2,
                 is_facility=True,
                 address_snapshot='施設（到着）',
+                estimated_arrival=facility_arrival_str,
             ))
-        else:  # 送り
-            stops.append(SSTransportRouteStop(
-                route_id=route.id, stop_order=1,
-                is_facility=True,
-                address_snapshot='施設（出発）',
-            ))
-            for i, res in enumerate(valid_reservations):
-                default_addr = db.query(SSUserTransportAddress).filter(
-                    SSUserTransportAddress.resident_id == res.resident_id,
-                    SSUserTransportAddress.is_default == True,
-                    SSUserTransportAddress.is_active == True
-                ).first()
-                if not default_addr:
-                    default_addr = db.query(SSUserTransportAddress).filter(
-                        SSUserTransportAddress.resident_id == res.resident_id,
-                        SSUserTransportAddress.is_active == True
-                    ).first()
-                addr_text = default_addr.address if default_addr else (res.pickup_address or '住所未登録')
-                phone_text = default_addr.phone if default_addr else None
-                care_notes = default_addr.care_notes if default_addr else None
-                stops.append(SSTransportRouteStop(
-                    route_id=route.id, stop_order=i + 2,
-                    resident_id=res.resident_id,
-                    transport_address_id=default_addr.id if default_addr else None,
-                    scheduled_time=res.dropoff_time,
-                    address_snapshot=addr_text,
-                    phone_snapshot=phone_text,
-                    care_notes_snapshot=care_notes,
-                    is_facility=False,
-                ))
 
         for stop in stops:
             db.add(stop)
-        db.commit()
-        flash(f'送迎ルート「{route_name}」を作成しました（{len(valid_reservations)}名）。', 'success')
+
+        # 必須制約違反がある場合は自動確定しない（draftのまま）
+        if route_has_violation:
+            route.status = 'draft'
+            db.commit()
+            flash(f'送迎ルート「{route_name}」を作成しましたが、必須制約を満たせない停車地があるため自動確定されませんでした。内容を確認してください。', 'error')
+        else:
+            db.commit()
+            if route_warnings:
+                flash(f'送迎ルート「{route_name}」を作成しました（{len(valid_reservations)}名）。時刻希望に関する警告があります。', 'warning')
+            else:
+                flash(f'送迎ルート「{route_name}」を作成しました（{len(valid_reservations)}名）。', 'success')
+
         return redirect(url_for('shortstay.transport_route_detail', route_id=route.id))
     except Exception as e:
         db.rollback()
@@ -2550,5 +2706,148 @@ def transport_route_print(route_id):
         driver = db.query(SSDriver).filter(SSDriver.id == route.driver_id).first() if route.driver_id else None
         return render_template('shortstay/transport_route_print.html',
             route=route, stop_data=stop_data, vehicle=vehicle, driver=driver)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
+# 送迎管理：時刻制約管理（CRUD）
+# ─────────────────────────────────────────────
+
+@bp.route('/residents/<int:resident_id>/time_constraints')
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def time_constraints(resident_id):
+    """利用者の時刻制約一覧"""
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if not resident:
+            flash('利用者が見つかりません。', 'error')
+            return redirect(url_for('shortstay.residents'))
+        constraints = db.query(SSTransportTimeConstraint).filter(
+            SSTransportTimeConstraint.resident_id == resident_id,
+            SSTransportTimeConstraint.is_active == True
+        ).order_by(
+            SSTransportTimeConstraint.transport_type,
+            SSTransportTimeConstraint.constraint_type
+        ).all()
+        # 送迎先一覧（制約と紐付けるため）
+        addresses = db.query(SSUserTransportAddress).filter(
+            SSUserTransportAddress.resident_id == resident_id,
+            SSUserTransportAddress.is_active == True
+        ).all()
+        return render_template('shortstay/time_constraints.html',
+            resident=resident, constraints=constraints, addresses=addresses)
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/time_constraints/new', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def time_constraint_new(resident_id):
+    """時刻制約の新規登録"""
+    store_id, tenant_id = _get_store_tenant()
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        if not resident:
+            flash('利用者が見つかりません。', 'error')
+            return redirect(url_for('shortstay.residents'))
+        addresses = db.query(SSUserTransportAddress).filter(
+            SSUserTransportAddress.resident_id == resident_id,
+            SSUserTransportAddress.is_active == True
+        ).all()
+        if request.method == 'POST':
+            tc = SSTransportTimeConstraint(
+                tenant_id=tenant_id, store_id=store_id,
+                resident_id=resident_id,
+                reservation_id=_parse_int(request.form.get('reservation_id')),
+                transport_address_id=_parse_int(request.form.get('transport_address_id')),
+                transport_type=request.form.get('transport_type', '迎え'),
+                constraint_type=request.form.get('constraint_type', '希望'),
+                earliest_departure_time=request.form.get('earliest_departure_time') or None,
+                desired_arrival_time=request.form.get('desired_arrival_time') or None,
+                required_arrival_time=request.form.get('required_arrival_time') or None,
+                facility_arrival_deadline=request.form.get('facility_arrival_deadline') or None,
+                destination_arrival_deadline=request.form.get('destination_arrival_deadline') or None,
+                earliest_boarding_time=request.form.get('earliest_boarding_time') or None,
+                latest_boarding_time=request.form.get('latest_boarding_time') or None,
+                required_destination_arrival_time=request.form.get('required_destination_arrival_time') or None,
+                boarding_time_minutes=_parse_int(request.form.get('boarding_time_minutes')) or 5,
+                buffer_minutes=_parse_int(request.form.get('buffer_minutes')) or 5,
+                delay_tolerance_minutes=_parse_int(request.form.get('delay_tolerance_minutes')) or 0,
+                constraint_reason=request.form.get('constraint_reason') or None,
+                valid_from=_parse_date(request.form.get('valid_from')),
+                valid_to=_parse_date(request.form.get('valid_to')),
+            )
+            db.add(tc)
+            db.commit()
+            flash('時刻制約を登録しました。', 'success')
+            return redirect(url_for('shortstay.time_constraints', resident_id=resident_id))
+        return render_template('shortstay/time_constraint_form.html',
+            resident=resident, constraint=None, addresses=addresses)
+    except Exception as e:
+        db.rollback()
+        flash(f'登録に失敗しました: {e}', 'error')
+        return redirect(url_for('shortstay.time_constraints', resident_id=resident_id))
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/time_constraints/<int:tc_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def time_constraint_edit(resident_id, tc_id):
+    """時刻制約の編集"""
+    db = SessionLocal()
+    try:
+        resident = db.query(SSResident).filter(SSResident.id == resident_id).first()
+        tc = db.query(SSTransportTimeConstraint).filter(SSTransportTimeConstraint.id == tc_id).first()
+        if not tc:
+            flash('時刻制約が見つかりません。', 'error')
+            return redirect(url_for('shortstay.time_constraints', resident_id=resident_id))
+        addresses = db.query(SSUserTransportAddress).filter(
+            SSUserTransportAddress.resident_id == resident_id,
+            SSUserTransportAddress.is_active == True
+        ).all()
+        if request.method == 'POST':
+            tc.transport_address_id = _parse_int(request.form.get('transport_address_id'))
+            tc.transport_type = request.form.get('transport_type', '迎え')
+            tc.constraint_type = request.form.get('constraint_type', '希望')
+            tc.earliest_departure_time = request.form.get('earliest_departure_time') or None
+            tc.desired_arrival_time = request.form.get('desired_arrival_time') or None
+            tc.required_arrival_time = request.form.get('required_arrival_time') or None
+            tc.facility_arrival_deadline = request.form.get('facility_arrival_deadline') or None
+            tc.destination_arrival_deadline = request.form.get('destination_arrival_deadline') or None
+            tc.earliest_boarding_time = request.form.get('earliest_boarding_time') or None
+            tc.latest_boarding_time = request.form.get('latest_boarding_time') or None
+            tc.required_destination_arrival_time = request.form.get('required_destination_arrival_time') or None
+            tc.boarding_time_minutes = _parse_int(request.form.get('boarding_time_minutes')) or 5
+            tc.buffer_minutes = _parse_int(request.form.get('buffer_minutes')) or 5
+            tc.delay_tolerance_minutes = _parse_int(request.form.get('delay_tolerance_minutes')) or 0
+            tc.constraint_reason = request.form.get('constraint_reason') or None
+            tc.valid_from = _parse_date(request.form.get('valid_from'))
+            tc.valid_to = _parse_date(request.form.get('valid_to'))
+            db.commit()
+            flash('時刻制約を更新しました。', 'success')
+            return redirect(url_for('shortstay.time_constraints', resident_id=resident_id))
+        return render_template('shortstay/time_constraint_form.html',
+            resident=resident, constraint=tc, addresses=addresses)
+    finally:
+        db.close()
+
+
+@bp.route('/residents/<int:resident_id>/time_constraints/<int:tc_id>/delete', methods=['POST'])
+@require_roles(ROLES["ADMIN"], ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def time_constraint_delete(resident_id, tc_id):
+    """時刻制約の削除（論理削除）"""
+    db = SessionLocal()
+    try:
+        tc = db.query(SSTransportTimeConstraint).filter(SSTransportTimeConstraint.id == tc_id).first()
+        if tc:
+            tc.is_active = False
+            db.commit()
+            flash('時刻制約を削除しました。', 'success')
+        return redirect(url_for('shortstay.time_constraints', resident_id=resident_id))
     finally:
         db.close()

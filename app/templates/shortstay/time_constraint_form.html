@@ -1,0 +1,176 @@
+{% extends "shortstay/base.html" %}
+{% block title %}{% if constraint %}時刻制約を編集{% else %}時刻制約を追加{% endif %} - {{ resident.last_name }}{{ resident.first_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3" style="max-width:700px">
+  <div class="d-flex align-items-center mb-3 gap-2">
+    <a href="{{ url_for('shortstay.time_constraints', resident_id=resident.id) }}" class="btn btn-sm btn-outline-secondary">← 一覧へ戻る</a>
+    <h4 class="mb-0">{% if constraint %}⏰ 時刻制約を編集{% else %}⏰ 時刻制約を追加{% endif %}</h4>
+    <span class="badge bg-secondary">{{ resident.last_name }}{{ resident.first_name }} 様</span>
+  </div>
+
+  <div class="alert alert-light border small py-2">
+    <strong>入力のヒント：</strong>
+    「必須」制約を満たせないルートは自動確定されません。「希望」は警告表示のみ。「参考」は情報表示のみです。
+    時刻は HH:MM 形式（例：09:00）で入力してください。
+  </div>
+
+  <form method="post">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-bold py-2">基本設定</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label fw-bold">送迎区分 <span class="text-danger">*</span></label>
+            <select name="transport_type" class="form-select" required>
+              <option value="迎え" {% if constraint and constraint.transport_type == '迎え' %}selected{% elif not constraint %}selected{% endif %}>🚐 迎え（自宅→施設）</option>
+              <option value="送り" {% if constraint and constraint.transport_type == '送り' %}selected{% endif %}>🏠 送り（施設→自宅）</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">制約の優先度 <span class="text-danger">*</span></label>
+            <select name="constraint_type" class="form-select" required>
+              <option value="必須" {% if constraint and constraint.constraint_type == '必須' %}selected{% endif %}>🔴 必須（違反時は自動確定しない）</option>
+              <option value="希望" {% if constraint and constraint.constraint_type == '希望' %}selected{% elif not constraint %}selected{% endif %}>🟡 希望（違反時は警告表示）</option>
+              <option value="参考" {% if constraint and constraint.constraint_type == '参考' %}selected{% endif %}>⚪ 参考（情報表示のみ）</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">対象送迎先</label>
+            <select name="transport_address_id" class="form-select">
+              <option value="">（すべての送迎先に適用）</option>
+              {% for addr in addresses %}
+              <option value="{{ addr.id }}" {% if constraint and constraint.transport_address_id == addr.id %}selected{% endif %}>
+                {{ addr.name }}（{{ addr.address_type }}）— {{ addr.address or '住所未登録' }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-bold py-2">⏰ 時刻制約の設定</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">到着必須時刻</label>
+            <input type="time" name="required_arrival_time" class="form-control"
+              value="{{ constraint.required_arrival_time or '' }}"
+              placeholder="例：09:00">
+            <div class="form-text text-danger">必須制約に使用。この時刻までに到着できないルートは確定しません。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">到着希望時刻</label>
+            <input type="time" name="desired_arrival_time" class="form-control"
+              value="{{ constraint.desired_arrival_time or '' }}">
+            <div class="form-text">希望制約に使用。超過時は警告表示。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">施設到着期限</label>
+            <input type="time" name="facility_arrival_deadline" class="form-control"
+              value="{{ constraint.facility_arrival_deadline or '' }}">
+            <div class="form-text">迎えの場合：施設に何時までに到着すべきか。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">送迎先到着期限</label>
+            <input type="time" name="destination_arrival_deadline" class="form-control"
+              value="{{ constraint.destination_arrival_deadline or '' }}">
+            <div class="form-text">送りの場合：送迎先に何時までに到着すべきか。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">出発可能時刻（最早）</label>
+            <input type="time" name="earliest_departure_time" class="form-control"
+              value="{{ constraint.earliest_departure_time or '' }}">
+            <div class="form-text">この時刻以前に施設を出発できない場合。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">滞在先への到着必須時刻</label>
+            <input type="time" name="required_destination_arrival_time" class="form-control"
+              value="{{ constraint.required_destination_arrival_time or '' }}">
+            <div class="form-text">例：病院受診のため10:30までに病院到着必須。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">乗車可能開始時刻</label>
+            <input type="time" name="earliest_boarding_time" class="form-control"
+              value="{{ constraint.earliest_boarding_time or '' }}">
+            <div class="form-text">例：家族が17:00以降でないと在宅していない。</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">乗車可能終了時刻</label>
+            <input type="time" name="latest_boarding_time" class="form-control"
+              value="{{ constraint.latest_boarding_time or '' }}">
+            <div class="form-text">この時刻以降は乗車不可（例：医療処置の時間帯）。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-bold py-2">⏱ 時間加算設定（分）</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-4">
+            <label class="form-label">乗降に必要な時間</label>
+            <div class="input-group">
+              <input type="number" name="boarding_time_minutes" class="form-control" min="0" max="60"
+                value="{{ constraint.boarding_time_minutes if constraint else 5 }}">
+              <span class="input-group-text">分</span>
+            </div>
+            <div class="form-text">車椅子の場合は長めに設定。</div>
+          </div>
+          <div class="col-4">
+            <label class="form-label">余裕時間</label>
+            <div class="input-group">
+              <input type="number" name="buffer_minutes" class="form-control" min="0" max="60"
+                value="{{ constraint.buffer_minutes if constraint else 5 }}">
+              <span class="input-group-text">分</span>
+            </div>
+            <div class="form-text">到着予定時刻に加算する余裕。</div>
+          </div>
+          <div class="col-4">
+            <label class="form-label">遅延許容時間</label>
+            <div class="input-group">
+              <input type="number" name="delay_tolerance_minutes" class="form-control" min="0" max="60"
+                value="{{ constraint.delay_tolerance_minutes if constraint else 0 }}">
+              <span class="input-group-text">分</span>
+            </div>
+            <div class="form-text">必須時刻からの許容遅延。0=許容なし。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-bold py-2">📝 補足情報</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">制約の理由・説明</label>
+            <textarea name="constraint_reason" class="form-control" rows="2"
+              placeholder="例：家族が17:00以降でないと在宅していない。勤務先には8:45までに到着必須。">{{ constraint.constraint_reason or '' }}</textarea>
+          </div>
+          <div class="col-6">
+            <label class="form-label">有効開始日</label>
+            <input type="date" name="valid_from" class="form-control"
+              value="{{ constraint.valid_from.isoformat() if constraint and constraint.valid_from else '' }}">
+            <div class="form-text">空欄=常時有効</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">有効終了日</label>
+            <input type="date" name="valid_to" class="form-control"
+              value="{{ constraint.valid_to.isoformat() if constraint and constraint.valid_to else '' }}">
+            <div class="form-text">空欄=常時有効</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-end">
+      <a href="{{ url_for('shortstay.time_constraints', resident_id=resident.id) }}" class="btn btn-outline-secondary">キャンセル</a>
+      <button type="submit" class="btn btn-primary">💾 保存する</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -25,10 +25,16 @@
         <div id="photo-preview-placeholder" style="width:100px;height:100px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;border:2px dashed #ccc;font-size:2rem;color:#aaa;">👤</div>
         <img id="photo-preview" src="" style="width:100px;height:100px;object-fit:cover;border-radius:50%;border:2px solid #ddd;display:none;" alt="顔写真">
         {% endif %}
-        <div>
-          <input type="file" name="photo" id="photo-input" accept="image/*" style="display:none;" onchange="previewPhoto(this)">
-          <button type="button" class="btn btn-secondary" onclick="document.getElementById('photo-input').click()">📷 写真を選択</button>
-          <div style="font-size:0.75rem;color:#888;margin-top:0.4rem;">対応形式: JPG / PNG / GIF / WebP（5MB以内）</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <!-- カメラ撮影用（capture属性でスマホカメラを直接起動） -->
+          <input type="file" name="photo" id="photo-input-camera" accept="image/*" capture="user" style="display:none;" onchange="previewPhoto(this)">
+          <!-- ライブラリ選択用 -->
+          <input type="file" name="photo" id="photo-input-library" accept="image/*" style="display:none;" onchange="previewPhotoLib(this)">
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('photo-input-camera').click()">📷 カメラで撮影</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('photo-input-library').click()">🖼️ ライブラリから選択</button>
+          </div>
+          <div style="font-size:0.75rem;color:#888;">対応形式: JPG / PNG / GIF / WebP（5MB以内）</div>
         </div>
       </div>
     </div>
@@ -406,6 +412,26 @@ function previewPhoto(input) {
       if (placeholder) placeholder.style.display = 'none';
     };
     reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// ライブラリ選択時：プレビュー表示し、カメラ入力の名前(photo)で送信するためDataTransferで転送
+function previewPhotoLib(input) {
+  if (input.files && input.files[0]) {
+    // プレビュー表示
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('photo-preview');
+      const placeholder = document.getElementById('photo-preview-placeholder');
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
+    // カメラ入力(name=photo)にファイルを転送してサーバーに送る
+    const dt = new DataTransfer();
+    dt.items.add(input.files[0]);
+    document.getElementById('photo-input-camera').files = dt.files;
   }
 }
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ survey_config.title or 'お店アンケート' }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='slot.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='survey.css') }}">
+</head>
+<body>
+  <header class="bar">
+    <h1>📝 {{ survey_config.title or 'お店アンケート' }}</h1>
+  </header>
+
+  <main class="wrap survey-container">
+    <section class="survey-card">
+      <div class="survey-intro">
+        <h2>ご来店ありがとうございます！</h2>
+        <p>{{ survey_config.description or 'アンケートにご協力いただくと、スロットマシンを1回プレイできます。' }}</p>
+      </div>
+
+      <form id="survey-form">
+        {% for question in survey_config.questions %}
+        <div class="form-group">
+          <label class="form-label {% if question.required %}required{% endif %}">
+            {{ question.text }}
+          </label>
+          
+          {% if question.type == 'comment_rating' or question.type == 'radio' %}
+          <div class="radio-group">
+            {% set opts = question.options if question.options else ['非常に満足', '満足', '普通', 'やや不満', '非常に不満'] %}
+            {% for option in opts %}
+            <label class="radio-label">
+              <input type="radio" name="q{{ question.id }}" value="{{ option }}" {% if question.required %}required{% endif %}>
+              <span>{{ option }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <span class="error-message" id="q{{ question.id }}-error"></span>
+
+          {% elif question.type == 'checkbox' %}
+          <div class="checkbox-group">
+            {% for option in question.options %}
+            <label class="checkbox-label">
+              <input type="checkbox" name="q{{ question.id }}" value="{{ option }}">
+              <span>{{ option }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <span class="error-message" id="q{{ question.id }}-error"></span>
+
+          {% elif question.type == 'text' %}
+          <textarea name="q{{ question.id }}" rows="4" placeholder="{{ question.placeholder or '' }}" {% if question.required %}required{% endif %}></textarea>
+          <span class="error-message" id="q{{ question.id }}-error"></span>
+
+          {% elif question.type == 'rating' %}
+          <div class="star-rating" data-question-id="{{ question.id }}">
+            <span class="star" data-value="1">★</span>
+            <span class="star" data-value="2">★</span>
+            <span class="star" data-value="3">★</span>
+            <span class="star" data-value="4">★</span>
+            <span class="star" data-value="5">★</span>
+          </div>
+          <input type="hidden" name="q{{ question.id }}" {% if question.required %}required{% endif %}>
+          <span class="error-message" id="q{{ question.id }}-error"></span>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        <!-- 送信ボタン -->
+        <div class="form-actions">
+          <button type="submit" class="primary big" id="submit-btn">アンケートを送信してスロットへ</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='survey.js') }}"></script>
+</body>
+</html>

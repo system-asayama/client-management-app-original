@@ -1,50 +1,41 @@
 # -*- coding: utf-8 -*-
 """
-スロット設定ファイル管理（store_idごとに管理）
+設定ファイル管理
 """
 import os
 import json
 from dataclasses import asdict
-from app.models_slot import Symbol, Config
-from app.utils.slot_logic import recalc_probs_inverse_and_expected
+from ..models import Symbol, Config
+from .slot_logic import recalc_probs_inverse_and_expected
 
 # パス設定
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(APP_DIR, "data", "slot")
-
-
-def _config_path(store_id: int) -> str:
-    d = os.path.join(DATA_DIR, str(store_id))
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "config.json")
+DATA_DIR = os.path.join(APP_DIR, "data")
+CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 
 
 def default_config() -> Config:
     """デフォルト設定を生成"""
     defaults = [
-        {"id": "god", "label": "GOD", "payout_3": 300, "color": "#ffd700", "is_default": True},
-        {"id": "seven", "label": "7", "payout_3": 100, "color": "#ff0000", "is_default": True},
-        {"id": "bar", "label": "BAR", "payout_3": 50, "color": "#1e293b", "is_default": True},
-        {"id": "bell", "label": "🔔", "payout_3": 20, "color": "#fbbf24", "is_default": True},
-        {"id": "grape", "label": "🍇", "payout_3": 12, "color": "#7c3aed", "is_default": True},
-        {"id": "cherry", "label": "🍒", "payout_3": 8, "color": "#ef4444", "is_default": True},
-        {"id": "lemon", "label": "🍋", "payout_3": 5, "color": "#fde047", "is_default": True},
-        # リーチハズレシンボル（配当0、リーチ演出のみ）
-        {"id": "god_reach", "label": "GODリーチ", "payout_3": 0, "color": "#fef3c7", "is_default": True, "is_reach": True, "reach_symbol": "god"},
-        {"id": "bar_reach", "label": "BARリーチ", "payout_3": 0, "color": "#9ca3af", "is_default": True, "is_reach": True, "reach_symbol": "bar"},
-        {"id": "seven_reach", "label": "7リーチ", "payout_3": 0, "color": "#fca5a5", "is_default": True, "is_reach": True, "reach_symbol": "seven"},
+        {"id": "seven", "label": "7", "payout_3": 100, "color": "#ff0000"},
+        {"id": "bell", "label": "🔔", "payout_3": 50, "color": "#fbbf24"},
+        {"id": "bar", "label": "BAR", "payout_3": 25, "color": "#ffffff"},
+        {"id": "grape", "label": "🍇", "payout_3": 20, "color": "#7c3aed"},
+        {"id": "cherry", "label": "🍒", "payout_3": 12.5, "color": "#ef4444"},
+        {"id": "lemon", "label": "🍋", "payout_3": 12.5, "color": "#fde047"},
     ]
     cfg = Config(symbols=[Symbol(**d) for d in defaults])
     recalc_probs_inverse_and_expected(cfg)
+    save_config(cfg)
     return cfg
 
 
-def load_config(store_id: int) -> Config:
-    """店舗のスロット設定を読み込み"""
-    path = _config_path(store_id)
-    if not os.path.exists(path):
+def load_config() -> Config:
+    """設定ファイルを読み込み"""
+    if not os.path.exists(CONFIG_PATH):
+        os.makedirs(DATA_DIR, exist_ok=True)
         return default_config()
-    with open(path, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         raw = json.load(f)
     syms = [Symbol(**s) for s in raw["symbols"]]
     return Config(
@@ -56,9 +47,9 @@ def load_config(store_id: int) -> Config:
     )
 
 
-def save_config(store_id: int, cfg: Config) -> None:
-    """店舗のスロット設定を保存"""
-    path = _config_path(store_id)
+def save_config(cfg: Config) -> None:
+    """設定ファイルを保存"""
+    os.makedirs(DATA_DIR, exist_ok=True)
     payload = asdict(cfg)
-    with open(path, "w", encoding="utf-8") as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)

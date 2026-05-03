@@ -777,7 +777,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(confirm('アンケートをリセットして最初からやり直しますか？')){
       try{
         const storeSlug = window.location.pathname.split('/')[2];
-        await fetchJSON(`/store/${storeSlug}/apps/survey/store/${storeSlug}/reset_survey`, { method:'POST', body: JSON.stringify({}) });
+        await fetchJSON(`/store/${storeSlug}/reset_survey`, { method:'POST', body: JSON.stringify({}) });
         window.location.href = `/store/${storeSlug}/survey`;
       }catch(e){
         alert('リセットに失敗しました: ' + (e.message || e));

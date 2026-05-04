@@ -7,6 +7,8 @@
 .calendar-table { width: 100%; border-collapse: collapse; }
 .calendar-table th { background: var(--gray-50); padding: 0.5rem; text-align: center; border: 1px solid var(--gray-200); font-size: 0.85rem; }
 .calendar-table td { border: 1px solid var(--gray-200); padding: 0.4rem; vertical-align: top; min-height: 80px; width: calc(100%/7); }
+.calendar-table td.clickable { cursor: pointer; }
+.calendar-table td.clickable:hover { background: #f0f9ff; }
 .calendar-table td.today { background: #eff6ff; }
 .calendar-table td.other-month { background: var(--gray-50); color: var(--gray-300); }
 .day-num { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
@@ -65,7 +67,9 @@
         <td class="other-month"></td>
         {% else %}
           {% set current_date = first_day.replace(day=day) %}
-          <td class="{% if current_date == today %}today{% endif %}">
+          {% set date_str = year ~ '-' ~ '%02d'|format(month) ~ '-' ~ '%02d'|format(day) %}
+          <td class="{% if current_date == today %}today {% endif %}clickable"
+              onclick="location.href='{{ url_for('shortstay.reservations') }}?date_from={{ date_str }}&date_to={{ date_str }}'">
             <div class="day-num" style="{% if loop.index0 == 0 %}color:#dc2626;{% elif loop.index0 == 6 %}color:#2563eb;{% endif %}">
               {{ day }}
             </div>

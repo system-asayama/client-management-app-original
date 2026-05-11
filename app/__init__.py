@@ -78,7 +78,6 @@ def create_app() -> Flask:
             TZ=getattr(settings, "TZ", app.config["TZ"]),
         )
     except Exception:
-        # 存在しない場合は無視
         pass
 
     # logging.py があればロガーを初期化
@@ -105,7 +104,6 @@ def create_app() -> Flask:
             'current_store_name': None,
         }
         
-        # ロールに応じたマイページURLを設定
         role = session.get('role')
         try:
             if role in ('system_admin', 'tenant_admin', 'admin', 'employee'):
@@ -113,19 +111,15 @@ def create_app() -> Flask:
             else:
                 context['mypage_url'] = url_for('auth.index')
         except Exception:
-            # ブループリントが登録されていない場合はデフォルトのURLを使用
             context['mypage_url'] = url_for('auth.index')
 
-        # 現在操作中のロールに応じたダッシュボードURLを設定
-        # セッションの状態（store_id / tenant_id / role）から現在操作中のロールを判定
-        context['viewing_as_banner'] = None  # 閲覧中バナーメッセージ
-        # 現在のURLパスを取得（自分のロールのパスではバナー非表示）
+        context['viewing_as_banner'] = None
         try:
             from flask import request as _req_path
             _current_path = _req_path.path
         except Exception:
             _current_path = ''
-        # 各ロールの自分のパスプレフィックス
+
         _own_path_prefixes = {
             'system_admin': '/system_admin',
             'app_manager': '/app_manager',
@@ -134,39 +128,37 @@ def create_app() -> Flask:
         }
         _own_prefix = _own_path_prefixes.get(role, '')
         _on_own_page = bool(_own_prefix and _current_path.startswith(_own_prefix))
+
         try:
             store_id_check = session.get('store_id')
             tenant_id_check = session.get('tenant_id')
             app_manager_group_id_check = session.get('app_manager_group_id')
-            if role == 'admin':
-                # 店舗管理者ロールは常に店舗管理者ダッシュボードへ（store_idの有無に関わらず）
+
+            # system_adminは最初に判定（app_manager_group_idが残っていても影響されない）
+            if role == 'system_admin':
+                if store_id_check:
+                    context['current_dashboard_url'] = url_for('admin.dashboard')
+                    if not _on_own_page:
+                        context['viewing_as_banner'] = 'システム管理者として閲覧中'
+                elif tenant_id_check:
+                    context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+                    if not _on_own_page:
+                        context['viewing_as_banner'] = 'システム管理者として閲覧中'
+                else:
+                    context['current_dashboard_url'] = url_for('system_admin.dashboard')
+            elif role == 'admin':
                 context['current_dashboard_url'] = url_for('admin.dashboard')
             elif store_id_check:
-                # 上位ロールが店舗管理者として操作中
                 context['current_dashboard_url'] = url_for('admin.dashboard')
-                # 上位ロールが店舗管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
-                if role in ('system_admin', 'app_manager', 'tenant_admin') and not _on_own_page:
-                    role_label = 'システム管理者' if role == 'system_admin' else ('アプリ管理者' if role == 'app_manager' else 'テナント管理者')
+                if role in ('app_manager', 'tenant_admin') and not _on_own_page:
+                    role_label = 'アプリ管理者' if role == 'app_manager' else 'テナント管理者'
                     context['viewing_as_banner'] = f'{role_label}として閲覧中'
             elif tenant_id_check:
-                # テナント管理者として操作中
                 context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
-                # 上位ロールがテナント管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
-                if role in ('system_admin', 'app_manager') and not _on_own_page:
-                    role_label = 'システム管理者' if role == 'system_admin' else 'アプリ管理者'
-                    context['viewing_as_banner'] = f'{role_label}として閲覧中'
+                if role == 'app_manager' and not _on_own_page:
+                    context['viewing_as_banner'] = 'アプリ管理者として閲覧中'
             elif role == 'app_manager' or app_manager_group_id_check:
-                # アプリ管理者として操作中
                 context['current_dashboard_url'] = url_for('app_manager.dashboard')
-                # システム管理者がアプリ管理者ページを閲覧中の場合はバナー表示（自分のロールのページでは非表示）
-                if role == 'system_admin' and not _on_own_page:
-                    context['viewing_as_banner'] = 'システム管理者として閲覧中'
-            elif role == 'admin':
-                # 店舗管理者として操作中（store_idなしでも常に店舗管理者ダッシュボードへ）
-                context['current_dashboard_url'] = url_for('admin.dashboard')
-            elif role == 'system_admin':
-                # システム管理者として操作中
-                context['current_dashboard_url'] = url_for('system_admin.dashboard')
             else:
                 context['current_dashboard_url'] = url_for('auth.select_login')
         except Exception:
@@ -198,7 +190,6 @@ def create_app() -> Flask:
                 row = cur.fetchone()
                 if row:
                     context['current_store_name'] = row[0]
-                    # 店舗のテナント情報も取得
                     if not context['current_tenant_name'] and row[1]:
                         cur2 = conn.cursor()
                         sql2 = _sql(conn, 'SELECT "名称" FROM "T_テナント" WHERE id=%s')
@@ -210,9 +201,7 @@ def create_app() -> Flask:
             except Exception:
                 pass
 
-        # 閲覧中バナーにコンテキスト情報（グループ名・テナント名・店舗名）を付加
         if context.get('viewing_as_banner'):
-            # アプリ管理者グループ名を取得
             app_manager_group_name = None
             app_mgr_gid = session.get('app_manager_group_id')
             if app_mgr_gid:
@@ -227,7 +216,6 @@ def create_app() -> Flask:
                 except Exception:
                     pass
 
-            # 「○○の××を表示しています」形式でバナーメッセージを構築
             subject_parts = []
             if app_manager_group_name:
                 subject_parts.append(f'グループ「{app_manager_group_name}」')
@@ -236,7 +224,6 @@ def create_app() -> Flask:
             if context.get('current_store_name'):
                 subject_parts.append(f'店舗「{context["current_store_name"]}」')
 
-            # ページ名をURLパスから判定
             try:
                 from flask import request as _req
                 path = _req.path
@@ -263,7 +250,7 @@ def create_app() -> Flask:
             except Exception:
                 page_name = 'ページ'
 
-            role_label = context['viewing_as_banner']  # 「システム管理者として閲覧中」等
+            role_label = context['viewing_as_banner']
             if subject_parts:
                 subject_str = '・'.join(subject_parts)
                 context['viewing_as_banner'] = f'{role_label} — {subject_str}の{page_name}を表示しています'
@@ -284,7 +271,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ データベース初期化エラー: {e}")
     
-    
     # データベースマイグレーション実行
     try:
         from .migrations import run_migrations
@@ -300,7 +286,6 @@ def create_app() -> Flask:
     except Exception:
         pass
 
-    # 認証関連blueprints
     try:
         from .blueprints.auth import bp as auth_bp
         app.register_blueprint(auth_bp)
@@ -343,7 +328,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ migrate blueprint 登録エラー: {e}")
 
-    # 顧問先管理関連blueprints
     try:
         from .blueprints.clients import bp as clients_bp
         app.register_blueprint(clients_bp)
@@ -392,7 +376,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ tenant_storage blueprint 登録エラー: {e}")
 
-    # クライアントマイページ関連blueprints
     try:
         from .blueprints.client_auth import bp as client_auth_bp
         app.register_blueprint(client_auth_bp)
@@ -405,7 +388,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ client_mypage blueprint 登録エラー: {e}")
 
-    # スタッフマイページ blueprint登録
     try:
         from .blueprints.staff_mypage import bp as staff_mypage_bp
         app.register_blueprint(staff_mypage_bp)
@@ -413,7 +395,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ staff_mypage blueprint 登録エラー: {e}")
 
-    # 社内チャット blueprint登録
     try:
         from .blueprints.internal_chat import bp as internal_chat_bp
         app.register_blueprint(internal_chat_bp)
@@ -421,7 +402,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ internal_chat blueprint 登録エラー: {e}")
 
-    # モバイルアプリ専用API blueprint登録
     try:
         from .blueprints.mobile_api import bp as mobile_api_bp
         app.register_blueprint(mobile_api_bp)
@@ -429,14 +409,12 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ mobile_api blueprint 登録エラー: {e}")
 
-    # debug blueprint登録
     try:
         from .blueprints.debug_routes import debug_bp
         app.register_blueprint(debug_bp)
     except Exception as e:
         print(f"⚠️ debug blueprint 登録エラー: {e}")
 
-    # video_call blueprint登録
     try:
         from .blueprints.video_call import bp as video_call_bp
         app.register_blueprint(video_call_bp)
@@ -444,7 +422,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ video_call blueprint 登録エラー: {e}")
 
-    # 勤怠管理システム blueprint登録
     try:
         from .blueprints.kintaikanri import bp as kintaikanri_bp
         app.register_blueprint(kintaikanri_bp)
@@ -452,7 +429,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ kintaikanri blueprint 登録エラー: {e}")
 
-    # 財務管理 blueprint登録
     try:
         from .blueprints.finance import bp as finance_bp
         app.register_blueprint(finance_bp)
@@ -460,7 +436,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ finance blueprint 登録エラー: {e}")
 
-    # 店舗ダッシュボード blueprint登録
     try:
         from .blueprints.store_dashboard import bp as store_dashboard_bp
         app.register_blueprint(store_dashboard_bp)
@@ -468,7 +443,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ store_dashboard blueprint 登録エラー: {e}")
 
-    # ホームページ制作アプリ blueprint登録
     try:
         from .blueprints.homepage_builder import bp as homepage_builder_bp
         app.register_blueprint(homepage_builder_bp)
@@ -476,7 +450,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ homepage_builder blueprint 登録エラー: {e}")
 
-    # 証憑データ化アプリ blueprint登録
     try:
         from .blueprints.voucher_store import bp as voucher_store_bp
         app.register_blueprint(voucher_store_bp)
@@ -500,7 +473,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ voucher_credit blueprint 登録エラー: {e}")
 
-    # e-Tax RPA blueprint登録
     try:
         from .blueprints.etax import bp as etax_bp
         app.register_blueprint(etax_bp)
@@ -508,7 +480,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ etax blueprint 登録エラー: {e}")
 
-    # 電子契約ブリッジ blueprint登録
     try:
         from .blueprints.e_contract_bridge import bp as e_contract_bridge_bp
         app.register_blueprint(e_contract_bridge_bp)
@@ -516,7 +487,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ e_contract_bridge blueprint 登録エラー: {e}")
 
-    # 電子契約サービス blueprints 直接統合（別プロセス不要）
     try:
         from e_contract_service.migrations import run_migrations as ec_run_migrations
         from e_contract_service.blueprints.contracts import bp as ec_contracts_bp
@@ -525,7 +495,6 @@ def create_app() -> Flask:
         from e_contract_service.blueprints.ui import bp as ec_ui_bp
         from e_contract_service.blueprints.documents import bp as ec_documents_bp
 
-        # Migration failure should not hide routes behind 404.
         try:
             ec_run_migrations()
             print("✅ e_contract_service migrations 実行完了")
@@ -541,7 +510,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ e_contract_service blueprints 登録エラー: {e}")
 
-    # 定款作成アプリ blueprint
     try:
         from .blueprints.teikan import bp as teikan_bp
         app.register_blueprint(teikan_bp)
@@ -556,7 +524,6 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ property blueprint 登録エラー: {e}")
 
-    # トラック運行管理 blueprint登録
     try:
         from .blueprints.truck import bp as truck_bp
         app.register_blueprint(truck_bp)
@@ -564,14 +531,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ truck blueprint 登録エラー: {e}")
 
-    # ブリーダー管理 blueprint登録
     try:
         from .blueprints.breeder import bp as breeder_bp
         app.register_blueprint(breeder_bp)
         print("✅ breeder blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ breeder blueprint 登録エラー: {e}")
-    # アンケートシステム blueprint登録
+
     try:
         from .blueprints.survey_app import bp as survey_app_bp, _run_slot_migrations
         app.register_blueprint(survey_app_bp, url_prefix='/apps/survey')
@@ -579,7 +545,7 @@ def create_app() -> Flask:
         print("✅ survey_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ survey_app blueprint 登録エラー: {e}")
-    # QR印刷・景品印刷ルート登録
+
     try:
         import sys as _sys, os as _os
         _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
@@ -588,41 +554,42 @@ def create_app() -> Flask:
         print("✅ qr_print_routes 登録完了")
     except Exception as e:
         print(f"⚠️ qr_print_routes 登録エラー: {e}")
+
     try:
         from prize_print_routes import register_prize_print_routes
         register_prize_print_routes(app)
         print("✅ prize_print_routes 登録完了")
     except Exception as e:
         print(f"⚠️ prize_print_routes 登録エラー: {e}")
-    # スタンプカード blueprint登録
+
     try:
         from .blueprints.stampcard_app import bp as stampcard_app_bp
         app.register_blueprint(stampcard_app_bp)
         print("✅ stampcard_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ stampcard_app blueprint 登録エラー: {e}")
-    # 予約管理 blueprint登録
+
     try:
         from .blueprints.reservation_app import bp as reservation_app_bp
         app.register_blueprint(reservation_app_bp)
         print("✅ reservation_app blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ reservation_app blueprint 登録エラー: {e}")
-    # ショートステイ運営管理 blueprint登録
+
     try:
         from .blueprints.shortstay import bp as shortstay_bp
         app.register_blueprint(shortstay_bp)
         print("✅ shortstay blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ shortstay blueprint 登録エラー: {e}")
-    # 飼い主アプリ blueprint登録
+
     try:
         from .blueprints.owner import bp as owner_bp
         app.register_blueprint(owner_bp)
         print("✅ owner blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ owner blueprint 登録エラー: {e}")
-    # カスタムJinja2フィルター
+
     import json as _json
     @app.template_filter('from_json')
     def from_json_filter(value):
@@ -632,7 +599,7 @@ def create_app() -> Flask:
             return _json.loads(value)
         except Exception:
             return {}
-    # エラーハンドラ
+
     @app.errorhandler(404)
     def not_found(error):
         from flask import render_template

@@ -148,16 +148,32 @@ def create_app() -> Flask:
                     context['current_dashboard_url'] = url_for('system_admin.dashboard')
             elif role == 'admin':
                 context['current_dashboard_url'] = url_for('admin.dashboard')
+            elif role == 'tenant_admin':
+                # tenant_adminは自分のページにいるときは自分のダッシュボードへ
+                if _on_own_page:
+                    context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+                elif store_id_check:
+                    context['current_dashboard_url'] = url_for('admin.dashboard')
+                    context['viewing_as_banner'] = 'テナント管理者として閲覧中'
+                else:
+                    context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+            elif role == 'app_manager':
+                # app_managerは自分のページにいるときは自分のダッシュボードへ
+                if _on_own_page:
+                    context['current_dashboard_url'] = url_for('app_manager.dashboard')
+                elif store_id_check:
+                    context['current_dashboard_url'] = url_for('admin.dashboard')
+                    context['viewing_as_banner'] = 'アプリ管理者として閲覧中'
+                elif tenant_id_check:
+                    context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
+                    context['viewing_as_banner'] = 'アプリ管理者として閲覧中'
+                else:
+                    context['current_dashboard_url'] = url_for('app_manager.dashboard')
             elif store_id_check:
                 context['current_dashboard_url'] = url_for('admin.dashboard')
-                if role in ('app_manager', 'tenant_admin') and not _on_own_page:
-                    role_label = 'アプリ管理者' if role == 'app_manager' else 'テナント管理者'
-                    context['viewing_as_banner'] = f'{role_label}として閲覧中'
             elif tenant_id_check:
                 context['current_dashboard_url'] = url_for('tenant_admin.dashboard')
-                if role == 'app_manager' and not _on_own_page:
-                    context['viewing_as_banner'] = 'アプリ管理者として閲覧中'
-            elif role == 'app_manager' or app_manager_group_id_check:
+            elif app_manager_group_id_check:
                 context['current_dashboard_url'] = url_for('app_manager.dashboard')
             else:
                 context['current_dashboard_url'] = url_for('auth.select_login')

@@ -9,7 +9,7 @@ from app.db import Base
 
 
 class TKokyaku(Base):
-    """T_建設顧客 - 建設業顧客・取引先マスタ"""
+    """T_顧客 - 顧客・取引先マスタ"""
     __tablename__ = 'T_建設顧客'
 
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -99,6 +99,10 @@
     .topbar-title { font-size: 0.75rem; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
     .topbar-sep { color: var(--border); }
     .topbar-page { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
+    .topbar-username { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+    .topbar-logout { font-size: 0.72rem; color: var(--orange-lt); text-decoration: none; font-weight: 700; padding: 0.2rem 0.55rem; border: 1px solid rgba(234,88,12,0.35); border-radius: 5px; transition: background 0.15s; }
+    .topbar-logout:hover { background: rgba(234,88,12,0.15); }
     .page-content { padding: 1.75rem 2rem; }
     /* ── Cards ── */
     .card {
@@ -368,6 +372,10 @@
       <span class="topbar-title">ConstructOps</span>
       <span class="topbar-sep">/</span>
       <span class="topbar-page">{% block topbar_title %}{% endblock %}</span>
+      <div class="topbar-right">
+        <span class="topbar-username">{{ session.get('name', 'ゲスト') }}</span>
+        <a href="{{ url_for('auth.logout') }}" class="topbar-logout">ログアウト</a>
+      </div>
     </div>
     <div class="page-content">
       {% with messages = get_flashed_messages(with_categories=true) %}

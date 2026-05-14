@@ -18,6 +18,7 @@ try:
     from . import models_breeder  # noqa: F401
     from . import models_shortstay  # noqa: F401
     from . import models_construction  # noqa: F401
+    from . import models_construction_ext  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -613,6 +614,13 @@ def create_app() -> Flask:
         print("✅ construction blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ construction blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.construction_ext import bp as construction_ext_bp
+        app.register_blueprint(construction_ext_bp)
+        print("✅ construction_ext blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ construction_ext blueprint 登録エラー: {e}")
 
     import json as _json
     @app.template_filter('from_json')

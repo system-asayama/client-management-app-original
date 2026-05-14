@@ -2349,6 +2349,14 @@ AVAILABLE_APPS = [
         'url': '/shortstay/',
         'icon': '🏥',
         'scope': 'store'
+    },
+    {
+        'name': 'construction-ops',
+        'display_name': '建設業運営アプリ',
+        'description': '案件・顧客・日報・スケジュール・見積請求・ファイル管理を一元化する建設業向け業務管理システム',
+        'url': '/construction/dashboard',
+        'icon': '🏗️',
+        'scope': 'tenant'
     }
 ]
 

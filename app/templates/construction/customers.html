@@ -1,0 +1,44 @@
+{% extends 'construction/base.html' %}
+{% block title %}顧客管理{% endblock %}
+{% block topbar_title %}顧客管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>顧客管理</h1>
+    <p>取引先・顧客情報の一覧と管理</p>
+  </div>
+  <a href="{{ url_for('construction.customer_new') }}" class="btn btn-primary">＋ 新規登録</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>会社名</th><th>担当者</th><th>電話</th><th>メール</th><th>住所</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td style="font-weight:700">{{ c.company_name }}</td>
+          <td>{{ c.contact_name or '—' }}</td>
+          <td>{{ c.phone or '—' }}</td>
+          <td>{{ c.email or '—' }}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.address or '—' }}</td>
+          <td style="white-space:nowrap">
+            <a href="{{ url_for('construction.customer_edit', cid=c.id) }}" class="btn btn-ghost btn-sm">編集</a>
+            <form method="post" action="{{ url_for('construction.customer_delete', cid=c.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="color:var(--muted);text-align:center;padding:2rem">顧客がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'construction/base.html' %}
+{% block title %}スケジュール{% endblock %}
+{% block topbar_title %}スケジュール{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>スケジュール</h1>
+    <p>現場・個人の予定を一元管理します</p>
+  </div>
+  <a href="{{ url_for('construction.schedule_new') }}" class="btn btn-primary">＋ 予定を追加</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>タイトル</th><th>案件</th><th>開始日時</th><th>終了日時</th><th>終日</th><th>詳細</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for s, p in rows %}
+        <tr>
+          <td style="font-weight:700">{{ s.title }}</td>
+          <td>{{ p.name if p else '—' }}</td>
+          <td style="white-space:nowrap">{{ s.start_at.strftime('%Y/%m/%d %H:%M') if s.start_at else '—' }}</td>
+          <td style="white-space:nowrap">{{ s.end_at.strftime('%Y/%m/%d %H:%M') if s.end_at else '—' }}</td>
+          <td>{{ '終日' if s.all_day else '' }}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.description or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction.schedule_delete', sid=s.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:2rem">予定がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

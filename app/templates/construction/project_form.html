@@ -1,0 +1,64 @@
+{% extends 'construction/base.html' %}
+{% block title %}{{ '案件編集' if project else '案件登録' }}{% endblock %}
+{% block topbar_title %}{{ '案件編集' if project else '案件登録' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ '案件編集' if project else '案件登録' }}</h1>
+  </div>
+  <a href="{{ url_for('construction.projects') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+<div class="card" style="max-width:720px">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">案件名 *</label>
+        <input class="form-control" type="text" name="name" required value="{{ project.name if project else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">顧客</label>
+        <select class="form-control" name="customer_id">
+          <option value="">— 選択 —</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}" {% if project and project.customer_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ステータス *</label>
+        <select class="form-control" name="status">
+          {% for s in status_list %}
+          <option value="{{ s }}" {% if project and project.status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">着工日</label>
+        <input class="form-control" type="date" name="start_date" value="{{ project.start_date if project else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">完工予定日</label>
+        <input class="form-control" type="date" name="end_date" value="{{ project.end_date if project else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">担当者</label>
+        <input class="form-control" type="text" name="assigned_to" value="{{ project.assigned_to if project else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">契約金額（円）</label>
+        <input class="form-control" type="number" name="contract_amount" step="1" value="{{ project.contract_amount if project else '' }}">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">案件概要</label>
+        <textarea class="form-control" name="description" rows="4">{{ project.description if project else '' }}</textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+      <button type="submit" class="btn btn-primary">{{ '更新する' if project else '登録する' }}</button>
+      <a href="{{ url_for('construction.projects') }}" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

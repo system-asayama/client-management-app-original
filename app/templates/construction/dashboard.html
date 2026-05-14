@@ -1,0 +1,69 @@
+{% extends 'construction/base.html' %}
+{% block title %}ダッシュボード{% endblock %}
+{% block topbar_title %}ダッシュボード{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>ダッシュボード</h1>
+    <p>建設業務の全体状況を一目で確認できます</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-label">総案件数</div>
+    <div class="kpi-value">{{ project_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">進行中案件</div>
+    <div class="kpi-value" style="color:var(--orange-lt)">{{ active_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">日報件数</div>
+    <div class="kpi-value">{{ report_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">受注総額</div>
+    <div class="kpi-value" style="font-size:1.4rem">¥{{ "{:,.0f}".format(total_amount) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">顧客数</div>
+    <div class="kpi-value">{{ customer_count }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <h2 style="font-size:0.9rem;font-weight:700">最近の案件</h2>
+    <a href="{{ url_for('construction.projects') }}" class="btn btn-ghost btn-sm">すべて見る</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>案件名</th>
+          <th>ステータス</th>
+          <th>担当者</th>
+          <th>着工日</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in recent_projects %}
+        <tr>
+          <td style="font-weight:600">{{ p.name }}</td>
+          <td>
+            {% set sc = {'見積中':'mitsumori','受注':'juchu','施工中':'sekouchu','完了':'kanryo','請求済':'seikyuzumi'} %}
+            <span class="badge badge-{{ sc.get(p.status,'mitsumori') }}">{{ p.status }}</span>
+          </td>
+          <td>{{ p.assigned_to or '—' }}</td>
+          <td>{{ p.start_date or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:2rem">案件がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'construction/base.html' %}
+{% block title %}見積・請求管理{% endblock %}
+{% block topbar_title %}見積・請求管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>見積・請求管理</h1>
+    <p>見積書・請求書の作成と状況管理</p>
+  </div>
+  <a href="{{ url_for('construction.estimate_new') }}" class="btn btn-primary">＋ 新規作成</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>種別</th><th>案件</th><th>ステータス</th><th>発行日</th><th>支払期限</th><th>合計金額</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for m, p in rows %}
+        <tr>
+          <td><span class="badge badge-juchu">{{ doc_type_labels.get(m.doc_type, m.doc_type) }}</span></td>
+          <td>{{ p.name if p else '—' }}</td>
+          <td><span class="badge badge-{{ m.status }}">{{ status_labels.get(m.status, m.status) }}</span></td>
+          <td>{{ m.issue_date or '—' }}</td>
+          <td>{{ m.due_date or '—' }}</td>
+          <td>{% if m.total_amount %}¥{{ "{:,.0f}".format(m.total_amount|float) }}{% else %}—{% endif %}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction.estimate_delete', mid=m.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:2rem">見積書・請求書がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

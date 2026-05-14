@@ -1,0 +1,47 @@
+{% extends 'construction/base.html' %}
+{% block title %}案件管理{% endblock %}
+{% block topbar_title %}案件管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>案件管理</h1>
+    <p>受注・施工案件の進捗と詳細を管理します</p>
+  </div>
+  <a href="{{ url_for('construction.project_new') }}" class="btn btn-primary">＋ 新規案件</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>案件名</th><th>顧客</th><th>ステータス</th><th>担当者</th><th>着工日</th><th>完工予定</th><th>契約金額</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set sc = {'見積中':'mitsumori','受注':'juchu','施工中':'sekouchu','完了':'kanryo','請求済':'seikyuzumi'} %}
+        {% for p, c in rows %}
+        <tr>
+          <td style="font-weight:700">{{ p.name }}</td>
+          <td>{{ c.company_name if c else '—' }}</td>
+          <td><span class="badge badge-{{ sc.get(p.status,'mitsumori') }}">{{ p.status }}</span></td>
+          <td>{{ p.assigned_to or '—' }}</td>
+          <td>{{ p.start_date or '—' }}</td>
+          <td>{{ p.end_date or '—' }}</td>
+          <td>{% if p.contract_amount %}¥{{ "{:,.0f}".format(p.contract_amount|float) }}{% else %}—{% endif %}</td>
+          <td style="white-space:nowrap">
+            <a href="{{ url_for('construction.project_edit', pid=p.id) }}" class="btn btn-ghost btn-sm">編集</a>
+            <form method="post" action="{{ url_for('construction.project_delete', pid=p.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="color:var(--muted);text-align:center;padding:2rem">案件がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

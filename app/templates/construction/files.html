@@ -1,0 +1,81 @@
+{% extends 'construction/base.html' %}
+{% block title %}ファイル管理{% endblock %}
+{% block topbar_title %}ファイル管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>ファイル管理</h1>
+    <p>案件ごとの現場写真・図面・各種書類を管理します</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <form method="get" style="display:flex;gap:0.75rem;align-items:flex-end">
+    <div class="form-group" style="margin:0;flex:1">
+      <label class="form-label">案件を選択</label>
+      <select class="form-control" name="anken_id" onchange="this.form.submit()">
+        <option value="">— 案件を選択してください —</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}" {% if selected_anken_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if selected_anken_id %}
+<div class="card" style="margin-bottom:1.5rem">
+  <div style="font-size:0.8rem;font-weight:700;color:var(--muted);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em">ファイルをアップロード</div>
+  <form method="post" action="{{ url_for('construction.file_upload') }}" enctype="multipart/form-data" style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <input type="hidden" name="anken_id" value="{{ selected_anken_id }}">
+    <div class="form-group" style="margin:0;flex:1;min-width:200px">
+      <label class="form-label">ファイルを選択</label>
+      <input class="form-control" type="file" name="files" multiple>
+    </div>
+    <button type="submit" class="btn btn-primary" style="white-space:nowrap">アップロード</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ファイル名</th><th>種類</th><th>サイズ</th><th>アップロード日時</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for f in file_rows %}
+        <tr>
+          <td style="font-weight:600">
+            <a href="{{ f.file_url }}" target="_blank" style="color:var(--teal-lt);text-decoration:none">{{ f.file_name }}</a>
+          </td>
+          <td style="color:var(--muted);font-size:0.75rem">{{ f.mime_type or '—' }}</td>
+          <td style="color:var(--muted);font-size:0.75rem">
+            {% if f.file_size %}
+              {% if f.file_size > 1048576 %}{{ "%.1f"|format(f.file_size/1048576) }} MB
+              {% elif f.file_size > 1024 %}{{ "%.1f"|format(f.file_size/1024) }} KB
+              {% else %}{{ f.file_size }} B{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td style="white-space:nowrap;color:var(--muted);font-size:0.75rem">{{ f.created_at.strftime('%Y/%m/%d %H:%M') if f.created_at else '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction.file_delete', fid=f.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:2rem">この案件にはまだファイルがありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:var(--muted)">
+  上の案件セレクトから案件を選択してください
+</div>
+{% endif %}
+{% endblock %}

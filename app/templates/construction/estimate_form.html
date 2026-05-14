@@ -1,0 +1,125 @@
+{% extends 'construction/base.html' %}
+{% block title %}見積書作成{% endblock %}
+{% block topbar_title %}見積書作成{% endblock %}
+{% block extra_head %}
+<style>
+  .items-table th, .items-table td { padding: 0.4rem 0.5rem; }
+  .items-table input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.5rem; color: var(--text); font-size: 0.8rem; width: 100%; }
+  .items-table input:focus { outline: none; border-color: var(--teal); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left"><h1>見積書 / 請求書 作成</h1></div>
+  <a href="{{ url_for('construction.estimates') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+<div class="card" style="max-width:800px">
+  <form method="post" id="estimateForm">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">種別 *</label>
+        <select class="form-control" name="doc_type">
+          <option value="estimate">見積書</option>
+          <option value="invoice">請求書</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">案件</label>
+        <select class="form-control" name="anken_id">
+          <option value="">— 選択 —</option>
+          {% for p in projects %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ステータス</label>
+        <select class="form-control" name="status">
+          <option value="draft">下書き</option>
+          <option value="sent">送付済</option>
+          <option value="accepted">承認済</option>
+          <option value="paid">入金済</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">発行日</label>
+        <input class="form-control" type="date" name="issue_date" value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">支払期限</label>
+        <input class="form-control" type="date" name="due_date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">合計金額（円）</label>
+        <input class="form-control" type="number" name="total_amount" id="totalAmount" step="1" readonly style="opacity:0.7">
+      </div>
+    </div>
+
+    <div style="margin: 1.5rem 0 0.75rem; font-size:0.8rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em">明細</div>
+    <div class="table-wrap" style="margin-bottom:1rem">
+      <table class="items-table" style="width:100%">
+        <thead>
+          <tr>
+            <th style="width:40%">品名・作業内容</th>
+            <th style="width:12%">数量</th>
+            <th style="width:18%">単価（円）</th>
+            <th style="width:18%">金額（円）</th>
+            <th style="width:8%"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <tr>
+            <td><input type="text" name="item_description[]" placeholder="品名・作業内容"></td>
+            <td><input type="number" name="item_quantity[]" step="0.01" placeholder="1" oninput="calcRow(this)"></td>
+            <td><input type="number" name="item_unit_price[]" step="1" placeholder="0" oninput="calcRow(this)"></td>
+            <td><input type="number" name="item_amount[]" step="1" placeholder="0" readonly style="opacity:0.7"></td>
+            <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addRow()" style="margin-bottom:1.5rem">＋ 行を追加</button>
+
+    <div class="form-group">
+      <label class="form-label">備考</label>
+      <textarea class="form-control" name="notes" rows="3"></textarea>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+      <button type="submit" class="btn btn-primary">作成する</button>
+      <a href="{{ url_for('construction.estimates') }}" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+<script>
+function calcRow(el) {
+  const row = el.closest('tr');
+  const qty = parseFloat(row.querySelector('[name="item_quantity[]"]').value) || 0;
+  const price = parseFloat(row.querySelector('[name="item_unit_price[]"]').value) || 0;
+  const amt = qty * price;
+  row.querySelector('[name="item_amount[]"]').value = amt ? Math.round(amt) : '';
+  calcTotal();
+}
+function calcTotal() {
+  let total = 0;
+  document.querySelectorAll('[name="item_amount[]"]').forEach(el => {
+    total += parseFloat(el.value) || 0;
+  });
+  document.getElementById('totalAmount').value = total ? Math.round(total) : '';
+}
+function addRow() {
+  const tbody = document.getElementById('itemsBody');
+  const tr = tbody.rows[0].cloneNode(true);
+  tr.querySelectorAll('input').forEach(i => i.value = '');
+  tbody.appendChild(tr);
+}
+function removeRow(btn) {
+  const tbody = document.getElementById('itemsBody');
+  if (tbody.rows.length > 1) {
+    btn.closest('tr').remove();
+    calcTotal();
+  }
+}
+</script>
+{% endblock %}

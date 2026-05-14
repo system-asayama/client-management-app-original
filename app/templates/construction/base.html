@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}建設業運営{% endblock %} | ConstructOps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal:    #0d9488;
+      --teal-lt: #2dd4bf;
+      --orange:  #ea580c;
+      --orange-lt: #fb923c;
+      --bg:      #0a0f0d;
+      --bg2:     #111a16;
+      --card:    rgba(255,255,255,0.04);
+      --border:  rgba(255,255,255,0.08);
+      --text:    #f1f5f2;
+      --muted:   #6b7a72;
+      --sidebar-w: 220px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 1.5rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo span {
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--teal-lt), var(--orange-lt));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sidebar-logo small {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 2px;
+      -webkit-text-fill-color: var(--muted);
+    }
+    .sidebar-nav { flex: 1; padding: 0.75rem 0; overflow-y: auto; }
+    .nav-section { padding: 0.5rem 1rem 0.25rem; font-size: 0.6rem; font-weight: 700; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .nav-item {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.55rem 1.25rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: var(--teal-lt); border-left-color: var(--teal); background: rgba(13,148,136,0.08); }
+    .nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .sidebar-footer {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .sidebar-footer a { color: var(--orange-lt); text-decoration: none; font-weight: 600; }
+    /* ── Main ── */
+    .main-wrap { margin-left: var(--sidebar-w); flex: 1; min-height: 100vh; }
+    .topbar {
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 1.5rem;
+      background: rgba(10,15,13,0.8);
+      backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 50;
+      gap: 0.75rem;
+    }
+    .topbar-title { font-size: 0.75rem; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .topbar-sep { color: var(--border); }
+    .topbar-page { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .page-content { padding: 1.75rem 2rem; }
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--teal) 0%, transparent 70%);
+      opacity: 0.12;
+      transform: translate(20px, -20px);
+    }
+    .kpi-label { font-size: 0.7rem; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    .kpi-value { font-size: 2rem; font-weight: 900; color: var(--text); margin-top: 0.4rem; line-height: 1; }
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; padding: 0.6rem 0.75rem; color: var(--muted); font-weight: 600; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    td { padding: 0.65rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    /* ── Status badges ── */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      border: 1px solid;
+    }
+    .badge-mitsumori  { background: rgba(100,116,139,0.2); color: #94a3b8; border-color: rgba(100,116,139,0.3); }
+    .badge-juchu      { background: rgba(59,130,246,0.15); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+    .badge-sekouchu   { background: rgba(234,88,12,0.15);  color: #fb923c; border-color: rgba(234,88,12,0.3); }
+    .badge-kanryo     { background: rgba(13,148,136,0.15); color: #2dd4bf; border-color: rgba(13,148,136,0.3); }
+    .badge-seikyuzumi { background: rgba(34,197,94,0.15);  color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    .badge-draft      { background: rgba(100,116,139,0.2); color: #94a3b8; border-color: rgba(100,116,139,0.3); }
+    .badge-sent       { background: rgba(59,130,246,0.15); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+    .badge-accepted   { background: rgba(13,148,136,0.15); color: #2dd4bf; border-color: rgba(13,148,136,0.3); }
+    .badge-paid       { background: rgba(34,197,94,0.15);  color: #4ade80; border-color: rgba(34,197,94,0.3); }
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--teal); color: #fff; box-shadow: 0 0 12px rgba(13,148,136,0.35); }
+    .btn-primary:hover { background: var(--teal-lt); color: #0a0f0d; }
+    .btn-danger  { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    .btn-ghost   { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.72rem; }
+    /* ── Forms ── */
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    .form-control {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.75rem;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .form-control:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px rgba(13,148,136,0.2); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    /* ── Alerts ── */
+    .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.82rem; margin-bottom: 1rem; }
+    .alert-success { background: rgba(13,148,136,0.15); border: 1px solid rgba(13,148,136,0.3); color: #2dd4bf; }
+    .alert-danger  { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.3);  color: #f87171; }
+    /* ── Page header ── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-header-left h1 { font-size: 1.5rem; font-weight: 900; color: var(--text); }
+    .page-header-left p  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .divider { height: 1px; background: linear-gradient(to right, rgba(13,148,136,0.4), rgba(234,88,12,0.15), transparent); margin-bottom: 1.5rem; }
+    /* ── Radial bg ── */
+    body::before {
+      content: '';
+      position: fixed;
+      bottom: -20%; right: -10%;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(234,88,12,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; min-height: auto; position: relative; flex-direction: row; flex-wrap: wrap; }
+      .main-wrap { margin-left: 0; }
+      .sidebar-nav { display: flex; flex-wrap: wrap; padding: 0.5rem; }
+      .nav-item { border-left: none; border-bottom: 2px solid transparent; padding: 0.4rem 0.75rem; }
+      .nav-item.active { border-bottom-color: var(--teal); border-left-color: transparent; }
+      .form-grid { grid-template-columns: 1fr; }
+      body { flex-direction: column; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <span>ConstructOps</span>
+      <small>建設業運営システム</small>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">メイン</div>
+      <a href="{{ url_for('construction.dashboard') }}" class="nav-item {% if request.endpoint == 'construction.dashboard' %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        ダッシュボード
+      </a>
+      <div class="nav-section">業務管理</div>
+      <a href="{{ url_for('construction.customers') }}" class="nav-item {% if 'customers' in request.endpoint %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        顧客管理
+      </a>
+      <a href="{{ url_for('construction.projects') }}" class="nav-item {% if 'projects' in request.endpoint %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M5 20V8l7-5 7 5v12"/><path d="M9 20v-5h6v5"/></svg>
+        案件管理
+      </a>
+      <a href="{{ url_for('construction.reports') }}" class="nav-item {% if 'reports' in request.endpoint %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        作業日報
+      </a>
+      <a href="{{ url_for('construction.schedules') }}" class="nav-item {% if 'schedules' in request.endpoint %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        スケジュール
+      </a>
+      <a href="{{ url_for('construction.estimates') }}" class="nav-item {% if 'estimates' in request.endpoint %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3"/><rect x="9" y="3" width="6" height="6" rx="1"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+        見積・請求
+      </a>
+      <a href="{{ url_for('construction.files') }}" class="nav-item {% if 'files' in request.endpoint %}active{% endif %}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        ファイル管理
+      </a>
+    </div>
+    <div class="sidebar-footer">
+      <div style="margin-bottom:0.4rem">{{ session.get('name', 'ゲスト') }}</div>
+      <a href="{{ url_for('auth.logout') if 'auth.logout' in url_for.__doc__ else '/' }}">ログアウト</a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main-wrap">
+    <div class="topbar">
+      <span class="topbar-title">ConstructOps</span>
+      <span class="topbar-sep">/</span>
+      <span class="topbar-page">{% block topbar_title %}{% endblock %}</span>
+    </div>
+    <div class="page-content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</body>
+</html>

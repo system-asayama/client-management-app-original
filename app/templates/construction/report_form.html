@@ -1,0 +1,48 @@
+{% extends 'construction/base.html' %}
+{% block title %}日報登録{% endblock %}
+{% block topbar_title %}日報登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>日報登録</h1>
+  </div>
+  <a href="{{ url_for('construction.reports') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+<div class="card" style="max-width:640px">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">作業日 *</label>
+        <input class="form-control" type="date" name="report_date" required value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">案件</label>
+        <select class="form-control" name="anken_id">
+          <option value="">— 選択 —</option>
+          {% for p in projects %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">作業内容 *</label>
+        <textarea class="form-control" name="work_content" rows="5" required placeholder="本日の作業内容を記入してください"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">作業時間（h）</label>
+        <input class="form-control" type="number" name="work_hours" step="0.5" min="0" max="24" placeholder="例: 8.0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">備考</label>
+        <input class="form-control" type="text" name="notes" placeholder="特記事項など">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('construction.reports') }}" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

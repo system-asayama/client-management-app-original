@@ -607,6 +607,13 @@ def create_app() -> Flask:
         print("✅ construction blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ construction blueprint 登録エラー: {e}")
+    try:
+        from . import models_construction_ext  # noqa: F401
+        from .blueprints.construction_ext import bp as construction_ext_bp
+        app.register_blueprint(construction_ext_bp)
+        print("✅ construction_ext blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ construction_ext blueprint 登録エラー: {e}")
 
     # カスタムJinja2フィルター
     import json as _json

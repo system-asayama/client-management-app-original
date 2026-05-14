@@ -9,8 +9,8 @@ from app.db import Base
 
 
 class TKokyaku(Base):
-    """T_顧客 - 顧客・取引先マスタ"""
-    __tablename__ = 'T_顧客'
+    """T_建設顧客 - 建設業顧客・取引先マスタ"""
+    __tablename__ = 'T_建設顧客'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=True)
@@ -32,7 +32,7 @@ class TAnken(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=True)
     name = Column(String(255), nullable=False, comment='案件名')
-    customer_id = Column(Integer, ForeignKey('T_顧客.id'), nullable=True)
+    customer_id = Column(Integer, ForeignKey('T_建設顧客.id'), nullable=True)
     status = Column(
         Enum('見積中', '受注', '施工中', '完了', '請求済', name='anken_status'),
         default='見積中', nullable=False, comment='ステータス'

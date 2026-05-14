@@ -350,15 +350,7 @@
 
   <!-- Main -->
   <div class="main-wrap">
-    <div class="topbar">
-      <span class="topbar-title">ConstructOps</span>
-      <span class="topbar-sep">/</span>
-      <span class="topbar-page">{% block topbar_title %}{% endblock %}</span>
-      <div class="topbar-right">
-        <span class="topbar-username">{{ session.get('name', 'ゲスト') }}</span>
-        <a href="{{ url_for('auth.logout') }}" class="topbar-logout">ログアウト</a>
-      </div>
-    </div>
+
     <div class="page-content">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}

@@ -1,0 +1,94 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}実行予算{% endblock %}
+{% block topbar_title %}実行予算{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>実行予算管理</h1>
+    <p>案件ごとに費目別の予算を計画</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1rem">
+  <form method="get" action="{{ url_for('construction_ext.yosan_list') }}" class="filter-bar">
+    <div class="form-group" style="flex:1;max-width:380px">
+      <label class="form-label">案件を選択</label>
+      <select name="anken_id" class="form-control" onchange="this.form.submit()">
+        <option value="">— 案件を選んでください —</option>
+        {% for p in projects %}
+          <option value="{{ p.id }}" {% if selected_anken_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if selected_anken_id %}
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">予算合計</div>
+      <div class="summary-value num">¥{{ '{:,.0f}'.format(total_budget) }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">登録件数</div>
+      <div class="summary-value num">{{ rows|length }}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">予算を追加</h3>
+    <form method="post" action="{{ url_for('construction_ext.yosan_new') }}">
+      <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+      <input type="hidden" name="anken_id" value="{{ selected_anken_id }}">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">費目 *</label>
+          <select name="category" class="form-control" required>
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">品目・内訳</label>
+          <input type="text" name="item_name" class="form-control" placeholder="例: 鉄筋・型枠工事">
+        </div>
+        <div class="form-group">
+          <label class="form-label">予算金額(円) *</label>
+          <input type="number" name="budget_amount" class="form-control" step="1" min="0" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">備考</label>
+          <input type="text" name="notes" class="form-control">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">登録</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>費目</th><th>品目</th><th class="text-right">予算金額</th><th>備考</th><th></th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td style="font-weight:700">{{ r.category }}</td>
+            <td>{{ r.item_name or '—' }}</td>
+            <td class="text-right num">¥{{ '{:,.0f}'.format(r.budget_amount or 0) }}</td>
+            <td>{{ r.notes or '—' }}</td>
+            <td>
+              <form method="post" action="{{ url_for('construction_ext.yosan_delete', yid=r.id) }}" onsubmit="return confirm('削除しますか？')">
+                <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+                <button class="btn btn-danger btn-sm">削除</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-muted" style="text-align:center;padding:2rem">予算がまだ登録されていません</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

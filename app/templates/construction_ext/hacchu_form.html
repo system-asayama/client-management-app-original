@@ -1,0 +1,80 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}新規発注{% endblock %}
+{% block topbar_title %}新規発注{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>新規発注</h1>
+    <p>発注書を作成し、明細を入力します</p>
+  </div>
+  <a href="{{ url_for('construction_ext.hacchu_list') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('construction_ext.hacchu_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">案件 *</label>
+        <select name="anken_id" class="form-control" required>
+          <option value="">—</option>
+          {% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">仕入先</label>
+        <select name="shiiresaki_id" class="form-control">
+          <option value="">—</option>
+          {% for s in shiiresakis %}<option value="{{ s.id }}">{{ s.company_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">発注番号</label>
+        <input type="text" name="order_no" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ステータス</label>
+        <select name="status" class="form-control">
+          <option value="draft">下書き</option><option value="sent">発注済</option><option value="received">納品済</option><option value="paid">支払済</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">発注日</label>
+        <input type="date" name="order_date" value="{{ today }}" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">納期</label>
+        <input type="date" name="delivery_date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">合計金額(円)</label>
+        <input type="number" name="total_amount" class="form-control" step="1" min="0">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">備考</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+    </div>
+
+    <h3 style="font-size:.9rem;font-weight:800;margin:1rem 0 .5rem">明細</h3>
+    <div class="table-wrap">
+      <table id="meisai">
+        <thead><tr><th>品名・内容</th><th>数量</th><th>単位</th><th>単価</th><th>金額</th></tr></thead>
+        <tbody>
+          {% for i in range(5) %}
+          <tr>
+            <td><input type="text" name="item_description[]" class="form-control"></td>
+            <td><input type="number" name="item_quantity[]" step="0.01" class="form-control"></td>
+            <td><input type="text" name="item_unit[]" class="form-control" placeholder="個/m"></td>
+            <td><input type="number" name="item_unit_price[]" step="1" class="form-control"></td>
+            <td><input type="number" name="item_amount[]" step="1" class="form-control"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:1rem">発注を登録</button>
+  </form>
+</div>
+{% endblock %}

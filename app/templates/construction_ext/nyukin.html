@@ -1,0 +1,37 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}入金管理{% endblock %}
+{% block topbar_title %}入金管理{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>入金管理</h1>
+    <p>請求書ごとの入金状況を一元管理</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>請求書</th><th>案件</th><th>発行日</th><th>支払期限</th><th>ステータス</th><th class="text-right">請求額</th><th class="text-right">入金済</th><th class="text-right">未収</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-weight:700">#{{ r.invoice.id }}</td>
+          <td>{{ r.project.name if r.project else '—' }}</td>
+          <td class="num">{{ r.invoice.issue_date or '—' }}</td>
+          <td class="num">{{ r.invoice.due_date or '—' }}</td>
+          <td><span class="badge badge-{{ r.invoice.status }}">{{ r.invoice.status }}</span></td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(r.invoice_amount) }}</td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(r.paid) }}</td>
+          <td class="text-right num" style="color:{{ '#fb923c' if r.remaining > 0 else '#4ade80' }};font-weight:700">¥{{ '{:,.0f}'.format(r.remaining) }}</td>
+          <td><a href="{{ url_for('construction_ext.nyukin_detail', mid=r.invoice.id) }}" class="btn btn-ghost btn-sm">入金登録</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-muted" style="text-align:center;padding:2rem">請求書がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

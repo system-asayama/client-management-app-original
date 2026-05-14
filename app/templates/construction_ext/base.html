@@ -1,0 +1,39 @@
+{% extends 'construction/base.html' %}
+{# 拡張機能用のベース。既存のconstruction/base.htmlを継承し、サイドバーに拡張メニューを追加するためのオーバーライドを提供する想定だが、
+   現在の construction/base.html はサイドバーをハードコードしているため、本ファイルは単純な継承プロキシ + extra_head での補助ナビ表示にとどめる。
+   将来 construction/base.html を block 化したら、ここでサイドバーを差し替える。 #}
+{% block extra_head %}
+<style>
+  .ext-subnav { display:flex; flex-wrap:wrap; gap:.4rem; margin: -.5rem 0 1.25rem; }
+  .ext-subnav a { font-size:.72rem; font-weight:700; padding:.35rem .7rem; border-radius:6px; text-decoration:none; color:var(--muted); background:rgba(255,255,255,.04); border:1px solid var(--border); }
+  .ext-subnav a.active { color:var(--teal-lt); border-color:var(--teal); background:rgba(13,148,136,.1); }
+  .ext-subnav a:hover { color:var(--text); }
+  .summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:.75rem; margin-bottom:1rem; }
+  .summary-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:.9rem 1rem; }
+  .summary-label { font-size:.65rem; color:var(--muted); font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .summary-value { font-size:1.4rem; font-weight:900; margin-top:.3rem; }
+  .filter-bar { display:flex; flex-wrap:wrap; gap:.6rem; align-items:end; margin-bottom:1rem; }
+  .filter-bar .form-group { margin:0; min-width:160px; }
+  .text-right { text-align:right; }
+  .text-muted { color:var(--muted); }
+  .num { font-variant-numeric: tabular-nums; white-space:nowrap; }
+  .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:1rem; }
+  .photo-card { background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .photo-card img { width:100%; height:140px; object-fit:cover; display:block; background:#000; }
+  .photo-card .photo-meta { padding:.5rem .7rem; font-size:.72rem; color:var(--muted); }
+  .photo-card .photo-meta b { color:var(--text); font-size:.78rem; }
+</style>
+{% endblock %}
+{% block content %}
+<nav class="ext-subnav">
+  <a href="{{ url_for('construction_ext.photos') }}"      class="{% if 'photos'      in request.endpoint %}active{% endif %}">写真</a>
+  <a href="{{ url_for('construction_ext.yosan_list') }}" class="{% if 'yosan'       in request.endpoint %}active{% endif %}">実行予算</a>
+  <a href="{{ url_for('construction_ext.genka_list') }}" class="{% if 'genka'       in request.endpoint %}active{% endif %}">原価</a>
+  <a href="{{ url_for('construction_ext.daicho') }}"     class="{% if 'daicho'      in request.endpoint %}active{% endif %}">工事台帳</a>
+  <a href="{{ url_for('construction_ext.demen_list') }}" class="{% if 'demen'       in request.endpoint %}active{% endif %}">出面</a>
+  <a href="{{ url_for('construction_ext.shiiresaki_list') }}" class="{% if 'shiiresaki' in request.endpoint %}active{% endif %}">仕入先</a>
+  <a href="{{ url_for('construction_ext.hacchu_list') }}" class="{% if 'hacchu' in request.endpoint %}active{% endif %}">発注</a>
+  <a href="{{ url_for('construction_ext.nyukin_list') }}" class="{% if 'nyukin'  in request.endpoint %}active{% endif %}">入金</a>
+</nav>
+{% block ext_content %}{% endblock %}
+{% endblock %}

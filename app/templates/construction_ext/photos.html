@@ -1,0 +1,81 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}写真管理{% endblock %}
+{% block topbar_title %}写真管理{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>写真管理</h1>
+    <p>案件ごとの現場写真をクラウドで管理</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1rem">
+  <form method="get" action="{{ url_for('construction_ext.photos') }}" class="filter-bar">
+    <div class="form-group" style="flex:1;max-width:380px">
+      <label class="form-label">案件を選択</label>
+      <select name="anken_id" class="form-control" onchange="this.form.submit()">
+        <option value="">— 案件を選んでください —</option>
+        {% for p in projects %}
+          <option value="{{ p.id }}" {% if selected_anken_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if selected_anken_id %}
+  <div class="card" style="margin-bottom:1rem">
+    <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">写真をアップロード</h3>
+    <form method="post" action="{{ url_for('construction_ext.photo_upload') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+      <input type="hidden" name="anken_id" value="{{ selected_anken_id }}">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">撮影日</label>
+          <input type="date" name="taken_at" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">工種</label>
+          <input type="text" name="work_type" class="form-control" placeholder="例: 基礎工事">
+        </div>
+        <div class="form-group">
+          <label class="form-label">撮影場所</label>
+          <input type="text" name="location" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">コメント</label>
+          <input type="text" name="comment" class="form-control">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">画像ファイル(複数可)</label>
+          <input type="file" name="files" class="form-control" multiple accept="image/*">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">アップロード</button>
+    </form>
+  </div>
+
+  <h2 style="font-size:1rem;font-weight:800;margin:1.5rem 0 .75rem">写真一覧</h2>
+  {% if photos %}
+    <div class="photo-grid">
+      {% for ph in photos %}
+      <div class="photo-card">
+        <a href="{{ ph.file_url }}" target="_blank"><img src="{{ ph.thumbnail_url or ph.file_url }}" alt="{{ ph.file_name }}"></a>
+        <div class="photo-meta">
+          <b>{{ ph.work_type or '—' }}</b><br>
+          {{ ph.taken_at or '日付なし' }} {% if ph.location %} / {{ ph.location }}{% endif %}
+          {% if ph.comment %}<div style="margin-top:.3rem;color:var(--text);font-size:.72rem">{{ ph.comment }}</div>{% endif %}
+          <form method="post" action="{{ url_for('construction_ext.photo_delete', pid=ph.id) }}" style="margin-top:.4rem" onsubmit="return confirm('削除しますか？')">
+            <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+            <button type="submit" class="btn btn-danger btn-sm">削除</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card text-muted" style="text-align:center;padding:2rem">この案件にはまだ写真がありません</div>
+  {% endif %}
+{% endif %}
+{% endblock %}

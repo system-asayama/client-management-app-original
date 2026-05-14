@@ -1,0 +1,51 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}工事台帳{% endblock %}
+{% block topbar_title %}工事台帳{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>工事台帳</h1>
+    <p>案件別の売上・予算・原価・利益を一元集計</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>案件名</th>
+          <th>ステータス</th>
+          <th class="text-right">売上(契約)</th>
+          <th class="text-right">予算</th>
+          <th class="text-right">原価</th>
+          <th class="text-right">粗利</th>
+          <th class="text-right">粗利率</th>
+          <th class="text-right">入金</th>
+          <th class="text-right">未収</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-weight:700">{{ r.project.name }}</td>
+          <td>{{ r.project.status }}</td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(r.uriage) }}</td>
+          <td class="text-right num text-muted">¥{{ '{:,.0f}'.format(r.budget) }}</td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(r.cost) }}</td>
+          <td class="text-right num" style="font-weight:700;color:{{ '#4ade80' if r.profit >= 0 else '#f87171' }}">¥{{ '{:,.0f}'.format(r.profit) }}</td>
+          <td class="text-right num">{{ r.margin }}%</td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(r.nyukin) }}</td>
+          <td class="text-right num" style="color:{{ '#fb923c' if r.mishu > 0 else 'var(--muted)' }}">¥{{ '{:,.0f}'.format(r.mishu) }}</td>
+          <td><a href="{{ url_for('construction_ext.daicho_detail', pid=r.project.id) }}" class="btn btn-ghost btn-sm">詳細</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="text-muted" style="text-align:center;padding:2rem">案件がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

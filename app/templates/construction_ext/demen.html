@@ -1,0 +1,119 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}出面管理{% endblock %}
+{% block topbar_title %}出面管理{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>出面管理</h1>
+    <p>日別・案件別の人工を記録(自社/応援/外注)</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1rem">
+  <form method="get" action="{{ url_for('construction_ext.demen_list') }}" class="filter-bar">
+    <div class="form-group">
+      <label class="form-label">案件</label>
+      <select name="anken_id" class="form-control">
+        <option value="">すべて</option>
+        {% for p in projects %}<option value="{{ p.id }}" {% if selected_anken_id == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">期間(から)</label>
+      <input type="date" name="date_from" value="{{ date_from or '' }}" class="form-control">
+    </div>
+    <div class="form-group">
+      <label class="form-label">期間(まで)</label>
+      <input type="date" name="date_to" value="{{ date_to or '' }}" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-ghost">絞り込む</button>
+  </form>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-label">合計人工</div>
+    <div class="summary-value num">{{ '{:.1f}'.format(total_ninku) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">合計金額</div>
+    <div class="summary-value num">¥{{ '{:,.0f}'.format(total_amount) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">件数</div>
+    <div class="summary-value num">{{ rows|length }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">出面を追加</h3>
+  <form method="post" action="{{ url_for('construction_ext.demen_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">案件 *</label>
+        <select name="anken_id" class="form-control" required>
+          {% for p in projects %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">作業日 *</label>
+        <input type="date" name="work_date" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">区分 *</label>
+        <select name="worker_type" class="form-control" required>
+          <option value="自社">自社</option><option value="応援">応援</option><option value="外注">外注</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">作業員名</label>
+        <input type="text" name="worker_name" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">人工 *</label>
+        <input type="number" name="ninku" class="form-control" step="0.5" min="0" value="1.0" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">単価(日当)</label>
+        <input type="number" name="unit_price" class="form-control" step="1" min="0">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">備考</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+    </div>
+    <button class="btn btn-primary">登録</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>作業日</th><th>案件</th><th>区分</th><th>作業員</th><th class="text-right">人工</th><th class="text-right">単価</th><th class="text-right">金額</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="num">{{ r.work_date }}</td>
+          <td>案件#{{ r.anken_id }}</td>
+          <td>{{ r.worker_type }}</td>
+          <td>{{ r.worker_name or '—' }}</td>
+          <td class="text-right num">{{ '{:.1f}'.format(r.ninku or 0) }}</td>
+          <td class="text-right num">{{ r.unit_price and '¥{:,.0f}'.format(r.unit_price) or '—' }}</td>
+          <td class="text-right num" style="font-weight:700">{{ r.amount and '¥{:,.0f}'.format(r.amount) or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.demen_delete', did=r.id) }}" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-muted" style="text-align:center;padding:2rem">出面がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

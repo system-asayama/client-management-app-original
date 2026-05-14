@@ -1,0 +1,83 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}仕入先マスタ{% endblock %}
+{% block topbar_title %}仕入先マスタ{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>仕入先マスタ</h1>
+    <p>資材・外注・労務などの仕入先情報</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1rem">
+  <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">仕入先を追加</h3>
+  <form method="post" action="{{ url_for('construction_ext.shiiresaki_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">会社名 *</label>
+        <input type="text" name="company_name" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">区分 *</label>
+        <select name="category" class="form-control" required>
+          <option value="資材">資材</option><option value="外注">外注</option><option value="労務">労務</option><option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">担当者</label>
+        <input type="text" name="contact_name" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話</label>
+        <input type="text" name="phone" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メール</label>
+        <input type="email" name="email" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">支払条件</label>
+        <input type="text" name="payment_terms" class="form-control" placeholder="例: 月末締め翌月末払い">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">住所</label>
+        <input type="text" name="address" class="form-control">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">備考</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+    </div>
+    <button class="btn btn-primary">登録</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>会社名</th><th>区分</th><th>担当者</th><th>電話</th><th>支払条件</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-weight:700">{{ r.company_name }}</td>
+          <td>{{ r.category }}</td>
+          <td>{{ r.contact_name or '—' }}</td>
+          <td>{{ r.phone or '—' }}</td>
+          <td>{{ r.payment_terms or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.shiiresaki_delete', sid=r.id) }}" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-muted" style="text-align:center;padding:2rem">仕入先がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

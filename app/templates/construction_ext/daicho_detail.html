@@ -1,0 +1,41 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}工事台帳 - {{ project.name }}{% endblock %}
+{% block topbar_title %}工事台帳 詳細{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ project.name }}</h1>
+    <p>ステータス: {{ project.status }} / 担当: {{ project.assigned_to or '—' }}</p>
+  </div>
+  <a href="{{ url_for('construction_ext.daicho') }}" class="btn btn-ghost">← 台帳一覧へ</a>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">費目別 予算 vs 原価</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>費目</th>
+          <th class="text-right">予算</th>
+          <th class="text-right">原価</th>
+          <th class="text-right">差額(予算-原価)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in breakdown %}
+        <tr>
+          <td style="font-weight:700">{{ b.category }}</td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(b.budget) }}</td>
+          <td class="text-right num">¥{{ '{:,.0f}'.format(b.cost) }}</td>
+          <td class="text-right num" style="color:{{ '#4ade80' if b.diff >= 0 else '#f87171' }};font-weight:700">¥{{ '{:,.0f}'.format(b.diff) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-muted" style="text-align:center;padding:2rem">予算・原価のデータがありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

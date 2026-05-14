@@ -1,0 +1,42 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}発注管理{% endblock %}
+{% block topbar_title %}発注管理{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>発注管理</h1>
+    <p>仕入先への発注書を作成・管理</p>
+  </div>
+  <a href="{{ url_for('construction_ext.hacchu_new') }}" class="btn btn-primary">＋ 新規発注</a>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>発注No</th><th>発注日</th><th>納期</th><th>案件</th><th>仕入先</th><th>ステータス</th><th class="text-right">金額</th><th></th></tr></thead>
+      <tbody>
+        {% for h, project, shiire in rows %}
+        <tr>
+          <td style="font-weight:700">{{ h.order_no or ('#' ~ h.id) }}</td>
+          <td class="num">{{ h.order_date or '—' }}</td>
+          <td class="num">{{ h.delivery_date or '—' }}</td>
+          <td>{{ project.name if project else '—' }}</td>
+          <td>{{ shiire.company_name if shiire else '—' }}</td>
+          <td><span class="badge badge-{{ h.status }}">{{ status_labels.get(h.status, h.status) }}</span></td>
+          <td class="text-right num">{{ h.total_amount and '¥{:,.0f}'.format(h.total_amount) or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.hacchu_delete', hid=h.id) }}" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-muted" style="text-align:center;padding:2rem">発注がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

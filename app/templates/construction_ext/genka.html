@@ -1,0 +1,110 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}原価管理{% endblock %}
+{% block topbar_title %}原価管理{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>原価管理</h1>
+    <p>案件ごとに費目別の原価実績を記録</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1rem">
+  <form method="get" action="{{ url_for('construction_ext.genka_list') }}" class="filter-bar">
+    <div class="form-group" style="flex:1;max-width:380px">
+      <label class="form-label">案件を選択</label>
+      <select name="anken_id" class="form-control" onchange="this.form.submit()">
+        <option value="">— 案件を選んでください —</option>
+        {% for p in projects %}
+          <option value="{{ p.id }}" {% if selected_anken_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if selected_anken_id %}
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">原価合計</div>
+      <div class="summary-value num">¥{{ '{:,.0f}'.format(total_cost) }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">登録件数</div>
+      <div class="summary-value num">{{ rows|length }}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">原価を追加</h3>
+    <form method="post" action="{{ url_for('construction_ext.genka_new') }}">
+      <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+      <input type="hidden" name="anken_id" value="{{ selected_anken_id }}">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">費目 *</label>
+          <select name="category" class="form-control" required>
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">発生日 *</label>
+          <input type="date" name="cost_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">品目・内訳</label>
+          <input type="text" name="item_name" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">金額(円) *</label>
+          <input type="number" name="amount" class="form-control" step="1" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">仕入先(マスタ)</label>
+          <select name="shiiresaki_id" class="form-control">
+            <option value="">—</option>
+            {% for s in shiiresakis %}<option value="{{ s.id }}">{{ s.company_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">取引先(自由入力)</label>
+          <input type="text" name="vendor_name" class="form-control">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">備考</label>
+          <input type="text" name="notes" class="form-control">
+        </div>
+      </div>
+      <button class="btn btn-primary">登録</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>発生日</th><th>費目</th><th>品目</th><th>仕入先</th><th class="text-right">金額</th><th></th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="num">{{ r.cost_date }}</td>
+            <td style="font-weight:700">{{ r.category }}</td>
+            <td>{{ r.item_name or '—' }}</td>
+            <td>{{ r.vendor_name or (r.shiiresaki_id and ('仕入先#' ~ r.shiiresaki_id)) or '—' }}</td>
+            <td class="text-right num">¥{{ '{:,.0f}'.format(r.amount or 0) }}</td>
+            <td>
+              <form method="post" action="{{ url_for('construction_ext.genka_delete', gid=r.id) }}" onsubmit="return confirm('削除しますか？')">
+                <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+                <button class="btn btn-danger btn-sm">削除</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted" style="text-align:center;padding:2rem">原価がまだ登録されていません</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

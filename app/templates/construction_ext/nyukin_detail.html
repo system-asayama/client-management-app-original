@@ -1,0 +1,79 @@
+{% extends 'construction_ext/base.html' %}
+{% block title %}入金詳細{% endblock %}
+{% block topbar_title %}入金詳細{% endblock %}
+{% block ext_content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>請求書 #{{ invoice.id }} の入金</h1>
+    <p>{{ project.name if project else '案件未設定' }}</p>
+  </div>
+  <a href="{{ url_for('construction_ext.nyukin_list') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+
+<div class="summary-grid">
+  <div class="summary-card"><div class="summary-label">請求額</div><div class="summary-value num">¥{{ '{:,.0f}'.format(invoice_amount) }}</div></div>
+  <div class="summary-card"><div class="summary-label">入金済</div><div class="summary-value num">¥{{ '{:,.0f}'.format(paid_total) }}</div></div>
+  <div class="summary-card"><div class="summary-label">未収</div><div class="summary-value num" style="color:{{ '#fb923c' if remaining > 0 else '#4ade80' }}">¥{{ '{:,.0f}'.format(remaining) }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">入金を追加</h3>
+  <form method="post" action="{{ url_for('construction_ext.nyukin_new', mid=invoice.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">入金日 *</label>
+        <input type="date" name="payment_date" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">入金金額(円) *</label>
+        <input type="number" name="amount" class="form-control" step="1" min="0" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">入金方法 *</label>
+        <select name="method" class="form-control" required>
+          {% for m in methods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">振込元銀行名</label>
+        <input type="text" name="bank_name" class="form-control">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">備考</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+    </div>
+    <button class="btn btn-primary">登録</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="font-size:.95rem;font-weight:800;margin-bottom:.75rem">入金履歴</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>入金日</th><th>方法</th><th>振込元</th><th class="text-right">金額</th><th>備考</th><th></th></tr></thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td class="num">{{ p.payment_date }}</td>
+          <td>{{ p.method }}</td>
+          <td>{{ p.bank_name or '—' }}</td>
+          <td class="text-right num" style="font-weight:700">¥{{ '{:,.0f}'.format(p.amount or 0) }}</td>
+          <td>{{ p.notes or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.nyukin_delete', nid=p.id) }}" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-muted" style="text-align:center;padding:2rem">入金がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

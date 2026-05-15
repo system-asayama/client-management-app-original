@@ -1,0 +1,59 @@
+{% extends 'construction/base.html' %}
+{% block title %}発注管理{% endblock %}
+{% block topbar_title %}発注管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>発注管理</h1>
+    <p>仕入先への発注を管理します</p>
+  </div>
+  <a href="{{ url_for('construction_ext.hacchu_new') }}" class="btn btn-primary">＋ 新規発注</a>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>発注番号</th>
+          <th>案件</th>
+          <th>仕入先</th>
+          <th>発注日</th>
+          <th>納期</th>
+          <th>金額</th>
+          <th>ステータス</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h, project, shiiresaki in rows %}
+        <tr>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ h.order_no or '—' }}</td>
+          <td>{{ project.name if project else '—' }}</td>
+          <td>{{ shiiresaki.company_name if shiiresaki else '—' }}</td>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ h.order_date or '—' }}</td>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ h.delivery_date or '—' }}</td>
+          <td>¥{{ "{:,.0f}".format(h.total_amount or 0) }}</td>
+          <td>
+            {% set label = status_labels.get(h.status, h.status) %}
+            {% if h.status == 'draft' %}<span class="badge badge-draft">{{ label }}</span>
+            {% elif h.status == 'ordered' %}<span class="badge badge-juchu">{{ label }}</span>
+            {% elif h.status == 'delivered' %}<span class="badge badge-kanryo">{{ label }}</span>
+            {% elif h.status == 'cancelled' %}<span class="badge badge-danger">{{ label }}</span>
+            {% else %}<span class="badge badge-mitsumori">{{ label }}</span>{% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.hacchu_delete', hid=h.id) }}" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">発注がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'construction/base.html' %}
+{% block title %}入金管理{% endblock %}
+{% block topbar_title %}入金管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>入金管理</h1>
+    <p>請求書ごとの入金状況を管理します</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>請求書番号</th>
+          <th>案件</th>
+          <th>請求金額</th>
+          <th>入金済</th>
+          <th>残高</th>
+          <th>ステータス</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ r.invoice.doc_number or '—' }}</td>
+          <td>{{ r.project.name if r.project else '—' }}</td>
+          <td>¥{{ "{:,.0f}".format(r.invoice_amount) }}</td>
+          <td style="color:var(--teal-lt)">¥{{ "{:,.0f}".format(r.paid) }}</td>
+          <td style="{% if r.remaining > 0 %}color:var(--orange-lt){% else %}color:var(--teal-lt){% endif %}">
+            ¥{{ "{:,.0f}".format(r.remaining) }}
+          </td>
+          <td>
+            {% if r.invoice.status == 'paid' %}<span class="badge badge-paid">入金済</span>
+            {% elif r.remaining > 0 %}<span class="badge badge-sent">未入金</span>
+            {% else %}<span class="badge badge-accepted">完了</span>{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('construction_ext.nyukin_detail', mid=r.invoice.id) }}" class="btn btn-ghost btn-sm">詳細</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">請求書がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

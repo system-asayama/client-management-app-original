@@ -1,0 +1,57 @@
+{% extends 'construction/base.html' %}
+{% block title %}工事台帳{% endblock %}
+{% block topbar_title %}工事台帳{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>工事台帳</h1>
+    <p>案件ごとの売上・予算・原価・利益を一覧で確認できます</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>案件名</th>
+          <th>ステータス</th>
+          <th>売上</th>
+          <th>予算</th>
+          <th>原価</th>
+          <th>粗利</th>
+          <th>入金</th>
+          <th>詳細</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-weight:600">{{ r.project.name }}</td>
+          <td>
+            {% if r.project.status == '見積中' %}<span class="badge badge-mitsumori">見積中</span>
+            {% elif r.project.status == '受注' %}<span class="badge badge-juchu">受注</span>
+            {% elif r.project.status == '施工中' %}<span class="badge badge-sekouchu">施工中</span>
+            {% elif r.project.status == '完了' %}<span class="badge badge-kanryo">完了</span>
+            {% else %}<span class="badge badge-draft">{{ r.project.status }}</span>{% endif %}
+          </td>
+          <td>¥{{ "{:,.0f}".format(r.uriage) }}</td>
+          <td>¥{{ "{:,.0f}".format(r.budget_total) }}</td>
+          <td>¥{{ "{:,.0f}".format(r.cost_total) }}</td>
+          <td style="{% if r.profit >= 0 %}color:var(--teal-lt){% else %}color:#f87171{% endif %}">
+            ¥{{ "{:,.0f}".format(r.profit) }}
+          </td>
+          <td>¥{{ "{:,.0f}".format(r.nyukin_total) }}</td>
+          <td>
+            <a href="{{ url_for('construction_ext.daicho_detail', pid=r.project.id) }}" class="btn btn-ghost btn-sm">詳細</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">案件がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

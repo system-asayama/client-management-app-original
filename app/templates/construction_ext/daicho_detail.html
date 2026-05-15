@@ -1,0 +1,43 @@
+{% extends 'construction/base.html' %}
+{% block title %}工事台帳 詳細{% endblock %}
+{% block topbar_title %}工事台帳 詳細{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ project.name }}</h1>
+    <p>工事台帳 詳細</p>
+  </div>
+  <a href="{{ url_for('construction_ext.daicho') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+
+<div class="card">
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:var(--teal-lt)">カテゴリ別 予算・原価比較</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>カテゴリ</th>
+          <th>予算</th>
+          <th>原価</th>
+          <th>差額</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in breakdown %}
+        <tr>
+          <td><span class="badge badge-juchu">{{ b.category }}</span></td>
+          <td>¥{{ "{:,.0f}".format(b.budget) }}</td>
+          <td>¥{{ "{:,.0f}".format(b.cost) }}</td>
+          <td style="{% if b.diff >= 0 %}color:var(--teal-lt){% else %}color:#f87171{% endif %}">
+            ¥{{ "{:,.0f}".format(b.diff) }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem">データがありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

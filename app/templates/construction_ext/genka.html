@@ -1,0 +1,99 @@
+{% extends 'construction/base.html' %}
+{% block title %}原価管理{% endblock %}
+{% block topbar_title %}原価管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>原価管理</h1>
+    <p>案件ごとの原価（実際費用）を管理します</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <form method="get" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+    <div class="form-group" style="margin:0;flex:1;min-width:200px">
+      <label class="form-label">案件を選択</label>
+      <select name="anken_id" class="form-control" onchange="this.form.submit()">
+        <option value="">— 案件を選択 —</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}" {% if selected_anken_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if selected_anken_id %}
+<div class="card" style="margin-bottom:1.5rem">
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:var(--teal-lt)">原価登録</h3>
+  <form method="post" action="{{ url_for('construction_ext.genka_new') }}">
+    <input type="hidden" name="anken_id" value="{{ selected_anken_id }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <select name="category" class="form-control">
+          {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">費用日</label>
+        <input type="date" name="cost_date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">項目名</label>
+        <input type="text" name="item_name" class="form-control" placeholder="例：鉄骨材料費">
+      </div>
+      <div class="form-group">
+        <label class="form-label">金額</label>
+        <input type="number" name="amount" class="form-control" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">仕入先</label>
+        <select name="shiiresaki_id" class="form-control">
+          <option value="">— 選択 —</option>
+          {% for s in shiiresakis %}<option value="{{ s.id }}">{{ s.company_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">備考</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">登録</button>
+  </form>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <h3 style="font-size:0.9rem;font-weight:700;color:var(--text)">原価一覧</h3>
+    <span style="font-size:0.8rem;color:var(--muted)">合計: <strong style="color:var(--orange-lt)">¥{{ "{:,.0f}".format(total_cost) }}</strong></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>日付</th><th>カテゴリ</th><th>項目名</th><th>金額</th><th>仕入先</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ r.cost_date or '—' }}</td>
+          <td><span class="badge badge-sekouchu">{{ r.category }}</span></td>
+          <td>{{ r.item_name or '—' }}</td>
+          <td>¥{{ "{:,.0f}".format(r.amount or 0) }}</td>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ r.shiiresaki_id or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.genka_delete', gid=r.id) }}" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">原価がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:var(--muted)">案件を選択して原価を確認・登録してください</div>
+{% endif %}
+{% endblock %}

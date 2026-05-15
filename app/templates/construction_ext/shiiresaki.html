@@ -1,0 +1,72 @@
+{% extends 'construction/base.html' %}
+{% block title %}仕入先{% endblock %}
+{% block topbar_title %}仕入先{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>仕入先管理</h1>
+    <p>資材・外注の仕入先情報を管理します</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:var(--teal-lt)">仕入先登録</h3>
+  <form method="post" action="{{ url_for('construction_ext.shiiresaki_new') }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">会社名 <span style="color:#f87171">*</span></label>
+        <input type="text" name="company_name" class="form-control" required placeholder="例：山田建材株式会社">
+      </div>
+      <div class="form-group">
+        <label class="form-label">担当者名</label>
+        <input type="text" name="contact_name" class="form-control" placeholder="例：山田太郎">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input type="text" name="phone" class="form-control" placeholder="例：03-1234-5678">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メールアドレス</label>
+        <input type="email" name="email" class="form-control" placeholder="example@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <input type="text" name="category" class="form-control" placeholder="例：資材、外注、設備">
+      </div>
+      <div class="form-group">
+        <label class="form-label">住所</label>
+        <input type="text" name="address" class="form-control">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">登録</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:var(--text)">仕入先一覧（{{ rows|length }}件）</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>会社名</th><th>担当者</th><th>電話</th><th>メール</th><th>カテゴリ</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-weight:600">{{ r.company_name }}</td>
+          <td>{{ r.contact_name or '—' }}</td>
+          <td style="font-size:0.75rem">{{ r.phone or '—' }}</td>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ r.email or '—' }}</td>
+          <td>{% if r.category %}<span class="badge badge-juchu">{{ r.category }}</span>{% else %}—{% endif %}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.shiiresaki_delete', sid=r.id) }}" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">仕入先がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'construction/base.html' %}
+{% block title %}入金詳細{% endblock %}
+{% block topbar_title %}入金詳細{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>入金詳細</h1>
+    <p>請求書番号: {{ invoice.doc_number or '—' }}</p>
+  </div>
+  <a href="{{ url_for('construction_ext.nyukin_list') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+  <div class="kpi-card">
+    <div class="kpi-label">請求金額</div>
+    <div class="kpi-value" style="font-size:1.4rem">¥{{ "{:,.0f}".format(invoice_amount) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">入金済</div>
+    <div class="kpi-value" style="font-size:1.4rem;color:var(--teal-lt)">¥{{ "{:,.0f}".format(paid_total) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">残高</div>
+    <div class="kpi-value" style="font-size:1.4rem;{% if remaining > 0 %}color:var(--orange-lt){% else %}color:var(--teal-lt){% endif %}">¥{{ "{:,.0f}".format(remaining) }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:var(--teal-lt)">入金登録</h3>
+  <form method="post" action="{{ url_for('construction_ext.nyukin_new', mid=invoice.id) }}" style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap">
+    <div class="form-group" style="margin:0">
+      <label class="form-label">入金日</label>
+      <input type="date" name="payment_date" class="form-control" required>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label">金額</label>
+      <input type="number" name="amount" class="form-control" placeholder="0" required>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label">入金方法</label>
+      <select name="method" class="form-control">
+        {% for m in methods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label">銀行名</label>
+      <input type="text" name="bank_name" class="form-control" placeholder="例：三菱UFJ">
+    </div>
+    <button type="submit" class="btn btn-primary">登録</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:var(--text)">入金履歴</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>入金日</th><th>金額</th><th>方法</th><th>銀行</th><th>備考</th><th></th></tr></thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ p.payment_date }}</td>
+          <td style="color:var(--teal-lt)">¥{{ "{:,.0f}".format(p.amount or 0) }}</td>
+          <td>{{ p.method or '—' }}</td>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ p.bank_name or '—' }}</td>
+          <td style="font-size:0.75rem;color:var(--muted)">{{ p.notes or '' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('construction_ext.nyukin_delete', nid=p.id) }}" onsubmit="return confirm('削除しますか？')">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">入金履歴がありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

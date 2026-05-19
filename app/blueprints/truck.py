@@ -2118,8 +2118,12 @@ def api_settings():
             if nav_mode not in ('off', 'free', 'paid'):
                 nav_mode = 'free'
             nav_ors_key = request.form.get('nav_ors_key', '').strip()
+            nav_profile = request.form.get('nav_profile', 'driving-hgv').strip()
+            if nav_profile not in ('driving-hgv', 'driving-car'):
+                nav_profile = 'driving-hgv'
             TruckAppSettings.set(db, 'truck_nav_mode', nav_mode, tenant_id=tenant_id)
             TruckAppSettings.set(db, 'truck_nav_ors_key', nav_ors_key, tenant_id=tenant_id)
+            TruckAppSettings.set(db, 'truck_nav_profile', nav_profile, tenant_id=tenant_id)
             db.commit()
             flash('設定を保存しました', 'success')
             return redirect(url_for('truck.api_settings'))
@@ -2127,11 +2131,13 @@ def api_settings():
         app_google_vision_key = TruckAppSettings.get(db, 'google_vision_api_key', tenant_id=tenant_id)
         nav_mode = TruckAppSettings.get(db, 'truck_nav_mode', tenant_id=tenant_id, default='free')
         nav_ors_key = TruckAppSettings.get(db, 'truck_nav_ors_key', tenant_id=tenant_id, default='')
+        nav_profile = TruckAppSettings.get(db, 'truck_nav_profile', tenant_id=tenant_id, default='driving-hgv')
         return render_template('truck/api_settings.html',
                                app_openai_key=app_openai_key,
                                app_google_vision_key=app_google_vision_key,
                                nav_mode=nav_mode,
-                               nav_ors_key=nav_ors_key)
+                               nav_ors_key=nav_ors_key,
+                               nav_profile=nav_profile)
     finally:
         db.close()
 
@@ -3102,22 +3108,23 @@ def driver_operation_location():
         db.close()
 
 
-def _ors_directions(frm, to, avoid_feature, api_key):
-    """OpenRouteServiceでトラック用ルートを取得する（有料ナビ）。
+def _ors_directions(frm, to, avoid_feature, api_key, profile):
+    """OpenRouteServiceでルートを取得する（有料ナビ）。
 
-    frm/to は (lat, lng) のタプル。成功時は (正規化済みdict, None)、
-    失敗時は (None, エラーコード) を返す。
+    frm/to は (lat, lng) のタプル。profile は driving-hgv / driving-car。
+    成功時は (正規化済みdict, None)、失敗時は (None, エラーコード) を返す。
     """
     body = {
         'coordinates': [[frm[1], frm[0]], [to[1], to[0]]],
         'instructions': True,
         'language': 'ja',
         'units': 'm',
+        'preference': 'fastest',
         'geometry_simplify': True,
     }
     if avoid_feature:
         body['options'] = {'avoid_features': [avoid_feature]}
-    url = 'https://api.openrouteservice.org/v2/directions/{0}/geojson'.format(ORS_PROFILE)
+    url = 'https://api.openrouteservice.org/v2/directions/{0}/geojson'.format(profile)
     try:
         resp = http_requests.post(
             url, json=body, timeout=25,
@@ -3286,6 +3293,10 @@ def driver_operation_route():
         mode = TruckAppSettings.get(db, 'truck_nav_mode', tenant_id=tenant_id, default='free')
         ors_key = (TruckAppSettings.get(
             db, 'truck_nav_ors_key', tenant_id=tenant_id, default=ORS_API_KEY) or '').strip()
+        profile = TruckAppSettings.get(
+            db, 'truck_nav_profile', tenant_id=tenant_id, default=ORS_PROFILE)
+        if profile not in ('driving-hgv', 'driving-car'):
+            profile = 'driving-hgv'
     finally:
         db.close()
 
@@ -3307,10 +3318,10 @@ def driver_operation_route():
         if not ors_key:
             return jsonify({'ok': False, 'error': 'routing_unconfigured'})
         avoid_feature = _ORS_AVOID_MAP.get((payload.get('avoid') or '').strip())
-        data, err = _ors_directions(frm, to, avoid_feature, ors_key)
+        data, err = _ors_directions(frm, to, avoid_feature, ors_key, profile)
         if data is None and avoid_feature:
             # 回避条件ではルートが取れない → 条件なしで再探索
-            data, err = _ors_directions(frm, to, None, ors_key)
+            data, err = _ors_directions(frm, to, None, ors_key, profile)
             fell_back = data is not None
     else:  # free
         data, err = _osrm_directions(frm, to)

@@ -113,6 +113,19 @@
         <small style="color:#6b7280; font-size:0.78rem">
           <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:#2563eb">openrouteservice.org</a> で無料登録して取得します。
         </small>
+        <div style="margin-top:14px">
+          <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
+            ルート探索の種別
+          </label>
+          <select name="nav_profile"
+            style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
+            <option value="driving-hgv" {% if nav_profile != 'driving-car' %}selected{% endif %}>トラック用（車両制限を考慮）</option>
+            <option value="driving-car" {% if nav_profile == 'driving-car' %}selected{% endif %}>普通車用（一般的な最速ルート）</option>
+          </select>
+          <small style="color:#6b7280; font-size:0.78rem">
+            トラック用で不自然なルートになる場合は普通車用をお試しください。
+          </small>
+        </div>
       </div>
     </div>
 

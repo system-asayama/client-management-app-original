@@ -843,6 +843,7 @@ def run_auto_migrations():
                             id SERIAL PRIMARY KEY,
                             operation_id INTEGER NULL,
                             driver_id INTEGER NULL,
+                            truck_id INTEGER NULL,
                             tenant_id INTEGER NULL,
                             latitude DOUBLE PRECISION NOT NULL,
                             longitude DOUBLE PRECISION NOT NULL,
@@ -859,6 +860,7 @@ def run_auto_migrations():
                             `id` INT NOT NULL AUTO_INCREMENT,
                             `operation_id` INT NULL,
                             `driver_id` INT NULL,
+                            `truck_id` INT NULL,
                             `tenant_id` INT NULL,
                             `latitude` DOUBLE NOT NULL COMMENT '緯度',
                             `longitude` DOUBLE NOT NULL COMMENT '経度',
@@ -877,28 +879,59 @@ def run_auto_migrations():
                 logger.error(f"テーブル作成エラー: T_トラック運行位置履歴 - {tbl_err}")
         else:
             logger.info("- T_トラック運行位置履歴 テーブルは既に存在します（スキップ）")
-            # 既存テーブルに source カラムが無ければ追加する
-            if not column_exists(session, 'T_トラック運行位置履歴', 'source'):
-                logger.info("T_トラック運行位置履歴テーブルに source カラムを追加中...")
+            # 既存テーブルに不足カラムがあれば追加する
+            truck_loc_columns = [
+                ('source',   "VARCHAR(20) NOT NULL DEFAULT 'app'", '取得元（app=スマホアプリ, device=車載GPS機器）'),
+                ('truck_id', 'INTEGER NULL',                       'トラックID（車載GPS機器からの記録用）'),
+            ]
+            for col_name, col_def, col_comment in truck_loc_columns:
+                if not column_exists(session, 'T_トラック運行位置履歴', col_name):
+                    logger.info(f"T_トラック運行位置履歴テーブルに {col_name} カラムを追加中...")
+                    try:
+                        if db_type == 'postgresql':
+                            session.execute(text(
+                                f'ALTER TABLE "T_トラック運行位置履歴" ADD COLUMN {col_name} {col_def}'
+                            ))
+                        else:
+                            session.execute(text(
+                                f"ALTER TABLE `T_トラック運行位置履歴` ADD COLUMN `{col_name}` {col_def} "
+                                f"COMMENT '{col_comment}'"
+                            ))
+                        session.commit()
+                        logger.info(f"✓ T_トラック運行位置履歴.{col_name} カラムを追加しました")
+                    except Exception as col_err:
+                        session.rollback()
+                        logger.error(f"カラム追加エラー: T_トラック運行位置履歴.{col_name} - {col_err}")
+                else:
+                    logger.info(f"- T_トラック運行位置履歴.{col_name} カラムは既に存在します（スキップ）")
+
+        # 位置検索用インデックス（地図表示クエリの高速化）
+        if table_exists(session, 'T_トラック運行位置履歴'):
+            truck_loc_indexes = [
+                ('idx_truck_loc_driver_recorded', 'driver_id, recorded_at'),
+                ('idx_truck_loc_truck_recorded',  'truck_id, recorded_at'),
+            ]
+            for idx_name, idx_cols in truck_loc_indexes:
                 try:
                     if db_type == 'postgresql':
                         session.execute(text(
-                            'ALTER TABLE "T_トラック運行位置履歴" '
-                            "ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'app'"
+                            f'CREATE INDEX IF NOT EXISTS {idx_name} '
+                            f'ON "T_トラック運行位置履歴" ({idx_cols})'
                         ))
+                        session.commit()
                     else:
-                        session.execute(text(
-                            "ALTER TABLE `T_トラック運行位置履歴` "
-                            "ADD COLUMN `source` VARCHAR(20) NOT NULL DEFAULT 'app' "
-                            "COMMENT '取得元（app=スマホアプリ, device=車載GPS機器）'"
-                        ))
-                    session.commit()
-                    logger.info("✓ T_トラック運行位置履歴.source カラムを追加しました")
-                except Exception as col_err:
+                        # MySQLにはCREATE INDEX IF NOT EXISTSが無いため重複時は無視
+                        try:
+                            session.execute(text(
+                                f'CREATE INDEX `{idx_name}` '
+                                f'ON `T_トラック運行位置履歴` ({idx_cols})'
+                            ))
+                            session.commit()
+                        except Exception:
+                            session.rollback()
+                except Exception as idx_err:
                     session.rollback()
-                    logger.error(f"カラム追加エラー: T_トラック運行位置履歴.source - {col_err}")
-            else:
-                logger.info("- T_トラック運行位置履歴.source カラムは既に存在します（スキップ）")
+                    logger.error(f"インデックス作成エラー: {idx_name} - {idx_err}")
 
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         

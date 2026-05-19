@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import text
 
 from app.db import SessionLocal
-from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem, TruckSchedule
+from app.models_truck import Truck, TruckRoute, TruckDriver, TruckOperation, TruckAppSettings, TruckClient, TruckContract, TruckInsurance, TruckAccidentRecord, TruckInspectionRecord, TruckInvoice, TruckInvoiceItem, TruckSchedule, TruckDriverLocation
 from app.models_login import TTenpo, TTenant, TKanrisha, TAppManagerGroup, TJugyoin, TJugyoinTenpo
 from app.utils.decorators import require_roles, ROLES
 
@@ -2987,6 +2987,75 @@ def driver_operation_action():
         db.commit()
         flash('運行を終了しました' if new_status == 'finished' else 'ステータスを更新しました', 'success')
         return redirect(url_for('truck.driver_operation'))
+    finally:
+        db.close()
+
+
+@bp.route('/driver/operation/location', methods=['POST'])
+@driver_login_required
+def driver_operation_location():
+    """ドライバー端末（スマホ）のGPS位置を記録する。
+
+    運行画面から約20秒間隔でPOSTされる。圏外復帰時のまとめ送信に対応するため
+    複数地点を配列で受け取れる。車載GPS(FMM880)とは別テーブル
+    (truck_driver_locations)に保存し、車載機の故障・未搭載時の補完に使う。
+    """
+    driver_id = session['truck_driver_id']
+    payload = request.get_json(silent=True) or {}
+    points = payload.get('points')
+    if points is None:
+        points = [payload]
+    if not isinstance(points, list):
+        return jsonify({'ok': False, 'error': 'invalid payload'}), 400
+    points = points[:100]  # 1リクエストあたりの地点数上限
+
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        active_op = _get_active_driving_operation(db, driver_id)
+        saved = 0
+        for p in points:
+            if not isinstance(p, dict):
+                continue
+            try:
+                lat = float(p.get('lat'))
+                lng = float(p.get('lng'))
+            except (TypeError, ValueError):
+                continue
+            if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lng <= 180.0):
+                continue
+            try:
+                speed = float(p.get('speed')) if p.get('speed') is not None else None
+                if speed is not None and (speed < 0 or speed > 300):
+                    speed = None
+            except (TypeError, ValueError):
+                speed = None
+            try:
+                accuracy = float(p.get('accuracy')) if p.get('accuracy') is not None else None
+                if accuracy is not None and accuracy < 0:
+                    accuracy = None
+            except (TypeError, ValueError):
+                accuracy = None
+            recorded_at = None
+            if p.get('recorded_at') is not None:
+                try:
+                    recorded_at = datetime.fromtimestamp(float(p.get('recorded_at')) / 1000.0)
+                except (TypeError, ValueError, OverflowError, OSError):
+                    recorded_at = None
+            db.add(TruckDriverLocation(
+                driver_id=driver_id,
+                operation_id=active_op.id if active_op else None,
+                truck_id=active_op.truck_id if active_op else None,
+                latitude=lat,
+                longitude=lng,
+                speed_kmh=speed,
+                accuracy=accuracy,
+                recorded_at=recorded_at,
+                tenant_id=driver.tenant_id if driver else None,
+            ))
+            saved += 1
+        db.commit()
+        return jsonify({'ok': True, 'saved': saved, 'active': active_op is not None})
     finally:
         db.close()
 

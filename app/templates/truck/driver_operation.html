@@ -194,6 +194,12 @@
     var statusEl = document.getElementById('geo-status');
     var marker = null, centered = false, prev = null;
 
+    var lastPoint = null;       // 直近の測位結果（未送信）
+    var pendingPoints = [];     // サーバー送信待ち（圏外バッファ）
+    var SEND_INTERVAL = 20000;  // 20秒ごとにサーバーへ送信
+    var MAX_BUFFER = 500;       // バッファ上限（超過分は古いものから破棄）
+    var LOCATION_URL = '{{ url_for('truck.driver_operation_location') }}';
+
     function haversine(a, b) {
       var R = 6371000, toRad = function (d) { return d * Math.PI / 180; };
       var dLat = toRad(b.lat - a.lat), dLon = toRad(b.lng - a.lng);
@@ -230,6 +236,12 @@
         speedEl.textContent = Math.round(kmh);
       }
       prev = { lat: lat, lng: lng, t: pos.timestamp };
+      lastPoint = {
+        lat: lat, lng: lng,
+        speed: (kmh != null && kmh >= 0) ? Math.round(kmh * 10) / 10 : null,
+        accuracy: (pos.coords.accuracy != null) ? Math.round(pos.coords.accuracy) : null,
+        recorded_at: pos.timestamp
+      };
     }
 
     function onErr(err) {
@@ -243,12 +255,55 @@
       }
     }
 
+    // 20秒ごとに最新地点をサーバーへ送信。失敗（圏外など）した分はバッファに戻し次回再送
+    function flushLocations() {
+      if (lastPoint) { pendingPoints.push(lastPoint); lastPoint = null; }
+      if (pendingPoints.length > MAX_BUFFER) {
+        pendingPoints = pendingPoints.slice(pendingPoints.length - MAX_BUFFER);
+      }
+      if (pendingPoints.length === 0) return;
+      var batch = pendingPoints;
+      pendingPoints = [];
+      fetch(LOCATION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points: batch })
+      }).then(function (r) {
+        if (!r.ok) throw new Error('http ' + r.status);
+      }).catch(function () {
+        pendingPoints = batch.concat(pendingPoints);
+      });
+    }
+
+    // Wake Lock: 運行画面の表示中は画面を消灯させない（ロックによるGPS停止を防ぐ）
+    function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+          navigator.wakeLock.request('screen').catch(function () {});
+        }
+      } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') requestWakeLock();
+    });
+
     if (!navigator.geolocation) {
       statusEl.textContent = 'このブラウザは位置情報に対応していません。';
       return;
     }
     navigator.geolocation.watchPosition(onPos, onErr, {
       enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
+    });
+    requestWakeLock();
+    setInterval(flushLocations, SEND_INTERVAL);
+
+    // ページを閉じる直前に未送信分を送る
+    window.addEventListener('pagehide', function () {
+      if (lastPoint) { pendingPoints.push(lastPoint); lastPoint = null; }
+      if (pendingPoints.length && navigator.sendBeacon) {
+        navigator.sendBeacon(LOCATION_URL, new Blob(
+          [JSON.stringify({ points: pendingPoints })], { type: 'application/json' }));
+      }
     });
   })();
   </script>

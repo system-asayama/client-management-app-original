@@ -181,6 +181,44 @@ class TruckOperation(Base):
         }
 
 
+class TruckDriverLocation(Base):
+    """ドライバー端末（スマホ）のGPS位置ログ。
+
+    車載GPS(FMM880)とは別系統で記録し、車載機の故障・未搭載時の補完に使う。
+    運行画面が前面表示の間だけブラウザのGeolocation APIから一定間隔で送信される。
+    """
+    __tablename__ = "truck_driver_locations"
+    id = Column(Integer, primary_key=True)
+    driver_id = Column(Integer, ForeignKey("truck_drivers.id"), nullable=False)
+    operation_id = Column(Integer, ForeignKey("truck_operations.id"), nullable=True)
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    speed_kmh = Column(Float)            # 速度（km/h）取得できた場合のみ
+    accuracy = Column(Float)             # GPS精度（メートル）
+    recorded_at = Column(DateTime)       # 端末側の計測時刻
+    tenant_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)  # サーバー受信時刻
+
+    driver = relationship("TruckDriver", backref="device_locations")
+    operation = relationship("TruckOperation", backref="device_locations")
+    truck = relationship("Truck", backref="device_locations")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "driver_id": self.driver_id,
+            "operation_id": self.operation_id,
+            "truck_id": self.truck_id,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "speed_kmh": self.speed_kmh,
+            "accuracy": self.accuracy,
+            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class TruckClient(Base):
     __tablename__ = "truck_clients"
     id = Column(Integer, primary_key=True)

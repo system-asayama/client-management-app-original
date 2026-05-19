@@ -163,6 +163,7 @@
           <span>残り <b id="nav-dist">--</b></span>
           <span>到着まで <b id="nav-eta">--</b></span>
         </div>
+        <div id="nav-resolved" class="nav-fallback" style="display:none;text-align:left;line-height:1.5;"></div>
         <div class="nav-fallback">
           うまく案内できないときは
           <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ nav_destination|urlencode }}&amp;travelmode=driving"
@@ -381,14 +382,32 @@
       else { text = modJa[mod] || '直進'; }
       return { text: text, sub: road, arrow: arrow };
     }
-    function geocode(q) {
-      var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1' +
+    function geocode(q, near) {
+      var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=10' +
                 '&accept-language=ja&countrycodes=jp&q=' + encodeURIComponent(q);
+      if (near) {
+        // 現在地周辺(±約0.7度)を優先して候補をランク付け
+        var d = 0.7;
+        url += '&viewbox=' + (near.lng - d) + ',' + (near.lat + d) +
+               ',' + (near.lng + d) + ',' + (near.lat - d);
+      }
       return fetch(url, { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (!j || !j.length) throw new Error('行き先が見つかりませんでした');
-          return { lat: parseFloat(j[0].lat), lng: parseFloat(j[0].lon) };
+          var best = j[0];
+          if (near) {
+            // 同名地名の取り違えを防ぐため、現在地に最も近い候補を採用
+            var bestD = Infinity;
+            j.forEach(function (it) {
+              var dd = haversine(near, { lat: parseFloat(it.lat), lng: parseFloat(it.lon) });
+              if (dd < bestD) { bestD = dd; best = it; }
+            });
+          }
+          return {
+            lat: parseFloat(best.lat), lng: parseFloat(best.lon),
+            label: best.display_name || q
+          };
         });
     }
     function setNavPanel(on) {
@@ -404,6 +423,19 @@
       }
       nav.lastNearD = bestD;
       return best;
+    };
+
+    nav.showResolved = function () {
+      var r = el('nav-resolved');
+      if (!r) return;
+      var km = nav.total / 1000;
+      var kmText = km >= 10 ? Math.round(km) : km.toFixed(1);
+      var far = nav.total > 200000;
+      r.style.color = far ? '#dc2626' : '#94a3b8';
+      r.textContent = (far ? '⚠ ' : '') + '行き先（自動判定）: ' +
+        (nav.destLabel || NAV_DEST) + '　— 約' + kmText + 'km' +
+        (far ? '。遠すぎる場合はルートに登録された行き先住所をご確認ください' : '');
+      r.style.display = 'block';
     };
 
     nav.applyRoute = function (route, to) {
@@ -434,6 +466,7 @@
       try { map.fitBounds(nav.routeLayer.getBounds().pad(0.15)); } catch (e) {}
       nav.active = true;
       nav.spokenIdx = -1;
+      nav.showResolved();
       mapEl.classList.add('nav-active');
       setTimeout(function () { map.invalidateSize(); }, 200);
       el('nav-start-btn').style.display = 'none';
@@ -486,8 +519,9 @@
         return;
       }
       nav.pendingStart = false;
-      geocode(NAV_DEST).then(function (dest) {
+      geocode(NAV_DEST, { lat: prev.lat, lng: prev.lng }).then(function (dest) {
         nav.destLatLng = dest;
+        nav.destLabel = dest.label;
         el('nav-instr-main').textContent = 'ルートを計算しています…';
         return nav.fetchRoute({ lat: prev.lat, lng: prev.lng }, dest);
       }).then(function () {

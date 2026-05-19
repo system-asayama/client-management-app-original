@@ -134,7 +134,12 @@
       </div>
       <div id="geo-status" class="geo-status">位置情報を取得しています…（初回は許可ダイアログで「許可」を選んでください）</div>
       <div id="map" class="live-map"></div>
-      {% if nav_destination %}
+      {% if nav_mode == 'off' %}
+      <div style="font-size:12px;color:#94a3b8;text-align:center;margin-top:8px;">
+        ※ ナビ機能は利用できません（会社の設定）
+      </div>
+      {% elif nav_destination %}
+      {% if nav_mode == 'paid' %}
       <div class="field" style="margin-top:12px;margin-bottom:0;">
         <label for="nav-pref">ルート設定</label>
         <select id="nav-pref">
@@ -145,6 +150,7 @@
         </select>
         <div id="nav-pref-note" class="nav-fallback" style="display:none;text-align:left;margin-top:6px;color:#b45309;"></div>
       </div>
+      {% endif %}
       <button type="button" id="nav-start-btn" class="btn btn-blue" style="margin-top:12px;">
         🧭 「{{ nav_destination }}」へナビ開始
       </button>

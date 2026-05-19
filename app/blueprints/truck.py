@@ -2105,13 +2105,25 @@ def api_settings():
                 TruckAppSettings.set(db, 'openai_api_key', openai_key, tenant_id=tenant_id)
             if google_vision_key:
                 TruckAppSettings.set(db, 'google_vision_api_key', google_vision_key, tenant_id=tenant_id)
-            flash('APIキーを保存しました', 'success')
+            # 画面内ナビの方式（off=使わない / free=無料 / paid=有料・自社契約）
+            nav_mode = request.form.get('nav_mode', 'free').strip()
+            if nav_mode not in ('off', 'free', 'paid'):
+                nav_mode = 'free'
+            nav_ors_key = request.form.get('nav_ors_key', '').strip()
+            TruckAppSettings.set(db, 'truck_nav_mode', nav_mode, tenant_id=tenant_id)
+            TruckAppSettings.set(db, 'truck_nav_ors_key', nav_ors_key, tenant_id=tenant_id)
+            db.commit()
+            flash('設定を保存しました', 'success')
             return redirect(url_for('truck.api_settings'))
         app_openai_key = TruckAppSettings.get(db, 'openai_api_key', tenant_id=tenant_id)
         app_google_vision_key = TruckAppSettings.get(db, 'google_vision_api_key', tenant_id=tenant_id)
+        nav_mode = TruckAppSettings.get(db, 'truck_nav_mode', tenant_id=tenant_id, default='free')
+        nav_ors_key = TruckAppSettings.get(db, 'truck_nav_ors_key', tenant_id=tenant_id, default='')
         return render_template('truck/api_settings.html',
                                app_openai_key=app_openai_key,
-                               app_google_vision_key=app_google_vision_key)
+                               app_google_vision_key=app_google_vision_key,
+                               nav_mode=nav_mode,
+                               nav_ors_key=nav_ors_key)
     finally:
         db.close()
 
@@ -2925,6 +2937,9 @@ def driver_operation():
         op_truck = db.query(Truck).get(active_op.truck_id) if active_op and active_op.truck_id else None
         op_route = db.query(TruckRoute).get(active_op.route_id) if active_op and active_op.route_id else None
         nav_destination = (op_route.destination or '').strip() if op_route else ''
+        nav_mode = TruckAppSettings.get(
+            db, 'truck_nav_mode', tenant_id=driver.tenant_id, default='free'
+        ) if driver else 'free'
         return render_template(
             'truck/driver_operation.html',
             driver=driver,
@@ -2933,6 +2948,7 @@ def driver_operation():
             op_truck=op_truck,
             op_route=op_route,
             nav_destination=nav_destination or None,
+            nav_mode=nav_mode,
             trucks=trucks,
             routes=routes,
         )
@@ -3078,8 +3094,8 @@ def driver_operation_location():
         db.close()
 
 
-def _ors_directions(frm, to, avoid_feature):
-    """OpenRouteServiceでトラック用ルートを取得する。
+def _ors_directions(frm, to, avoid_feature, api_key):
+    """OpenRouteServiceでトラック用ルートを取得する（有料ナビ）。
 
     frm/to は (lat, lng) のタプル。成功時は (正規化済みdict, None)、
     失敗時は (None, エラーコード) を返す。
@@ -3097,7 +3113,7 @@ def _ors_directions(frm, to, avoid_feature):
     try:
         resp = http_requests.post(
             url, json=body, timeout=25,
-            headers={'Authorization': ORS_API_KEY, 'Content-Type': 'application/json'},
+            headers={'Authorization': api_key, 'Content-Type': 'application/json'},
         )
     except http_requests.RequestException:
         return None, 'request_failed'
@@ -3139,16 +3155,111 @@ def _ors_directions(frm, to, avoid_feature):
         return None, 'parse_failed'
 
 
+# OSRM(無料ナビ)のマニューバ → 表示用テキスト・矢印
+_OSRM_ARROW = {
+    'left': '⬅️', 'right': '➡️', 'slight left': '↖️', 'slight right': '↗️',
+    'sharp left': '⬅️', 'sharp right': '➡️', 'straight': '⬆️', 'uturn': '🔃',
+}
+_OSRM_MOD_JA = {
+    'left': '左折', 'right': '右折', 'slight left': 'やや左', 'slight right': 'やや右',
+    'sharp left': '鋭く左折', 'sharp right': '鋭く右折', 'straight': '直進', 'uturn': 'Uターン',
+}
+
+
+def _osrm_maneuver(man, name):
+    """OSRMのmaneuverを (案内文, 矢印, 種別, 道路名) に変換する。"""
+    mtype = man.get('type') or ''
+    mod = man.get('modifier') or ''
+    arrow = _OSRM_ARROW.get(mod, '⬆️')
+    if mtype == 'depart':
+        return '出発', '⬆️', 'depart', name
+    if mtype == 'arrive':
+        return '目的地に到着', '🏁', 'arrive', ''
+    if mtype in ('roundabout', 'rotary'):
+        return 'ロータリーを進む', '🔄', 'turn', name
+    if mtype == 'merge':
+        return (_OSRM_MOD_JA.get(mod, '') + '方向へ合流'), arrow, 'turn', name
+    if mtype == 'fork':
+        return (_OSRM_MOD_JA.get(mod, '直進') + '方向へ'), arrow, 'turn', name
+    if mtype in ('new name', 'continue', 'notification'):
+        return '直進', '⬆️', 'turn', name
+    return _OSRM_MOD_JA.get(mod, '直進'), arrow, 'turn', name
+
+
+def _osrm_directions(frm, to):
+    """OSRM公開デモで最速ルートを取得する（無料ナビ）。
+
+    成功時は (正規化済みdict, None)、失敗時は (None, エラーコード) を返す。
+    """
+    url = ('https://router.project-osrm.org/route/v1/driving/'
+           '{0},{1};{2},{3}?overview=full&geometries=geojson&steps=true'
+           ).format(frm[1], frm[0], to[1], to[0])
+    try:
+        resp = http_requests.get(url, timeout=25)
+    except http_requests.RequestException:
+        return None, 'request_failed'
+    if resp.status_code != 200:
+        return None, 'no_route'
+    try:
+        routes = resp.json().get('routes') or []
+        if not routes:
+            return None, 'no_route'
+        route = routes[0]
+        coords = []
+        steps_out = []
+        for leg in route.get('legs') or []:
+            for st in leg.get('steps') or []:
+                g = ((st.get('geometry') or {}).get('coordinates')) or []
+                if not g:
+                    continue
+                if not coords:
+                    man_idx = 0
+                    coords.extend(g)
+                else:
+                    man_idx = len(coords) - 1  # 前ステップ終端と共有する点
+                    coords.extend(g[1:])
+                text, arrow, kind, name = _osrm_maneuver(
+                    st.get('maneuver') or {}, st.get('name') or '')
+                steps_out.append({
+                    'idx': man_idx, 'text': text, 'name': name,
+                    'arrow': arrow, 'kind': kind,
+                })
+        if not coords:
+            return None, 'no_route'
+        return {
+            'distance': route.get('distance', 0.0),
+            'duration': route.get('duration', 0.0),
+            'coords': [[c[1], c[0]] for c in coords],  # [lat, lng]
+            'steps': steps_out,
+        }, None
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None, 'parse_failed'
+
+
 @bp.route('/driver/operation/route', methods=['POST'])
 @driver_login_required
 def driver_operation_route():
     """画面内ナビ用のルート探索プロキシ。
 
-    APIキーをブラウザに露出させないため、サーバー側でOpenRouteServiceを
-    中継する。回避条件でルートが取れない場合は条件なしで再探索する。
+    会社（テナント）ごとのナビ方式に応じて探索先を切り替える。
+      free … OSRM公開デモ（最速ルートのみ・無料）
+      paid … OpenRouteService（回避指定・トラックルート・各社契約キー）
+    APIキーはブラウザに露出させないためサーバー側で中継する。
     """
-    if not ORS_API_KEY:
-        return jsonify({'ok': False, 'error': 'routing_unconfigured'})
+    driver_id = session['truck_driver_id']
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        tenant_id = driver.tenant_id if driver else None
+        mode = TruckAppSettings.get(db, 'truck_nav_mode', tenant_id=tenant_id, default='free')
+        ors_key = (TruckAppSettings.get(
+            db, 'truck_nav_ors_key', tenant_id=tenant_id, default=ORS_API_KEY) or '').strip()
+    finally:
+        db.close()
+
+    if mode == 'off':
+        return jsonify({'ok': False, 'error': 'nav_disabled'})
+
     payload = request.get_json(silent=True) or {}
     try:
         frm = (float(payload['from']['lat']), float(payload['from']['lng']))
@@ -3159,14 +3270,19 @@ def driver_operation_route():
         if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lng <= 180.0):
             return jsonify({'ok': False, 'error': 'invalid_payload'}), 400
 
-    avoid_feature = _ORS_AVOID_MAP.get((payload.get('avoid') or '').strip())
-
-    data, err = _ors_directions(frm, to, avoid_feature)
     fell_back = False
-    if data is None and avoid_feature:
-        # 回避条件ではルートが取れない → 条件なしで再探索
-        data, err = _ors_directions(frm, to, None)
-        fell_back = data is not None
+    if mode == 'paid':
+        if not ors_key:
+            return jsonify({'ok': False, 'error': 'routing_unconfigured'})
+        avoid_feature = _ORS_AVOID_MAP.get((payload.get('avoid') or '').strip())
+        data, err = _ors_directions(frm, to, avoid_feature, ors_key)
+        if data is None and avoid_feature:
+            # 回避条件ではルートが取れない → 条件なしで再探索
+            data, err = _ors_directions(frm, to, None, ors_key)
+            fell_back = data is not None
+    else:  # free
+        data, err = _osrm_directions(frm, to)
+
     if data is None:
         return jsonify({'ok': False, 'error': err or 'no_route'})
 

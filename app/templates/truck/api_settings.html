@@ -6,7 +6,7 @@
 <div style="max-width:700px; margin:0 auto; padding:20px">
 
   <h1 style="font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:6px">
-    🔑 AIサービス APIキー設定
+    🔑 APIキー・ナビ設定
   </h1>
   <p style="color:#64748b; font-size:0.9rem; margin-bottom:4px">
     契約書・保険証券のPDF/画像から内容を自動読み取りするためのAPIキーを設定します。
@@ -73,9 +73,52 @@
       </div>
     </div>
 
+    <!-- 画面内ナビ -->
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:24px">
+      <h2 style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px; padding-bottom:10px; border-bottom:1px solid #f1f5f9">
+        🧭 画面内ナビ（ルート探索）
+      </h2>
+      <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px">
+        運行モード画面のナビをどの方式で使うか選びます。
+      </p>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <label style="display:flex; gap:8px; align-items:flex-start; font-size:0.9rem; color:#374151; cursor:pointer">
+          <input type="radio" name="nav_mode" value="off" style="margin-top:3px"
+            {% if nav_mode == 'off' %}checked{% endif %}>
+          <span><b>使わない</b><br><span style="color:#6b7280; font-size:0.8rem">ナビ機能を表示しません。</span></span>
+        </label>
+        <label style="display:flex; gap:8px; align-items:flex-start; font-size:0.9rem; color:#374151; cursor:pointer">
+          <input type="radio" name="nav_mode" value="free" style="margin-top:3px"
+            {% if nav_mode != 'off' and nav_mode != 'paid' %}checked{% endif %}>
+          <span><b>無料ナビ</b><br><span style="color:#6b7280; font-size:0.8rem">最速ルートのみ。高速・有料道路の回避やトラック専用ルートは使えません。契約・費用は不要です。</span></span>
+        </label>
+        <label style="display:flex; gap:8px; align-items:flex-start; font-size:0.9rem; color:#374151; cursor:pointer">
+          <input type="radio" name="nav_mode" value="paid" style="margin-top:3px"
+            {% if nav_mode == 'paid' %}checked{% endif %}>
+          <span><b>有料ナビ</b><br><span style="color:#6b7280; font-size:0.8rem">高速・有料道路の回避、トラック専用ルートが使えます。自社でOpenRouteServiceと契約しAPIキーが必要です。</span></span>
+        </label>
+      </div>
+      <div id="nav-ors-key-row" style="margin-top:16px">
+        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
+          OpenRouteService API Key <span style="font-weight:400; color:#6b7280; font-size:0.8rem">有料ナビ用</span>
+        </label>
+        <div style="position:relative">
+          <input type="password" name="nav_ors_key" id="nav_ors_key"
+            value="{{ nav_ors_key or '' }}"
+            placeholder="5b3ce3597851..."
+            style="width:100%; padding:10px 40px 10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
+          <button type="button" onclick="togglePassword('nav_ors_key')"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem">👁</button>
+        </div>
+        <small style="color:#6b7280; font-size:0.78rem">
+          <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:#2563eb">openrouteservice.org</a> で無料登録して取得します。
+        </small>
+      </div>
+    </div>
+
     <button type="submit"
       style="width:100%; padding:14px; background:#1e3a5f; color:#fff; border:none; border-radius:8px; font-size:1rem; font-weight:700; cursor:pointer">
-      APIキーを保存
+      設定を保存
     </button>
   </form>
 </div>
@@ -85,5 +128,16 @@ function togglePassword(id) {
   const input = document.getElementById(id);
   input.type = input.type === 'password' ? 'text' : 'password';
 }
+(function () {
+  var row = document.getElementById('nav-ors-key-row');
+  function sync() {
+    var sel = document.querySelector('input[name="nav_mode"]:checked');
+    row.style.display = (sel && sel.value === 'paid') ? 'block' : 'none';
+  }
+  Array.prototype.forEach.call(
+    document.querySelectorAll('input[name="nav_mode"]'),
+    function (r) { r.addEventListener('change', sync); });
+  sync();
+})();
 </script>
 {% endblock %}

@@ -79,23 +79,23 @@
     <!-- モード選択 -->
     <div class="card">
       <div class="section-title">🔄 モードを選択</div>
-      <!-- トラック運行モード：アプリを起動 -->
-      <a href="manus20260421055548://" class="btn-mode btn-truck">
+      <!-- トラック運行モード：Webページ -->
+      <a href="{{ url_for('truck.driver_operation') }}" class="btn-mode btn-truck">
         🚚 トラック運行モード
       </a>
       <!-- 内勤モード：Webページ -->
       <a href="{{ url_for('truck.driver_office') }}" class="btn-mode btn-office" style="margin-bottom:0;">
         🏢 内勤モード
       </a>
-      <!-- アプリ未インストールの場合のダウンロード -->
+      <!-- 旧Androidアプリのダウンロード（任意・従来方式） -->
       {% if apk_url %}
       <a href="{{ url_for('truck.driver_apk_download') }}" class="btn-dl">
-        📥 トラック運行管理アプリをお持ちでない方はこちら（ダウンロード）
+        📥 Androidアプリ版をご利用の方はこちら（ダウンロード）
       </a>
       {% if apk_version %}
       <div class="apk-version">バージョン: {{ apk_version }}</div>
       {% endif %}
-      <div class="apk-hint">※ トラック運行モードはAndroidアプリで動作します。アプリが起動しない場合はダウンロードしてください。</div>
+      <div class="apk-hint">※ 運行モード・内勤モードはブラウザだけで利用できます。Androidアプリは従来方式として引き続き利用可能です。</div>
       {% endif %}
     </div>
 

@@ -2868,6 +2868,127 @@ def driver_office_action():
         db.close()
 
 
+# ─── ドライバー運行モード（Web版） ──────────────────────────────
+# スマホアプリを使わず、ブラウザだけで運行の開始・荷積み・荷下ろし・
+# 休憩・退勤を登録できるようにする。GPSは車載機器側で取得する。
+
+DRIVING_ACTIVE_STATUSES = ('driving', 'loading', 'unloading', 'break')
+
+
+def _get_active_driving_operation(db, driver_id):
+    """進行中の運行（内勤を除く）を返す。無ければ None。"""
+    return db.query(TruckOperation).filter(
+        TruckOperation.driver_id == driver_id,
+        TruckOperation.operation_date == date.today(),
+        TruckOperation.status.in_(DRIVING_ACTIVE_STATUSES),
+    ).order_by(TruckOperation.id.desc()).first()
+
+
+@bp.route('/driver/operation')
+@driver_login_required
+def driver_operation():
+    """ドライバー運行モード画面（運行開始・荷積み・荷下ろし・休憩・退勤）"""
+    driver_id = session['truck_driver_id']
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        today = date.today()
+        today_str = today.strftime('%Y年%m月%d日')
+        active_op = _get_active_driving_operation(db, driver_id)
+        trucks = []
+        routes = []
+        if active_op is None and driver:
+            trucks = db.query(Truck).filter_by(
+                tenant_id=driver.tenant_id, active=True
+            ).order_by(Truck.number).all()
+            routes = db.query(TruckRoute).filter_by(
+                tenant_id=driver.tenant_id, active=True
+            ).order_by(TruckRoute.name).all()
+        op_truck = db.query(Truck).get(active_op.truck_id) if active_op and active_op.truck_id else None
+        op_route = db.query(TruckRoute).get(active_op.route_id) if active_op and active_op.route_id else None
+        return render_template(
+            'truck/driver_operation.html',
+            driver=driver,
+            today_str=today_str,
+            active_op=active_op,
+            op_truck=op_truck,
+            op_route=op_route,
+            trucks=trucks,
+            routes=routes,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/driver/operation/start', methods=['POST'])
+@driver_login_required
+def driver_operation_start():
+    """運行を開始する"""
+    driver_id = session['truck_driver_id']
+    truck_id = request.form.get('truck_id')
+    route_id = request.form.get('route_id') or None
+    if not truck_id:
+        flash('トラックを選択してください', 'error')
+        return redirect(url_for('truck.driver_operation'))
+    db = SessionLocal()
+    try:
+        driver = db.query(TruckDriver).get(driver_id)
+        if _get_active_driving_operation(db, driver_id):
+            flash('すでに進行中の運行があります', 'error')
+            return redirect(url_for('truck.driver_operation'))
+        op = TruckOperation(
+            driver_id=driver_id,
+            truck_id=int(truck_id),
+            route_id=int(route_id) if route_id else None,
+            status='driving',
+            operation_type='driving',
+            start_time=datetime.now(),
+            operation_date=date.today(),
+            tenant_id=driver.tenant_id if driver else None,
+        )
+        db.add(op)
+        db.commit()
+        flash('運行を開始しました', 'success')
+        return redirect(url_for('truck.driver_operation'))
+    finally:
+        db.close()
+
+
+@bp.route('/driver/operation/action', methods=['POST'])
+@driver_login_required
+def driver_operation_action():
+    """運行ステータスを更新する（荷積み・荷下ろし・休憩・走行再開・退勤）"""
+    driver_id = session['truck_driver_id']
+    operation_id = request.form.get('operation_id')
+    new_status = request.form.get('status')
+    if not operation_id or new_status not in DRIVING_ACTIVE_STATUSES + ('finished',):
+        flash('不正な操作です', 'error')
+        return redirect(url_for('truck.driver_operation'))
+    db = SessionLocal()
+    try:
+        op = db.query(TruckOperation).get(int(operation_id))
+        if not op or op.driver_id != driver_id:
+            flash('運行記録が見つかりません', 'error')
+            return redirect(url_for('truck.driver_operation'))
+        now = datetime.now()
+        if new_status == 'finished':
+            op.end_time = now
+        elif new_status == 'loading':
+            op.loading_start_time = now
+        elif new_status == 'unloading':
+            op.unloading_start_time = now
+        elif new_status == 'break':
+            op.break_start_time = now
+        elif new_status == 'driving' and op.status == 'break':
+            op.break_end_time = now
+        op.status = new_status
+        db.commit()
+        flash('運行を終了しました' if new_status == 'finished' else 'ステータスを更新しました', 'success')
+        return redirect(url_for('truck.driver_operation'))
+    finally:
+        db.close()
+
+
 # ─── 内勤スタッフ（TruckAdmin）マイページ ────────────────────────────────────────
 
 @bp.route('/office/login', methods=['GET', 'POST'])

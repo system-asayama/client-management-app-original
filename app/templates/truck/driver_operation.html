@@ -240,6 +240,40 @@
     }).addTo(map);
     setTimeout(function () { map.invalidateSize(); }, 200);
 
+    // 地図の自動追従。ユーザーが拡大縮小・移動したら追従を止める
+    var navFollow = true, mapProg = false, recenterBtn = null;
+    function progMap(fn) {
+      mapProg = true;
+      fn();
+      setTimeout(function () { mapProg = false; }, 400);
+    }
+    var RecenterControl = L.Control.extend({
+      options: { position: 'bottomright' },
+      onAdd: function () {
+        var b = L.DomUtil.create('button');
+        b.type = 'button';
+        b.textContent = '📍 現在地に戻る';
+        b.style.cssText = 'display:none;margin:0 8px 10px 0;padding:8px 12px;' +
+          'background:#2563eb;color:#fff;border:none;border-radius:8px;' +
+          'font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;' +
+          'box-shadow:0 1px 5px rgba(0,0,0,0.35);';
+        L.DomEvent.disableClickPropagation(b);
+        L.DomEvent.on(b, 'click', function () {
+          navFollow = true;
+          b.style.display = 'none';
+          if (prev) progMap(function () { map.panTo([prev.lat, prev.lng]); });
+        });
+        recenterBtn = b;
+        return b;
+      }
+    });
+    map.addControl(new RecenterControl());
+    map.on('zoomstart dragstart', function () {
+      if (mapProg) return;  // プログラムによる移動は無視
+      navFollow = false;
+      if (recenterBtn) recenterBtn.style.display = 'block';
+    });
+
     var speedEl = document.getElementById('speed-val');
     var statusEl = document.getElementById('geo-status');
     var marker = null, centered = false, prev = null;
@@ -271,8 +305,8 @@
       } else {
         marker.setLatLng([lat, lng]);
       }
-      if (!centered) { map.setView([lat, lng], 16); centered = true; }
-      else { map.panTo([lat, lng]); }
+      if (!centered) { progMap(function () { map.setView([lat, lng], 16); }); centered = true; }
+      else if (navFollow && !nav.active) { map.panTo([lat, lng]); }
 
       var kmh = null, fromGps = false;
       if (pos.coords.speed != null && !isNaN(pos.coords.speed)) {
@@ -447,7 +481,12 @@
       nav.routeLayer = L.polyline(nav.coords, { color: '#2563eb', weight: 6, opacity: 0.75 }).addTo(map);
       if (nav.destMarker) map.removeLayer(nav.destMarker);
       nav.destMarker = L.marker([to.lat, to.lng]).addTo(map);
-      try { map.fitBounds(nav.routeLayer.getBounds().pad(0.15)); } catch (e) {}
+      navFollow = true;
+      if (recenterBtn) recenterBtn.style.display = 'none';
+      progMap(function () {
+        if (prev) map.setView([prev.lat, prev.lng], 16);
+        else { try { map.fitBounds(nav.routeLayer.getBounds().pad(0.15)); } catch (e) {} }
+      });
       nav.active = true;
       nav.spokenIdx = -1;
       nav.showResolved();
@@ -520,6 +559,8 @@
     nav.stop = function () {
       nav.active = false;
       nav.pendingStart = false;
+      navFollow = true;
+      if (recenterBtn) recenterBtn.style.display = 'none';
       if (nav.routeLayer) { map.removeLayer(nav.routeLayer); nav.routeLayer = null; }
       if (nav.destMarker) { map.removeLayer(nav.destMarker); nav.destMarker = null; }
       mapEl.classList.remove('nav-active');
@@ -573,7 +614,7 @@
       // 到着予測はOSRMの道路速度ベース所要時間を残り距離の割合で按分
       var etaSec = (nav.total > 0) ? nav.totalDuration * (remaining / nav.total) : null;
       el('nav-eta').textContent = durationText(etaSec);
-      map.setView([lat, lng], Math.max(map.getZoom(), 16));
+      if (navFollow) map.panTo([lat, lng]);  // ズームは保持し追従のみ
 
       if (offRoute > 70 && Date.now() - nav.lastReroute > 15000) {
         nav.lastReroute = Date.now();

@@ -52,6 +52,9 @@ class Truck(Base):
     insurance_doc_path = Column(String(500))
     insurance_doc_name = Column(String(200))
 
+    # ── GPS機器 ──
+    gps_imei = Column(String(20))  # 車載GPSトラッカー(FMM880等)のIMEI番号
+
     accident_records = relationship("TruckAccidentRecord", back_populates="truck", cascade="all, delete-orphan")
     inspection_records = relationship("TruckInspectionRecord", back_populates="truck", cascade="all, delete-orphan")
 
@@ -70,6 +73,7 @@ class Truck(Base):
             "year": self.year,
             "color": self.color,
             "vin": self.vin,
+            "gps_imei": self.gps_imei,
             "shaken_expiry": self.shaken_expiry.isoformat() if self.shaken_expiry else None,
             "shaken_number": self.shaken_number,
             "insurance_company": self.insurance_company,

@@ -363,6 +363,7 @@ def _parse_truck_form(form, files=None):
         color=form.get('color', '').strip() or None,
         vin=form.get('vin', '').strip() or None,
         engine_number=form.get('engine_number', '').strip() or None,
+        gps_imei=_re.sub(r'\D', '', form.get('gps_imei', '')) or None,
         shaken_expiry=parse_date(form.get('shaken_expiry', '').strip()),
         shaken_number=form.get('shaken_number', '').strip() or None,
         insurance_company=form.get('insurance_company', '').strip() or None,

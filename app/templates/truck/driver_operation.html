@@ -48,6 +48,16 @@
     .nav-meta b { color: #0f2744; font-size: 18px; }
     .nav-fallback { font-size: 12px; color: #94a3b8; text-align: center; margin-top: 8px; }
     .nav-fallback a { color: #2563eb; }
+    .nav-route-toggle { width: 100%; margin-top: 10px; padding: 9px; background: #f1f5f9; color: #0f2744; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
+    .nav-route-list { margin-top: 8px; max-height: 260px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .nav-step { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+    .nav-step:last-child { border-bottom: none; }
+    .nav-step.hw { background: #eff6ff; }
+    .nav-step-arrow { font-size: 18px; flex-shrink: 0; }
+    .nav-step-text { flex: 1; min-width: 0; font-size: 13px; color: #1e293b; line-height: 1.45; }
+    .nav-step-road { color: #64748b; font-size: 11px; }
+    .nav-step-num { flex-shrink: 0; width: 20px; text-align: right; color: #94a3b8; font-size: 11px; }
+    .nav-step-dist { flex-shrink: 0; color: #475569; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -170,6 +180,10 @@
           <span>到着まで <b id="nav-eta">--</b></span>
         </div>
         <div id="nav-resolved" class="nav-fallback" style="display:none;text-align:left;line-height:1.5;"></div>
+        <button type="button" id="nav-route-toggle" class="nav-route-toggle">
+          ルート全体（IC・分岐など）　▲
+        </button>
+        <div id="nav-route-list" class="nav-route-list"></div>
         <div class="nav-fallback">
           うまく案内できないときは
           <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ nav_destination|urlencode }}&amp;travelmode=driving"
@@ -382,6 +396,11 @@
       destLatLng: null, lastReroute: 0, spokenIdx: -1, lastNearD: 0
     };
     function el(id) { return document.getElementById(id); }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
 
     function metersText(m) {
       if (m == null) return '--';
@@ -456,6 +475,23 @@
       r.style.display = 'block';
     };
 
+    nav.renderRouteList = function () {
+      var box = el('nav-route-list');
+      if (!box) return;
+      var html = '';
+      nav.maneuvers.forEach(function (m, i) {
+        html += '<div class="nav-step' + (m.highway ? ' hw' : '') + '">' +
+          '<span class="nav-step-num">' + (i + 1) + '</span>' +
+          '<span class="nav-step-arrow">' + m.info.arrow + '</span>' +
+          '<span class="nav-step-text">' + esc(m.info.text) +
+            (m.info.sub ? '<br><span class="nav-step-road">' + esc(m.info.sub) + '</span>' : '') +
+          '</span>' +
+          '<span class="nav-step-dist">' + metersText(m.cum) + '</span>' +
+        '</div>';
+      });
+      box.innerHTML = html || '<div class="nav-step">経路情報がありません</div>';
+    };
+
     nav.applyRoute = function (data, to) {
       nav.coords = data.coords || [];
       nav.cum = [0];
@@ -471,6 +507,7 @@
         var idx = Math.min(Math.max(parseInt(s.idx, 10) || 0, 0), last < 0 ? 0 : last);
         return {
           idx: idx, cum: nav.cum[idx] || 0, kind: s.kind || 'turn',
+          highway: !!s.highway,
           info: {
             text: s.text || '直進', arrow: s.arrow || '⬆️',
             sub: s.name ? '「' + s.name + '」' : ''
@@ -490,6 +527,7 @@
       nav.active = true;
       nav.spokenIdx = -1;
       nav.showResolved();
+      nav.renderRouteList();
       mapEl.classList.add('nav-active');
       setTimeout(function () { map.invalidateSize(); }, 200);
       el('nav-start-btn').style.display = 'none';
@@ -627,6 +665,12 @@
       var sBtn = el('nav-start-btn'), xBtn = el('nav-stop-btn'), pSel = el('nav-pref');
       if (sBtn) sBtn.addEventListener('click', function () { speak('ナビを準備します'); nav.start(); });
       if (xBtn) xBtn.addEventListener('click', function () { nav.stop(); });
+      var rt = el('nav-route-toggle'), rl = el('nav-route-list');
+      if (rt && rl) rt.addEventListener('click', function () {
+        var hidden = rl.style.display === 'none';
+        rl.style.display = hidden ? 'block' : 'none';
+        rt.textContent = 'ルート全体（IC・分岐など）　' + (hidden ? '▲' : '▼');
+      });
       if (pSel) {
         try {
           var saved = localStorage.getItem('truckNavPref');

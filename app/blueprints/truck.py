@@ -3138,12 +3138,14 @@ def _ors_directions(frm, to, avoid_feature, api_key):
                 name = st.get('name') or ''
                 if name == '-':
                     name = ''
+                instr = st.get('instruction', '')
                 steps_out.append({
                     'idx': int(wp[0]),
-                    'text': st.get('instruction', ''),
+                    'text': instr,
                     'name': name,
                     'arrow': _ORS_ARROW.get(t, '⬆️'),
                     'kind': kind,
+                    'highway': _looks_highway(name) or _looks_highway(instr),
                 })
         return {
             'distance': summary.get('distance', 0.0),
@@ -3166,6 +3168,16 @@ _OSRM_MOD_JA = {
 }
 
 
+def _looks_highway(text):
+    """道路名・案内文が高速道路/IC/JCT関連かを簡易判定する。"""
+    if not text:
+        return False
+    for w in ('自動車道', '高速', 'バイパス', 'ランプ', 'インターチェンジ', 'ジャンクション'):
+        if w in text:
+            return True
+    return False
+
+
 def _osrm_maneuver(man, name):
     """OSRMのmaneuverを (案内文, 矢印, 種別, 道路名) に変換する。"""
     mtype = man.get('type') or ''
@@ -3179,8 +3191,14 @@ def _osrm_maneuver(man, name):
         return 'ロータリーを進む', '🔄', 'turn', name
     if mtype == 'merge':
         return (_OSRM_MOD_JA.get(mod, '') + '方向へ合流'), arrow, 'turn', name
+    if mtype == 'on ramp':
+        return 'ランプから流入', '↗️', 'turn', name
+    if mtype == 'off ramp':
+        return 'ランプへ流出', '↘️', 'turn', name
     if mtype == 'fork':
-        return (_OSRM_MOD_JA.get(mod, '直進') + '方向へ'), arrow, 'turn', name
+        return (_OSRM_MOD_JA.get(mod, '直進') + '方向へ分岐'), arrow, 'turn', name
+    if mtype == 'end of road':
+        return (_OSRM_MOD_JA.get(mod, '直進') + '（突き当り）'), arrow, 'turn', name
     if mtype in ('new name', 'continue', 'notification'):
         return '直進', '⬆️', 'turn', name
     return _OSRM_MOD_JA.get(mod, '直進'), arrow, 'turn', name
@@ -3218,11 +3236,13 @@ def _osrm_directions(frm, to):
                 else:
                     man_idx = len(coords) - 1  # 前ステップ終端と共有する点
                     coords.extend(g[1:])
-                text, arrow, kind, name = _osrm_maneuver(
-                    st.get('maneuver') or {}, st.get('name') or '')
+                man = st.get('maneuver') or {}
+                text, arrow, kind, name = _osrm_maneuver(man, st.get('name') or '')
+                is_hw = (man.get('type') in ('on ramp', 'off ramp', 'merge', 'fork')
+                         or _looks_highway(name))
                 steps_out.append({
                     'idx': man_idx, 'text': text, 'name': name,
-                    'arrow': arrow, 'kind': kind,
+                    'arrow': arrow, 'kind': kind, 'highway': is_hw,
                 })
         if not coords:
             return None, 'no_route'

@@ -480,11 +480,28 @@
       if (!box) return;
       var html = '';
       nav.maneuvers.forEach(function (m, i) {
-        html += '<div class="nav-step' + (m.highway ? ' hw' : '') + '">' +
+        var nextM = nav.maneuvers[i + 1];
+        var seg = nextM ? Math.max(0, nextM.cum - m.cum) : null;
+        var road = m.info.sub ? esc(m.info.sub) : '';
+        var sub;
+        if (road && seg != null && seg >= 1000) {
+          sub = road + ' を約' + metersText(seg) + '走行';
+        } else if (road) {
+          sub = road;
+        } else if (seg != null && seg >= 20000) {
+          // 道路名なしで20km以上連続＝ほぼ高速の長距離区間
+          sub = '高速道路を約' + metersText(seg) + '走行（長距離区間）';
+        } else if (seg != null && seg >= 1000) {
+          sub = '約' + metersText(seg) + '走行';
+        } else {
+          sub = '';
+        }
+        var isHw = m.highway || (seg != null && seg >= 20000);
+        html += '<div class="nav-step' + (isHw ? ' hw' : '') + '">' +
           '<span class="nav-step-num">' + (i + 1) + '</span>' +
           '<span class="nav-step-arrow">' + m.info.arrow + '</span>' +
           '<span class="nav-step-text">' + esc(m.info.text) +
-            (m.info.sub ? '<br><span class="nav-step-road">' + esc(m.info.sub) + '</span>' : '') +
+            (sub ? '<br><span class="nav-step-road">' + sub + '</span>' : '') +
           '</span>' +
           '<span class="nav-step-dist">' + metersText(m.cum) + '</span>' +
         '</div>';

@@ -3119,7 +3119,6 @@ def _ors_directions(frm, to, avoid_feature, api_key, profile):
         'instructions': True,
         'language': 'ja',
         'units': 'm',
-        'geometry_simplify': True,
     }
     if avoid_feature:
         body['options'] = {'avoid_features': [avoid_feature]}

@@ -430,11 +430,9 @@
       if (!r) return;
       var km = nav.total / 1000;
       var kmText = km >= 10 ? Math.round(km) : km.toFixed(1);
-      var far = nav.total > 200000;
-      r.style.color = far ? '#dc2626' : '#94a3b8';
-      r.textContent = (far ? '⚠ ' : '') + '行き先（自動判定）: ' +
-        (nav.destLabel || NAV_DEST) + '　— 約' + kmText + 'km' +
-        (far ? '。遠すぎる場合はルートに登録された行き先住所をご確認ください' : '');
+      r.style.color = '#94a3b8';
+      r.textContent = '行き先（自動判定）: ' + (nav.destLabel || NAV_DEST) +
+        '　— 約' + kmText + 'km';
       r.style.display = 'block';
     };
 
@@ -448,6 +446,7 @@
           { lat: nav.coords[i][0], lng: nav.coords[i][1] });
       }
       nav.total = nav.cum[nav.cum.length - 1] || route.distance || 0;
+      nav.totalDuration = route.duration || 0;
       nav.maneuvers = [];
       var steps = (route.legs && route.legs[0] && route.legs[0].steps) || [];
       steps.forEach(function (step) {
@@ -585,9 +584,9 @@
         el('nav-instr-sub').textContent = NAV_DEST;
       }
       el('nav-dist').textContent = metersText(remaining);
-      var sp = (lastPoint && lastPoint.speed) ? lastPoint.speed : 0;
-      var kmh = sp > 5 ? sp : 30;
-      el('nav-eta').textContent = durationText(remaining / (kmh / 3.6));
+      // 到着予測はOSRMの道路速度ベース所要時間を残り距離の割合で按分
+      var etaSec = (nav.total > 0) ? nav.totalDuration * (remaining / nav.total) : null;
+      el('nav-eta').textContent = durationText(etaSec);
       map.setView([lat, lng], Math.max(map.getZoom(), 16));
 
       if (offRoute > 70 && Date.now() - nav.lastReroute > 15000) {

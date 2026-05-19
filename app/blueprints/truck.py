@@ -2906,6 +2906,7 @@ def driver_operation():
             ).order_by(TruckRoute.name).all()
         op_truck = db.query(Truck).get(active_op.truck_id) if active_op and active_op.truck_id else None
         op_route = db.query(TruckRoute).get(active_op.route_id) if active_op and active_op.route_id else None
+        nav_destination = (op_route.destination or '').strip() if op_route else ''
         return render_template(
             'truck/driver_operation.html',
             driver=driver,
@@ -2913,6 +2914,7 @@ def driver_operation():
             active_op=active_op,
             op_truck=op_truck,
             op_route=op_route,
+            nav_destination=nav_destination or None,
             trucks=trucks,
             routes=routes,
         )

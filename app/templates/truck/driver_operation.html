@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>運行モード - トラック運行管理</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; padding: 0; min-height: 100vh; background: #f0f4f8; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
@@ -30,6 +31,11 @@
     .flash-success { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; color: #16a34a; font-size: 13px; margin-bottom: 14px; }
     .flash-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; color: #dc2626; font-size: 13px; margin-bottom: 14px; }
     .empty-hint { text-align: center; color: #64748b; font-size: 13px; padding: 6px 0 12px; }
+    .speedo { text-align: center; margin: 4px 0 12px; }
+    #speed-val { font-size: 56px; font-weight: 800; color: #0f2744; line-height: 1; }
+    .speed-unit { font-size: 18px; color: #64748b; margin-left: 4px; }
+    .live-map { height: 240px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .geo-status { font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -108,6 +114,26 @@
       </div>
     </div>
 
+    <!-- 現在地・スピード -->
+    <div class="card">
+      <div class="section-title">📍 現在地・スピード</div>
+      <div class="speedo">
+        <span id="speed-val">--</span><span class="speed-unit">km/h</span>
+      </div>
+      <div id="geo-status" class="geo-status">位置情報を取得しています…（初回は許可ダイアログで「許可」を選んでください）</div>
+      <div id="map" class="live-map"></div>
+      {% if nav_destination %}
+      <a href="https://www.google.com/maps/dir/?api=1&amp;destination={{ nav_destination|urlencode }}&amp;travelmode=driving"
+         target="_blank" rel="noopener" class="btn btn-blue" style="margin-top:12px;">
+        🧭 「{{ nav_destination }}」へナビ開始
+      </a>
+      {% else %}
+      <div style="font-size:12px;color:#94a3b8;text-align:center;margin-top:8px;">
+        ※ ルートに行き先が登録されているとナビ開始ボタンが表示されます
+      </div>
+      {% endif %}
+    </div>
+
     <!-- 操作 -->
     <div class="card">
       <div class="section-title">操作</div>
@@ -151,5 +177,81 @@
 
     <a href="{{ url_for('truck.driver_dashboard') }}" class="btn btn-back">← ドライバーマイページに戻る</a>
   </div>
+
+  {% if active_op %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  (function () {
+    var mapEl = document.getElementById('map');
+    if (!mapEl) return;
+    var map = L.map('map').setView([35.6812, 139.7671], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors', maxZoom: 19
+    }).addTo(map);
+    setTimeout(function () { map.invalidateSize(); }, 200);
+
+    var speedEl = document.getElementById('speed-val');
+    var statusEl = document.getElementById('geo-status');
+    var marker = null, centered = false, prev = null;
+
+    function haversine(a, b) {
+      var R = 6371000, toRad = function (d) { return d * Math.PI / 180; };
+      var dLat = toRad(b.lat - a.lat), dLon = toRad(b.lng - a.lng);
+      var s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 2 * R * Math.asin(Math.sqrt(s));
+    }
+
+    function onPos(pos) {
+      var lat = pos.coords.latitude, lng = pos.coords.longitude;
+      statusEl.style.display = 'none';
+      if (!marker) {
+        marker = L.circleMarker([lat, lng], {
+          radius: 9, color: '#fff', weight: 3,
+          fillColor: '#2563eb', fillOpacity: 1
+        }).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+      }
+      if (!centered) { map.setView([lat, lng], 16); centered = true; }
+      else { map.panTo([lat, lng]); }
+
+      var kmh = null, fromGps = false;
+      if (pos.coords.speed != null && !isNaN(pos.coords.speed)) {
+        kmh = pos.coords.speed * 3.6; fromGps = true;
+      } else if (prev) {
+        var dt = (pos.timestamp - prev.t) / 1000;
+        if (dt > 0) kmh = haversine(prev, { lat: lat, lng: lng }) / dt * 3.6;
+      }
+      if (kmh != null && kmh >= 0) {
+        // 停車中はGPS座標が揺れるため、位置差から求めた微小スピードは0扱いにする
+        if (!fromGps && kmh < 4) kmh = 0;
+        speedEl.textContent = Math.round(kmh);
+      }
+      prev = { lat: lat, lng: lng, t: pos.timestamp };
+    }
+
+    function onErr(err) {
+      statusEl.style.display = 'block';
+      if (err.code === 1) {
+        statusEl.textContent = '位置情報の利用が許可されていません。ブラウザの設定で位置情報を許可してください。';
+      } else if (location.protocol !== 'https:') {
+        statusEl.textContent = '位置情報の取得にはHTTPS接続が必要です。';
+      } else {
+        statusEl.textContent = '位置情報を取得できませんでした（' + err.message + '）';
+      }
+    }
+
+    if (!navigator.geolocation) {
+      statusEl.textContent = 'このブラウザは位置情報に対応していません。';
+      return;
+    }
+    navigator.geolocation.watchPosition(onPos, onErr, {
+      enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
+    });
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

@@ -719,6 +719,7 @@ def run_auto_migrations():
             ('insurance_expiry',  'DATE NULL',          '保険満了日'),
             ('photo_path',        'VARCHAR(500) NULL',  '車両写真パス'),
             ('photo_name',        'VARCHAR(200) NULL',  '車両写真元ファイル名'),
+            ('gps_imei',          'VARCHAR(20) NULL',   'GPS機器のIMEI番号（FMM880等の車載トラッカー）'),
         ]
         if table_exists(session, 'trucks'):
             for col_name, col_def, col_comment in trucks_new_columns:
@@ -830,6 +831,74 @@ def run_auto_migrations():
                 logger.error(f"テーブル作成エラー: truck_inspection_records - {tbl_err}")
         else:
             logger.info("- truck_inspection_records テーブルは既に存在します（スキップ）")
+
+        # ─── T_トラック運行位置履歴 テーブル作成（GPS記録） ───────────────
+        # スマホアプリ・車載GPS機器(FMM880等)の両方からの位置情報を保存する
+        if not table_exists(session, 'T_トラック運行位置履歴'):
+            logger.info("T_トラック運行位置履歴 テーブルを作成中...")
+            try:
+                if db_type == 'postgresql':
+                    session.execute(text("""
+                        CREATE TABLE "T_トラック運行位置履歴" (
+                            id SERIAL PRIMARY KEY,
+                            operation_id INTEGER NULL,
+                            driver_id INTEGER NULL,
+                            tenant_id INTEGER NULL,
+                            latitude DOUBLE PRECISION NOT NULL,
+                            longitude DOUBLE PRECISION NOT NULL,
+                            accuracy DOUBLE PRECISION NULL,
+                            speed DOUBLE PRECISION NULL,
+                            source VARCHAR(20) NOT NULL DEFAULT 'app',
+                            recorded_at TIMESTAMP NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                else:
+                    session.execute(text("""
+                        CREATE TABLE `T_トラック運行位置履歴` (
+                            `id` INT NOT NULL AUTO_INCREMENT,
+                            `operation_id` INT NULL,
+                            `driver_id` INT NULL,
+                            `tenant_id` INT NULL,
+                            `latitude` DOUBLE NOT NULL COMMENT '緯度',
+                            `longitude` DOUBLE NOT NULL COMMENT '経度',
+                            `accuracy` DOUBLE NULL COMMENT '精度（メートル）',
+                            `speed` DOUBLE NULL COMMENT '速度（km/h）',
+                            `source` VARCHAR(20) NOT NULL DEFAULT 'app' COMMENT '取得元（app=スマホアプリ, device=車載GPS機器）',
+                            `recorded_at` DATETIME NOT NULL COMMENT '位置情報取得日時',
+                            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            PRIMARY KEY (`id`)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    """))
+                session.commit()
+                logger.info("✓ T_トラック運行位置履歴 テーブルを作成しました")
+            except Exception as tbl_err:
+                session.rollback()
+                logger.error(f"テーブル作成エラー: T_トラック運行位置履歴 - {tbl_err}")
+        else:
+            logger.info("- T_トラック運行位置履歴 テーブルは既に存在します（スキップ）")
+            # 既存テーブルに source カラムが無ければ追加する
+            if not column_exists(session, 'T_トラック運行位置履歴', 'source'):
+                logger.info("T_トラック運行位置履歴テーブルに source カラムを追加中...")
+                try:
+                    if db_type == 'postgresql':
+                        session.execute(text(
+                            'ALTER TABLE "T_トラック運行位置履歴" '
+                            "ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'app'"
+                        ))
+                    else:
+                        session.execute(text(
+                            "ALTER TABLE `T_トラック運行位置履歴` "
+                            "ADD COLUMN `source` VARCHAR(20) NOT NULL DEFAULT 'app' "
+                            "COMMENT '取得元（app=スマホアプリ, device=車載GPS機器）'"
+                        ))
+                    session.commit()
+                    logger.info("✓ T_トラック運行位置履歴.source カラムを追加しました")
+                except Exception as col_err:
+                    session.rollback()
+                    logger.error(f"カラム追加エラー: T_トラック運行位置履歴.source - {col_err}")
+            else:
+                logger.info("- T_トラック運行位置履歴.source カラムは既に存在します（スキップ）")
 
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         

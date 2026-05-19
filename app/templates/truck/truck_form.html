@@ -51,6 +51,14 @@
       </div>
     </div>
 
+    <!-- ── GPS機器 ── -->
+    <div class="form-section-title">📍 GPS機器</div>
+    <div class="form-field">
+      <label>GPS機器IMEI番号</label>
+      <input type="text" name="gps_imei" value="{{ truck.gps_imei if truck and truck.gps_imei else '' }}" placeholder="例：350612078123456" pattern="[0-9]*" inputmode="numeric" maxlength="20">
+      <small style="color:#6b7280;display:block;margin-top:4px;">車載GPSトラッカー（Teltonika FMM880等）を使う場合に、機器のIMEI番号を入力してください。スマホアプリでGPSを取得する場合は空欄でかまいません。</small>
+    </div>
+
     <!-- ── 所有・使用・所属 ── -->
     <div class="form-section-title">🏢 所有・使用・所属</div>
     <div class="form-row">

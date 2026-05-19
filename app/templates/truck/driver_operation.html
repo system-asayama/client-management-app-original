@@ -135,6 +135,16 @@
       <div id="geo-status" class="geo-status">位置情報を取得しています…（初回は許可ダイアログで「許可」を選んでください）</div>
       <div id="map" class="live-map"></div>
       {% if nav_destination %}
+      <div class="field" style="margin-top:12px;margin-bottom:0;">
+        <label for="nav-pref">ルート設定</label>
+        <select id="nav-pref">
+          <option value="">おまかせ（最速ルート）</option>
+          <option value="motorway">一般道を優先（高速道路を使わない）</option>
+          <option value="toll">有料道路を使わない</option>
+          <option value="ferry">フェリーを使わない</option>
+        </select>
+        <div id="nav-pref-note" class="nav-fallback" style="display:none;text-align:left;margin-top:6px;color:#b45309;"></div>
+      </div>
       <button type="button" id="nav-start-btn" class="btn btn-blue" style="margin-top:12px;">
         🧭 「{{ nav_destination }}」へナビ開始
       </button>
@@ -431,13 +441,36 @@
       if (prev) nav.onPosition(prev.lat, prev.lng);
     };
 
+    nav.routePref = function () {
+      var s = el('nav-pref');
+      return s ? s.value : '';
+    };
+
     nav.fetchRoute = function (from, to) {
-      var url = 'https://router.project-osrm.org/route/v1/driving/' +
+      var base = 'https://router.project-osrm.org/route/v1/driving/' +
         from.lng + ',' + from.lat + ';' + to.lng + ',' + to.lat +
         '?overview=full&geometries=geojson&steps=true';
-      return fetch(url).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j.routes || !j.routes.length) throw new Error('ルートが見つかりませんでした');
-        nav.applyRoute(j.routes[0], to);
+      var pref = nav.routePref();
+      var note = el('nav-pref-note');
+      function req(u) { return fetch(u).then(function (r) { return r.json(); }); }
+      function ok(j) { return j && j.routes && j.routes.length; }
+      return req(base + (pref ? '&exclude=' + encodeURIComponent(pref) : '')).then(function (j) {
+        if (ok(j)) {
+          if (note) note.style.display = 'none';
+          return j.routes[0];
+        }
+        if (!pref) throw new Error('ルートが見つかりませんでした');
+        // 指定の条件ではルートが見つからない → 最速ルートで再取得
+        return req(base).then(function (j2) {
+          if (!ok(j2)) throw new Error('ルートが見つかりませんでした');
+          if (note) {
+            note.textContent = '※ 指定の条件ではルートが見つからないため、最速ルートを表示しています';
+            note.style.display = 'block';
+          }
+          return j2.routes[0];
+        });
+      }).then(function (route) {
+        nav.applyRoute(route, to);
       });
     };
 
@@ -531,9 +564,26 @@
     };
 
     (function () {
-      var sBtn = el('nav-start-btn'), xBtn = el('nav-stop-btn');
+      var sBtn = el('nav-start-btn'), xBtn = el('nav-stop-btn'), pSel = el('nav-pref');
       if (sBtn) sBtn.addEventListener('click', function () { speak('ナビを準備します'); nav.start(); });
       if (xBtn) xBtn.addEventListener('click', function () { nav.stop(); });
+      if (pSel) {
+        try {
+          var saved = localStorage.getItem('truckNavPref');
+          if (saved !== null) pSel.value = saved;
+        } catch (e) {}
+        pSel.addEventListener('change', function () {
+          try { localStorage.setItem('truckNavPref', pSel.value); } catch (e) {}
+          if (nav.active && nav.destLatLng && prev) {
+            el('nav-instr-main').textContent = 'ルートを再計算しています…';
+            nav.fetchRoute({ lat: prev.lat, lng: prev.lng }, nav.destLatLng)
+              .then(function () { speak('ルートを変更しました'); })
+              .catch(function () {
+                el('nav-instr-main').textContent = 'ルートを取得できませんでした';
+              });
+          }
+        });
+      }
     })();
 
     if (!navigator.geolocation) {

@@ -479,7 +479,8 @@
       var box = el('nav-route-list');
       if (!box) return;
       var html = '';
-      nav.maneuvers.forEach(function (m, i) {
+      // 道路名のない車線維持などの細かい手順は一覧では省く
+      nav.maneuvers.filter(function (m) { return !m.minor; }).forEach(function (m, i) {
         html += '<div class="nav-step' + (m.highway ? ' hw' : '') + '">' +
           '<span class="nav-step-num">' + (i + 1) + '</span>' +
           '<span class="nav-step-arrow">' + m.info.arrow + '</span>' +
@@ -507,7 +508,7 @@
         var idx = Math.min(Math.max(parseInt(s.idx, 10) || 0, 0), last < 0 ? 0 : last);
         return {
           idx: idx, cum: nav.cum[idx] || 0, kind: s.kind || 'turn',
-          highway: !!s.highway,
+          highway: !!s.highway, minor: !!s.minor,
           info: {
             text: s.text || '直進', arrow: s.arrow || '⬆️',
             sub: s.name ? '「' + s.name + '」' : ''

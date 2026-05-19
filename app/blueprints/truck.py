@@ -43,6 +43,14 @@ _ORS_ARROW = {
     12: '↖️', 13: '↗️',
 }
 
+# ORSのマニューバ種別コード → 簡潔な案内文（ORS既定の冗長な文の代わり）
+_ORS_TEXT = {
+    0: '左折', 1: '右折', 2: '鋭く左折', 3: '鋭く右折',
+    4: 'やや左へ', 5: 'やや右へ', 6: '直進',
+    7: 'ロータリーに入る', 8: 'ロータリーを出る', 9: 'Uターン',
+    10: '目的地に到着', 11: '出発', 12: '左側を進む', 13: '右側を進む',
+}
+
 
 # ─── ヘルパー ────────────────────────────────────────────
 
@@ -3135,17 +3143,18 @@ def _ors_directions(frm, to, avoid_feature, api_key):
                     kind = 'depart'
                 elif t == 10:
                     kind = 'arrive'
-                name = st.get('name') or ''
+                name = (st.get('name') or '').split(',')[0].strip()
                 if name == '-':
                     name = ''
                 instr = st.get('instruction', '')
                 steps_out.append({
                     'idx': int(wp[0]),
-                    'text': instr,
+                    'text': _ORS_TEXT.get(t, '直進'),
                     'name': name,
                     'arrow': _ORS_ARROW.get(t, '⬆️'),
                     'kind': kind,
                     'highway': _looks_highway(name) or _looks_highway(instr),
+                    'minor': (t in (12, 13)) and not name,
                 })
         return {
             'distance': summary.get('distance', 0.0),
@@ -3237,12 +3246,15 @@ def _osrm_directions(frm, to):
                     man_idx = len(coords) - 1  # 前ステップ終端と共有する点
                     coords.extend(g[1:])
                 man = st.get('maneuver') or {}
-                text, arrow, kind, name = _osrm_maneuver(man, st.get('name') or '')
-                is_hw = (man.get('type') in ('on ramp', 'off ramp', 'merge', 'fork')
+                mtype = man.get('type') or ''
+                text, arrow, kind, name = _osrm_maneuver(
+                    man, (st.get('name') or '').split(',')[0].strip())
+                is_hw = (mtype in ('on ramp', 'off ramp', 'merge', 'fork')
                          or _looks_highway(name))
                 steps_out.append({
                     'idx': man_idx, 'text': text, 'name': name,
                     'arrow': arrow, 'kind': kind, 'highway': is_hw,
+                    'minor': (mtype in ('new name', 'continue', 'notification')) and not name,
                 })
         if not coords:
             return None, 'no_route'

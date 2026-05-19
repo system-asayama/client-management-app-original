@@ -25,6 +25,24 @@ bp = Blueprint('truck', __name__, url_prefix='/truck')
 
 MOBILE_API_KEY = os.environ.get("TRUCK_MOBILE_API_KEY", "truck-app-key")
 
+# 画面内ナビのルート探索（OpenRouteService）。APIキーは環境変数で設定する。
+ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
+ORS_PROFILE = os.environ.get("ORS_PROFILE", "driving-hgv")  # トラック用プロファイル
+
+# ルート設定（フロント）→ ORSのavoid_features
+_ORS_AVOID_MAP = {
+    'motorway': 'highways',
+    'toll': 'tollways',
+    'ferry': 'ferries',
+}
+
+# ORSのマニューバ種別コード → 表示用の矢印
+_ORS_ARROW = {
+    0: '⬅️', 1: '➡️', 2: '⬅️', 3: '➡️', 4: '↖️', 5: '↗️',
+    6: '⬆️', 7: '🔄', 8: '🔄', 9: '🔃', 10: '🏁', 11: '⬆️',
+    12: '↖️', 13: '↗️',
+}
+
 
 # ─── ヘルパー ────────────────────────────────────────────
 
@@ -3058,6 +3076,103 @@ def driver_operation_location():
         return jsonify({'ok': True, 'saved': saved, 'active': active_op is not None})
     finally:
         db.close()
+
+
+def _ors_directions(frm, to, avoid_feature):
+    """OpenRouteServiceでトラック用ルートを取得する。
+
+    frm/to は (lat, lng) のタプル。成功時は (正規化済みdict, None)、
+    失敗時は (None, エラーコード) を返す。
+    """
+    body = {
+        'coordinates': [[frm[1], frm[0]], [to[1], to[0]]],
+        'instructions': True,
+        'language': 'ja',
+        'units': 'm',
+        'geometry_simplify': True,
+    }
+    if avoid_feature:
+        body['options'] = {'avoid_features': [avoid_feature]}
+    url = 'https://api.openrouteservice.org/v2/directions/{0}/geojson'.format(ORS_PROFILE)
+    try:
+        resp = http_requests.post(
+            url, json=body, timeout=25,
+            headers={'Authorization': ORS_API_KEY, 'Content-Type': 'application/json'},
+        )
+    except http_requests.RequestException:
+        return None, 'request_failed'
+    if resp.status_code != 200:
+        # ルート不成立（回避指定で経路なし等）や認証エラー
+        return None, 'no_route'
+    try:
+        feat = resp.json()['features'][0]
+        coords = feat['geometry']['coordinates']  # [lon, lat]
+        props = feat.get('properties', {})
+        summary = props.get('summary', {})
+        steps_out = []
+        for seg in props.get('segments', []):
+            for st in seg.get('steps', []):
+                wp = st.get('way_points') or [0]
+                t = st.get('type')
+                kind = 'turn'
+                if t == 11:
+                    kind = 'depart'
+                elif t == 10:
+                    kind = 'arrive'
+                name = st.get('name') or ''
+                if name == '-':
+                    name = ''
+                steps_out.append({
+                    'idx': int(wp[0]),
+                    'text': st.get('instruction', ''),
+                    'name': name,
+                    'arrow': _ORS_ARROW.get(t, '⬆️'),
+                    'kind': kind,
+                })
+        return {
+            'distance': summary.get('distance', 0.0),
+            'duration': summary.get('duration', 0.0),
+            'coords': [[c[1], c[0]] for c in coords],  # [lat, lng]
+            'steps': steps_out,
+        }, None
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None, 'parse_failed'
+
+
+@bp.route('/driver/operation/route', methods=['POST'])
+@driver_login_required
+def driver_operation_route():
+    """画面内ナビ用のルート探索プロキシ。
+
+    APIキーをブラウザに露出させないため、サーバー側でOpenRouteServiceを
+    中継する。回避条件でルートが取れない場合は条件なしで再探索する。
+    """
+    if not ORS_API_KEY:
+        return jsonify({'ok': False, 'error': 'routing_unconfigured'})
+    payload = request.get_json(silent=True) or {}
+    try:
+        frm = (float(payload['from']['lat']), float(payload['from']['lng']))
+        to = (float(payload['to']['lat']), float(payload['to']['lng']))
+    except (KeyError, TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'invalid_payload'}), 400
+    for lat, lng in (frm, to):
+        if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lng <= 180.0):
+            return jsonify({'ok': False, 'error': 'invalid_payload'}), 400
+
+    avoid_feature = _ORS_AVOID_MAP.get((payload.get('avoid') or '').strip())
+
+    data, err = _ors_directions(frm, to, avoid_feature)
+    fell_back = False
+    if data is None and avoid_feature:
+        # 回避条件ではルートが取れない → 条件なしで再探索
+        data, err = _ors_directions(frm, to, None)
+        fell_back = data is not None
+    if data is None:
+        return jsonify({'ok': False, 'error': err or 'no_route'})
+
+    data['ok'] = True
+    data['fell_back'] = fell_back
+    return jsonify(data)
 
 
 # ─── 内勤スタッフ（TruckAdmin）マイページ ────────────────────────────────────────

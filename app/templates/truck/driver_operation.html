@@ -243,6 +243,7 @@
     var SEND_INTERVAL = 20000;  // 20秒ごとにサーバーへ送信
     var MAX_BUFFER = 500;       // バッファ上限（超過分は古いものから破棄）
     var LOCATION_URL = '{{ url_for('truck.driver_operation_location') }}';
+    var ROUTE_URL = '{{ url_for('truck.driver_operation_route') }}';
 
     function haversine(a, b) {
       var R = 6371000, toRad = function (d) { return d * Math.PI / 180; };
@@ -361,27 +362,6 @@
         window.speechSynthesis.speak(u);
       } catch (e) {}
     }
-    function maneuverInfo(step) {
-      var m = step.maneuver || {}, type = m.type || '', mod = m.modifier || '';
-      var road = step.name ? '「' + step.name + '」' : '';
-      var arrows = {
-        left: '⬅️', right: '➡️', 'slight left': '↖️', 'slight right': '↗️',
-        'sharp left': '⬅️', 'sharp right': '➡️', straight: '⬆️', uturn: '🔃'
-      };
-      var modJa = {
-        left: '左折', right: '右折', 'slight left': 'やや左', 'slight right': 'やや右',
-        'sharp left': '鋭く左折', 'sharp right': '鋭く右折', straight: '直進', uturn: 'Uターン'
-      };
-      var arrow = arrows[mod] || '⬆️', text;
-      if (type === 'depart') { text = '出発'; arrow = '⬆️'; }
-      else if (type === 'arrive') { text = '目的地に到着'; arrow = '🏁'; road = ''; }
-      else if (type === 'roundabout' || type === 'rotary') { text = 'ロータリーを進む'; arrow = '🔄'; }
-      else if (type === 'merge') { text = (modJa[mod] || '') + '方向へ合流'; }
-      else if (type === 'fork') { text = (modJa[mod] || '直進') + '方向へ'; }
-      else if (type === 'new name' || type === 'continue' || type === 'notification') { text = '直進'; arrow = '⬆️'; }
-      else { text = modJa[mod] || '直進'; }
-      return { text: text, sub: road, arrow: arrow };
-    }
     function geocode(q, near) {
       var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=10' +
                 '&accept-language=ja&countrycodes=jp&q=' + encodeURIComponent(q);
@@ -436,27 +416,26 @@
       r.style.display = 'block';
     };
 
-    nav.applyRoute = function (route, to) {
-      var g = route.geometry.coordinates;
-      nav.coords = g.map(function (c) { return [c[1], c[0]]; });
+    nav.applyRoute = function (data, to) {
+      nav.coords = data.coords || [];
       nav.cum = [0];
       for (var i = 1; i < nav.coords.length; i++) {
         nav.cum[i] = nav.cum[i - 1] + haversine(
           { lat: nav.coords[i - 1][0], lng: nav.coords[i - 1][1] },
           { lat: nav.coords[i][0], lng: nav.coords[i][1] });
       }
-      nav.total = nav.cum[nav.cum.length - 1] || route.distance || 0;
-      nav.totalDuration = route.duration || 0;
-      nav.maneuvers = [];
-      var steps = (route.legs && route.legs[0] && route.legs[0].steps) || [];
-      steps.forEach(function (step) {
-        var loc = step.maneuver && step.maneuver.location;
-        if (!loc) return;
-        var idx = nav.nearestIdx(loc[1], loc[0]);
-        nav.maneuvers.push({
-          idx: idx, cum: nav.cum[idx] || 0,
-          info: maneuverInfo(step), type: (step.maneuver.type || '')
-        });
+      nav.total = nav.cum[nav.cum.length - 1] || data.distance || 0;
+      nav.totalDuration = data.duration || 0;
+      var last = nav.coords.length - 1;
+      nav.maneuvers = (data.steps || []).map(function (s) {
+        var idx = Math.min(Math.max(parseInt(s.idx, 10) || 0, 0), last < 0 ? 0 : last);
+        return {
+          idx: idx, cum: nav.cum[idx] || 0, kind: s.kind || 'turn',
+          info: {
+            text: s.text || '直進', arrow: s.arrow || '⬆️',
+            sub: s.name ? '「' + s.name + '」' : ''
+          }
+        };
       });
       if (nav.routeLayer) map.removeLayer(nav.routeLayer);
       nav.routeLayer = L.polyline(nav.coords, { color: '#2563eb', weight: 6, opacity: 0.75 }).addTo(map);
@@ -479,30 +458,31 @@
     };
 
     nav.fetchRoute = function (from, to) {
-      var base = 'https://router.project-osrm.org/route/v1/driving/' +
-        from.lng + ',' + from.lat + ';' + to.lng + ',' + to.lat +
-        '?overview=full&geometries=geojson&steps=true';
-      var pref = nav.routePref();
       var note = el('nav-pref-note');
-      function req(u) { return fetch(u).then(function (r) { return r.json(); }); }
-      function ok(j) { return j && j.routes && j.routes.length; }
-      return req(base + (pref ? '&exclude=' + encodeURIComponent(pref) : '')).then(function (j) {
-        if (ok(j)) {
-          if (note) note.style.display = 'none';
-          return j.routes[0];
+      return fetch(ROUTE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: { lat: from.lat, lng: from.lng },
+          to: { lat: to.lat, lng: to.lng },
+          avoid: nav.routePref()
+        })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok) {
+          if (j && j.error === 'routing_unconfigured') {
+            throw new Error('ルート探索が未設定です。管理者にお問い合わせください');
+          }
+          throw new Error('ルートが見つかりませんでした');
         }
-        if (!pref) throw new Error('ルートが見つかりませんでした');
-        // 指定の条件ではルートが見つからない → 最速ルートで再取得
-        return req(base).then(function (j2) {
-          if (!ok(j2)) throw new Error('ルートが見つかりませんでした');
-          if (note) {
+        if (note) {
+          if (j.fell_back) {
             note.textContent = '※ 指定の条件ではルートが見つからないため、最速ルートを表示しています';
             note.style.display = 'block';
+          } else {
+            note.style.display = 'none';
           }
-          return j2.routes[0];
-        });
-      }).then(function (route) {
-        nav.applyRoute(route, to);
+        }
+        nav.applyRoute(j, to);
       });
     };
 
@@ -565,7 +545,7 @@
       var next = null;
       for (var i = 0; i < nav.maneuvers.length; i++) {
         var m = nav.maneuvers[i];
-        if (m.type === 'depart') continue;
+        if (m.kind === 'depart') continue;
         if (m.cum > doneCum + 5) { next = m; break; }
       }
       if (next) {

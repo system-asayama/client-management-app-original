@@ -933,6 +933,78 @@ def run_auto_migrations():
                     session.rollback()
                     logger.error(f"インデックス作成エラー: {idx_name} - {idx_err}")
 
+        # ─── truck_device_locations テーブル作成（テレトニカ車載GPS専用）───
+        # 車載GPS機器(FMM880等)の位置情報を、スマホアプリ・ウェブとは別テーブルで管理する
+        if not table_exists(session, 'truck_device_locations'):
+            logger.info("truck_device_locations テーブルを作成中...")
+            try:
+                if db_type == 'postgresql':
+                    session.execute(text("""
+                        CREATE TABLE truck_device_locations (
+                            id SERIAL PRIMARY KEY,
+                            operation_id INTEGER NULL,
+                            driver_id INTEGER NULL,
+                            truck_id INTEGER NULL,
+                            tenant_id INTEGER NULL,
+                            latitude DOUBLE PRECISION NOT NULL,
+                            longitude DOUBLE PRECISION NOT NULL,
+                            accuracy DOUBLE PRECISION NULL,
+                            speed DOUBLE PRECISION NULL,
+                            recorded_at TIMESTAMP NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """))
+                else:
+                    session.execute(text("""
+                        CREATE TABLE `truck_device_locations` (
+                            `id` INT NOT NULL AUTO_INCREMENT,
+                            `operation_id` INT NULL,
+                            `driver_id` INT NULL,
+                            `truck_id` INT NULL,
+                            `tenant_id` INT NULL,
+                            `latitude` DOUBLE NOT NULL COMMENT '緯度',
+                            `longitude` DOUBLE NOT NULL COMMENT '経度',
+                            `accuracy` DOUBLE NULL COMMENT '精度（メートル）',
+                            `speed` DOUBLE NULL COMMENT '速度（km/h）',
+                            `recorded_at` DATETIME NOT NULL COMMENT '位置情報取得日時',
+                            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            PRIMARY KEY (`id`)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                    """))
+                session.commit()
+                logger.info("✓ truck_device_locations テーブルを作成しました")
+            except Exception as tbl_err:
+                session.rollback()
+                logger.error(f"テーブル作成エラー: truck_device_locations - {tbl_err}")
+        else:
+            logger.info("- truck_device_locations テーブルは既に存在します（スキップ）")
+
+        if table_exists(session, 'truck_device_locations'):
+            dev_loc_indexes = [
+                ('idx_dev_loc_driver_recorded', 'driver_id, recorded_at'),
+                ('idx_dev_loc_truck_recorded',  'truck_id, recorded_at'),
+            ]
+            for idx_name, idx_cols in dev_loc_indexes:
+                try:
+                    if db_type == 'postgresql':
+                        session.execute(text(
+                            f'CREATE INDEX IF NOT EXISTS {idx_name} '
+                            f'ON truck_device_locations ({idx_cols})'
+                        ))
+                        session.commit()
+                    else:
+                        try:
+                            session.execute(text(
+                                f'CREATE INDEX `{idx_name}` '
+                                f'ON `truck_device_locations` ({idx_cols})'
+                            ))
+                            session.commit()
+                        except Exception:
+                            session.rollback()
+                except Exception as idx_err:
+                    session.rollback()
+                    logger.error(f"インデックス作成エラー: {idx_name} - {idx_err}")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

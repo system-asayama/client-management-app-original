@@ -55,9 +55,9 @@ def get_active_operation(truck_id: int):
 
 
 def insert_locations(rows: list) -> int:
-    """位置情報をまとめて T_トラック運行位置履歴 に保存する。
+    """位置情報をまとめて truck_device_locations に保存する。
 
-    rows は dict のリスト。source は 'device' 固定。
+    rows は dict のリスト。
     """
     if not rows:
         return 0
@@ -65,12 +65,12 @@ def insert_locations(rows: list) -> int:
         conn.execute(
             text(
                 """
-                INSERT INTO "T_トラック運行位置履歴"
+                INSERT INTO truck_device_locations
                     (operation_id, driver_id, truck_id, tenant_id,
-                     latitude, longitude, accuracy, speed, source, recorded_at)
+                     latitude, longitude, accuracy, speed, recorded_at)
                 VALUES
                     (:operation_id, :driver_id, :truck_id, :tenant_id,
-                     :latitude, :longitude, :accuracy, :speed, 'device', :recorded_at)
+                     :latitude, :longitude, :accuracy, :speed, :recorded_at)
                 """
             ),
             rows,

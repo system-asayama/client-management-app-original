@@ -1125,6 +1125,72 @@ def driver_from_employee():
 
 # ─── GPS位置確認 ─────────────────────────────────────────
 
+def _load_driver_location_tracks(db, driver_ids, dt_start, dt_end):
+    """ドライバーごとの位置トラックを優先順位付きで取得する。
+
+    位置情報は系統ごとに別テーブルに保存されている。ドライバーごとに
+    テレトニカ(車載GPS) → ネイティブアプリ → ウェブ の優先順位で、
+    データが存在する最上位の系統のトラックを採用する。
+    戻り値: { driver_id: [ {'lat','lng','time','speed'}, ... ] }
+    """
+    if not driver_ids:
+        return {}
+    ids_str = ','.join(str(int(d)) for d in driver_ids)
+    params = {'dt_start': dt_start, 'dt_end': dt_end}
+
+    def fetch(sql):
+        result = {}
+        try:
+            for r in db.execute(text(sql), params).fetchall():
+                result.setdefault(r[0], []).append({
+                    'lat': float(r[1]),
+                    'lng': float(r[2]),
+                    'time': r[3].strftime('%H:%M:%S') if r[3] else '',
+                    'speed': float(r[4]) if r[4] is not None else None,
+                })
+        except Exception:
+            pass
+        return result
+
+    # ① テレトニカ（車載GPS）
+    device = fetch(f"""
+        SELECT driver_id, latitude, longitude, recorded_at, speed
+        FROM truck_device_locations
+        WHERE driver_id IN ({ids_str})
+          AND recorded_at >= :dt_start AND recorded_at < :dt_end
+        ORDER BY driver_id ASC, recorded_at ASC
+    """)
+    # ② ネイティブアプリ
+    app = fetch(f"""
+        SELECT driver_id, latitude, longitude, recorded_at, speed
+        FROM "T_トラック運行位置履歴"
+        WHERE driver_id IN ({ids_str})
+          AND source = 'app'
+          AND recorded_at >= :dt_start AND recorded_at < :dt_end
+        ORDER BY driver_id ASC, recorded_at ASC
+    """)
+    # ③ ウェブアプリ
+    web = fetch(f"""
+        SELECT driver_id, latitude, longitude,
+               COALESCE(recorded_at, created_at), speed_kmh
+        FROM truck_driver_locations
+        WHERE driver_id IN ({ids_str})
+          AND COALESCE(recorded_at, created_at) >= :dt_start
+          AND COALESCE(recorded_at, created_at) < :dt_end
+        ORDER BY driver_id ASC, COALESCE(recorded_at, created_at) ASC
+    """)
+
+    merged = {}
+    for did in set(list(device.keys()) + list(app.keys()) + list(web.keys())):
+        if device.get(did):
+            merged[did] = device[did]
+        elif app.get(did):
+            merged[did] = app[did]
+        elif web.get(did):
+            merged[did] = web[did]
+    return merged
+
+
 @bp.route('/gps_map')
 @login_required_truck
 def gps_map():
@@ -1163,30 +1229,9 @@ def gps_map():
         driver_ids = [dl['id'] for dl in target_drivers]
         driver_tracks = {}
         if driver_ids:
-            ids_str = ','.join(str(did) for did in driver_ids)
             dt_start = datetime.combine(target_date, datetime.min.time())
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
-            try:
-                locs = db.execute(text(f"""
-                    SELECT driver_id, latitude, longitude, recorded_at, speed
-                    FROM "T_トラック運行位置履歴"
-                    WHERE driver_id IN ({ids_str})
-                      AND recorded_at >= :dt_start
-                      AND recorded_at < :dt_end
-                    ORDER BY driver_id ASC, recorded_at ASC
-                """), {'dt_start': dt_start, 'dt_end': dt_end}).fetchall()
-                for loc in locs:
-                    key = loc[0]
-                    if key not in driver_tracks:
-                        driver_tracks[key] = []
-                    driver_tracks[key].append({
-                        'lat': float(loc[1]),
-                        'lng': float(loc[2]),
-                        'time': loc[3].strftime('%H:%M:%S') if loc[3] else '',
-                        'speed': float(loc[4]) if loc[4] is not None else None,
-                    })
-            except Exception:
-                pass
+            driver_tracks = _load_driver_location_tracks(db, driver_ids, dt_start, dt_end)
 
         tracks = []
         for dl in target_drivers:
@@ -1259,26 +1304,7 @@ def gps_map_realtime_data():
             ids_str = ','.join(str(did) for did in driver_ids)
             dt_start = datetime.combine(target_date, datetime.min.time())
             dt_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
-            try:
-                locs = db.execute(text(f"""
-                    SELECT driver_id, latitude, longitude, recorded_at
-                    FROM "T_トラック運行位置履歴"
-                    WHERE driver_id IN ({ids_str})
-                      AND recorded_at >= :dt_start
-                      AND recorded_at < :dt_end
-                    ORDER BY driver_id ASC, recorded_at ASC
-                """), {'dt_start': dt_start, 'dt_end': dt_end}).fetchall()
-                for loc in locs:
-                    key = loc[0]
-                    if key not in driver_tracks:
-                        driver_tracks[key] = []
-                    driver_tracks[key].append({
-                        'lat': float(loc[1]),
-                        'lng': float(loc[2]),
-                        'time': loc[3].strftime('%H:%M:%S') if loc[3] else ''
-                    })
-            except Exception:
-                pass
+            driver_tracks = _load_driver_location_tracks(db, driver_ids, dt_start, dt_end)
 
         # 各ドライバーの運行情報（運行開始・荷積み・荷下ろし時刻）を取得
         op_times = {}

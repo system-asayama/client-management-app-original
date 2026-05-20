@@ -294,7 +294,7 @@
 
     var lastPoint = null;       // 直近の測位結果（未送信）
     var pendingPoints = [];     // サーバー送信待ち（圏外バッファ）
-    var SEND_INTERVAL = 20000;  // 20秒ごとにサーバーへ送信
+    var SEND_INTERVAL = {{ web_gps_interval|default(20) }} * 1000;  // サーバーへの送信間隔（管理画面で設定）
     var MAX_BUFFER = 500;       // バッファ上限（超過分は古いものから破棄）
     var LOCATION_URL = '{{ url_for('truck.driver_operation_location') }}';
     var ROUTE_URL = '{{ url_for('truck.driver_operation_route') }}';

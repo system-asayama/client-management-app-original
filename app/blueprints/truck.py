@@ -2189,15 +2189,25 @@ def apk_settings():
                 gps_interval_sec = max(1, int(gps_interval_raw))
             except (ValueError, TypeError):
                 gps_interval_sec = 30
+            web_gps_raw = request.form.get('web_gps_interval_seconds', '20').strip()
+            try:
+                web_gps_sec = max(1, int(web_gps_raw))
+            except (ValueError, TypeError):
+                web_gps_sec = 20
             TruckAppSettings.set(db, 'android_apk_url', apk_url, None)
             TruckAppSettings.set(db, 'android_apk_version', apk_version, None)
             TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_interval_sec), None)
+            TruckAppSettings.set(db, 'web_gps_interval_seconds', str(web_gps_sec), None)
+            db.commit()
             flash('APK設定を保存しました', 'success')
             return redirect(url_for('truck.apk_settings'))
         apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
         apk_version = TruckAppSettings.get(db, 'android_apk_version', None, '')
         gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', None, '30') or '30')
-        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version, gps_interval_seconds=gps_interval_seconds)
+        web_gps_interval_seconds = int(TruckAppSettings.get(db, 'web_gps_interval_seconds', None, '20') or '20')
+        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version,
+                               gps_interval_seconds=gps_interval_seconds,
+                               web_gps_interval_seconds=web_gps_interval_seconds)
     finally:
         db.close()
 
@@ -2985,6 +2995,10 @@ def driver_operation():
         nav_mode = TruckAppSettings.get(
             db, 'truck_nav_mode', tenant_id=driver.tenant_id, default='free'
         ) if driver else 'free'
+        web_gps_interval = max(1, int(TruckAppSettings.get(
+            db, 'web_gps_interval_seconds',
+            tenant_id=(driver.tenant_id if driver else None), default='20'
+        ) or '20'))
         return render_template(
             'truck/driver_operation.html',
             driver=driver,
@@ -2994,6 +3008,7 @@ def driver_operation():
             op_route=op_route,
             nav_destination=nav_destination or None,
             nav_mode=nav_mode,
+            web_gps_interval=web_gps_interval,
             trucks=trucks,
             routes=routes,
         )

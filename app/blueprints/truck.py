@@ -2155,6 +2155,17 @@ def api_settings():
             TruckAppSettings.set(db, 'truck_nav_mode', nav_mode, tenant_id=tenant_id)
             TruckAppSettings.set(db, 'truck_nav_ors_key', nav_ors_key, tenant_id=tenant_id)
             TruckAppSettings.set(db, 'truck_nav_profile', nav_profile, tenant_id=tenant_id)
+            # GPS送信間隔
+            try:
+                gps_sec = max(1, int(request.form.get('gps_interval_seconds', '30').strip()))
+            except (ValueError, TypeError):
+                gps_sec = 30
+            try:
+                web_gps_sec = max(1, int(request.form.get('web_gps_interval_seconds', '20').strip()))
+            except (ValueError, TypeError):
+                web_gps_sec = 20
+            TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_sec), tenant_id=tenant_id)
+            TruckAppSettings.set(db, 'web_gps_interval_seconds', str(web_gps_sec), tenant_id=tenant_id)
             db.commit()
             flash('設定を保存しました', 'success')
             return redirect(url_for('truck.api_settings'))
@@ -2163,12 +2174,16 @@ def api_settings():
         nav_mode = TruckAppSettings.get(db, 'truck_nav_mode', tenant_id=tenant_id, default='free')
         nav_ors_key = TruckAppSettings.get(db, 'truck_nav_ors_key', tenant_id=tenant_id, default='')
         nav_profile = TruckAppSettings.get(db, 'truck_nav_profile', tenant_id=tenant_id, default='driving-hgv')
+        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', tenant_id=tenant_id, default='30') or '30')
+        web_gps_interval_seconds = int(TruckAppSettings.get(db, 'web_gps_interval_seconds', tenant_id=tenant_id, default='20') or '20')
         return render_template('truck/api_settings.html',
                                app_openai_key=app_openai_key,
                                app_google_vision_key=app_google_vision_key,
                                nav_mode=nav_mode,
                                nav_ors_key=nav_ors_key,
-                               nav_profile=nav_profile)
+                               nav_profile=nav_profile,
+                               gps_interval_seconds=gps_interval_seconds,
+                               web_gps_interval_seconds=web_gps_interval_seconds)
     finally:
         db.close()
 
@@ -2184,30 +2199,14 @@ def apk_settings():
         if request.method == 'POST':
             apk_url = request.form.get('apk_url', '').strip()
             apk_version = request.form.get('apk_version', '').strip()
-            gps_interval_raw = request.form.get('gps_interval_seconds', '30').strip()
-            try:
-                gps_interval_sec = max(1, int(gps_interval_raw))
-            except (ValueError, TypeError):
-                gps_interval_sec = 30
-            web_gps_raw = request.form.get('web_gps_interval_seconds', '20').strip()
-            try:
-                web_gps_sec = max(1, int(web_gps_raw))
-            except (ValueError, TypeError):
-                web_gps_sec = 20
             TruckAppSettings.set(db, 'android_apk_url', apk_url, None)
             TruckAppSettings.set(db, 'android_apk_version', apk_version, None)
-            TruckAppSettings.set(db, 'gps_interval_seconds', str(gps_interval_sec), None)
-            TruckAppSettings.set(db, 'web_gps_interval_seconds', str(web_gps_sec), None)
             db.commit()
             flash('APK設定を保存しました', 'success')
             return redirect(url_for('truck.apk_settings'))
         apk_url = TruckAppSettings.get(db, 'android_apk_url', None, '')
         apk_version = TruckAppSettings.get(db, 'android_apk_version', None, '')
-        gps_interval_seconds = int(TruckAppSettings.get(db, 'gps_interval_seconds', None, '30') or '30')
-        web_gps_interval_seconds = int(TruckAppSettings.get(db, 'web_gps_interval_seconds', None, '20') or '20')
-        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version,
-                               gps_interval_seconds=gps_interval_seconds,
-                               web_gps_interval_seconds=web_gps_interval_seconds)
+        return render_template('truck/apk_settings.html', apk_url=apk_url, apk_version=apk_version)
     finally:
         db.close()
 

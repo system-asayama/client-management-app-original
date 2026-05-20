@@ -129,6 +129,34 @@
       </div>
     </div>
 
+    <!-- GPS送信間隔 -->
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:24px">
+      <h2 style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px; padding-bottom:10px; border-bottom:1px solid #f1f5f9">
+        📡 GPS送信間隔
+      </h2>
+      <p style="color:#64748b; font-size:0.85rem; margin-bottom:16px">
+        GPS位置情報をサーバーへ送信する間隔（秒）です。短いほど記録が細かくなりますが、通信量・バッテリー消費が増えます。
+      </p>
+      <div style="margin-bottom:16px">
+        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
+          運行画面（Web版）の送信間隔（秒）
+        </label>
+        <input type="number" name="web_gps_interval_seconds" value="{{ web_gps_interval_seconds }}"
+          min="1" max="3600" step="1"
+          style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
+        <small style="color:#6b7280; font-size:0.78rem">運行モードのWeb画面用。デフォルト20秒。</small>
+      </div>
+      <div>
+        <label style="display:block; font-weight:600; font-size:0.9rem; color:#374151; margin-bottom:4px">
+          ドライバー専用アプリの送信間隔（秒）
+        </label>
+        <input type="number" name="gps_interval_seconds" value="{{ gps_interval_seconds }}"
+          min="1" max="3600" step="1"
+          style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; box-sizing:border-box">
+        <small style="color:#6b7280; font-size:0.78rem">ネイティブアプリ用。デフォルト30秒。</small>
+      </div>
+    </div>
+
     <button type="submit"
       style="width:100%; padding:14px; background:#1e3a5f; color:#fff; border:none; border-radius:8px; font-size:1rem; font-weight:700; cursor:pointer">
       設定を保存

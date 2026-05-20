@@ -1149,7 +1149,12 @@ def _load_driver_location_tracks(db, driver_ids, dt_start, dt_end):
                     'speed': float(r[4]) if r[4] is not None else None,
                 })
         except Exception:
-            pass
+            # クエリ失敗時はトランザクションを戻し、後続クエリへ影響させない
+            # （新テーブル未作成などで1系統がこけても他系統は読めるようにする）
+            try:
+                db.rollback()
+            except Exception:
+                pass
         return result
 
     # ① テレトニカ（車載GPS）

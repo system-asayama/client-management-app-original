@@ -35,18 +35,15 @@ def get_db():
     """
     優先順位：
       1) .env/環境変数の DATABASE_URL
-      2) ローカル Postgres accounting_dev (postgres / n-N31415926!!)
-      3) SQLite
+      2) SQLite フォールバック
     戻り値: DB接続オブジェクト
-    
+
     注意: テーブル作成はSQLAlchemy (app/db.py) のBase.metadata.create_all()で行われます
     """
     db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        db_url = "postgresql://postgres:n-N31415926!!@localhost:5432/accounting_dev"
 
-    # --- Try PostgreSQL ---
-    if psycopg2:
+    # --- Try PostgreSQL (DATABASE_URL が設定されている場合のみ) ---
+    if psycopg2 and db_url:
         try:
             url = urlparse(db_url)
             sslmode = "disable" if (url.hostname in ("localhost", "127.0.0.1")) else "require"

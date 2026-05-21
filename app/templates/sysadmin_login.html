@@ -120,6 +120,7 @@
       <div class="login-error">{{ error }}</div>
       {%- endif -%}
       <form method="post" action="" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
         <div class="login-form-group">
           <label for="login_id">ログインID</label>
           <input id="login_id" name="login_id" type="text" required autofocus placeholder="ログインIDを入力">

@@ -5,7 +5,7 @@
 
 import secrets
 from typing import Optional
-from flask import session
+from flask import session, request
 from .db import get_db, _sql
 
 
@@ -20,12 +20,12 @@ def login_user(user_id: int, name: str, role: str, tenant_id: Optional[int], is_
 
 
 def admin_exists() -> bool:
-    """管理者が1人でも居れば True"""
+    """システム管理者が1人でも居れば True（初回セットアップ要否の判定に使用）"""
     conn = get_db()
     try:
         cur = conn.cursor()
-        sql = _sql(conn, 'SELECT COUNT(*) FROM "T_管理者"')
-        cur.execute(sql)
+        sql = _sql(conn, 'SELECT COUNT(*) FROM "T_管理者" WHERE role=%s')
+        cur.execute(sql, ('system_admin',))
         row = cur.fetchone()
         cnt = row[0] if row else 0
         return cnt > 0
@@ -50,6 +50,15 @@ def get_csrf():
     return _ensure_csrf_token()
 
 
+def validate_csrf() -> bool:
+    """POSTされたCSRFトークンがセッションのトークンと一致するか定数時間比較で検証"""
+    session_token = session.get("csrf_token")
+    form_token = request.form.get("csrf_token", "")
+    if not session_token or not form_token:
+        return False
+    return secrets.compare_digest(str(form_token), str(session_token))
+
+
 def is_owner() -> bool:
     """
     現在ログイン中のユーザーがオーナーシステム管理者かどうかを確認
@@ -59,13 +68,18 @@ def is_owner() -> bool:
     
     if not user_id or role != 'system_admin':
         return False
-    
+
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute(_sql(conn, 'SELECT is_owner FROM "T_管理者" WHERE id = %s'), (user_id,))
-    row = cur.fetchone()
-    conn.close()
-    
+    try:
+        cur = conn.cursor()
+        cur.execute(_sql(conn, 'SELECT is_owner FROM "T_管理者" WHERE id = %s'), (user_id,))
+        row = cur.fetchone()
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
     if row:
         return row[0] == 1
     return False
@@ -81,13 +95,18 @@ def can_manage_system_admins() -> bool:
     
     if not user_id or role != 'system_admin':
         return False
-    
+
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute(_sql(conn, 'SELECT is_owner, can_manage_admins FROM "T_管理者" WHERE id = %s'), (user_id,))
-    row = cur.fetchone()
-    conn.close()
-    
+    try:
+        cur = conn.cursor()
+        cur.execute(_sql(conn, 'SELECT is_owner, can_manage_admins FROM "T_管理者" WHERE id = %s'), (user_id,))
+        row = cur.fetchone()
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
     if row:
         # オーナーは常にTrue、それ以外はcan_manage_adminsで判定
         return row[0] == 1 or row[1] == 1
@@ -103,13 +122,18 @@ def is_tenant_owner() -> bool:
     
     if not user_id or role != 'tenant_admin':
         return False
-    
+
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute(_sql(conn, 'SELECT is_owner FROM "T_管理者" WHERE id = %s'), (user_id,))
-    row = cur.fetchone()
-    conn.close()
-    
+    try:
+        cur = conn.cursor()
+        cur.execute(_sql(conn, 'SELECT is_owner FROM "T_管理者" WHERE id = %s'), (user_id,))
+        row = cur.fetchone()
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
     if row:
         return row[0] == 1
     return False
@@ -130,13 +154,18 @@ def can_manage_tenant_admins() -> bool:
     
     if not user_id or role != 'tenant_admin':
         return False
-    
+
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute(_sql(conn, 'SELECT is_owner, can_manage_admins FROM "T_管理者" WHERE id = %s'), (user_id,))
-    row = cur.fetchone()
-    conn.close()
-    
+    try:
+        cur = conn.cursor()
+        cur.execute(_sql(conn, 'SELECT is_owner, can_manage_admins FROM "T_管理者" WHERE id = %s'), (user_id,))
+        row = cur.fetchone()
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
     if row:
         # オーナーは常にTrue、それ以外はcan_manage_adminsで判定
         return row[0] == 1 or row[1] == 1

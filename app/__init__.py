@@ -1,5 +1,7 @@
 from __future__ import annotations
 import os
+import secrets
+from datetime import timedelta
 from flask import Flask
 
 # データベーステーブル作成（モジュールレベルで1回だけ実行）
@@ -51,8 +53,26 @@ def create_app() -> Flask:
     """
     app = Flask(__name__)
 
-    # SECRET_KEY設定
-    app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    # 実行環境の判定
+    env = os.getenv('ENV', 'dev').lower()
+    is_production = env in ('prod', 'production')
+
+    # SECRET_KEY設定（ハードコード固定鍵は廃止）
+    secret_key = os.environ.get('SECRET_KEY')
+    if not secret_key:
+        if is_production:
+            raise RuntimeError('SECRET_KEY environment variable must be set in production')
+        secret_key = secrets.token_hex(32)
+        print('⚠️ SECRET_KEY 未設定: 開発用のランダムキーを生成しました（再起動でセッション失効）')
+    app.secret_key = secret_key
+
+    # セッションCookieの堅牢化
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
+        SESSION_COOKIE_SECURE=is_production,
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
+    )
 
     # アップロードフォルダ設定
     _base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -427,11 +447,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ mobile_api blueprint 登録エラー: {e}")
 
-    try:
-        from .blueprints.debug_routes import debug_bp
-        app.register_blueprint(debug_bp)
-    except Exception as e:
-        print(f"⚠️ debug blueprint 登録エラー: {e}")
+    # デバッグルートはスキーマ情報を露出するため本番では登録しない
+    if not is_production:
+        try:
+            from .blueprints.debug_routes import debug_bp
+            app.register_blueprint(debug_bp)
+        except Exception as e:
+            print(f"⚠️ debug blueprint 登録エラー: {e}")
 
     try:
         from .blueprints.video_call import bp as video_call_bp

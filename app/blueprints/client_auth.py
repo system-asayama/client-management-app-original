@@ -10,6 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_client_users import TClientUser, TClientInvitation
 from app.models_clients import TClient
+from app.utils import validate_csrf, lockout_remaining, record_failure, clear_login_attempts
 
 bp = Blueprint('client_auth', __name__, url_prefix='/client')
 
@@ -26,12 +27,20 @@ def login():
 
     error = None
     if request.method == 'POST':
+        if not validate_csrf():
+            error = 'セッションが無効です。ページを再読み込みしてもう一度お試しください。'
+            return render_template('client_login.html', error=error)
         login_id = (request.form.get('login_id') or '').strip()
         password = request.form.get('password') or ''
 
         if not login_id or not password:
             error = 'ログインIDとパスワードを入力してください。'
         else:
+            rl_key = 'client:' + login_id.lower()
+            wait = lockout_remaining(rl_key)
+            if wait:
+                error = f'ログイン試行が多すぎます。約{(wait + 59) // 60}分後に再度お試しください。'
+                return render_template('client_login.html', error=error)
             db = SessionLocal()
             try:
                 user = db.query(TClientUser).filter(
@@ -40,6 +49,7 @@ def login():
                 ).first()
 
                 if user and user.password_hash and check_password_hash(user.password_hash, password):
+                    clear_login_attempts(rl_key)
                     # クライアント情報も取得
                     client = db.query(TClient).filter(TClient.id == user.client_id).first()
                     # セッションに保存
@@ -52,6 +62,7 @@ def login():
                     session['tenant_id'] = client.tenant_id if client else None
                     return redirect(url_for('client_mypage.dashboard'))
                 else:
+                    record_failure(rl_key)
                     error = 'ログインIDまたはパスワードが正しくありません。'
             finally:
                 db.close()

@@ -128,6 +128,7 @@
         {% endif %}
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
             <div class="form-group">
                 <label for="login_id">ログインID</label>
                 <input type="text" id="login_id" name="login_id" placeholder="ログインIDを入力" required autofocus>

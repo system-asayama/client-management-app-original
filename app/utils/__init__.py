@@ -4,9 +4,10 @@
 """
 
 from .db import get_db, get_db_connection, _is_pg, _sql
-from .security import login_user, admin_exists, get_csrf, is_owner, can_manage_system_admins, is_tenant_owner, can_manage_tenant_admins
+from .security import login_user, admin_exists, get_csrf, validate_csrf, is_owner, can_manage_system_admins, is_tenant_owner, can_manage_tenant_admins
 from .decorators import require_roles, current_tenant_filter_sql, require_app_enabled, ROLES
 from .api_key import get_openai_api_key, get_openai_client
+from .rate_limit import lockout_remaining, record_failure, clear as clear_login_attempts
 
 __all__ = [
     'get_db',
@@ -16,6 +17,7 @@ __all__ = [
     'login_user',
     'admin_exists',
     'get_csrf',
+    'validate_csrf',
     'is_owner',
     'can_manage_system_admins',
     'is_tenant_owner',
@@ -26,4 +28,7 @@ __all__ = [
     'ROLES',
     'get_openai_api_key',
     'get_openai_client',
+    'lockout_remaining',
+    'record_failure',
+    'clear_login_attempts',
 ]

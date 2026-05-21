@@ -1,0 +1,73 @@
+{% extends 'antiques/base.html' %}
+{% block title %}ダッシュボード{% endblock %}
+{% block topbar_title %}ダッシュボード{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>ダッシュボード</h1>
+    <p>骨董品店の在庫・取引状況を一目で確認できます</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-label">総商品数</div>
+    <div class="kpi-value">{{ item_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">在庫中</div>
+    <div class="kpi-value" style="color:var(--gold-lt)">{{ instock_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">販売済</div>
+    <div class="kpi-value">{{ sold_count }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">在庫評価額</div>
+    <div class="kpi-value" style="font-size:1.4rem">¥{{ "{:,.0f}".format(inventory_value) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">累計売上</div>
+    <div class="kpi-value" style="font-size:1.4rem">¥{{ "{:,.0f}".format(total_sales) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">取引先数</div>
+    <div class="kpi-value">{{ partner_count }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <h2 style="font-size:0.9rem;font-weight:700">最近の入荷商品</h2>
+    <a href="{{ url_for('antiques.items') }}" class="btn btn-ghost btn-sm">すべて見る</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>品名</th>
+          <th>分類</th>
+          <th>時代</th>
+          <th>ステータス</th>
+          <th>販売希望価格</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set sc = {'在庫':'zaiko','委託中':'itaku','売約済':'uriyaku','販売済':'hanbai'} %}
+        {% for i in recent_items %}
+        <tr>
+          <td style="font-weight:600">{{ i.name }}</td>
+          <td>{{ i.category or '—' }}</td>
+          <td>{{ i.era or '—' }}</td>
+          <td><span class="badge badge-{{ sc.get(i.status,'zaiko') }}">{{ i.status }}</span></td>
+          <td>{% if i.asking_price %}¥{{ "{:,.0f}".format(i.asking_price|float) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:2rem">商品がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

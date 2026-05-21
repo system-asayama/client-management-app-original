@@ -20,6 +20,7 @@ try:
     from . import models_breeder  # noqa: F401
     from . import models_shortstay  # noqa: F401
     from . import models_construction  # noqa: F401
+    from . import models_antiques  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -635,6 +636,13 @@ def create_app() -> Flask:
         print("✅ construction_ext blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ construction_ext blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.antiques import bp as antiques_bp
+        app.register_blueprint(antiques_bp)
+        print("✅ antiques blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ antiques blueprint 登録エラー: {e}")
 
     # カスタムJinja2フィルター
     import json as _json

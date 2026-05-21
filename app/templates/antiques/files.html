@@ -1,0 +1,81 @@
+{% extends 'antiques/base.html' %}
+{% block title %}商品写真・資料{% endblock %}
+{% block topbar_title %}商品写真・資料{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>商品写真・資料</h1>
+    <p>商品ごとの写真・鑑定書・各種資料を管理します</p>
+  </div>
+</div>
+<div class="divider"></div>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <form method="get" style="display:flex;gap:0.75rem;align-items:flex-end">
+    <div class="form-group" style="margin:0;flex:1">
+      <label class="form-label">商品を選択</label>
+      <select class="form-control" name="shohin_id" onchange="this.form.submit()">
+        <option value="">— 商品を選択してください —</option>
+        {% for i in items %}
+        <option value="{{ i.id }}" {% if selected_shohin_id == i.id %}selected{% endif %}>{{ i.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if selected_shohin_id %}
+<div class="card" style="margin-bottom:1.5rem">
+  <div style="font-size:0.8rem;font-weight:700;color:var(--muted);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em">ファイルをアップロード</div>
+  <form method="post" action="{{ url_for('antiques.file_upload') }}" enctype="multipart/form-data" style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <input type="hidden" name="shohin_id" value="{{ selected_shohin_id }}">
+    <div class="form-group" style="margin:0;flex:1;min-width:200px">
+      <label class="form-label">ファイルを選択</label>
+      <input class="form-control" type="file" name="files" multiple>
+    </div>
+    <button type="submit" class="btn btn-primary" style="white-space:nowrap">アップロード</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ファイル名</th><th>種類</th><th>サイズ</th><th>アップロード日時</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for f in file_rows %}
+        <tr>
+          <td style="font-weight:600">
+            <a href="{{ f.file_url }}" target="_blank" style="color:var(--gold-lt);text-decoration:none">{{ f.file_name }}</a>
+          </td>
+          <td style="color:var(--muted);font-size:0.75rem">{{ f.mime_type or '—' }}</td>
+          <td style="color:var(--muted);font-size:0.75rem">
+            {% if f.file_size %}
+              {% if f.file_size > 1048576 %}{{ "%.1f"|format(f.file_size/1048576) }} MB
+              {% elif f.file_size > 1024 %}{{ "%.1f"|format(f.file_size/1024) }} KB
+              {% else %}{{ f.file_size }} B{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td style="white-space:nowrap;color:var(--muted);font-size:0.75rem">{{ f.created_at.strftime('%Y/%m/%d %H:%M') if f.created_at else '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('antiques.file_delete', fid=f.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:2rem">この商品にはまだファイルがありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:var(--muted)">
+  上の商品セレクトから商品を選択してください
+</div>
+{% endif %}
+{% endblock %}

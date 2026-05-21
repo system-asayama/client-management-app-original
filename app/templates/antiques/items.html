@@ -1,0 +1,49 @@
+{% extends 'antiques/base.html' %}
+{% block title %}商品台帳{% endblock %}
+{% block topbar_title %}商品台帳{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>商品台帳</h1>
+    <p>骨董品・在庫の一覧と管理</p>
+  </div>
+  <a href="{{ url_for('antiques.item_new') }}" class="btn btn-primary">＋ 新規登録</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>管理番号</th><th>品名</th><th>分類</th><th>時代</th><th>状態</th><th>ステータス</th><th>仕入価格</th><th>販売希望価格</th><th>仕入先</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set sc = {'在庫':'zaiko','委託中':'itaku','売約済':'uriyaku','販売済':'hanbai'} %}
+        {% for i, s in rows %}
+        <tr>
+          <td style="color:var(--muted);font-size:0.75rem">{{ i.management_no or '—' }}</td>
+          <td style="font-weight:700">{{ i.name }}</td>
+          <td>{{ i.category or '—' }}</td>
+          <td>{{ i.era or '—' }}</td>
+          <td>{{ i.condition or '—' }}</td>
+          <td><span class="badge badge-{{ sc.get(i.status,'zaiko') }}">{{ i.status }}</span></td>
+          <td>{% if i.acquisition_cost %}¥{{ "{:,.0f}".format(i.acquisition_cost|float) }}{% else %}—{% endif %}</td>
+          <td>{% if i.asking_price %}¥{{ "{:,.0f}".format(i.asking_price|float) }}{% else %}—{% endif %}</td>
+          <td>{{ s.name if s else '—' }}</td>
+          <td style="white-space:nowrap">
+            <a href="{{ url_for('antiques.item_edit', iid=i.id) }}" class="btn btn-ghost btn-sm">編集</a>
+            <form method="post" action="{{ url_for('antiques.item_delete', iid=i.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" style="color:var(--muted);text-align:center;padding:2rem">商品がまだ登録されていません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

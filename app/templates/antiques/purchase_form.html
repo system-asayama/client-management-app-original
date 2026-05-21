@@ -1,0 +1,55 @@
+{% extends 'antiques/base.html' %}
+{% block title %}買取登録{% endblock %}
+{% block topbar_title %}買取登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left"><h1>買取登録</h1></div>
+  <a href="{{ url_for('antiques.purchases') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+<div class="card" style="max-width:640px">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">買取日 *</label>
+        <input class="form-control" type="date" name="purchase_date" required value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">買取金額（円）</label>
+        <input class="form-control" type="number" name="amount" step="1" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">商品</label>
+        <select class="form-control" name="shohin_id">
+          <option value="">— 選択 —</option>
+          {% for i in items %}
+          <option value="{{ i.id }}">{{ i.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">仕入先</label>
+        <select class="form-control" name="supplier_id">
+          <option value="">— 選択 —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">支払方法</label>
+        <input class="form-control" type="text" name="payment_method" placeholder="例: 現金 / 銀行振込">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">備考</label>
+        <textarea class="form-control" name="notes" rows="3"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('antiques.purchases') }}" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

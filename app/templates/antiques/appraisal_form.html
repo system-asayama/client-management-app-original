@@ -1,0 +1,58 @@
+{% extends 'antiques/base.html' %}
+{% block title %}鑑定登録{% endblock %}
+{% block topbar_title %}鑑定登録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left"><h1>鑑定登録</h1></div>
+  <a href="{{ url_for('antiques.appraisals') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+<div class="card" style="max-width:640px">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">鑑定日 *</label>
+        <input class="form-control" type="date" name="appraisal_date" required value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">鑑定士</label>
+        <input class="form-control" type="text" name="appraiser" placeholder="鑑定担当者">
+      </div>
+      <div class="form-group">
+        <label class="form-label">登録商品から選択</label>
+        <select class="form-control" name="shohin_id">
+          <option value="">— 選択 —</option>
+          {% for i in items %}
+          <option value="{{ i.id }}">{{ i.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">鑑定品名（未登録品）</label>
+        <input class="form-control" type="text" name="target_name" placeholder="商品未登録の場合に入力">
+      </div>
+      <div class="form-group">
+        <label class="form-label">鑑定評価額（円）</label>
+        <input class="form-control" type="number" name="appraised_value" step="1" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">鑑定結果</label>
+        <select class="form-control" name="result">
+          {% for r in result_list %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">所見・コメント</label>
+        <textarea class="form-control" name="comment" rows="4"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+      <button type="submit" class="btn btn-primary">登録する</button>
+      <a href="{{ url_for('antiques.appraisals') }}" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

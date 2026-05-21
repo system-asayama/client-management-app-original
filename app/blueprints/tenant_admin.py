@@ -2357,6 +2357,14 @@ AVAILABLE_APPS = [
         'url': '/construction/dashboard',
         'icon': '🏗️',
         'scope': 'tenant'
+    },
+    {
+        'name': 'antiques-business',
+        'display_name': '骨董品店経営アプリ',
+        'description': '商品台帳・取引先・買取・販売・鑑定・商品写真を一元管理する骨董品店向け業務管理システム',
+        'url': '/antiques/dashboard',
+        'icon': '🏺',
+        'scope': 'tenant'
     }
 ]
 

@@ -1,0 +1,42 @@
+{% extends 'antiques/base.html' %}
+{% block title %}鑑定記録{% endblock %}
+{% block topbar_title %}鑑定記録{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>鑑定記録</h1>
+    <p>骨董品の鑑定・査定結果を管理します</p>
+  </div>
+  <a href="{{ url_for('antiques.appraisal_new') }}" class="btn btn-primary">＋ 鑑定を登録</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>鑑定日</th><th>鑑定品</th><th>鑑定士</th><th>鑑定評価額</th><th>鑑定結果</th><th>所見</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for a, i in rows %}
+        <tr>
+          <td style="white-space:nowrap">{{ a.appraisal_date }}</td>
+          <td style="font-weight:600">{{ i.name if i else (a.target_name or '—') }}</td>
+          <td>{{ a.appraiser or '—' }}</td>
+          <td>{% if a.appraised_value %}¥{{ "{:,.0f}".format(a.appraised_value|float) }}{% else %}—{% endif %}</td>
+          <td><span class="badge badge-gold">{{ a.result or '不明' }}</span></td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.comment or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('antiques.appraisal_delete', aid=a.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:2rem">鑑定記録がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

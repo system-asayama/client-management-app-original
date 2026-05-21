@@ -1,0 +1,42 @@
+{% extends 'antiques/base.html' %}
+{% block title %}販売管理{% endblock %}
+{% block topbar_title %}販売管理{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>販売管理</h1>
+    <p>骨董品の販売記録を管理します</p>
+  </div>
+  <a href="{{ url_for('antiques.sale_new') }}" class="btn btn-primary">＋ 販売を登録</a>
+</div>
+<div class="divider"></div>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>販売日</th><th>商品</th><th>顧客</th><th>販売金額</th><th>支払方法</th><th>備考</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for h, i, c in rows %}
+        <tr>
+          <td style="white-space:nowrap">{{ h.sale_date }}</td>
+          <td style="font-weight:600">{{ i.name if i else '—' }}</td>
+          <td>{{ c.name if c else '—' }}</td>
+          <td>{% if h.amount %}¥{{ "{:,.0f}".format(h.amount|float) }}{% else %}—{% endif %}</td>
+          <td>{{ h.payment_method or '—' }}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.notes or '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('antiques.sale_delete', hid=h.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+              <button type="submit" class="btn btn-danger btn-sm">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:2rem">販売記録がまだありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

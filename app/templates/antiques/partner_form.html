@@ -1,0 +1,55 @@
+{% extends 'antiques/base.html' %}
+{% block title %}{{ '取引先編集' if partner else '取引先登録' }}{% endblock %}
+{% block topbar_title %}{{ '取引先編集' if partner else '取引先登録' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ '取引先編集' if partner else '取引先登録' }}</h1>
+  </div>
+  <a href="{{ url_for('antiques.partners') }}" class="btn btn-ghost">← 一覧に戻る</a>
+</div>
+<div class="divider"></div>
+<div class="card" style="max-width:640px">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">氏名・会社名 *</label>
+        <input class="form-control" type="text" name="name" required value="{{ partner.name if partner else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">区分 *</label>
+        <select class="form-control" name="partner_type">
+          {% for t in partner_type_list %}
+          <option value="{{ t }}" {% if partner and partner.partner_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">担当者名</label>
+        <input class="form-control" type="text" name="contact_name" value="{{ partner.contact_name if partner else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電話番号</label>
+        <input class="form-control" type="tel" name="phone" value="{{ partner.phone if partner else '' }}">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">メールアドレス</label>
+        <input class="form-control" type="email" name="email" value="{{ partner.email if partner else '' }}">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">住所</label>
+        <input class="form-control" type="text" name="address" value="{{ partner.address if partner else '' }}">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">備考</label>
+        <textarea class="form-control" name="notes" rows="3">{{ partner.notes if partner else '' }}</textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+      <button type="submit" class="btn btn-primary">{{ '更新する' if partner else '登録する' }}</button>
+      <a href="{{ url_for('antiques.partners') }}" class="btn btn-ghost">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

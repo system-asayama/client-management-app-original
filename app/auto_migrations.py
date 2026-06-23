@@ -831,6 +831,82 @@ def run_auto_migrations():
         else:
             logger.info("- truck_inspection_records テーブルは既に存在します（スキップ）")
 
+        # T_管理者テーブルに can_manage_tenants カラムを追加
+        if not column_exists(session, 'T_管理者', 'can_manage_tenants'):
+            logger.info("T_管理者テーブルに can_manage_tenants カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_管理者"
+                    ADD COLUMN can_manage_tenants INTEGER DEFAULT 0
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_管理者`
+                    ADD COLUMN `can_manage_tenants` INT DEFAULT 0
+                    COMMENT 'テナント管理権限'
+                """))
+            session.commit()
+            logger.info("✓ T_管理者.can_manage_tenants カラムを追加しました")
+        else:
+            logger.info("- T_管理者.can_manage_tenants カラムは既に存在します（スキップ）")
+
+        # T_管理者テーブルに can_manage_api_keys カラムを追加
+        if not column_exists(session, 'T_管理者', 'can_manage_api_keys'):
+            logger.info("T_管理者テーブルに can_manage_api_keys カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_管理者"
+                    ADD COLUMN can_manage_api_keys INTEGER DEFAULT 0
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_管理者`
+                    ADD COLUMN `can_manage_api_keys` INT DEFAULT 0
+                    COMMENT 'API設定権限'
+                """))
+            session.commit()
+            logger.info("✓ T_管理者.can_manage_api_keys カラムを追加しました")
+        else:
+            logger.info("- T_管理者.can_manage_api_keys カラムは既に存在します（スキップ）")
+
+        # T_管理者テーブルに can_manage_app_managers カラムを追加
+        if not column_exists(session, 'T_管理者', 'can_manage_app_managers'):
+            logger.info("T_管理者テーブルに can_manage_app_managers カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_管理者"
+                    ADD COLUMN can_manage_app_managers INTEGER DEFAULT 0
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_管理者`
+                    ADD COLUMN `can_manage_app_managers` INT DEFAULT 0
+                    COMMENT 'アプリ管理者管理権限'
+                """))
+            session.commit()
+            logger.info("✓ T_管理者.can_manage_app_managers カラムを追加しました")
+        else:
+            logger.info("- T_管理者.can_manage_app_managers カラムは既に存在します（スキップ）")
+
+        # T_テナントテーブルに app_manager_group_id カラムを追加
+        if not column_exists(session, 'T_テナント', 'app_manager_group_id'):
+            logger.info("T_テナントテーブルに app_manager_group_id カラムを追加中...")
+            if db_type == 'postgresql':
+                session.execute(text("""
+                    ALTER TABLE "T_テナント"
+                    ADD COLUMN app_manager_group_id INTEGER NULL
+                """))
+            else:
+                session.execute(text("""
+                    ALTER TABLE `T_テナント`
+                    ADD COLUMN `app_manager_group_id` INT NULL
+                    COMMENT 'アプリ管理者グループID'
+                """))
+            session.commit()
+            logger.info("✓ T_テナント.app_manager_group_id カラムを追加しました")
+        else:
+            logger.info("- T_テナント.app_manager_group_id カラムは既に存在します（スキップ）")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

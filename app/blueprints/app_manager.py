@@ -1550,11 +1550,14 @@ def distribute(tenant_id=None):
             # 利用可能アプリの詳細情報
             enabled_apps = [app for app in AVAILABLE_APPS if app['name'] in enabled_app_ids]
 
-        # テナント一覧（自分のグループが作成したテナントのみ）
-        tenants_query = db.query(TTenant).filter(
-            TTenant.有効 == 1,
-            TTenant.app_manager_group_id == group_id
-        )
+        # テナント一覧（system_adminは全件、app_managerはグループに紐づくテナントのみ）
+        if role == 'system_admin':
+            tenants_query = db.query(TTenant).filter(TTenant.有効 == 1)
+        else:
+            tenants_query = db.query(TTenant).filter(
+                TTenant.有効 == 1,
+                TTenant.app_manager_group_id == group_id
+            )
         if tenant_id:
             tenants_query = tenants_query.filter(TTenant.id == tenant_id)
         tenants = tenants_query.order_by(TTenant.id).all()

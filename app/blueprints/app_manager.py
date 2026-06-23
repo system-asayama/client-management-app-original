@@ -1124,17 +1124,15 @@ def tenants():
     try:
         from app.models_login import TTenant
         
-        # group_idがセッションにある場合はそのグループのテナントのみ表示
-        # （system_adminがアプリ管理者として入った場合も同様）
-        if group_id:
+        # system_adminは常に全テナントを表示、app_managerはグループに紐づくテナントのみ表示
+        if role == 'system_admin':
+            tenants_list = db.query(TTenant).filter(
+                TTenant.有効 == 1
+            ).order_by(TTenant.id).all()
+        elif group_id:
             tenants_list = db.query(TTenant).filter(
                 TTenant.有効 == 1,
                 TTenant.app_manager_group_id == group_id
-            ).order_by(TTenant.id).all()
-        elif role == 'system_admin':
-            # system_adminがグループ未選択で直接アクセスした場合は全件
-            tenants_list = db.query(TTenant).filter(
-                TTenant.有効 == 1
             ).order_by(TTenant.id).all()
         else:
             tenants_list = []

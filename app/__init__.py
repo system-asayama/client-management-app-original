@@ -622,6 +622,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ construction_ext blueprint 登録エラー: {e}")
 
+    try:
+        from .blueprints.vtuber import bp as vtuber_bp
+        app.register_blueprint(vtuber_bp)
+        print("✅ vtuber blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ vtuber blueprint 登録エラー: {e}")
+
     import json as _json
     @app.template_filter('from_json')
     def from_json_filter(value):

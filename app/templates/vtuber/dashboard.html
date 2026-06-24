@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}VTUBER運営アプリ{% endblock %}
+{% block head %}
+<style>
+  .vt-hero { background: linear-gradient(135deg, #5b21b6 0%, #db2777 100%);
+             color: #fff; padding: 28px 32px; margin: -24px -24px 28px;
+             border-radius: 0 0 12px 12px; }
+  .vt-hero h1 { margin: 0; font-size: 1.8em; font-weight: 700; }
+  .vt-hero p { margin: 6px 0 0; opacity: .9; font-size: .95em; }
+  .vt-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px; margin-bottom: 28px; }
+  .vt-kpi-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+                  padding: 16px 18px; }
+  .vt-kpi-label { color: #6b7280; font-size: .82em; }
+  .vt-kpi-value { font-size: 1.7em; font-weight: 700; color: #1f2937; margin-top: 4px; }
+  .vt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+             gap: 14px; }
+  .vt-menu-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+                   padding: 18px 20px; text-decoration: none; color: inherit;
+                   display: block; transition: transform .12s, box-shadow .12s; }
+  .vt-menu-card:hover { transform: translateY(-2px);
+                         box-shadow: 0 8px 18px rgba(91, 33, 182, .12); }
+  .vt-menu-icon { font-size: 2em; line-height: 1; }
+  .vt-menu-title { font-weight: 700; font-size: 1.05em; margin-top: 8px; color: #1f2937; }
+  .vt-menu-desc { color: #6b7280; font-size: .85em; margin-top: 4px; line-height: 1.4; }
+  .vt-section-title { font-size: 1.1em; font-weight: 700; color: #374151;
+                       margin: 24px 0 12px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="vt-hero">
+  <h1>🎬 VTUBER運営アプリ</h1>
+  <p>所属タレント・配信スケジュール・案件・収益を一元管理。</p>
+</div>
+
+<div class="vt-kpi">
+  <div class="vt-kpi-card">
+    <div class="vt-kpi-label">所属 VTUBER</div>
+    <div class="vt-kpi-value">—</div>
+  </div>
+  <div class="vt-kpi-card">
+    <div class="vt-kpi-label">今月の配信予定</div>
+    <div class="vt-kpi-value">—</div>
+  </div>
+  <div class="vt-kpi-card">
+    <div class="vt-kpi-label">進行中案件</div>
+    <div class="vt-kpi-value">—</div>
+  </div>
+  <div class="vt-kpi-card">
+    <div class="vt-kpi-label">今月の収益</div>
+    <div class="vt-kpi-value">¥—</div>
+  </div>
+</div>
+
+<div class="vt-section-title">機能メニュー</div>
+<div class="vt-grid">
+  <a class="vt-menu-card" href="{{ url_for('vtuber.talents') }}">
+    <div class="vt-menu-icon">👥</div>
+    <div class="vt-menu-title">所属タレント</div>
+    <div class="vt-menu-desc">VTUBER のプロフィール、契約、SNS、配信プラットフォーム情報を管理。</div>
+  </a>
+  <a class="vt-menu-card" href="{{ url_for('vtuber.schedule') }}">
+    <div class="vt-menu-icon">📅</div>
+    <div class="vt-menu-title">配信スケジュール</div>
+    <div class="vt-menu-desc">日次・週次の配信予定をカレンダー表示。コラボ調整も。</div>
+  </a>
+  <a class="vt-menu-card" href="{{ url_for('vtuber.projects') }}">
+    <div class="vt-menu-icon">📦</div>
+    <div class="vt-menu-title">案件管理</div>
+    <div class="vt-menu-desc">タイアップ・グッズ制作・イベント等の案件を進捗管理。</div>
+  </a>
+  <a class="vt-menu-card" href="{{ url_for('vtuber.revenue') }}">
+    <div class="vt-menu-icon">💰</div>
+    <div class="vt-menu-title">収益管理</div>
+    <div class="vt-menu-desc">配信収益・スパチャ・案件報酬・グッズ売上の集計と精算。</div>
+  </a>
+</div>
+
+<p style="margin-top:24px; color:#9ca3af; font-size:.82em">
+  ※ 各機能の中身は今後順次拡充されます。まずはスケルトン段階です。
+</p>
+{% endblock %}

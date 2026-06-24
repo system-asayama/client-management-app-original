@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}案件管理 - VTUBER運営アプリ{% endblock %}
+{% block content %}
+<div style="padding:24px 0">
+  <p style="font-size:.85em; color:#6b7280">
+    <a href="{{ url_for('vtuber.dashboard') }}" style="color:#5b21b6">← VTUBER運営アプリ</a>
+  </p>
+  <h1 style="margin:8px 0 4px">📦 案件管理</h1>
+  <p style="color:#6b7280; margin:0 0 24px">タイアップ・グッズ制作・イベント等の案件。</p>
+  <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+              padding:32px; text-align:center; color:#9ca3af">
+    🚧 準備中: 案件登録・契約書管理・進捗ステータス・締切管理を実装予定。
+  </div>
+</div>
+{% endblock %}

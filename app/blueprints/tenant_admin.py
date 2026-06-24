@@ -2362,7 +2362,7 @@ AVAILABLE_APPS = [
         'name': 'vtuber-management',
         'display_name': 'VTUBER運営アプリ',
         'description': 'VTUBER の所属管理・配信スケジュール・案件・収益・グッズ・ファンクラブを一元管理する VTUBER 事務所向け運営システム',
-        'url': 'https://vtuber-management.samurai-hub.com/',
+        'url': '/vtuber/',
         'icon': '🎬',
         'scope': 'tenant'
     }

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}freee連携設定 - {{ client.name }}{% endblock %}
+{% block head %}{% include 'bookkeeping/_styles.html' %}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="bk-header">
+  <div class="bk-header-inner">
+    <div><h1 class="bk-title">freee連携設定</h1><p class="bk-sub">{{ client.name }}</p></div>
+    <div class="bk-actions"><a class="bk-btn-outline" href="{{ url_for('bookkeeping.client_detail', client_id=client.id) }}">← 戻る</a></div>
+  </div>
+</div>
+{% if viewing_as_banner %}<div class="viewing-as-banner">{{ viewing_as_banner }}</div>{% endif %}
+<div class="bk-wrap">
+  <div class="bk-note">
+    freee会計のアクセストークンと事業所IDを登録すると、口座・カード明細を自動取込できます。
+    トークンはfreeeアプリストアのOAuthで発行してください。未登録でも「デモデータ」で全機能を試せます。
+  </div>
+  <div class="bk-panel">
+    <form method="post" action="{{ url_for('bookkeeping.settings', client_id=client.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+      <div class="fg"><label>freee 事業所ID (company_id)</label>
+        <input name="freee_company_id" value="{{ conn.freee_company_id if conn and conn.freee_company_id else '' }}" placeholder="例: 1234567"></div>
+      <div class="fg"><label>アクセストークン</label>
+        <input name="access_token" type="password" placeholder="{% if conn and conn.access_token %}（登録済み・変更する場合のみ入力）{% else %}未登録{% endif %}"></div>
+      <div class="fg"><label>リフレッシュトークン</label>
+        <input name="refresh_token" type="password" placeholder="{% if conn and conn.refresh_token %}（登録済み・変更する場合のみ入力）{% else %}任意{% endif %}"></div>
+      <div class="fg"><label>自動確定の信頼度閾値（0.0〜1.0）</label>
+        <input name="auto_confirm_threshold" value="{% if conn and conn.auto_confirm_threshold is not none %}{{ conn.auto_confirm_threshold }}{% else %}0.9{% endif %}">
+        <small style="color:#6b7280;display:block;margin-top:4px">この値以上の信頼度の仕訳を自動確定します（推奨 0.9）</small></div>
+      <div class="fg"><label><input type="checkbox" name="auto_post_to_freee" value="1" style="width:auto" {% if conn and conn.auto_post_to_freee %}checked{% endif %}> 承認時にfreeeへ自動登録する</label></div>
+      <div class="fg"><label><input type="checkbox" name="enabled" value="1" style="width:auto" {% if not conn or conn.enabled %}checked{% endif %}> この顧問先で記帳代行を有効にする</label></div>
+      <button class="p-btn" type="submit">保存</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

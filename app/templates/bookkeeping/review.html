@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}記帳レビュー待ち{% endblock %}
+{% block head %}{% include 'bookkeeping/_styles.html' %}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="bk-header">
+  <div class="bk-header-inner">
+    <div>
+      <h1 class="bk-title">🔍 レビュー待ち仕訳</h1>
+      <p class="bk-sub">信頼度が低い仕訳です。確認・修正して承認すると学習され、次回から自動化されます</p>
+    </div>
+    <div class="bk-actions">
+      <a class="bk-btn-outline" href="{{ url_for('bookkeeping.dashboard') }}">← 一覧</a>
+    </div>
+  </div>
+</div>
+{% if viewing_as_banner %}<div class="viewing-as-banner">{{ viewing_as_banner }}</div>{% endif %}
+<datalist id="acc-list">{% for a in account_options %}<option value="{{ a }}">{% endfor %}</datalist>
+<div class="bk-wrap">
+  {% if not items %}
+  <div class="bk-empty">レビュー待ちの仕訳はありません 🎉</div>
+  {% else %}
+  {% for it in items %}
+    {% set e = it.entry %}
+    {% set pct = ((e.confidence or 0) * 100) | round | int %}
+    <div class="bk-panel">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div><strong>{{ it.client.name }}</strong> ／ {{ e.entry_date or '-' }}
+          <span class="badge b-review" style="margin-left:6px">信頼度 {{ pct }}%</span></div>
+        <div style="color:#6b7280;font-size:0.85em">{{ e.ai_reason or '' }}</div>
+      </div>
+      <div style="font-size:0.9em;margin-bottom:12px">摘要：<strong>{{ e.description or '' }}</strong>
+        <span style="color:#6b7280">（￥{{ '{:,}'.format(e.amount or 0) }}）</span></div>
+      <form method="post" action="{{ url_for('bookkeeping.approve_entry', entry_id=e.id) }}"
+            style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+        <input type="hidden" name="next" value="{{ url_for('bookkeeping.review') }}">
+        <div><label style="font-size:0.8em;color:#6b7280">借方</label><br>
+          <input class="bk-in" list="acc-list" name="debit_account" value="{{ e.debit_account or '' }}"></div>
+        <div><label style="font-size:0.8em;color:#6b7280">貸方</label><br>
+          <input class="bk-in" list="acc-list" name="credit_account" value="{{ e.credit_account or '' }}"></div>
+        <div><label style="font-size:0.8em;color:#6b7280">金額</label><br>
+          <input class="bk-in" style="text-align:right" name="amount" value="{{ e.amount or 0 }}"></div>
+        <div><label style="font-size:0.8em;color:#6b7280">税区分</label><br>
+          <select class="bk-in" name="tax_code">
+            {% for t in tax_codes %}<option value="{{ t }}" {% if t == e.tax_code %}selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select></div>
+        <button class="p-btn" type="submit">承認して学習</button>
+      </form>
+      <form method="post" action="{{ url_for('bookkeeping.reject_entry', entry_id=e.id) }}" style="margin-top:8px">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+        <input type="hidden" name="next" value="{{ url_for('bookkeeping.review') }}">
+        <button class="d-btn" type="submit">却下</button>
+      </form>
+    </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

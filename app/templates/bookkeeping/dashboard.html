@@ -10,7 +10,8 @@
       <p class="bk-sub">AIが仕訳を自動生成し、高信頼度は自動確定・要確認のみ税理士がレビューします</p>
     </div>
     <div class="bk-actions">
-      <a class="bk-btn" href="{{ url_for('bookkeeping.review') }}">レビュー待ち一覧</a>
+      <a class="bk-btn" href="{{ url_for('bookkeeping.review') }}">レビュー待ち</a>
+      <a class="bk-btn" href="{{ url_for('bookkeeping.findings') }}">ダブルチェック</a>
       <a class="bk-btn-outline" href="{{ current_dashboard_url }}">← ダッシュボード</a>
     </div>
   </div>
@@ -18,9 +19,15 @@
 {% if viewing_as_banner %}<div class="viewing-as-banner">{{ viewing_as_banner }}</div>{% endif %}
 <div class="bk-wrap">
   <div class="bk-note">
-    <strong>段階自動化モデル：</strong>取り込んだ取引をAI・学習ルールで仕訳し、信頼度が閾値以上のものは自動確定します。
-    曖昧なものだけ「レビュー待ち」に振り分けられ、税理士の承認・修正がそのまま学習され、使うほど自動化率が上がります。
+    <strong>段階自動化モデル：</strong>取り込んだ取引をAI・学習ルールで仕訳し、信頼度が閾値以上のものは自動確定。
+    曖昧なものだけレビューに回し、承認・修正を学習して使うほど自動化率が上がります。さらにfreeeの登録済み取引をAIが全件ダブルチェックします。
   </div>
+  {% if findings and findings.total %}
+  <div class="bk-note" style="background:#fef2f2;border-color:#fecaca;color:#991b1b">
+    <strong>ダブルチェック要確認 {{ findings.total }}件</strong>（重要 {{ findings.high }} / 警告 {{ findings.warning }} / 情報 {{ findings.info }}）
+    <a href="{{ url_for('bookkeeping.findings') }}" style="color:#991b1b;font-weight:700;margin-left:8px">確認する →</a>
+  </div>
+  {% endif %}
   <div class="bk-cards">
     <div class="bk-card"><div class="num">{{ totals.pending_txn }}</div><div class="lbl">未処理取引</div></div>
     <div class="bk-card"><div class="num">{{ totals.auto_confirmed }}</div><div class="lbl">自動確定</div></div>

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}freeeダブルチェック 要確認{% endblock %}
+{% block head %}{% include 'bookkeeping/_styles.html' %}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="bk-header">
+  <div class="bk-header-inner">
+    <div>
+      <h1 class="bk-title">🛡️ freeeダブルチェック — 要確認リスト</h1>
+      <p class="bk-sub">freeeの登録済み取引を全件走査した指摘です。確認したら「解決」、問題なければ「無視」を押してください</p>
+    </div>
+    <div class="bk-actions">
+      <a class="bk-btn-outline" href="{{ url_for('bookkeeping.dashboard') }}">← 一覧</a>
+    </div>
+  </div>
+</div>
+{% if viewing_as_banner %}<div class="viewing-as-banner">{{ viewing_as_banner }}</div>{% endif %}
+<div class="bk-wrap">
+  <div class="bk-cards">
+    <div class="bk-card"><div class="num" style="color:#b91c1c">{{ summary.high }}</div><div class="lbl">重要</div></div>
+    <div class="bk-card"><div class="num" style="color:#b45309">{{ summary.warning }}</div><div class="lbl">警告</div></div>
+    <div class="bk-card"><div class="num" style="color:#475569">{{ summary.info }}</div><div class="lbl">情報</div></div>
+  </div>
+  <div style="margin-bottom:14px;font-size:0.85em">
+    表示:
+    <a href="{{ url_for('bookkeeping.findings', status='open') }}" {% if status=='open' %}style="font-weight:700"{% endif %}>未対応</a> ・
+    <a href="{{ url_for('bookkeeping.findings', status='resolved') }}" {% if status=='resolved' %}style="font-weight:700"{% endif %}>解決済</a> ・
+    <a href="{{ url_for('bookkeeping.findings', status='ignored') }}" {% if status=='ignored' %}style="font-weight:700"{% endif %}>無視</a> ・
+    <a href="{{ url_for('bookkeeping.findings', status='all') }}" {% if status=='all' %}style="font-weight:700"{% endif %}>すべて</a>
+  </div>
+  {% if not items %}
+  <div class="bk-empty">該当する指摘はありません 🎉</div>
+  {% else %}
+  <table class="bk-table">
+    <thead><tr><th>重要度</th><th>顧問先</th><th>取引日</th><th class="bk-amt">金額</th><th>指摘</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for it in items %}
+      {% set f = it.f %}
+      <tr>
+        <td>{% if f.severity=='high' %}<span class="badge b-rejected">重要</span>{% elif f.severity=='warning' %}<span class="badge b-review">警告</span>{% else %}<span class="badge b-pending">情報</span>{% endif %}</td>
+        <td>{{ it.client.name }}</td>
+        <td>{{ f.deal_date or '-' }}</td>
+        <td class="bk-amt">{% if f.amount %}￥{{ '{:,}'.format(f.amount) }}{% else %}-{% endif %}</td>
+        <td><strong>{{ f.message }}</strong>{% if f.detail %}<br><span style="color:#6b7280;font-size:0.85em">{{ f.detail }}</span>{% endif %}{% if f.freee_deal_id %}<br><span style="color:#9ca3af;font-size:0.78em">freee取引ID: {{ f.freee_deal_id }}</span>{% endif %}</td>
+        <td style="white-space:nowrap">
+          {% if f.status=='open' %}
+          <form method="post" action="{{ url_for('bookkeeping.resolve_finding', finding_id=f.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+            <input type="hidden" name="next" value="{{ url_for('bookkeeping.findings', status=status) }}">
+            <button class="p-btn" style="padding:5px 10px" type="submit">解決</button>
+          </form>
+          <form method="post" action="{{ url_for('bookkeeping.ignore_finding', finding_id=f.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+            <input type="hidden" name="next" value="{{ url_for('bookkeeping.findings', status=status) }}">
+            <button class="s-btn" style="padding:5px 10px" type="submit">無視</button>
+          </form>
+          {% else %}<span class="badge b-pending">{{ f.status }}</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

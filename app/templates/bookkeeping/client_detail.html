@@ -31,8 +31,22 @@
       <a class="s-btn" href="{{ url_for('bookkeeping.settings', client_id=client.id) }}">freee連携設定</a>
       {% if counts.needs_review %}<a class="p-btn" href="{{ url_for('bookkeeping.review') }}">レビュー {{ counts.needs_review }}件</a>{% endif %}
     </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span style="font-weight:600;font-size:0.85em;color:#0f5132">🛡️ ダブルチェック:</span>
+      <form method="post" action="{{ url_for('bookkeeping.run_double_check', client_id=client.id) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+        <input type="hidden" name="source" value="freee">
+        <button class="s-btn" type="submit">freeeの登録済みを精査</button>
+      </form>
+      <form method="post" action="{{ url_for('bookkeeping.run_double_check', client_id=client.id) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+        <input type="hidden" name="source" value="demo">
+        <button class="s-btn" type="submit">デモで精査</button>
+      </form>
+      {% if check_count %}<a class="p-btn" href="{{ url_for('bookkeeping.findings') }}">要確認 {{ check_count }}件</a>{% endif %}
+    </div>
     {% if not conn or not conn.access_token %}
-    <p style="margin:12px 0 0;font-size:0.82em;color:#92400e">※ freee未連携です。「デモデータで試す」で自動記帳フローを確認できます。</p>
+    <p style="margin:12px 0 0;font-size:0.82em;color:#92400e">※ freee未連携です。「デモデータ」で自動記帳・ダブルチェックの全フローを確認できます。</p>
     {% endif %}
   </div>
 

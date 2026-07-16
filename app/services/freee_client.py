@@ -4,7 +4,7 @@ freee_client.py
 freee会計 API ラッパ（Phase 1 MVP）
 
 - アクセストークンが未設定でも import エラーにならないよう requests は遅延 import
-- 実連携がない環境でも動作確認できるよう generate_demo_transactions() を提供
+- 実連携がない環境でも動作確認できるよう generate_demo_* を提供
 """
 from __future__ import annotations
 import logging
@@ -63,6 +63,26 @@ class FreeeClient:
             logger.warning(f'freee取得エラー: {e}')
             return []
 
+    def fetch_deals(self, limit=100):
+        """登録済み取引(deals)をfreeeの生形式のまま取得して返す（ダブルチェック用）。"""
+        if not self.is_connected():
+            return []
+        try:
+            import requests
+        except Exception:
+            return []
+        try:
+            params = {'company_id': self.conn.freee_company_id, 'limit': limit}
+            r = requests.get(f'{FREEE_API_BASE}/api/1/deals',
+                             headers=self._headers(), params=params, timeout=30)
+            if r.status_code != 200:
+                logger.warning(f'freee deals取得失敗: {r.status_code} {r.text[:200]}')
+                return []
+            return r.json().get('deals', [])
+        except Exception as e:
+            logger.warning(f'freee deals取得エラー: {e}')
+            return []
+
     def create_deal(self, entry):
         """承認済み仕訳をfreeeに取引(deal)として登録。deal_idを返す（失敗時None）。
 
@@ -100,7 +120,7 @@ def _map_wallet_type(t):
 
 
 def generate_demo_transactions():
-    """freee未連携でもフローを試せるデモ明細。"""
+    """freee未連携でも取込→仕訳フローを試せるデモ明細。"""
     today = datetime.utcnow().date()
 
     def d(days):
@@ -128,3 +148,36 @@ def generate_demo_transactions():
             'description': desc, 'counterparty': desc, 'wallet_type': wallet,
         })
     return out
+
+
+def generate_demo_deals():
+    """freee未連携でもダブルチェックを試せるデモ取引（freeeのdeal形式）。
+
+    意図的に次の問題を含む: 証憑未添付・取引先未設定・消費税不整合・
+    重複計上・高額・摘要空欄・同一取引先の科目ブレ。
+    """
+    today = datetime.utcnow().date()
+
+    def d(days):
+        return (today - timedelta(days=days)).strftime('%Y-%m-%d')
+
+    def mk(i, amount, vat, desc, dtype='expense', partner_id=None, acc=101, date_days=None):
+        return {
+            'id': 90000 + i,
+            'issue_date': d(date_days if date_days is not None else i),
+            'amount': amount, 'type': dtype, 'partner_id': partner_id,
+            'details': [{'account_item_id': acc, 'tax_code': 136, 'amount': amount,
+                         'vat': vat, 'description': desc,
+                         'entry_side': 'debit' if dtype == 'expense' else 'credit'}],
+            'receipts': [],
+        }
+    return [
+        mk(1, 55000, 5000, '旅費交通費 新幹線'),                 # 証憑/取引先のみ欠け
+        mk(2, 33000, 2000, 'Amazon 消耗品'),                    # 消費税不整合(想定3000)
+        mk(3, 12000, 1091, 'ETC 高速代', date_days=5),           # 重複ペア
+        mk(4, 12000, 1091, 'ETC 高速代', date_days=5),           # 重複ペア
+        mk(5, 1500000, 136364, '外注費 システム開発'),         # 高額
+        mk(6, 800000, 72727, ''),                             # 摘要空欄・高額
+        mk(7, 220000, 20000, '会議費 打合せ', partner_id=501, acc=201),
+        mk(8, 66000, 6000, '会議費 打合せ', partner_id=501, acc=202),  # 同一取引先で科目ブレ
+    ]

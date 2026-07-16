@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}記帳代行 - {{ client.name }}{% endblock %}
+{% block head %}{% include 'bookkeeping/_styles.html' %}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="bk-header">
+  <div class="bk-header-inner">
+    <div>
+      <h1 class="bk-title">{{ client.name }} <span style="font-size:0.6em;opacity:0.85">記帳代行</span></h1>
+      <p class="bk-sub">自動化率 {{ counts.rate }}% ／ 未処理 {{ counts.pending_txn }}件 ／ レビュー待ち {{ counts.needs_review }}件</p>
+    </div>
+    <div class="bk-actions">
+      <a class="bk-btn-outline" href="{{ url_for('bookkeeping.dashboard') }}">← 一覧</a>
+    </div>
+  </div>
+</div>
+{% if viewing_as_banner %}<div class="viewing-as-banner">{{ viewing_as_banner }}</div>{% endif %}
+<div class="bk-wrap">
+  <div class="bk-panel">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <form method="post" action="{{ url_for('bookkeeping.import_transactions', client_id=client.id) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+        <input type="hidden" name="source" value="freee">
+        <button class="p-btn" type="submit">freeeから明細を取込む</button>
+      </form>
+      <form method="post" action="{{ url_for('bookkeeping.import_transactions', client_id=client.id) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ get_csrf() }}">
+        <input type="hidden" name="source" value="demo">
+        <button class="s-btn" type="submit">デモデータで試す</button>
+      </form>
+      <a class="s-btn" href="{{ url_for('bookkeeping.settings', client_id=client.id) }}">freee連携設定</a>
+      {% if counts.needs_review %}<a class="p-btn" href="{{ url_for('bookkeeping.review') }}">レビュー {{ counts.needs_review }}件</a>{% endif %}
+    </div>
+    {% if not conn or not conn.access_token %}
+    <p style="margin:12px 0 0;font-size:0.82em;color:#92400e">※ freee未連携です。「デモデータで試す」で自動記帳フローを確認できます。</p>
+    {% endif %}
+  </div>
+
+  {% if not entries %}
+  <div class="bk-empty">まだ仕訳がありません。上のボタンから取引を取込んでください。</div>
+  {% else %}
+  <table class="bk-table">
+    <thead><tr><th>日付</th><th>摘要</th><th>借方</th><th>貸方</th><th class="bk-amt">金額</th><th>税区分</th><th>信頼度</th><th>状態</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr>
+        <td>{{ e.entry_date or '-' }}</td>
+        <td>{{ e.description or '' }}</td>
+        <td>{{ e.debit_account or '' }}</td>
+        <td>{{ e.credit_account or '' }}</td>
+        <td class="bk-amt">￥{{ '{:,}'.format(e.amount or 0) }}</td>
+        <td>{{ e.tax_code or '' }}</td>
+        <td>
+          {% set pct = ((e.confidence or 0) * 100) | round | int %}
+          <span class="conf-bar"><span class="conf-fill" style="width:{{ pct }}%;background:{% if pct>=90 %}#22c55e{% elif pct>=60 %}#eab308{% else %}#ef4444{% endif %}"></span></span>{{ pct }}%
+        </td>
+        <td>
+          {% if e.status == 'auto_confirmed' %}<span class="badge b-auto">自動確定</span>
+          {% elif e.status == 'needs_review' %}<span class="badge b-review">要レビュー</span>
+          {% elif e.status == 'approved' %}<span class="badge b-approved">承認済</span>
+          {% elif e.status == 'posted' %}<span class="badge b-posted">freee登録済</span>
+          {% elif e.status == 'rejected' %}<span class="badge b-rejected">却下</span>
+          {% else %}<span class="badge b-pending">{{ e.status }}</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

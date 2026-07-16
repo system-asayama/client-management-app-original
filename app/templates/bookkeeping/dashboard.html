@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}記帳代行サービス{% endblock %}
+{% block head %}{% include 'bookkeeping/_styles.html' %}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<div class="bk-header">
+  <div class="bk-header-inner">
+    <div>
+      <h1 class="bk-title">🤖 完全自動記帳代行サービス</h1>
+      <p class="bk-sub">AIが仕訳を自動生成し、高信頼度は自動確定・要確認のみ税理士がレビューします</p>
+    </div>
+    <div class="bk-actions">
+      <a class="bk-btn" href="{{ url_for('bookkeeping.review') }}">レビュー待ち一覧</a>
+      <a class="bk-btn-outline" href="{{ current_dashboard_url }}">← ダッシュボード</a>
+    </div>
+  </div>
+</div>
+{% if viewing_as_banner %}<div class="viewing-as-banner">{{ viewing_as_banner }}</div>{% endif %}
+<div class="bk-wrap">
+  <div class="bk-note">
+    <strong>段階自動化モデル：</strong>取り込んだ取引をAI・学習ルールで仕訳し、信頼度が閾値以上のものは自動確定します。
+    曖昧なものだけ「レビュー待ち」に振り分けられ、税理士の承認・修正がそのまま学習され、使うほど自動化率が上がります。
+  </div>
+  <div class="bk-cards">
+    <div class="bk-card"><div class="num">{{ totals.pending_txn }}</div><div class="lbl">未処理取引</div></div>
+    <div class="bk-card"><div class="num">{{ totals.auto_confirmed }}</div><div class="lbl">自動確定</div></div>
+    <div class="bk-card"><div class="num">{{ totals.needs_review }}</div><div class="lbl">レビュー待ち</div></div>
+    <div class="bk-card"><div class="num">{{ totals.approved + totals.posted }}</div><div class="lbl">承認済</div></div>
+    <div class="bk-card"><div class="num">{{ totals.rate }}%</div><div class="lbl">自動化率</div></div>
+  </div>
+  {% if not clients %}
+  <div class="bk-empty">顧問先が登録されていません。先に顧問先を登録してください。</div>
+  {% else %}
+  <table class="bk-table">
+    <thead><tr><th>顧問先</th><th>未処理</th><th>自動確定</th><th>レビュー待ち</th><th>承認済</th><th>自動化率</th><th></th></tr></thead>
+    <tbody>
+    {% for c in clients %}
+      {% set s = summary.get(c.id, {}) %}
+      <tr>
+        <td><strong>{{ c.name }}</strong>{% if c.type %} <span class="badge b-pending">{{ c.type }}</span>{% endif %}</td>
+        <td>{{ s.get('pending_txn', 0) }}</td>
+        <td>{{ s.get('auto_confirmed', 0) }}</td>
+        <td>{% if s.get('needs_review', 0) %}<span class="badge b-review">{{ s.get('needs_review') }}</span>{% else %}0{% endif %}</td>
+        <td>{{ s.get('approved', 0) + s.get('posted', 0) }}</td>
+        <td>{{ s.get('rate', 0) }}%</td>
+        <td><a class="s-btn" href="{{ url_for('bookkeeping.client_detail', client_id=c.id) }}">開く</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

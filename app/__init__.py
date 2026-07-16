@@ -19,6 +19,7 @@ try:
     from . import models_shortstay  # noqa: F401
     from . import models_construction  # noqa: F401
     from . import models_construction_ext  # noqa: F401
+    from . import models_bookkeeping  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -453,6 +454,13 @@ def create_app() -> Flask:
         print("✅ finance blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ finance blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.bookkeeping import bp as bookkeeping_bp
+        app.register_blueprint(bookkeeping_bp)
+        print("✅ bookkeeping blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ bookkeeping blueprint 登録エラー: {e}")
 
     try:
         from .blueprints.store_dashboard import bp as store_dashboard_bp

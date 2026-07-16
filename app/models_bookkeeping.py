@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 models_bookkeeping.py
-完全自動記帳代行サービス - データモデル（Phase 1 MVP）
+完全自動記帳代行サービス - データモデル（Phase 1 MVP + ダブルチェック）
 
 設計方針:
 - freee 等の連携先から取り込んだ取引を bk_transactions に保持
 - AI/ルールで生成した仕訳を bk_journal_entries に信頼度付きで保持
-- 高信頼度は自動確定、低信頼度は税理士レビューへ（段階自動化）
-- 税理士の承認・修正を bk_rules に学習させ、自動化率を上げていく
+- freeeの登録済み取引を全件チェックした指摘を bk_check_findings に保持（ダブルチェック）
 - テーブル名は英語 snake_case（PostgreSQL/SQLite 両対応・引用符不要）
 """
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Index
@@ -122,3 +121,44 @@ class BkMonthlyClose(Base):
     closed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BkCheckRun(Base):
+    """ダブルチェックの実行履歴"""
+    __tablename__ = 'bk_check_runs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=False, index=True)
+    client_id = Column(Integer, nullable=False, index=True)
+    source = Column(String(20), nullable=False, default='freee')  # freee/demo
+    checked_count = Column(Integer, default=0)       # 精査した取引件数
+    findings_count = Column(Integer, default=0)      # 新規検出した指摘件数
+    high_count = Column(Integer, default=0)          # 重要度highの件数
+    used_ai = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BkCheckFinding(Base):
+    """ダブルチェックの指摘（要確認項目）"""
+    __tablename__ = 'bk_check_findings'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=False, index=True)
+    client_id = Column(Integer, nullable=False, index=True)
+    run_id = Column(Integer, nullable=True, index=True)
+    freee_deal_id = Column(String(40), nullable=True)   # 対象取引ID（文字列）
+    deal_date = Column(String(20), nullable=True)
+    amount = Column(Integer, nullable=True)
+    severity = Column(String(10), nullable=False, default='warning')  # high/warning/info
+    category = Column(String(40), nullable=True)  # receipt_missing/partner_missing/tax_mismatch/duplicate/...
+    message = Column(Text, nullable=True)
+    detail = Column(Text, nullable=True)
+    dedup_key = Column(String(120), nullable=True, index=True)  # 再実行時の重複防止
+    status = Column(String(20), nullable=False, default='open')  # open/resolved/ignored
+    resolved_by = Column(String(255), nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('ix_bk_finding_client_status', 'client_id', 'status'),
+    )

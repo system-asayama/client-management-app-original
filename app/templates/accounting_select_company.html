@@ -8,24 +8,34 @@
   .sc-card h1 { font-size:1.3rem; color:#1e46aa; margin:0 0 .5rem; }
   .sc-card p { color:#555; font-size:.9rem; }
   label { display:block; font-size:.8rem; color:#556; margin:1rem 0 .25rem; }
-  select { width:100%; padding:.6rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.95rem; }
+  select, input { width:100%; padding:.6rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.95rem; }
   .btn { padding:.6rem 1.2rem; border-radius:8px; border:0; cursor:pointer; font-weight:600; margin-top:1.25rem; }
   .btn-primary { background:#285ac8; color:#fff; }
+  .muted { color:#889; font-size:.82rem; }
+  .divider { text-align:center; color:#aab; font-size:.8rem; margin:.75rem 0; }
 </style>
 <div class="sc-wrap">
   <div class="sc-card">
     <h1>アップロード先の事業所を選択</h1>
-    <p>顧問先「<strong>{{ client_name }}</strong>」の資料をアップロードするfreee事業所を選択してください。</p>
-    <form method="post" action="{{ url_for('accounting.freee_save_company') }}">
+    <p>顧問先「<strong>{{ client_name }}</strong>」の資料をアップロードする{{ provider_label }}事業所を選択してください。</p>
+    <form method="post" action="{{ url_for('accounting.save_company') }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-      <label>freee事業所</label>
-      <select name="company_id" id="company_select" onchange="syncName()" required>
+      {% if companies %}
+      <label>{{ provider_label }}事業所</label>
+      <select id="company_select" onchange="syncName()">
         <option value="">-- 選択 --</option>
         {% for co in companies %}
           <option value="{{ co.id }}" data-name="{{ co.name }}">{{ co.name }}（ID: {{ co.id }}）</option>
         {% endfor %}
       </select>
-      <input type="hidden" name="company_name" id="company_name">
+      <div class="divider">― または事業所IDを直接入力 ―</div>
+      {% else %}
+      <p class="muted">事業所一覧を自動取得できませんでした。事業所ID（office_id）を直接入力してください。</p>
+      {% endif %}
+      <label>事業所ID</label>
+      <input type="text" name="company_id" id="company_id" placeholder="例: 12345" required>
+      <label>事業所名（任意・表示用）</label>
+      <input type="text" name="company_name" id="company_name" placeholder="例: 株式会社サンプル">
       <button class="btn btn-primary" type="submit">この事業所で連携を確定</button>
     </form>
   </div>
@@ -33,8 +43,12 @@
 <script>
 function syncName() {
   const sel = document.getElementById('company_select');
+  if (!sel) return;
   const opt = sel.options[sel.selectedIndex];
-  document.getElementById('company_name').value = opt ? (opt.dataset.name || '') : '';
+  if (opt && opt.value) {
+    document.getElementById('company_id').value = opt.value;
+    document.getElementById('company_name').value = opt.dataset.name || '';
+  }
 }
 </script>
 {% endblock %}

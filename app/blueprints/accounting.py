@@ -1,8 +1,8 @@
 """
-会計ソフト連携ブループリント（freee先行 / 抽象化層対応）
+会計ソフト連携ブループリント（freee / マネーフォワード 対応・抽象化層）
 
-- 顧問先ごとに freee をOAuth連携し、アップロード先の事業所を選択
-- ストレージ保存済みの受信資料を freee ファイルボックスへ手動/一括アップロード
+- 顧問先ごとに会計ソフトをOAuth連携し、アップロード先の事業所を選択
+- ストレージ保存済みの受信資料を会計ソフトのファイルボックスへ手動/一括アップロード
 """
 import json
 from flask import (
@@ -15,7 +15,9 @@ from app.models_clients import TClient
 from app.models_integrations import TReceivedFile
 from app.models_accounting import TAccountingConnection, TAccountingUploadLog
 from app.utils.decorators import require_roles, ROLES
-from app.utils.accounting import get_provider, AccountingError
+from app.utils.accounting import (
+    get_provider, AccountingError, SUPPORTED_PROVIDERS, provider_label,
+)
 from app.services.accounting_upload import (
     upload_received_file, upload_tenant_pending, get_connection,
     _pending_received_files,
@@ -32,6 +34,18 @@ def _require_tenant():
     return tenant_id
 
 
+def _providers_status():
+    """対応プロバイダとアプリ設定状況をUI用に返す"""
+    out = []
+    for name in SUPPORTED_PROVIDERS:
+        try:
+            configured = get_provider(name).is_configured()
+        except Exception:
+            configured = False
+        out.append({'name': name, 'label': provider_label(name), 'configured': configured})
+    return out
+
+
 @bp.route('/', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def index():
@@ -39,7 +53,6 @@ def index():
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
 
-    provider = get_provider('freee')
     db = SessionLocal()
     try:
         clients = (db.query(TClient)
@@ -48,7 +61,7 @@ def index():
         conns = (db.query(TAccountingConnection)
                    .filter(TAccountingConnection.tenant_id == tenant_id)
                    .all())
-        conn_by_client = {c.client_id: c for c in conns}
+        conn_by_client = {c.client_id: c for c in conns if c.status == 'active'}
         pending = _pending_received_files(db, tenant_id)
         logs = (db.query(TAccountingUploadLog)
                   .filter(TAccountingUploadLog.tenant_id == tenant_id)
@@ -58,39 +71,50 @@ def index():
                                clients=clients, conn_by_client=conn_by_client,
                                pending=pending, logs=logs,
                                client_names=client_names,
-                               provider_configured=provider.is_configured())
+                               providers=_providers_status(),
+                               provider_label=provider_label)
     finally:
         db.close()
 
 
-@bp.route('/freee/connect/<int:client_id>', methods=['POST'])
+@bp.route('/connect/<provider>/<int:client_id>', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
-def freee_connect(client_id):
-    """freee OAuth認可画面へリダイレクト"""
+def connect(provider, client_id):
+    """会計ソフトのOAuth認可画面へリダイレクト"""
     tenant_id = _require_tenant()
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
-
-    provider = get_provider('freee')
-    if not provider.is_configured():
-        flash('freeeアプリ設定（FREEE_CLIENT_ID等の環境変数）が未設定です', 'error')
+    if provider not in SUPPORTED_PROVIDERS:
+        flash('未対応の会計ソフトです', 'error')
         return redirect(url_for('accounting.index'))
 
-    # state に tenant_id と client_id を埋め込む（CSRF対策のトークンも付与）
+    try:
+        prov = get_provider(provider)
+    except AccountingError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('accounting.index'))
+
+    if not prov.is_configured():
+        flash(f'{provider_label(provider)}のアプリ設定（環境変数）が未設定です', 'error')
+        return redirect(url_for('accounting.index'))
+
     import secrets
     nonce = secrets.token_hex(8)
-    session['freee_oauth_state'] = nonce
-    state = json.dumps({'t': tenant_id, 'c': client_id, 'n': nonce})
-    return redirect(provider.authorize_url(state))
+    session['acc_oauth_state'] = nonce
+    state = json.dumps({'t': tenant_id, 'c': client_id, 'n': nonce, 'p': provider})
+    return redirect(prov.authorize_url(state))
 
 
-@bp.route('/freee/callback', methods=['GET'])
+@bp.route('/callback/<provider>', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
-def freee_callback():
-    """freee 認可コールバック → トークン取得 → 事業所選択へ"""
+def callback(provider):
+    """OAuth認可コールバック → トークン取得 → 事業所選択へ"""
     tenant_id = _require_tenant()
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
+    if provider not in SUPPORTED_PROVIDERS:
+        flash('未対応の会計ソフトです', 'error')
+        return redirect(url_for('accounting.index'))
 
     code = request.args.get('code')
     state_raw = request.args.get('state', '')
@@ -104,21 +128,22 @@ def freee_callback():
         flash('不正なstateです', 'error')
         return redirect(url_for('accounting.index'))
 
-    if st.get('n') != session.get('freee_oauth_state') or st.get('t') != tenant_id:
+    if (st.get('n') != session.get('acc_oauth_state')
+            or st.get('t') != tenant_id or st.get('p') != provider):
         flash('OAuth検証に失敗しました', 'error')
         return redirect(url_for('accounting.index'))
     client_id = st.get('c')
 
-    provider = get_provider('freee')
+    prov = get_provider(provider)
     try:
-        tok = provider.exchange_code(code)
-        companies = provider.list_companies(tok['access_token'])
+        tok = prov.exchange_code(code)
+        companies = prov.list_companies(tok['access_token'])
     except AccountingError as e:
-        flash(f'freee連携に失敗しました: {e}', 'error')
+        flash(f'{provider_label(provider)}連携に失敗しました: {e}', 'error')
         return redirect(url_for('accounting.index'))
 
-    # トークンを一時保存し、事業所選択画面へ
-    session['freee_pending'] = {
+    session['acc_pending'] = {
+        'provider': provider,
         'client_id': client_id,
         'access_token': tok['access_token'],
         'refresh_token': tok['refresh_token'],
@@ -132,27 +157,29 @@ def freee_callback():
         db.close()
     return render_template('accounting_select_company.html',
                            companies=companies, client_id=client_id,
-                           client_name=client_name)
+                           client_name=client_name, provider=provider,
+                           provider_label=provider_label(provider))
 
 
-@bp.route('/freee/save_company', methods=['POST'])
+@bp.route('/save_company', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
-def freee_save_company():
-    """選択した事業所で連携を確定"""
+def save_company():
+    """選択（または手動入力）した事業所で連携を確定"""
     tenant_id = _require_tenant()
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
 
-    pending = session.get('freee_pending')
+    pending = session.get('acc_pending')
     if not pending:
         flash('連携情報が失われました。最初からやり直してください', 'error')
         return redirect(url_for('accounting.index'))
 
-    company_id = request.form.get('company_id')
-    company_name = request.form.get('company_name')
+    company_id = (request.form.get('company_id') or '').strip()
+    company_name = (request.form.get('company_name') or '').strip()
+    provider = pending['provider']
     client_id = pending['client_id']
     if not company_id:
-        flash('事業所を選択してください', 'error')
+        flash('事業所を選択または入力してください', 'error')
         return redirect(url_for('accounting.index'))
 
     expires_at = None
@@ -163,27 +190,27 @@ def freee_save_company():
     try:
         conn = get_connection(db, tenant_id, client_id)
         if conn:
-            conn.provider = 'freee'
+            conn.provider = provider
             conn.company_id = company_id
-            conn.company_name = company_name
+            conn.company_name = company_name or company_id
             conn.access_token = pending['access_token']
             conn.refresh_token = pending['refresh_token']
             conn.token_expires_at = expires_at
             conn.status = 'active'
         else:
             db.add(TAccountingConnection(
-                tenant_id=tenant_id, client_id=client_id, provider='freee',
-                company_id=company_id, company_name=company_name,
+                tenant_id=tenant_id, client_id=client_id, provider=provider,
+                company_id=company_id, company_name=company_name or company_id,
                 access_token=pending['access_token'],
                 refresh_token=pending['refresh_token'],
                 token_expires_at=expires_at, status='active',
             ))
         db.commit()
-        flash(f'freee連携を保存しました（事業所: {company_name}）', 'success')
+        flash(f'{provider_label(provider)}連携を保存しました（事業所: {company_name or company_id}）', 'success')
     finally:
         db.close()
-    session.pop('freee_pending', None)
-    session.pop('freee_oauth_state', None)
+    session.pop('acc_pending', None)
+    session.pop('acc_oauth_state', None)
     return redirect(url_for('accounting.index'))
 
 
@@ -212,7 +239,6 @@ def upload_one(received_file_id):
     tenant_id = _require_tenant()
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
-    # テナント越境防止
     db = SessionLocal()
     try:
         rf = db.query(TReceivedFile).filter(

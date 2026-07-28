@@ -13,6 +13,7 @@
   .btn { padding:.5rem 1rem; border-radius:8px; border:0; cursor:pointer; font-size:.85rem; font-weight:600; }
   .btn-primary { background:#285ac8; color:#fff; }
   .btn-freee { background:#2864f0; color:#fff; }
+  .btn-mf { background:#00b9b9; color:#fff; }
   .btn-danger { background:#fdecec; color:#dc1e32; }
   .btn-ghost { background:#ebf3ff; color:#1e46aa; }
   table { width:100%; border-collapse:collapse; font-size:.85rem; }
@@ -26,8 +27,8 @@
 
 <div class="ac-wrap">
   <div class="ac-header">
-    <h1>📤 会計ソフト連携（freee）</h1>
-    <p>ストレージに保存済みの受信資料を、顧問先ごとのfreeeファイルボックスへアップロードします。</p>
+    <h1>📤 会計ソフト連携（freee / マネーフォワード）</h1>
+    <p>ストレージに保存済みの受信資料を、顧問先ごとの会計ソフトのファイルボックスへアップロードします。</p>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -36,33 +37,45 @@
     {% endfor %}
   {% endwith %}
 
-  {% if not provider_configured %}
-  <div class="warn">⚠️ freeeアプリ設定が未完了です。環境変数 <code>FREEE_CLIENT_ID</code> / <code>FREEE_CLIENT_SECRET</code> / <code>FREEE_REDIRECT_URI</code> を設定してください。</div>
-  {% endif %}
+  {% for p in providers %}
+    {% if not p.configured %}
+    <div class="warn">⚠️ {{ p.label }}のアプリ設定が未完了です。
+      {% if p.name == 'freee' %}環境変数 <code>FREEE_CLIENT_ID</code> / <code>FREEE_CLIENT_SECRET</code> / <code>FREEE_REDIRECT_URI</code>
+      {% else %}環境変数 <code>MF_CLIENT_ID</code> / <code>MF_CLIENT_SECRET</code> / <code>MF_REDIRECT_URI</code>
+      {% endif %} を設定してください。</div>
+    {% endif %}
+  {% endfor %}
 
   <!-- 顧問先ごとの連携状態 -->
   <div class="ac-card">
-    <h2>顧問先ごとのfreee連携</h2>
+    <h2>顧問先ごとの会計ソフト連携</h2>
+    {% set prov_configured = {} %}
+    {% for p in providers %}{% set _ = prov_configured.update({p.name: p.configured}) %}{% endfor %}
     <table>
-      <thead><tr><th>顧問先</th><th>連携状態</th><th>アップロード先事業所</th><th>操作</th></tr></thead>
+      <thead><tr><th>顧問先</th><th>連携状態</th><th>会計ソフト / 事業所</th><th>操作</th></tr></thead>
       <tbody>
         {% for c in clients %}
         {% set conn = conn_by_client.get(c.id) %}
         <tr>
           <td>{{ c.name }}</td>
           <td>
-            {% if conn and conn.status == 'active' %}<span class="badge badge-on">連携中</span>
+            {% if conn %}<span class="badge badge-on">連携中</span>
             {% else %}<span class="badge badge-off">未連携</span>{% endif %}
           </td>
-          <td>{{ conn.company_name if conn and conn.status == 'active' else '—' }}</td>
           <td>
-            <form method="post" action="{{ url_for('accounting.freee_connect', client_id=c.id) }}" style="display:inline;">
+            {% if conn %}<strong>{{ provider_label(conn.provider) }}</strong> / {{ conn.company_name or '—' }}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('accounting.connect', provider='freee', client_id=c.id) }}" style="display:inline;">
               {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-              <button class="btn btn-freee" type="submit" {% if not provider_configured %}disabled{% endif %}>
-                {{ '再連携' if conn and conn.status == 'active' else 'freeeと連携' }}
-              </button>
+              <button class="btn btn-freee" type="submit" {% if not prov_configured.get('freee') %}disabled{% endif %}>freeeと連携</button>
             </form>
-            {% if conn and conn.status == 'active' %}
+            <form method="post" action="{{ url_for('accounting.connect', provider='moneyforward', client_id=c.id) }}" style="display:inline;">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <button class="btn btn-mf" type="submit" {% if not prov_configured.get('moneyforward') %}disabled{% endif %}>MFと連携</button>
+            </form>
+            {% if conn %}
             <form method="post" action="{{ url_for('accounting.disconnect', client_id=c.id) }}" style="display:inline;"
                   onsubmit="return confirm('連携を解除しますか?');">
               {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}

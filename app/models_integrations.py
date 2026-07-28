@@ -39,6 +39,20 @@ class TChatworkRoomMapping(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TGmailSenderMapping(Base):
+    """T_Gmail送信者マッピングテーブル（差出人メールアドレス → 顧問先の対応付け）"""
+    __tablename__ = 'T_Gmail送信者マッピング'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    sender_email = Column(String(320), nullable=False)  # 差出人メールアドレス（小文字で保存）
+    client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
+    subfolder = Column(String(255), nullable=True, default='Gmail受信')  # 保存先サブフォルダ
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TReceivedFile(Base):
     """T_受信ファイルテーブル（外部連携で受信・保存したファイルのログ／重複防止）"""
     __tablename__ = 'T_受信ファイル'

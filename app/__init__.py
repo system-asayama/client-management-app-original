@@ -652,6 +652,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ gmail_integration blueprint 登録エラー: {e}")
 
+    try:
+        from .blueprints.client_integrations import bp as client_integrations_bp
+        app.register_blueprint(client_integrations_bp)
+        print("✅ client_integrations blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ client_integrations blueprint 登録エラー: {e}")
+
     import json as _json
     @app.template_filter('from_json')
     def from_json_filter(value):

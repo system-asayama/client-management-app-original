@@ -162,6 +162,29 @@ def upload_tenant_pending(tenant_id: int) -> dict:
     return result
 
 
+def upload_client_pending(tenant_id: int, client_id: int) -> dict:
+    """特定の顧問先の未アップロード保存済み資料を送信"""
+    result = {'uploaded': 0, 'skipped': 0, 'errors': []}
+    db = SessionLocal()
+    try:
+        conn = get_connection(db, tenant_id, client_id)
+        if not conn or not conn.company_id:
+            return {'uploaded': 0, 'skipped': 0, 'errors': ['この顧問先は会計ソフト未連携です']}
+        ids = [rf.id for rf in _pending_received_files(db, tenant_id, client_id)]
+    finally:
+        db.close()
+
+    for rid in ids:
+        r = upload_received_file(rid)
+        if r.get('ok') and r.get('skipped'):
+            result['skipped'] += 1
+        elif r.get('ok'):
+            result['uploaded'] += 1
+        else:
+            result['errors'].append(r.get('error', 'unknown'))
+    return result
+
+
 def upload_all_tenants() -> dict:
     """会計ソフト連携が有効な全テナントを一括送信（バッチ用）"""
     summary = {'tenants': 0, 'uploaded': 0, 'skipped': 0, 'errors': []}

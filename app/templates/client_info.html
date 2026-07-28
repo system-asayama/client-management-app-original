@@ -235,6 +235,9 @@
     <a href="{{ url_for('clients.client_assignments', client_id=client.id) }}" class="action-btn" style="background:#fce4ec;color:#880e4f;border:2px solid #f48fb1;">
       <span class="icon">&#128101;</span> 担当スタッフ
     </a>
+    <a href="{{ url_for('client_integrations.hub', client_id=client.id) }}" class="action-btn" style="background:#e3f2fd;color:#0d47a1;border:2px solid #90caf9;">
+      <span class="icon">&#128279;</span> 連携設定
+    </a>
     <button onclick="startVideoCall({{ client.id }})" class="action-btn btn-video">
       <span class="icon">&#128249;</span> ビデオ通話
     </button>

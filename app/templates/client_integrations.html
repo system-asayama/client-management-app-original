@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} - 連携設定{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .ci-wrap { max-width: 960px; margin: 0 auto; }
+  .ci-crumb { margin-bottom: 1rem; font-size: .85rem; }
+  .ci-crumb a { color: #2563a8; text-decoration: none; }
+  .ci-header { background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%); color:#fff;
+    border-radius:16px; padding:1.5rem 2rem; margin-bottom:1.5rem; }
+  .ci-header h1 { margin:0; font-size:1.4rem; color:#fff; }
+  .ci-header p { margin:.4rem 0 0; opacity:.85; font-size:.88rem; }
+  .ci-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:1.5rem; margin-bottom:1.25rem; }
+  .ci-card h2 { font-size:1.05rem; margin:0 0 1rem; display:flex; align-items:center; gap:.5rem; }
+  .ci-row { display:flex; gap:.6rem; flex-wrap:wrap; align-items:flex-end; }
+  .ci-row .fld { flex:1; min-width:150px; }
+  label { display:block; font-size:.78rem; color:#556; margin-bottom:.25rem; }
+  input, select { width:100%; padding:.5rem .65rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.88rem; }
+  .btn { padding:.5rem 1rem; border-radius:8px; border:0; cursor:pointer; font-size:.85rem; font-weight:600; }
+  .btn-primary { background:#2563a8; color:#fff; }
+  .btn-freee { background:#2864f0; color:#fff; }
+  .btn-mf { background:#00b9b9; color:#fff; }
+  .btn-danger { background:#fdecec; color:#c0392b; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.72rem; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; } .badge-off { background:#f1f1f4; color:#888; }
+  table { width:100%; border-collapse:collapse; font-size:.83rem; margin-top:.75rem; }
+  th, td { text-align:left; padding:.45rem .55rem; border-bottom:1px solid #eef1f5; }
+  .muted { color:#889; font-size:.83rem; }
+  .warn { background:#fff7e6; border:1px solid #ffe1a8; color:#8a5a00; padding:.6rem .8rem; border-radius:8px; font-size:.83rem; margin-bottom:.75rem; }
+  .st-saved,.st-uploaded { color:#1e8a4c; } .st-error { color:#c0392b; } .st-skipped { color:#888; }
+</style>
+
+<div class="ci-wrap">
+  <div class="ci-crumb">
+    <a href="{{ url_for('clients.clients') }}">顧問先一覧</a> ›
+    <a href="{{ url_for('clients.client_info', client_id=client.id) }}">{{ client.name }}</a> › 連携設定
+  </div>
+
+  <div class="ci-header">
+    <h1>🔗 {{ client.name }} の連携設定</h1>
+    <p>この顧問先の資料受信（ChatWork / Gmail）と会計ソフト連携をまとめて設定します。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="ci-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- ChatWork -->
+  <div class="ci-card">
+    <h2>💬 ChatWork ルーム</h2>
+    {% if not chatwork_ready %}
+    <div class="warn">事務所のChatWork APIトークンが未設定です。先に
+      <a href="{{ url_for('integrations.chatwork_settings') }}">事務所のChatWork連携設定</a>でトークンを登録してください。</div>
+    {% endif %}
+    <form method="post" action="{{ url_for('client_integrations.add_chatwork_room', client_id=client.id) }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div class="ci-row">
+        <div class="fld"><label>ルームID</label><input type="text" name="room_id" placeholder="例: 123456789" required></div>
+        <div class="fld"><label>ルーム名（任意）</label><input type="text" name="room_name" placeholder="表示用"></div>
+        <div class="fld"><label>保存先サブフォルダ</label><input type="text" name="subfolder" value="ChatWork受信"></div>
+        <button class="btn btn-primary" type="submit">紐付けを追加</button>
+      </div>
+    </form>
+    {% if cw_rooms %}
+    <table>
+      <thead><tr><th>ルーム</th><th>サブフォルダ</th><th></th></tr></thead>
+      <tbody>
+        {% for m in cw_rooms %}
+        <tr>
+          <td>{{ m.room_name or m.room_id }} <span class="muted">(ID: {{ m.room_id }})</span></td>
+          <td>{{ m.subfolder }}</td>
+          <td><form method="post" action="{{ url_for('client_integrations.del_chatwork_room', client_id=client.id, mapping_id=m.id) }}" onsubmit="return confirm('削除しますか?');">
+            {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+            <button class="btn btn-danger" type="submit">削除</button></form></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted" style="margin-top:.5rem;">この顧問先に紐付いたルームはありません。</p>{% endif %}
+  </div>
+
+  <!-- Gmail -->
+  <div class="ci-card">
+    <h2>📧 Gmail 差出人</h2>
+    {% if not gmail_ready %}
+    <div class="warn">事務所のGmailアカウントが未設定です。先に
+      <a href="{{ url_for('gmail_integration.settings') }}">事務所のGmail連携設定</a>でアカウントを登録してください。</div>
+    {% endif %}
+    <form method="post" action="{{ url_for('client_integrations.add_gmail_sender', client_id=client.id) }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div class="ci-row">
+        <div class="fld"><label>差出人メールアドレス</label><input type="email" name="sender_email" placeholder="client@example.com" required></div>
+        <div class="fld"><label>保存先サブフォルダ</label><input type="text" name="subfolder" value="Gmail受信"></div>
+        <button class="btn btn-primary" type="submit">紐付けを追加</button>
+      </div>
+    </form>
+    {% if gmail_senders %}
+    <table>
+      <thead><tr><th>差出人</th><th>サブフォルダ</th><th></th></tr></thead>
+      <tbody>
+        {% for m in gmail_senders %}
+        <tr>
+          <td>{{ m.sender_email }}</td>
+          <td>{{ m.subfolder }}</td>
+          <td><form method="post" action="{{ url_for('client_integrations.del_gmail_sender', client_id=client.id, mapping_id=m.id) }}" onsubmit="return confirm('削除しますか?');">
+            {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+            <button class="btn btn-danger" type="submit">削除</button></form></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted" style="margin-top:.5rem;">この顧問先に紐付いた差出人はありません。</p>{% endif %}
+  </div>
+
+  <!-- 会計ソフト -->
+  <div class="ci-card">
+    <h2>📤 会計ソフト連携
+      {% if acc_conn %}<span class="badge badge-on">{{ provider_label(acc_conn.provider) }} 連携中</span>
+      {% else %}<span class="badge badge-off">未連携</span>{% endif %}
+    </h2>
+    {% if acc_conn %}
+    <p class="muted">アップロード先: <strong>{{ provider_label(acc_conn.provider) }}</strong> / {{ acc_conn.company_name or acc_conn.company_id }}</p>
+    <div class="ci-row" style="margin-top:.5rem;">
+      <form method="post" action="{{ url_for('client_integrations.upload_accounting', client_id=client.id) }}">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button class="btn btn-primary" type="submit">この顧問先の未送信資料をアップロード</button>
+      </form>
+      <form method="post" action="{{ url_for('accounting.disconnect', client_id=client.id) }}" onsubmit="return confirm('連携を解除しますか?');">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button class="btn btn-danger" type="submit">連携解除</button>
+      </form>
+    </div>
+    {% else %}
+    <p class="muted">この顧問先の会計ソフトを連携してください（顧問先ごとに事業所を選択します）。</p>
+    <div class="ci-row" style="margin-top:.5rem;">
+      {% for p in providers %}
+      <form method="post" action="{{ url_for('accounting.connect', provider=p.name, client_id=client.id) }}">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button class="btn {{ 'btn-freee' if p.name=='freee' else 'btn-mf' }}" type="submit"
+                {% if not p.configured %}disabled title="アプリ設定(環境変数)が未完了"{% endif %}>
+          {{ p.label }}と連携</button>
+      </form>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- この顧問先の受信 & アップロード状況 -->
+  <div class="ci-card">
+    <h2>📥 受信・アップロード状況</h2>
+    <p class="muted" style="margin-top:-.5rem;">受信した資料（ChatWork/Gmail）と会計ソフトへの送信状況。</p>
+    {% if received %}
+    <table>
+      <thead><tr><th>ファイル名</th><th>受信元</th><th>保存状態</th><th>日時</th></tr></thead>
+      <tbody>
+        {% for r in received %}
+        <tr>
+          <td>{{ r.filename }}</td>
+          <td>{{ r.provider }}{% if r.room_id %} <span class="muted">({{ r.room_id }})</span>{% endif %}</td>
+          <td class="st-{{ r.status }}">{{ r.status }}</td>
+          <td class="muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">まだ受信した資料はありません。</p>{% endif %}
+
+    {% if upload_logs %}
+    <h2 style="margin-top:1.25rem; font-size:.95rem;">会計ソフト送信ログ</h2>
+    <table>
+      <thead><tr><th>ファイル名</th><th>状態</th><th>freee/MF ID</th><th>日時</th></tr></thead>
+      <tbody>
+        {% for l in upload_logs %}
+        <tr>
+          <td>{{ l.filename }}</td>
+          <td class="st-{{ l.status }}">{{ l.status }}{% if l.error_message %}<br><span class="muted">{{ l.error_message }}</span>{% endif %}</td>
+          <td class="muted">{{ l.external_id or '-' }}</td>
+          <td class="muted">{{ l.created_at.strftime('%Y-%m-%d %H:%M') if l.created_at else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

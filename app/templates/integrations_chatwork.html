@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}ChatWork連携{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .cw-wrap { max-width: 960px; margin: 0 auto; }
+  .cw-header { background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%); color:#fff;
+    border-radius:16px; padding:1.75rem 2rem; margin-bottom:1.5rem; }
+  .cw-header h1 { margin:0; font-size:1.5rem; color:#fff; }
+  .cw-header p { margin:.5rem 0 0; opacity:.85; font-size:.9rem; }
+  .cw-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:1.5rem;
+    margin-bottom:1.25rem; }
+  .cw-card h2 { font-size:1.1rem; margin:0 0 1rem; color:#1a3a5c; }
+  .cw-row { display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end; }
+  .cw-row .fld { flex:1; min-width:180px; }
+  label { display:block; font-size:.8rem; color:#556; margin-bottom:.25rem; }
+  input, select { width:100%; padding:.55rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; }
+  .btn { padding:.55rem 1.1rem; border-radius:8px; border:0; cursor:pointer; font-size:.9rem; font-weight:600; }
+  .btn-primary { background:#2563a8; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-danger { background:#fdecec; color:#c0392b; }
+  .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.75rem; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; }
+  .badge-off { background:#f1f1f4; color:#888; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  th, td { text-align:left; padding:.5rem .6rem; border-bottom:1px solid #eef1f5; }
+  .muted { color:#889; font-size:.85rem; }
+  .st-saved { color:#1e8a4c; } .st-error { color:#c0392b; } .st-skipped { color:#888; }
+</style>
+
+<div class="cw-wrap">
+  <div class="cw-header">
+    <h1>💬 ChatWork連携</h1>
+    <p>顧問先とのChatWorkルームに届いた資料を、選択中のストレージへ自動保存します。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="cw-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- 1. APIトークン -->
+  <div class="cw-card">
+    <h2>1. APIトークン設定
+      {% if setting and setting.api_token %}<span class="badge badge-on">連携中</span>
+      {% else %}<span class="badge badge-off">未設定</span>{% endif %}
+    </h2>
+    <form method="post" action="{{ url_for('integrations.chatwork_save_token') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div class="cw-row">
+        <div class="fld">
+          <label>ChatWork APIトークン</label>
+          <input type="password" name="api_token" placeholder="ChatWork > 動作設定 > APIトークン"
+                 value="{{ '********' if setting and setting.api_token else '' }}">
+        </div>
+        <button class="btn btn-primary" type="submit">保存して疎通確認</button>
+      </div>
+      <p class="muted" style="margin-top:.5rem;">※トークンはChatWorkの「サービス連携 → APIトークン」から取得できます。</p>
+    </form>
+  </div>
+
+  <!-- 2. ルーム紐付け -->
+  <div class="cw-card">
+    <h2>2. ルーム → 顧問先 の紐付け</h2>
+    <form method="post" action="{{ url_for('integrations.chatwork_map') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div class="cw-row">
+        <div class="fld">
+          <label>ルーム</label>
+          <select name="room_id" id="room_select" onchange="syncRoomName()">
+            <option value="">-- 「ルーム一覧を取得」を押してください --</option>
+          </select>
+          <input type="hidden" name="room_name" id="room_name">
+        </div>
+        <div class="fld">
+          <label>顧問先</label>
+          <select name="client_id" required>
+            <option value="">-- 選択 --</option>
+            {% for c in clients %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label>保存先サブフォルダ</label>
+          <input type="text" name="subfolder" value="ChatWork受信">
+        </div>
+        <button class="btn btn-primary" type="submit">紐付けを保存</button>
+      </div>
+    </form>
+    <div style="margin-top:.75rem;">
+      <button class="btn btn-ghost" type="button" onclick="loadRooms()">ルーム一覧を取得</button>
+      <span id="room_status" class="muted"></span>
+    </div>
+
+    {% if mappings %}
+    <table style="margin-top:1rem;">
+      <thead><tr><th>ルーム</th><th>顧問先</th><th>サブフォルダ</th><th></th></tr></thead>
+      <tbody>
+        {% for m in mappings %}
+        <tr>
+          <td>{{ m.room_name or m.room_id }}<br><span class="muted">ID: {{ m.room_id }}</span></td>
+          <td>{{ client_names.get(m.client_id, '(削除済み)') }}</td>
+          <td>{{ m.subfolder }}</td>
+          <td>
+            <form method="post" action="{{ url_for('integrations.chatwork_map_delete', mapping_id=m.id) }}"
+                  onsubmit="return confirm('この紐付けを削除しますか?');">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <button class="btn btn-danger" type="submit">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted" style="margin-top:1rem;">まだ紐付けがありません。</p>
+    {% endif %}
+  </div>
+
+  <!-- 3. 手動同期 -->
+  <div class="cw-card">
+    <h2>3. 今すぐ同期</h2>
+    <p class="muted">紐付け済みルームの新着ファイルを取得し、ストレージへ保存します（定期実行はバッチで自動化）。</p>
+    <form method="post" action="{{ url_for('integrations.chatwork_sync') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <button class="btn btn-primary" type="submit"
+              {% if not (setting and setting.api_token) %}disabled{% endif %}>今すぐ受信して保存</button>
+    </form>
+  </div>
+
+  <!-- 受信ログ -->
+  <div class="cw-card">
+    <h2>直近の受信ログ</h2>
+    {% if recent %}
+    <table>
+      <thead><tr><th>ファイル名</th><th>顧問先</th><th>状態</th><th>日時</th></tr></thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td>{{ r.filename }}</td>
+          <td>{{ client_names.get(r.client_id, '-') }}</td>
+          <td class="st-{{ r.status }}">{{ r.status }}{% if r.error_message %}<br><span class="muted">{{ r.error_message }}</span>{% endif %}</td>
+          <td class="muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">まだ受信履歴がありません。</p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+async function loadRooms() {
+  const status = document.getElementById('room_status');
+  status.textContent = '取得中...';
+  try {
+    const res = await fetch("{{ url_for('integrations.chatwork_rooms') }}");
+    const data = await res.json();
+    if (data.error) { status.textContent = 'エラー: ' + data.error; return; }
+    const sel = document.getElementById('room_select');
+    sel.innerHTML = '<option value="">-- 選択 --</option>';
+    (data.rooms || []).forEach(function(r) {
+      const opt = document.createElement('option');
+      opt.value = r.room_id;
+      opt.textContent = r.name + ' (ID: ' + r.room_id + ')';
+      opt.dataset.name = r.name;
+      sel.appendChild(opt);
+    });
+    status.textContent = (data.rooms || []).length + '件のルームを取得しました';
+  } catch (e) {
+    status.textContent = '取得に失敗しました';
+  }
+}
+function syncRoomName() {
+  const sel = document.getElementById('room_select');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('room_name').value = opt ? (opt.dataset.name || '') : '';
+}
+</script>
+{% endblock %}

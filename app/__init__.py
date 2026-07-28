@@ -19,6 +19,7 @@ try:
     from . import models_shortstay  # noqa: F401
     from . import models_construction  # noqa: F401
     from . import models_construction_ext  # noqa: F401
+    from . import models_integrations  # noqa: F401
     Base.metadata.create_all(bind=engine)
     print("✅ データベーステーブル作成完了")
     
@@ -628,6 +629,13 @@ def create_app() -> Flask:
         print("✅ vtuber blueprint 登録完了")
     except Exception as e:
         print(f"⚠️ vtuber blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.integrations import bp as integrations_bp
+        app.register_blueprint(integrations_bp)
+        print("✅ integrations blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ integrations blueprint 登録エラー: {e}")
 
     import json as _json
     @app.template_filter('from_json')

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}事業所の選択{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .sc-wrap { max-width: 640px; margin: 2rem auto; }
+  .sc-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:2rem; }
+  .sc-card h1 { font-size:1.3rem; color:#1e46aa; margin:0 0 .5rem; }
+  .sc-card p { color:#555; font-size:.9rem; }
+  label { display:block; font-size:.8rem; color:#556; margin:1rem 0 .25rem; }
+  select { width:100%; padding:.6rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.95rem; }
+  .btn { padding:.6rem 1.2rem; border-radius:8px; border:0; cursor:pointer; font-weight:600; margin-top:1.25rem; }
+  .btn-primary { background:#285ac8; color:#fff; }
+</style>
+<div class="sc-wrap">
+  <div class="sc-card">
+    <h1>アップロード先の事業所を選択</h1>
+    <p>顧問先「<strong>{{ client_name }}</strong>」の資料をアップロードするfreee事業所を選択してください。</p>
+    <form method="post" action="{{ url_for('accounting.freee_save_company') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <label>freee事業所</label>
+      <select name="company_id" id="company_select" onchange="syncName()" required>
+        <option value="">-- 選択 --</option>
+        {% for co in companies %}
+          <option value="{{ co.id }}" data-name="{{ co.name }}">{{ co.name }}（ID: {{ co.id }}）</option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="company_name" id="company_name">
+      <button class="btn btn-primary" type="submit">この事業所で連携を確定</button>
+    </form>
+  </div>
+</div>
+<script>
+function syncName() {
+  const sel = document.getElementById('company_select');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('company_name').value = opt ? (opt.dataset.name || '') : '';
+}
+</script>
+{% endblock %}

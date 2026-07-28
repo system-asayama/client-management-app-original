@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}会計ソフト連携{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .ac-wrap { max-width: 1000px; margin: 0 auto; }
+  .ac-header { background: linear-gradient(135deg, #1e46aa 0%, #285ac8 100%); color:#fff;
+    border-radius:16px; padding:1.75rem 2rem; margin-bottom:1.5rem; }
+  .ac-header h1 { margin:0; font-size:1.5rem; color:#fff; }
+  .ac-header p { margin:.5rem 0 0; opacity:.9; font-size:.9rem; }
+  .ac-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:1.5rem; margin-bottom:1.25rem; }
+  .ac-card h2 { font-size:1.1rem; margin:0 0 1rem; color:#1e46aa; }
+  .btn { padding:.5rem 1rem; border-radius:8px; border:0; cursor:pointer; font-size:.85rem; font-weight:600; }
+  .btn-primary { background:#285ac8; color:#fff; }
+  .btn-freee { background:#2864f0; color:#fff; }
+  .btn-danger { background:#fdecec; color:#dc1e32; }
+  .btn-ghost { background:#ebf3ff; color:#1e46aa; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  th, td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid #eef1f5; vertical-align:middle; }
+  .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.75rem; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; } .badge-off { background:#f1f1f4; color:#888; }
+  .muted { color:#889; font-size:.85rem; }
+  .st-uploaded { color:#1e8a4c; } .st-error { color:#dc1e32; } .st-skipped { color:#888; }
+  .warn { background:#fff7e6; border:1px solid #ffe1a8; color:#8a5a00; padding:.75rem 1rem; border-radius:8px; margin-bottom:1rem; }
+</style>
+
+<div class="ac-wrap">
+  <div class="ac-header">
+    <h1>📤 会計ソフト連携（freee）</h1>
+    <p>ストレージに保存済みの受信資料を、顧問先ごとのfreeeファイルボックスへアップロードします。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="ac-card" style="border-left:4px solid {{ '#285ac8' if cat=='success' else '#dc1e32' if cat=='error' else '#ffb91e' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if not provider_configured %}
+  <div class="warn">⚠️ freeeアプリ設定が未完了です。環境変数 <code>FREEE_CLIENT_ID</code> / <code>FREEE_CLIENT_SECRET</code> / <code>FREEE_REDIRECT_URI</code> を設定してください。</div>
+  {% endif %}
+
+  <!-- 顧問先ごとの連携状態 -->
+  <div class="ac-card">
+    <h2>顧問先ごとのfreee連携</h2>
+    <table>
+      <thead><tr><th>顧問先</th><th>連携状態</th><th>アップロード先事業所</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for c in clients %}
+        {% set conn = conn_by_client.get(c.id) %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>
+            {% if conn and conn.status == 'active' %}<span class="badge badge-on">連携中</span>
+            {% else %}<span class="badge badge-off">未連携</span>{% endif %}
+          </td>
+          <td>{{ conn.company_name if conn and conn.status == 'active' else '—' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('accounting.freee_connect', client_id=c.id) }}" style="display:inline;">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <button class="btn btn-freee" type="submit" {% if not provider_configured %}disabled{% endif %}>
+                {{ '再連携' if conn and conn.status == 'active' else 'freeeと連携' }}
+              </button>
+            </form>
+            {% if conn and conn.status == 'active' %}
+            <form method="post" action="{{ url_for('accounting.disconnect', client_id=c.id) }}" style="display:inline;"
+                  onsubmit="return confirm('連携を解除しますか?');">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <button class="btn btn-danger" type="submit">解除</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 未送信の保存済み資料 -->
+  <div class="ac-card">
+    <h2>会計ソフトへ未送信の保存済み資料
+      <form method="post" action="{{ url_for('accounting.upload_all') }}" style="display:inline; float:right;">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button class="btn btn-primary" type="submit">連携済み分を一括アップロード</button>
+      </form>
+    </h2>
+    {% if pending %}
+    <table>
+      <thead><tr><th>ファイル名</th><th>顧問先</th><th>受信日時</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for rf in pending %}
+        <tr>
+          <td>{{ rf.filename }}</td>
+          <td>{{ client_names.get(rf.client_id, '-') }}
+            {% if not conn_by_client.get(rf.client_id) or conn_by_client.get(rf.client_id).status != 'active' %}
+              <span class="muted">(未連携)</span>
+            {% endif %}
+          </td>
+          <td class="muted">{{ rf.created_at.strftime('%Y-%m-%d %H:%M') if rf.created_at else '' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('accounting.upload_one', received_file_id=rf.id) }}">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <button class="btn btn-ghost" type="submit"
+                {% if not conn_by_client.get(rf.client_id) or conn_by_client.get(rf.client_id).status != 'active' %}disabled{% endif %}>
+                アップロード</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">未送信の保存済み資料はありません。</p>
+    {% endif %}
+  </div>
+
+  <!-- アップロードログ -->
+  <div class="ac-card">
+    <h2>直近のアップロードログ</h2>
+    {% if logs %}
+    <table>
+      <thead><tr><th>ファイル名</th><th>顧問先</th><th>状態</th><th>freee ID</th><th>日時</th></tr></thead>
+      <tbody>
+        {% for l in logs %}
+        <tr>
+          <td>{{ l.filename }}</td>
+          <td>{{ client_names.get(l.client_id, '-') }}</td>
+          <td class="st-{{ l.status }}">{{ l.status }}{% if l.error_message %}<br><span class="muted">{{ l.error_message }}</span>{% endif %}</td>
+          <td class="muted">{{ l.external_id or '-' }}</td>
+          <td class="muted">{{ l.created_at.strftime('%Y-%m-%d %H:%M') if l.created_at else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">まだアップロード履歴がありません。</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

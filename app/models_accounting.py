@@ -4,7 +4,7 @@
 ストレージに保存済みの受信資料を、顧問先ごとに紐づく会計ソフトの
 ファイルボックス（証憑）へアップロードするための連携情報とログを管理する。
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from datetime import datetime
 from app.db import Base
 
@@ -32,16 +32,22 @@ class TAccountingConnection(Base):
 
 
 class TAccountingAppConfig(Base):
-    """T_会計ソフトアプリ設定テーブル（OAuthアプリの認証情報／プラットフォーム共通）
+    """T_テナント会計ソフトアプリ設定テーブル（テナントごとのOAuthアプリ認証情報）
 
-    freee / マネーフォワード の Client ID・Secret・リダイレクトURI を画面から
-    設定できるようにする。環境変数より優先される（未設定項目は環境変数に
-    フォールバック）。※将来的に client_secret は暗号化列へ移行。
+    会計ソフトは各税理士事務所（テナント）がそれぞれ契約するため、freee /
+    マネーフォワード の Client ID・Secret・リダイレクトURI はテナント単位で
+    保持し、テナント管理者が画面から設定する。テナント設定が優先され、未設定の
+    場合はプラットフォーム共通の環境変数にフォールバックする。
+    ※将来的に client_secret は暗号化列へ移行。
     """
-    __tablename__ = 'T_会計ソフトアプリ設定'
+    __tablename__ = 'T_テナント会計ソフトアプリ設定'
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'provider', name='uq_tenant_provider_acc_app'),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    provider = Column(String(30), nullable=False, unique=True)  # 'freee' / 'moneyforward'
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    provider = Column(String(30), nullable=False)  # 'freee' / 'moneyforward'
     client_id = Column(Text, nullable=True)
     client_secret = Column(Text, nullable=True)
     redirect_uri = Column(String(500), nullable=True)

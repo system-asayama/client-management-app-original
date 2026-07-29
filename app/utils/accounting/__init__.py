@@ -13,13 +13,13 @@ PROVIDER_LABELS = {
 }
 
 
-def get_provider(name: str) -> AccountingProvider:
-    """プロバイダ名からインスタンスを返す"""
+def get_provider(name: str, tenant_id: int = None) -> AccountingProvider:
+    """プロバイダ名からインスタンスを返す（テナントの認証情報を読み込む）"""
     name = (name or 'freee').strip().lower()
     if name == 'freee':
-        return FreeeProvider()
+        return FreeeProvider(tenant_id=tenant_id)
     if name in ('moneyforward', 'mf', 'money_forward'):
-        return MoneyForwardProvider()
+        return MoneyForwardProvider(tenant_id=tenant_id)
     raise AccountingError(f'未対応の会計ソフトです: {name}')
 
 

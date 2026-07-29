@@ -40,7 +40,7 @@ def get_connection(db, tenant_id: int, client_id: int):
 
 def _ensure_token(db, conn) -> str:
     """アクセストークンが有効か確認し、期限切れならリフレッシュして返す"""
-    provider = get_provider(conn.provider)
+    provider = get_provider(conn.provider, tenant_id=conn.tenant_id)
     now = datetime.utcnow()
     # 期限の60秒前を過ぎていたらリフレッシュ
     if conn.token_expires_at and conn.token_expires_at - timedelta(seconds=60) <= now:
@@ -84,7 +84,7 @@ def upload_received_file(received_file_id: int) -> dict:
         if _already_uploaded(db, conn.provider, rf.id):
             return {'ok': True, 'skipped': True}
 
-        provider = get_provider(conn.provider)
+        provider = get_provider(conn.provider, tenant_id=conn.tenant_id)
         try:
             access_token = _ensure_token(db, conn)
             data = _fetch_bytes(rf.storage_url)

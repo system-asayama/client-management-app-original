@@ -34,9 +34,10 @@ TIMEOUT = 60
 class MoneyForwardProvider(AccountingProvider):
     name = 'moneyforward'
 
-    def __init__(self):
+    def __init__(self, tenant_id=None):
         from .app_config import get_app_config
-        c = get_app_config('moneyforward')
+        self.tenant_id = tenant_id
+        c = get_app_config('moneyforward', tenant_id)
         self.client_id = c['client_id']
         self.client_secret = c['client_secret']
         self.redirect_uri = c['redirect_uri']

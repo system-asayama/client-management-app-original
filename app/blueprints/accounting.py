@@ -37,12 +37,12 @@ def _require_tenant():
     return tenant_id
 
 
-def _providers_status():
-    """対応プロバイダとアプリ設定状況をUI用に返す"""
+def _providers_status(tenant_id):
+    """対応プロバイダとテナントのアプリ設定状況をUI用に返す"""
     out = []
     for name in SUPPORTED_PROVIDERS:
         try:
-            configured = get_provider(name).is_configured()
+            configured = get_provider(name, tenant_id=tenant_id).is_configured()
         except Exception:
             configured = False
         out.append({'name': name, 'label': provider_label(name), 'configured': configured})
@@ -70,13 +70,16 @@ def index():
                   .filter(TAccountingUploadLog.tenant_id == tenant_id)
                   .order_by(TAccountingUploadLog.id.desc()).limit(20).all())
         client_names = {c.id: c.name for c in clients}
+        # 事務所（テナント）管理者はアプリ設定を編集可能
+        can_configure = session.get('role') in (
+            ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
         return render_template('accounting.html',
                                clients=clients, conn_by_client=conn_by_client,
                                pending=pending, logs=logs,
                                client_names=client_names,
-                               providers=_providers_status(),
+                               providers=_providers_status(tenant_id),
                                provider_label=provider_label,
-                               is_system_admin=(session.get('role') == ROLES["SYSTEM_ADMIN"]))
+                               can_configure=can_configure)
     finally:
         db.close()
 
@@ -93,7 +96,7 @@ def connect(provider, client_id):
         return redirect(url_for('accounting.index'))
 
     try:
-        prov = get_provider(provider)
+        prov = get_provider(provider, tenant_id=tenant_id)
     except AccountingError as e:
         flash(str(e), 'error')
         return redirect(url_for('accounting.index'))
@@ -138,7 +141,7 @@ def callback(provider):
         return redirect(url_for('accounting.index'))
     client_id = st.get('c')
 
-    prov = get_provider(provider)
+    prov = get_provider(provider, tenant_id=tenant_id)
     try:
         tok = prov.exchange_code(code)
         companies = prov.list_companies(tok['access_token'])
@@ -285,23 +288,28 @@ def upload_all():
 
 
 @bp.route('/app_config', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def app_config():
-    """会計ソフトOAuthアプリの認証情報設定（システム管理者のみ）"""
+    """会計ソフトOAuthアプリの認証情報設定（テナント管理者・事務所単位）"""
     from flask import request as _req
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+
     # リダイレクトURIの推奨値（現在のホストから生成）
     base = _req.url_root.rstrip('/')
     rows = {}
     db = SessionLocal()
     try:
-        for r in db.query(TAccountingAppConfig).all():
+        for r in (db.query(TAccountingAppConfig)
+                    .filter(TAccountingAppConfig.tenant_id == tenant_id).all()):
             rows[r.provider] = r
     finally:
         db.close()
 
     providers = []
     for name in SUPPORTED_PROVIDERS:
-        cfg = get_app_config(name)  # 実効値（DB→環境変数）
+        cfg = get_app_config(name, tenant_id)  # 実効値（テナント設定→環境変数）
         row = rows.get(name)
         callback = f"{base}/accounting/callback/{name}"
         providers.append({
@@ -318,8 +326,11 @@ def app_config():
 
 
 @bp.route('/app_config/save/<provider>', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def app_config_save(provider):
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
     if provider not in SUPPORTED_PROVIDERS:
         flash('未対応の会計ソフトです', 'error')
         return redirect(url_for('accounting.app_config'))
@@ -331,9 +342,10 @@ def app_config_save(provider):
     db = SessionLocal()
     try:
         row = (db.query(TAccountingAppConfig)
-                 .filter(TAccountingAppConfig.provider == provider).first())
+                 .filter(TAccountingAppConfig.tenant_id == tenant_id,
+                         TAccountingAppConfig.provider == provider).first())
         if not row:
-            row = TAccountingAppConfig(provider=provider)
+            row = TAccountingAppConfig(tenant_id=tenant_id, provider=provider)
             db.add(row)
         if client_id:
             row.client_id = client_id

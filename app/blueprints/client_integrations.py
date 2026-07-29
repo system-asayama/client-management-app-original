@@ -80,7 +80,7 @@ def hub(client_id):
         providers = []
         for name in SUPPORTED_PROVIDERS:
             try:
-                configured = get_provider(name).is_configured()
+                configured = get_provider(name, tenant_id=tenant_id).is_configured()
             except Exception:
                 configured = False
             providers.append({'name': name, 'label': provider_label(name),

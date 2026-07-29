@@ -32,6 +32,9 @@
     {% if can_configure %}
     <a href="{{ url_for('accounting.app_config') }}" class="btn" style="background:#fff;color:#1e46aa;margin-top:1rem;display:inline-block;text-decoration:none;">⚙️ アプリ設定（freee/MF）</a>
     {% endif %}
+    {% if is_system_admin %}
+    <a href="{{ url_for('accounting.platform_app_config') }}" class="btn" style="background:#ebf3ff;color:#1e46aa;margin-top:1rem;margin-left:.5rem;display:inline-block;text-decoration:none;">🌐 プラットフォーム共通設定</a>
+    {% endif %}
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}

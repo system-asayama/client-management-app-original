@@ -79,7 +79,8 @@ def index():
                                client_names=client_names,
                                providers=_providers_status(tenant_id),
                                provider_label=provider_label,
-                               can_configure=can_configure)
+                               can_configure=can_configure,
+                               is_system_admin=(session.get('role') == ROLES["SYSTEM_ADMIN"]))
     finally:
         db.close()
 
@@ -287,53 +288,47 @@ def upload_all():
     return redirect(url_for('accounting.index'))
 
 
-@bp.route('/app_config', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
-def app_config():
-    """会計ソフトOAuthアプリの認証情報設定（テナント管理者・事務所単位）"""
-    from flask import request as _req
-    tenant_id = _require_tenant()
-    if not tenant_id:
-        return redirect(url_for('tenant_admin.dashboard'))
+_SOURCE_LABELS = {'tenant': 'この事務所の設定', 'platform': 'プラットフォーム共通',
+                  'env': '環境変数', '': '未設定'}
 
-    # リダイレクトURIの推奨値（現在のホストから生成）
+
+def _render_app_config(scope_tenant_id, is_platform):
+    """アプリ設定画面を描画（テナント/プラットフォーム共通で共通利用）"""
+    from flask import request as _req
     base = _req.url_root.rstrip('/')
     rows = {}
     db = SessionLocal()
     try:
         for r in (db.query(TAccountingAppConfig)
-                    .filter(TAccountingAppConfig.tenant_id == tenant_id).all()):
+                    .filter(TAccountingAppConfig.tenant_id == scope_tenant_id).all()):
             rows[r.provider] = r
     finally:
         db.close()
 
     providers = []
     for name in SUPPORTED_PROVIDERS:
-        cfg = get_app_config(name, tenant_id)  # 実効値（テナント設定→環境変数）
+        # 実効値: プラットフォーム画面なら共通のみ、テナント画面ならテナント実効値
+        cfg = get_app_config(name, None if is_platform else scope_tenant_id)
         row = rows.get(name)
         callback = f"{base}/accounting/callback/{name}"
         providers.append({
             'name': name,
             'label': provider_label(name),
             'client_id': (row.client_id if row and row.client_id else ''),
-            'has_secret': bool(cfg.get('client_secret')),
+            'has_secret': bool(row.client_secret) if row else False,
             'redirect_uri': (row.redirect_uri if row and row.redirect_uri else cfg.get('redirect_uri') or callback),
             'suggested_redirect': callback,
             'effective_configured': bool(cfg.get('client_id') and cfg.get('client_secret') and cfg.get('redirect_uri')),
-            'from_env': bool(not row),
+            'source_label': _SOURCE_LABELS.get(cfg.get('source'), ''),
         })
-    return render_template('accounting_app_config.html', providers=providers)
+    return render_template('accounting_app_config.html', providers=providers,
+                           is_platform=is_platform)
 
 
-@bp.route('/app_config/save/<provider>', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
-def app_config_save(provider):
-    tenant_id = _require_tenant()
-    if not tenant_id:
-        return redirect(url_for('tenant_admin.dashboard'))
+def _save_app_config(scope_tenant_id, provider, redirect_endpoint):
     if provider not in SUPPORTED_PROVIDERS:
         flash('未対応の会計ソフトです', 'error')
-        return redirect(url_for('accounting.app_config'))
+        return redirect(url_for(redirect_endpoint))
 
     client_id = (request.form.get('client_id') or '').strip()
     client_secret = (request.form.get('client_secret') or '').strip()
@@ -342,10 +337,10 @@ def app_config_save(provider):
     db = SessionLocal()
     try:
         row = (db.query(TAccountingAppConfig)
-                 .filter(TAccountingAppConfig.tenant_id == tenant_id,
+                 .filter(TAccountingAppConfig.tenant_id == scope_tenant_id,
                          TAccountingAppConfig.provider == provider).first())
         if not row:
-            row = TAccountingAppConfig(tenant_id=tenant_id, provider=provider)
+            row = TAccountingAppConfig(tenant_id=scope_tenant_id, provider=provider)
             db.add(row)
         if client_id:
             row.client_id = client_id
@@ -358,4 +353,38 @@ def app_config_save(provider):
         flash(f'{provider_label(provider)}のアプリ設定を保存しました', 'success')
     finally:
         db.close()
-    return redirect(url_for('accounting.app_config'))
+    return redirect(url_for(redirect_endpoint))
+
+
+@bp.route('/app_config', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def app_config():
+    """会計ソフトOAuthアプリの認証情報設定（テナント管理者・事務所単位）"""
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    return _render_app_config(tenant_id, is_platform=False)
+
+
+@bp.route('/app_config/save/<provider>', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def app_config_save(provider):
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    return _save_app_config(tenant_id, provider, 'accounting.app_config')
+
+
+@bp.route('/app_config/platform', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def platform_app_config():
+    """プラットフォーム共通のアプリ設定（システム管理者のみ・全テナントの既定値）"""
+    from app.utils.accounting.app_config import PLATFORM_TENANT_ID
+    return _render_app_config(PLATFORM_TENANT_ID, is_platform=True)
+
+
+@bp.route('/app_config/platform/save/<provider>', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def platform_app_config_save(provider):
+    from app.utils.accounting.app_config import PLATFORM_TENANT_ID
+    return _save_app_config(PLATFORM_TENANT_ID, provider, 'accounting.platform_app_config')

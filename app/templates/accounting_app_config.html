@@ -27,8 +27,13 @@
 <div class="ac-wrap">
   <div class="ac-crumb"><a href="{{ url_for('accounting.index') }}">← 会計ソフト連携に戻る</a></div>
   <div class="ac-header">
+    {% if is_platform %}
+    <h1>🌐 プラットフォーム共通 アプリ設定</h1>
+    <p>全テナントの既定値となる freee / マネーフォワード のOAuthアプリ認証情報を登録します（システム管理者）。各事務所が自前設定した場合はそちらが優先されます。</p>
+    {% else %}
     <h1>⚙️ 会計ソフト アプリ設定</h1>
-    <p>この事務所が契約している freee / マネーフォワード のOAuthアプリ認証情報を登録します（事務所ごとの設定）。</p>
+    <p>この事務所が契約している freee / マネーフォワード のOAuthアプリ認証情報を登録します（事務所ごとの設定）。未設定の項目はプラットフォーム共通設定・環境変数が使われます。</p>
+    {% endif %}
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -42,8 +47,7 @@
     <h2>{{ p.label }}
       {% if p.effective_configured %}<span class="badge badge-on">設定済み</span>
       {% else %}<span class="badge badge-off">未設定</span>{% endif %}
-      {% if not p.from_env and p.effective_configured %}<span class="muted">（画面から設定）</span>
-      {% elif p.from_env and p.effective_configured %}<span class="muted">（環境変数）</span>{% endif %}
+      {% if p.effective_configured %}<span class="muted">（現在の適用元: {{ p.source_label }}）</span>{% endif %}
     </h2>
 
     <div class="hint">
@@ -52,7 +56,7 @@
       <span class="copy" onclick="navigator.clipboard.writeText(document.getElementById('cb_{{ p.name }}').innerText)">📋コピー</span>
     </div>
 
-    <form method="post" action="{{ url_for('accounting.app_config_save', provider=p.name) }}">
+    <form method="post" action="{{ url_for('accounting.platform_app_config_save', provider=p.name) if is_platform else url_for('accounting.app_config_save', provider=p.name) }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
       <label>Client ID</label>
       <input type="text" name="client_id" value="{{ p.client_id }}" placeholder="{{ p.label }}で発行したClient ID">

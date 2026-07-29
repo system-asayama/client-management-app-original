@@ -289,7 +289,7 @@ def upload_all():
 
 
 _SOURCE_LABELS = {'tenant': 'この事務所の設定', 'platform': 'プラットフォーム共通',
-                  'env': '環境変数', '': '未設定'}
+                  '': '未設定'}
 
 
 def _render_app_config(scope_tenant_id, is_platform):

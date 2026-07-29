@@ -1,27 +1,21 @@
 """
-会計ソフトOAuthアプリ認証情報のローダー（3階層）
+会計ソフトOAuthアプリ認証情報のローダー（2階層・すべて画面から設定）
 
 優先順位（下にいくほど優先）:
-  1. 環境変数（FREEE_*/MF_*）… デプロイ時の既定値
-  2. プラットフォーム共通設定（tenant_id=0 / システム管理者が画面で設定）
-  3. テナント設定（各事務所が画面で設定）
+  1. プラットフォーム共通設定（tenant_id=0 / システム管理者が画面で設定）
+  2. テナント設定（各事務所が画面で設定）
 
-会計ソフトは各テナント（税理士事務所）が契約するのが基本だが、プラットフォーム
-運営者が共有のOAuthアプリを提供したい場合はプラットフォーム共通設定を使う。
+会計ソフトは各テナント（税理士事務所）が契約するのが基本。プラットフォーム
+運営者が共有のOAuthアプリを提供したい場合は共通設定を使う。いずれも画面から
+設定でき、環境変数は不要。
 """
-import os
 
 # プラットフォーム共通設定を表す擬似テナントID（実在しないID）
 PLATFORM_TENANT_ID = 0
 
-_ENV_KEYS = {
-    'freee': ('FREEE_CLIENT_ID', 'FREEE_CLIENT_SECRET', 'FREEE_REDIRECT_URI'),
-    'moneyforward': ('MF_CLIENT_ID', 'MF_CLIENT_SECRET', 'MF_REDIRECT_URI'),
-}
 
-
-def _apply_row(cfg: dict, row) -> str:
-    """DB行の値でcfgを上書き（値が入っている項目のみ）。上書きした場合の出所を返す"""
+def _apply_row(cfg: dict, row) -> bool:
+    """DB行の値でcfgを上書き（値が入っている項目のみ）。上書きした場合Trueを返す"""
     applied = False
     if row:
         if row.client_id:
@@ -37,20 +31,15 @@ def _apply_row(cfg: dict, row) -> str:
 
 
 def get_app_config(provider: str, tenant_id: int = None) -> dict:
-    """プロバイダのOAuthアプリ認証情報を返す（環境変数→共通→テナント）
+    """プロバイダのOAuthアプリ認証情報を返す（共通→テナント）
     Returns: {'client_id', 'client_secret', 'redirect_uri', 'source'}
-      source: 'tenant' / 'platform' / 'env' / '' （client_idの実効出所）
+      source: 'tenant' / 'platform' / '' （client_idの実効出所）
     """
     provider = (provider or '').strip().lower()
     if provider in ('mf', 'money_forward'):
         provider = 'moneyforward'
-    env = _ENV_KEYS.get(provider, ('', '', ''))
-    cfg = {
-        'client_id': os.environ.get(env[0], '') if env[0] else '',
-        'client_secret': os.environ.get(env[1], '') if env[1] else '',
-        'redirect_uri': os.environ.get(env[2], '') if env[2] else '',
-    }
-    source = 'env' if cfg['client_id'] else ''
+    cfg = {'client_id': '', 'client_secret': '', 'redirect_uri': ''}
+    source = ''
 
     try:
         from app.db import SessionLocal

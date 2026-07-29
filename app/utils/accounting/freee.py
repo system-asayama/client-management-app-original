@@ -26,9 +26,11 @@ class FreeeProvider(AccountingProvider):
     name = 'freee'
 
     def __init__(self):
-        self.client_id = os.environ.get('FREEE_CLIENT_ID', '')
-        self.client_secret = os.environ.get('FREEE_CLIENT_SECRET', '')
-        self.redirect_uri = os.environ.get('FREEE_REDIRECT_URI', '')
+        from .app_config import get_app_config
+        c = get_app_config('freee')
+        self.client_id = c['client_id']
+        self.client_secret = c['client_secret']
+        self.redirect_uri = c['redirect_uri']
 
     def is_configured(self) -> bool:
         return bool(self.client_id and self.client_secret and self.redirect_uri)

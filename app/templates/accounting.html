@@ -29,6 +29,9 @@
   <div class="ac-header">
     <h1>📤 会計ソフト連携（freee / マネーフォワード）</h1>
     <p>ストレージに保存済みの受信資料を、顧問先ごとの会計ソフトのファイルボックスへアップロードします。</p>
+    {% if is_system_admin %}
+    <a href="{{ url_for('accounting.app_config') }}" class="btn" style="background:#fff;color:#1e46aa;margin-top:1rem;display:inline-block;text-decoration:none;">⚙️ アプリ設定（freee/MF）</a>
+    {% endif %}
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -40,9 +43,9 @@
   {% for p in providers %}
     {% if not p.configured %}
     <div class="warn">⚠️ {{ p.label }}のアプリ設定が未完了です。
-      {% if p.name == 'freee' %}環境変数 <code>FREEE_CLIENT_ID</code> / <code>FREEE_CLIENT_SECRET</code> / <code>FREEE_REDIRECT_URI</code>
-      {% else %}環境変数 <code>MF_CLIENT_ID</code> / <code>MF_CLIENT_SECRET</code> / <code>MF_REDIRECT_URI</code>
-      {% endif %} を設定してください。</div>
+      {% if is_system_admin %}<a href="{{ url_for('accounting.app_config') }}">アプリ設定画面</a>から Client ID / Secret / リダイレクトURI を登録してください。
+      {% else %}システム管理者にアプリ設定の登録を依頼してください。{% endif %}
+    </div>
     {% endif %}
   {% endfor %}
 

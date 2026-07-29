@@ -35,9 +35,11 @@ class MoneyForwardProvider(AccountingProvider):
     name = 'moneyforward'
 
     def __init__(self):
-        self.client_id = os.environ.get('MF_CLIENT_ID', '')
-        self.client_secret = os.environ.get('MF_CLIENT_SECRET', '')
-        self.redirect_uri = os.environ.get('MF_REDIRECT_URI', '')
+        from .app_config import get_app_config
+        c = get_app_config('moneyforward')
+        self.client_id = c['client_id']
+        self.client_secret = c['client_secret']
+        self.redirect_uri = c['redirect_uri']
         self.scope = os.environ.get('MF_SCOPE', 'office:read receipt:write')
         self.auth_base = os.environ.get('MF_AUTH_BASE', 'https://api.biz.moneyforward.com').rstrip('/')
         self.api_base = os.environ.get('MF_API_BASE', 'https://api.biz.moneyforward.com').rstrip('/')

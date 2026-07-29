@@ -31,6 +31,23 @@ class TAccountingConnection(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TAccountingAppConfig(Base):
+    """T_会計ソフトアプリ設定テーブル（OAuthアプリの認証情報／プラットフォーム共通）
+
+    freee / マネーフォワード の Client ID・Secret・リダイレクトURI を画面から
+    設定できるようにする。環境変数より優先される（未設定項目は環境変数に
+    フォールバック）。※将来的に client_secret は暗号化列へ移行。
+    """
+    __tablename__ = 'T_会計ソフトアプリ設定'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String(30), nullable=False, unique=True)  # 'freee' / 'moneyforward'
+    client_id = Column(Text, nullable=True)
+    client_secret = Column(Text, nullable=True)
+    redirect_uri = Column(String(500), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TAccountingUploadLog(Base):
     """T_会計ソフトアップロードテーブル（アップロード履歴・重複防止）"""
     __tablename__ = 'T_会計ソフトアップロード'

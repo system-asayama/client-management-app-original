@@ -13,11 +13,14 @@ from datetime import datetime, timedelta
 from app.db import SessionLocal
 from app.models_clients import TClient
 from app.models_integrations import TReceivedFile
-from app.models_accounting import TAccountingConnection, TAccountingUploadLog
+from app.models_accounting import (
+    TAccountingConnection, TAccountingUploadLog, TAccountingAppConfig,
+)
 from app.utils.decorators import require_roles, ROLES
 from app.utils.accounting import (
     get_provider, AccountingError, SUPPORTED_PROVIDERS, provider_label,
 )
+from app.utils.accounting.app_config import get_app_config
 from app.services.accounting_upload import (
     upload_received_file, upload_tenant_pending, get_connection,
     _pending_received_files,
@@ -72,7 +75,8 @@ def index():
                                pending=pending, logs=logs,
                                client_names=client_names,
                                providers=_providers_status(),
-                               provider_label=provider_label)
+                               provider_label=provider_label,
+                               is_system_admin=(session.get('role') == ROLES["SYSTEM_ADMIN"]))
     finally:
         db.close()
 
@@ -278,3 +282,68 @@ def upload_all():
     else:
         flash(msg, 'success')
     return redirect(url_for('accounting.index'))
+
+
+@bp.route('/app_config', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_config():
+    """会計ソフトOAuthアプリの認証情報設定（システム管理者のみ）"""
+    from flask import request as _req
+    # リダイレクトURIの推奨値（現在のホストから生成）
+    base = _req.url_root.rstrip('/')
+    rows = {}
+    db = SessionLocal()
+    try:
+        for r in db.query(TAccountingAppConfig).all():
+            rows[r.provider] = r
+    finally:
+        db.close()
+
+    providers = []
+    for name in SUPPORTED_PROVIDERS:
+        cfg = get_app_config(name)  # 実効値（DB→環境変数）
+        row = rows.get(name)
+        callback = f"{base}/accounting/callback/{name}"
+        providers.append({
+            'name': name,
+            'label': provider_label(name),
+            'client_id': (row.client_id if row and row.client_id else ''),
+            'has_secret': bool(cfg.get('client_secret')),
+            'redirect_uri': (row.redirect_uri if row and row.redirect_uri else cfg.get('redirect_uri') or callback),
+            'suggested_redirect': callback,
+            'effective_configured': bool(cfg.get('client_id') and cfg.get('client_secret') and cfg.get('redirect_uri')),
+            'from_env': bool(not row),
+        })
+    return render_template('accounting_app_config.html', providers=providers)
+
+
+@bp.route('/app_config/save/<provider>', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def app_config_save(provider):
+    if provider not in SUPPORTED_PROVIDERS:
+        flash('未対応の会計ソフトです', 'error')
+        return redirect(url_for('accounting.app_config'))
+
+    client_id = (request.form.get('client_id') or '').strip()
+    client_secret = (request.form.get('client_secret') or '').strip()
+    redirect_uri = (request.form.get('redirect_uri') or '').strip()
+
+    db = SessionLocal()
+    try:
+        row = (db.query(TAccountingAppConfig)
+                 .filter(TAccountingAppConfig.provider == provider).first())
+        if not row:
+            row = TAccountingAppConfig(provider=provider)
+            db.add(row)
+        if client_id:
+            row.client_id = client_id
+        if redirect_uri:
+            row.redirect_uri = redirect_uri
+        # secret は入力があった時のみ更新（マスク表示のため空なら据え置き）
+        if client_secret:
+            row.client_secret = client_secret
+        db.commit()
+        flash(f'{provider_label(provider)}のアプリ設定を保存しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('accounting.app_config'))

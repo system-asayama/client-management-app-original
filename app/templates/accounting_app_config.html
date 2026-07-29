@@ -50,6 +50,11 @@
       {% if p.effective_configured %}<span class="muted">（現在の適用元: {{ p.source_label }}）</span>{% endif %}
     </h2>
 
+    {% set dev_url = 'https://app.secure.freee.co.jp/developers/applications' if p.name == 'freee' else 'https://developer.moneyforward.com/' %}
+    <p style="margin:.25rem 0 .75rem;">
+      🔗 <a href="{{ dev_url }}" target="_blank" rel="noopener" style="color:#2864f0;font-weight:600;">{{ p.label }}のアプリ発行ページを開く</a>
+      <span class="muted">（別タブ・{{ p.label }}へのログインが必要）</span>
+    </p>
     <div class="hint">
       {{ p.label }}側に登録する<strong>コールバック(リダイレクト)URL</strong>:<br>
       <code id="cb_{{ p.name }}">{{ p.suggested_redirect }}</code>
@@ -72,8 +77,8 @@
   <div class="ac-card">
     <h2>📌 設定手順</h2>
     <ol class="muted" style="line-height:1.9; padding-left:1.2rem;">
-      <li><strong>freee</strong>: <code>app.secure.freee.co.jp/developers/applications</code> でアプリ作成 → 上のコールバックURLを登録 → Client ID/Secret を取得して入力</li>
-      <li><strong>マネーフォワード</strong>: パートナーAPI申請・承認後、同様にコールバックURLを登録して入力</li>
+      <li><strong>freee</strong>: <a href="https://app.secure.freee.co.jp/developers/applications" target="_blank" rel="noopener">app.secure.freee.co.jp/developers/applications</a> でアプリ作成 → 上のコールバックURLを登録 → Client ID/Secret を取得して入力</li>
+      <li><strong>マネーフォワード</strong>: <a href="https://developer.moneyforward.com/" target="_blank" rel="noopener">developer.moneyforward.com</a> でアプリ作成（パートナーAPI申請・承認が必要）→ 同様にコールバックURLを登録して入力</li>
       <li>保存後、各顧問先の「連携設定」からfreee/MFと連携できるようになります</li>
     </ol>
   </div>

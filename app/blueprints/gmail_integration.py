@@ -187,6 +187,86 @@ def map_delete(mapping_id):
     return redirect(url_for('gmail_integration.settings'))
 
 
+@bp.route('/oauth-setup', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def oauth_setup():
+    """メールOAuth（Google Workspace / Microsoft 365）用の自前アプリ認証情報の設定＋手順書。
+
+    各事務所が自分でOAuthアプリを登録し、Client ID/Secret をここに登録する。
+    実際の「接続」フローは各担当のマイページから行う（次段階）。
+    """
+    from app.models_integrations import TMailOAuthConfig
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    # 登録時に使うリダイレクトURI（プロバイダ側に登録してもらう値）
+    root = request.url_root  # 例: https://xxx.herokuapp.com/
+    redirect_uris = {
+        'google': root + 'integrations/mail/oauth/google/callback',
+        'microsoft': root + 'integrations/mail/oauth/microsoft/callback',
+    }
+
+    db = SessionLocal()
+    try:
+        rows = (db.query(TMailOAuthConfig)
+                  .filter(TMailOAuthConfig.tenant_id == tenant_id).all())
+        cfg = {}
+        for r in rows:
+            cfg[r.provider] = {
+                'client_id': r.client_id or '',
+                'client_id_masked': (r.client_id[:6] + '…' + r.client_id[-4:]) if (r.client_id and len(r.client_id) > 12) else (r.client_id or ''),
+                'has_secret': bool(r.client_secret),
+                'ms_tenant_id': r.ms_tenant_id or '',
+                'status': r.status,
+            }
+        return render_template('integrations_mail_oauth.html',
+                               cfg=cfg, redirect_uris=redirect_uris)
+    finally:
+        db.close()
+
+
+@bp.route('/oauth-setup/save', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def oauth_setup_save():
+    """メールOAuthの Client ID/Secret を保存（プロバイダ単位）"""
+    from app.models_integrations import TMailOAuthConfig
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    provider = (request.form.get('provider') or '').strip().lower()
+    if provider not in ('google', 'microsoft'):
+        flash('プロバイダの指定が不正です', 'error')
+        return redirect(url_for('gmail_integration.oauth_setup'))
+
+    client_id = (request.form.get('client_id') or '').strip()
+    client_secret = (request.form.get('client_secret') or '').strip()
+    ms_tenant_id = (request.form.get('ms_tenant_id') or '').strip()
+
+    db = SessionLocal()
+    try:
+        row = (db.query(TMailOAuthConfig)
+                 .filter(TMailOAuthConfig.tenant_id == tenant_id,
+                         TMailOAuthConfig.provider == provider).first())
+        if not row:
+            row = TMailOAuthConfig(tenant_id=tenant_id, provider=provider, status='active')
+            db.add(row)
+        if client_id:
+            row.client_id = client_id
+        # シークレットは伏字（●のみ等）や空なら変更しない
+        if client_secret and set(client_secret) not in ({'●'}, {'*'}, {'•'}):
+            row.client_secret = client_secret
+        if provider == 'microsoft':
+            row.ms_tenant_id = ms_tenant_id or row.ms_tenant_id
+        row.status = 'active'
+        db.commit()
+        flash(f'{"Google" if provider == "google" else "Microsoft"} のOAuth設定を保存しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('gmail_integration.oauth_setup'))
+
+
 @bp.route('/sync', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def sync():

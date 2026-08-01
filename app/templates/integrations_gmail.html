@@ -39,6 +39,15 @@
     ここは <code>info@事務所.co.jp</code> のような<strong>事務所の共有メールアドレス</strong>を使う場合の設定です。</span>
   </div>
 
+  <div class="gm-card" style="border-left:4px solid #e0a800;background:#fffaf0;">
+    <strong>🔐 Google Workspace / Microsoft 365 をお使いの場合</strong><br>
+    <span class="muted">Microsoft 365 はアプリパスワード（IMAP基本認証）が廃止されたため、<strong>OAuth接続</strong>が必要です。
+    事務所ごとに自前のOAuthアプリを登録して連携します（手順書つき）。</span>
+    <div style="margin-top:.6rem;">
+      <a class="btn btn-primary" href="{{ url_for('gmail_integration.oauth_setup') }}">メールOAuth設定・手順書へ →</a>
+    </div>
+  </div>
+
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, m in messages %}
       <div class="gm-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>

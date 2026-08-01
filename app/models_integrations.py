@@ -4,7 +4,7 @@
 顧客からもらった資料を、選択したストレージ（Dropbox/GCS/Cloudinary 等）へ
 自動保存するための連携設定・ルーティング・受信ログを管理する。
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from datetime import datetime
 from app.db import Base
 
@@ -137,6 +137,32 @@ class TGmailSenderMapping(Base):
     sender_email = Column(String(320), nullable=False)  # 差出人メールアドレス（小文字で保存）
     client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
     subfolder = Column(String(255), nullable=True, default='Gmail受信')  # 保存先サブフォルダ
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TMailOAuthConfig(Base):
+    """T_テナントメールOAuth設定（テナントごとのメールOAuthアプリ認証情報）
+
+    Google Workspace / Microsoft 365 のメールを OAuth（IMAP XOAUTH2）で連携する
+    ために、各事務所（テナント）が自分で登録した「自前のOAuthアプリ」の
+    Client ID / Secret を保持する。会計ソフト連携（T_テナント会計ソフトアプリ設定）
+    と同じ考え方で、テナント管理者が画面から設定する。
+    自社ドメイン限定（内部アプリ／単一テナント）で登録すればプロバイダの審査は不要。
+    ※将来的に client_secret は暗号化列へ移行。
+    """
+    __tablename__ = 'T_テナントメールOAuth設定'
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'provider', name='uq_tenant_provider_mail_oauth'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    provider = Column(String(30), nullable=False)      # 'google' / 'microsoft'
+    client_id = Column(Text, nullable=True)
+    client_secret = Column(Text, nullable=True)
+    ms_tenant_id = Column(String(255), nullable=True)  # Microsoft のディレクトリ(テナント)ID
     status = Column(String(20), nullable=False, default='active')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

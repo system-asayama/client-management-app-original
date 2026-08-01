@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}メールOAuth設定（Google / Microsoft）{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .mo-wrap { max-width: 900px; margin: 0 auto; }
+  .mo-header { background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%); color:#fff;
+    border-radius:16px; padding:1.6rem 2rem; margin-bottom:1.25rem; }
+  .mo-header h1 { margin:0; font-size:1.4rem; color:#fff; }
+  .mo-header p { margin:.5rem 0 0; opacity:.9; font-size:.9rem; }
+  .mo-back { display:inline-block; margin-bottom:1rem; color:#2563a8; text-decoration:none; font-size:.9rem; }
+  .mo-back:hover { text-decoration:underline; }
+  .mo-note { background:#f5f9ff; border:1px solid #d8e6fb; color:#33507a; border-radius:10px;
+    padding:.85rem 1rem; font-size:.86rem; line-height:1.65; margin-bottom:1.25rem; }
+  .mo-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
+  .mo-card h2 { font-size:1.1rem; margin:0 0 .25rem; color:#1a3a5c; display:flex; align-items:center; gap:.5rem; }
+  .badge { display:inline-block; padding:.12rem .55rem; border-radius:999px; font-size:.72rem; font-weight:600; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; } .badge-off { background:#f1f1f4; color:#8a8f98; }
+  label { display:block; font-size:.8rem; color:#556; margin-bottom:.25rem; font-weight:600; }
+  input { width:100%; padding:.55rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; box-sizing:border-box; }
+  .fld { margin-bottom:.8rem; }
+  .row { display:flex; gap:.75rem; flex-wrap:wrap; }
+  .row .fld { flex:1; min-width:220px; }
+  .btn { padding:.55rem 1.1rem; border-radius:8px; border:0; cursor:pointer; font-size:.9rem; font-weight:600; }
+  .btn-primary { background:#2563a8; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .redirect-box { display:flex; gap:.5rem; align-items:center; background:#f6f8fb; border:1px dashed #b9c6d8;
+    border-radius:8px; padding:.5rem .7rem; font-size:.82rem; word-break:break-all; }
+  .redirect-box code { flex:1; }
+  details { margin-top:1rem; border-top:1px solid #eef1f5; padding-top:.75rem; }
+  summary { cursor:pointer; font-weight:600; color:#2563a8; font-size:.9rem; }
+  ol.steps { margin:.75rem 0 0; padding-left:1.25rem; font-size:.86rem; line-height:1.8; color:#334; }
+  ol.steps code { background:#f5f5f7; padding:0 .3em; border-radius:4px; }
+  .muted { color:#889; font-size:.82rem; }
+</style>
+
+<div class="mo-wrap">
+  <a class="mo-back" href="{{ url_for('gmail_integration.settings') }}">← 各種Eメール連携へ</a>
+
+  <div class="mo-header">
+    <h1>🔐 メールOAuth設定（Google / Microsoft）</h1>
+    <p>Google Workspace・Microsoft 365 のメールを、アプリパスワード無しで安全に連携するための設定です。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="mo-note" style="border-color:{{ '#b7e1c1' if cat=='success' else '#f5b7c0' if cat=='error' else '#ffd59e' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="mo-note">
+    <strong>この設定について</strong><br>
+    Microsoft 365 は基本認証（アプリパスワードによるIMAP）が廃止されたため、OAuth接続が必要です。
+    <strong>各事務所ごとに、自分のOAuthアプリを登録</strong>して、その Client ID / Secret をここに入力してください。
+    自社ドメイン限定（内部アプリ／単一テナント）で登録すれば、プロバイダの審査は不要です。手順は各カードの「登録手順を見る」に記載しています。
+    <br><span class="muted">※ここは事務所（テナント）ごとの共通設定です。実際の接続（同意）は各担当がマイページから行います。</span>
+  </div>
+
+  <!-- ===== Google ===== -->
+  <div class="mo-card">
+    <h2>🟦 Google（Gmail / Google Workspace）
+      {% if cfg.google and cfg.google.client_id %}<span class="badge badge-on">設定済み</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
+    </h2>
+    <p class="muted" style="margin:.25rem 0 1rem;">Google Cloud で OAuth クライアントを作成し、下記の値を登録します。</p>
+
+    <div class="fld">
+      <label>① プロバイダ側に登録するリダイレクトURI（コピーして使用）</label>
+      <div class="redirect-box">
+        <code id="ru_google">{{ redirect_uris.google }}</code>
+        <button type="button" class="btn btn-ghost" onclick="copyText('ru_google')">コピー</button>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('gmail_integration.oauth_setup_save') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <input type="hidden" name="provider" value="google">
+      <div class="row">
+        <div class="fld">
+          <label>② クライアントID</label>
+          <input type="text" name="client_id" placeholder="xxxxx.apps.googleusercontent.com"
+                 value="{{ cfg.google.client_id if cfg.google else '' }}">
+        </div>
+        <div class="fld">
+          <label>③ クライアントシークレット {% if cfg.google and cfg.google.has_secret %}<span class="muted">（登録済み・変更時のみ入力）</span>{% endif %}</label>
+          <input type="password" name="client_secret" placeholder="{% if cfg.google and cfg.google.has_secret %}●●●●●●（変更する場合のみ）{% else %}GOCSPX-...{% endif %}">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Google設定を保存</button>
+    </form>
+
+    <details>
+      <summary>登録手順を見る（Google Cloud）</summary>
+      <ol class="steps">
+        <li><a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> にログインし、プロジェクトを作成（既存でも可）</li>
+        <li>「APIとサービス」→「ライブラリ」で <strong>Gmail API</strong> を有効化</li>
+        <li>「OAuth同意画面」→ User Type は <strong>内部（Internal）</strong> を選択（自社ドメイン限定なら審査不要）。アプリ名・サポートメールを入力</li>
+        <li>スコープに <code>https://mail.google.com/</code>（IMAP用）を追加</li>
+        <li>「認証情報」→「認証情報を作成」→「OAuth クライアント ID」→ アプリの種類は <strong>ウェブアプリケーション</strong></li>
+        <li>「承認済みのリダイレクト URI」に、上の①の URI をそのまま登録</li>
+        <li>作成後に表示される <strong>クライアントID</strong> と <strong>クライアントシークレット</strong> を、上の②③に貼り付けて保存</li>
+      </ol>
+    </details>
+  </div>
+
+  <!-- ===== Microsoft ===== -->
+  <div class="mo-card">
+    <h2>🟧 Microsoft 365 / Outlook
+      {% if cfg.microsoft and cfg.microsoft.client_id %}<span class="badge badge-on">設定済み</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
+    </h2>
+    <p class="muted" style="margin:.25rem 0 1rem;">Microsoft Entra ID でアプリを登録し、下記の値を登録します。</p>
+
+    <div class="fld">
+      <label>① プロバイダ側に登録するリダイレクトURI（コピーして使用）</label>
+      <div class="redirect-box">
+        <code id="ru_ms">{{ redirect_uris.microsoft }}</code>
+        <button type="button" class="btn btn-ghost" onclick="copyText('ru_ms')">コピー</button>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('gmail_integration.oauth_setup_save') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <input type="hidden" name="provider" value="microsoft">
+      <div class="row">
+        <div class="fld">
+          <label>② アプリケーション(クライアント)ID</label>
+          <input type="text" name="client_id" placeholder="00000000-0000-0000-0000-000000000000"
+                 value="{{ cfg.microsoft.client_id if cfg.microsoft else '' }}">
+        </div>
+        <div class="fld">
+          <label>③ ディレクトリ(テナント)ID</label>
+          <input type="text" name="ms_tenant_id" placeholder="00000000-0000-0000-0000-000000000000"
+                 value="{{ cfg.microsoft.ms_tenant_id if cfg.microsoft else '' }}">
+        </div>
+      </div>
+      <div class="fld">
+        <label>④ クライアントシークレット（値） {% if cfg.microsoft and cfg.microsoft.has_secret %}<span class="muted">（登録済み・変更時のみ入力）</span>{% endif %}</label>
+        <input type="password" name="client_secret" placeholder="{% if cfg.microsoft and cfg.microsoft.has_secret %}●●●●●●（変更する場合のみ）{% else %}シークレットの値（Value）{% endif %}">
+      </div>
+      <button class="btn btn-primary" type="submit">Microsoft設定を保存</button>
+    </form>
+
+    <details>
+      <summary>登録手順を見る（Microsoft Entra ID）</summary>
+      <ol class="steps">
+        <li><a href="https://entra.microsoft.com/" target="_blank">Microsoft Entra 管理センター</a> →「アプリの登録」→「新規登録」</li>
+        <li>サポートされるアカウントの種類は <strong>この組織ディレクトリのみ（単一テナント）</strong> を選択</li>
+        <li>リダイレクト URI（プラットフォーム＝Web）に、上の①の URI をそのまま登録</li>
+        <li>「API のアクセス許可」→「アクセス許可の追加」→ Microsoft Graph →「委任されたアクセス許可」で
+            <code>IMAP.AccessAsUser.All</code>・<code>offline_access</code>・<code>User.Read</code> を追加し、<strong>管理者の同意</strong>を付与</li>
+        <li>「証明書とシークレット」→「新しいクライアント シークレット」を作成し、表示される <strong>値（Value）</strong> を控える（後で見えなくなります）</li>
+        <li>「概要」の <strong>アプリケーション(クライアント)ID</strong> と <strong>ディレクトリ(テナント)ID</strong>、④のシークレット値を、上の②③④に貼り付けて保存</li>
+      </ol>
+    </details>
+  </div>
+
+  <p class="muted">保存後、実際の「接続（許可）」は各担当がマイページの「メール連携」から行えるようにします（次段階で提供）。</p>
+</div>
+
+<script>
+function copyText(id) {
+  var t = document.getElementById(id);
+  if (!t) return;
+  var text = t.textContent || t.innerText || '';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text);
+  } else {
+    var r = document.createRange(); r.selectNode(t);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    try { document.execCommand('copy'); } catch (e) {}
+    sel.removeAllRanges();
+  }
+}
+</script>
+{% endblock %}

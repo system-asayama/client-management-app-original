@@ -272,7 +272,8 @@ def dropbox_oauth_start():
 def dropbox_oauth_callback():
     """DropboxのOAuth2コールバック処理"""
     from dropbox import DropboxOAuth2Flow
-    from dropbox.exceptions import BadRequestException, BadStateException, CsrfException, NotApprovedException, ProviderException
+    # OAuth関連の例外は dropbox.oauth に定義されている（dropbox.exceptions ではない）
+    from dropbox.oauth import BadRequestException, BadStateException, CsrfException, NotApprovedException, ProviderException
 
     tenant_id = session.get('tenant_id')
     store_id = session.get('dropbox_scope_store_id')

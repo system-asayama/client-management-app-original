@@ -69,63 +69,20 @@
     </form>
   </div>
 
-  <!-- 2. ルーム紐付け -->
+  <!-- 2. ルーム → 顧問先 の紐付けは顧問先ごとに設定 -->
   <div class="cw-card">
     <h2>2. ルーム → 顧問先 の紐付け</h2>
-    <form method="post" action="{{ url_for('integrations.chatwork_map') }}">
-      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-      <div class="cw-row">
-        <div class="fld">
-          <label>ルーム</label>
-          <select name="room_id" id="room_select" onchange="syncRoomName()">
-            <option value="">-- 「ルーム一覧を取得」を押してください --</option>
-          </select>
-          <input type="hidden" name="room_name" id="room_name">
-        </div>
-        <div class="fld">
-          <label>顧問先</label>
-          <select name="client_id" required>
-            <option value="">-- 選択 --</option>
-            {% for c in clients %}
-              <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="fld">
-          <label>保存先サブフォルダ</label>
-          <input type="text" name="subfolder" value="ChatWork受信">
-        </div>
-        <button class="btn btn-primary" type="submit">紐付けを保存</button>
-      </div>
-    </form>
-    <div style="margin-top:.75rem;">
-      <button class="btn btn-ghost" type="button" onclick="loadRooms()">ルーム一覧を取得</button>
-      <span id="room_status" class="muted"></span>
-    </div>
-
-    {% if mappings %}
-    <table style="margin-top:1rem;">
-      <thead><tr><th>ルーム</th><th>顧問先</th><th>サブフォルダ</th><th></th></tr></thead>
-      <tbody>
-        {% for m in mappings %}
-        <tr>
-          <td>{{ m.room_name or m.room_id }}<br><span class="muted">ID: {{ m.room_id }}</span></td>
-          <td>{{ client_names.get(m.client_id, '(削除済み)') }}</td>
-          <td>{{ m.subfolder }}</td>
-          <td>
-            <form method="post" action="{{ url_for('integrations.chatwork_map_delete', mapping_id=m.id) }}"
-                  onsubmit="return confirm('この紐付けを削除しますか?');">
-              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-              <button class="btn btn-danger" type="submit">削除</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="muted" style="margin-top:1rem;">まだ紐付けがありません。</p>
-    {% endif %}
+    <p class="muted" style="margin-top:-.5rem;">
+      「どのルームがどの顧問先か」は<strong>顧問先ごと</strong>の情報です。1つの代表アカウントが
+      多数の顧問先ルームに入っていても、<strong>顧問先ごとに個別のルームを紐付けられます</strong>。
+      各顧問先の詳細ページ →「連携」から、その顧問先の ChatWork ルームを登録してください。
+    </p>
+    <p style="margin-top:.75rem;">
+      <a class="btn btn-primary" href="{{ url_for('clients.clients') }}">顧問先一覧へ →</a>
+    </p>
+    <p class="muted" style="margin-top:.75rem;">
+      ※1つの顧問先に複数のルームを紐付けることもできます（顧問先ページで必要な数だけ追加）。
+    </p>
   </div>
 
   <!-- 3. 自動取得の設定 -->
@@ -198,32 +155,4 @@
   </div>
 </div>
 
-<script>
-async function loadRooms() {
-  const status = document.getElementById('room_status');
-  status.textContent = '取得中...';
-  try {
-    const res = await fetch("{{ url_for('integrations.chatwork_rooms') }}");
-    const data = await res.json();
-    if (data.error) { status.textContent = 'エラー: ' + data.error; return; }
-    const sel = document.getElementById('room_select');
-    sel.innerHTML = '<option value="">-- 選択 --</option>';
-    (data.rooms || []).forEach(function(r) {
-      const opt = document.createElement('option');
-      opt.value = r.room_id;
-      opt.textContent = r.name + ' (ID: ' + r.room_id + ')';
-      opt.dataset.name = r.name;
-      sel.appendChild(opt);
-    });
-    status.textContent = (data.rooms || []).length + '件のルームを取得しました';
-  } catch (e) {
-    status.textContent = '取得に失敗しました';
-  }
-}
-function syncRoomName() {
-  const sel = document.getElementById('room_select');
-  const opt = sel.options[sel.selectedIndex];
-  document.getElementById('room_name').value = opt ? (opt.dataset.name || '') : '';
-}
-</script>
 {% endblock %}

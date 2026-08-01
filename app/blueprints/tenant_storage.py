@@ -629,13 +629,28 @@ def disconnect_storage():
         return redirect(url_for('tenant_admin.dashboard'))
 
     provider = request.form.get('provider', '')
+    # revoke=1 のときは Dropbox 側の認可も取り消す（完全削除）
+    revoke = request.form.get('revoke') == '1'
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        revoke_note = None
+        # Dropbox は API で認可自体を取り消せる（連携済みアプリからも消える）
+        if provider == 'dropbox' and revoke:
+            cfg = _get_storage_config(db, tenant_id, store_id)
+            if cfg and (getattr(cfg, 'provider', '') or '').lower() == 'dropbox':
+                try:
+                    dbx = _get_dropbox_client(cfg, tenant_id=tenant_id)
+                    dbx.auth_token_revoke()
+                    revoke_note = ('success', 'Dropbox側の認可も取り消しました（Dropboxの「連携済みアプリ」からも削除されます）')
+                except Exception as e:  # noqa: BLE001 - 失敗してもアプリ側の解除は続行
+                    revoke_note = ('warning', f'Dropbox側の認可取り消しに失敗しました（アプリ側の連携は解除しました）。必要なら https://www.dropbox.com/account/connected_apps から手動で解除してください: {e}')
         # 同スコープの設定のみを解除（他スコープは温存）
         _deactivate_scope(db, tenant_id, store_id)
         db.commit()
         flash('ストレージ連携を解除しました', 'success')
+        if revoke_note:
+            flash(revoke_note[1], revoke_note[0])
     finally:
         db.close()
 

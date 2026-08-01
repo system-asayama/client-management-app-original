@@ -339,23 +339,22 @@
             <div class="value">アクセストークン: {{ view.dropbox_access_token }}</div>
         </div>
         <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage', store_id=store_id) }}"
-              onsubmit="return confirm('Dropbox連携を解除しますか？');">
+              onsubmit="return confirm('Dropboxの認可も含めて完全に解除しますか？（Dropboxの「連携済みアプリ」からも削除されます）');">
             <input type="hidden" name="provider" value="dropbox">
-            <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
+            <input type="hidden" name="revoke" value="1">
+            <button type="submit" class="btn-disconnect">🔌 完全に解除</button>
         </form>
     </div>
 
     <details style="margin:-.5rem 0 1rem;">
       <summary style="cursor:pointer;color:#2563a8;font-size:13px;font-weight:600;">別のDropboxアカウントに切り替えたい場合はこちら</summary>
       <div style="background:#f5f9ff;border:1px solid #d8e6fb;border-radius:8px;padding:.7rem .9rem;margin-top:.5rem;font-size:13px;line-height:1.7;color:#33507a;">
-        Dropboxの連携は<strong>2箇所</strong>にあります。完全に切り替えるには両方の対応が必要です：
-        <ol style="margin:.4rem 0 0 1.1rem;padding:0;">
-          <li>このアプリ側：上の<strong>「🔌 連携を解除」</strong>を押す（保存済みトークンを削除）</li>
-          <li>Dropbox側：<a href="https://www.dropbox.com/account/connected_apps" target="_blank" rel="noopener">Dropboxの「連携済みアプリ」</a>でこのアプリを<strong>削除（解除）</strong>する</li>
+        <ol style="margin:0 0 0 1.1rem;padding:0;">
+          <li>上の<strong>「🔌 完全に解除」</strong>を押す（アプリ側のトークン削除＋Dropbox側の認可取り消しを自動で行います）</li>
           <li>ブラウザで<strong>接続したい方のDropboxアカウントにログイン</strong>し直す（別アカウントに切り替え）</li>
           <li>この画面に戻って<strong>「Dropboxで連携する」</strong>を押し、新しいアカウントで許可</li>
         </ol>
-        <div style="margin-top:.4rem;color:#8a5a00;">※「連携を解除」だけだとアプリ側のトークンを消すだけで、Dropboxアカウント側の許可は残ります。またログイン中のアカウントがそのまま連携されるため、③のアカウント切り替えが重要です。</div>
+        <div style="margin-top:.4rem;color:#8a5a00;">※Dropboxの連携画面は「ブラウザで今ログイン中のアカウント」をそのまま使います。別アカウントに繋ぐには②のログイン切り替えが必要です。</div>
       </div>
     </details>
 

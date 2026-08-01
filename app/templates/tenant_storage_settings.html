@@ -163,9 +163,10 @@
     </div>
   </div>
   <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage', store_id=store_id) }}"
-        onsubmit="return confirm('ストレージ連携を解除しますか？');">
+        onsubmit="return confirm('ストレージ連携を解除しますか？{% if view.provider == 'dropbox' %}（Dropboxの認可も取り消され、連携済みアプリからも削除されます）{% endif %}');">
     <input type="hidden" name="provider" value="{{ view.provider }}">
-    <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
+    <input type="hidden" name="revoke" value="1">
+    <button type="submit" class="btn-disconnect">🔌 {% if view.provider == 'dropbox' %}完全に解除{% else %}連携を解除{% endif %}</button>
   </form>
 </div>
 {% endif %}

@@ -271,6 +271,11 @@
                 <span class="icon">📁</span> ファイル共有
             </a>
 
+            <a href="{{ url_for('staff_mypage.mail_settings') }}"
+               class="nav-item {% if request.endpoint == 'staff_mypage.mail_settings' %}active{% endif %}">
+                <span class="icon">📧</span> メール連携
+            </a>
+
             {% if staff_stores is defined and staff_stores %}
             <div class="nav-section-label">店舗</div>
             {% if staff_stores|length == 1 %}

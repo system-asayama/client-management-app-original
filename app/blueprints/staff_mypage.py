@@ -22,6 +22,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_login import TKanrisha, TJugyoin, TTenant, TNotice, TAttendance, TAttendanceLocation, TClientAssignment, TNoticeRead
 from app.models_clients import TClient, TMessage, TMessageRead
+from app.models_integrations import TStaffMailAccount, TReceivedFile
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('staff_mypage', __name__, url_prefix='/staff')
@@ -181,6 +182,145 @@ def dashboard():
 # ─────────────────────────────────────────────
 # プロフィール設定
 # ─────────────────────────────────────────────
+@bp.route('/mail', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def mail_settings():
+    """自分のメール受信連携（担当ごと）"""
+    from app.utils.integrations.mail import MAIL_PROVIDERS
+    from app.services.scheduler import get_state
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        flash('ユーザーが見つかりません', 'error')
+        return redirect(url_for('staff_mypage.dashboard'))
+
+    db = SessionLocal()
+    try:
+        accounts = (db.query(TStaffMailAccount)
+                      .filter(TStaffMailAccount.tenant_id == tenant_id,
+                              TStaffMailAccount.staff_id == user.id,
+                              TStaffMailAccount.staff_type == staff_type)
+                      .order_by(TStaffMailAccount.id.desc()).all())
+        acc_ids = [a.id for a in accounts]
+        recent = []
+        if acc_ids:
+            recent = (db.query(TReceivedFile)
+                        .filter(TReceivedFile.tenant_id == tenant_id,
+                                TReceivedFile.provider == 'mail')
+                        .order_by(TReceivedFile.id.desc()).limit(15).all())
+        unread_count = _get_unread_count(tenant_id, session.get('user_name', ''))
+        return render_template('staff_mypage_mail.html',
+                               accounts=accounts, providers=MAIL_PROVIDERS,
+                               recent=recent, sched=get_state(),
+                               unread_count=unread_count)
+    finally:
+        db.close()
+
+
+@bp.route('/mail/save', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def mail_save():
+    """メールアカウントの追加・更新（保存時にIMAP疎通確認）"""
+    from app.utils.integrations.mail import resolve_host_port, ImapMailClient, MailError
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+
+    provider = (request.form.get('provider') or 'gmail').strip()
+    email_addr = (request.form.get('email') or '').strip()
+    app_password = (request.form.get('app_password') or '').strip()
+    host_in = (request.form.get('imap_host') or '').strip()
+    port_in = request.form.get('imap_port')
+    host, port = resolve_host_port(provider, host_in, port_in)
+
+    if not email_addr or not app_password:
+        flash('メールアドレスとアプリパスワードを入力してください', 'error')
+        return redirect(url_for('staff_mypage.mail_settings'))
+
+    # 疎通確認
+    try:
+        ImapMailClient(email_addr, app_password, host, port).verify()
+    except MailError as e:
+        flash(f'メール接続に失敗しました: {e}', 'error')
+        return redirect(url_for('staff_mypage.mail_settings'))
+
+    db = SessionLocal()
+    try:
+        existing = (db.query(TStaffMailAccount)
+                      .filter(TStaffMailAccount.tenant_id == tenant_id,
+                              TStaffMailAccount.staff_id == user.id,
+                              TStaffMailAccount.staff_type == staff_type,
+                              TStaffMailAccount.email == email_addr)
+                      .first())
+        if existing:
+            existing.provider = provider
+            existing.imap_host = host
+            existing.imap_port = port
+            existing.app_password = app_password
+            existing.status = 'active'
+        else:
+            db.add(TStaffMailAccount(
+                tenant_id=tenant_id, staff_id=user.id, staff_type=staff_type,
+                provider=provider, email=email_addr, imap_host=host, imap_port=port,
+                app_password=app_password, since_uid=0, status='active'))
+        db.commit()
+        flash('メール連携を保存しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.mail_settings'))
+
+
+@bp.route('/mail/<int:account_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def mail_delete(account_id):
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+    db = SessionLocal()
+    try:
+        acc = (db.query(TStaffMailAccount)
+                 .filter(TStaffMailAccount.id == account_id,
+                         TStaffMailAccount.tenant_id == tenant_id,
+                         TStaffMailAccount.staff_id == user.id,
+                         TStaffMailAccount.staff_type == staff_type).first())
+        if acc:
+            db.delete(acc)
+            db.commit()
+            flash('メール連携を削除しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.mail_settings'))
+
+
+@bp.route('/mail/sync', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def mail_sync_now():
+    """自分のメールを今すぐ取得"""
+    from app.services.mail_sync import sync_account
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+    db = SessionLocal()
+    try:
+        ids = [a.id for a in db.query(TStaffMailAccount).filter(
+            TStaffMailAccount.tenant_id == tenant_id,
+            TStaffMailAccount.staff_id == user.id,
+            TStaffMailAccount.staff_type == staff_type,
+            TStaffMailAccount.status == 'active').all()]
+    finally:
+        db.close()
+    saved = skipped = errs = 0
+    for aid in ids:
+        r = sync_account(aid)
+        saved += r['saved']; skipped += r['skipped']; errs += len(r['errors'])
+    msg = f"取得完了: 保存 {saved}件 / スキップ {skipped}件"
+    flash(msg + (f" / エラー {errs}件" if errs else ''), 'warning' if errs else 'success')
+    return redirect(url_for('staff_mypage.mail_settings'))
+
+
 @bp.route('/profile', methods=['GET', 'POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def profile():

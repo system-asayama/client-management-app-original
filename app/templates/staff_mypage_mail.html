@@ -1,0 +1,138 @@
+{% extends "staff_mypage_base.html" %}
+{% block title %}メール連携{% endblock %}
+{% block content %}
+<style>
+  .ml-wrap { max-width: 860px; }
+  .ml-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:1.5rem; margin-bottom:1.25rem; }
+  .ml-card h2 { font-size:1.05rem; margin:0 0 1rem; color:#1a3a5c; }
+  .ml-row { display:flex; gap:.6rem; flex-wrap:wrap; align-items:flex-end; }
+  .ml-row .fld { flex:1; min-width:150px; }
+  label { display:block; font-size:.78rem; color:#556; margin-bottom:.25rem; }
+  input, select { width:100%; padding:.5rem .65rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.88rem; }
+  .btn { padding:.5rem 1rem; border-radius:8px; border:0; cursor:pointer; font-size:.85rem; font-weight:600; }
+  .btn-primary { background:#2563a8; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-danger { background:#fdecec; color:#c0392b; }
+  table { width:100%; border-collapse:collapse; font-size:.84rem; margin-top:.5rem; }
+  th, td { text-align:left; padding:.45rem .55rem; border-bottom:1px solid #eef1f5; }
+  .muted { color:#889; font-size:.83rem; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; padding:.1rem .5rem; border-radius:999px; font-size:.72rem; }
+  .hint { background:#fff7e6; border:1px solid #ffe1a8; color:#8a5a00; padding:.6rem .8rem; border-radius:8px; font-size:.82rem; }
+  .st-saved { color:#1e8a4c; } .st-error { color:#c0392b; }
+  #other_fields { display:none; }
+</style>
+
+<div class="ml-wrap">
+  <h1 style="font-size:1.4rem;margin-bottom:.25rem;">📧 メール連携（あなた専用）</h1>
+  <p class="muted" style="margin-bottom:1.25rem;">あなたの受信箱に届いた顧問先からの添付資料を、自動で顧問先フォルダへ保存します。</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="ml-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- 登録フォーム -->
+  <div class="ml-card">
+    <h2>メールアカウントを登録</h2>
+    <form method="post" action="{{ url_for('staff_mypage.mail_save') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div class="ml-row">
+        <div class="fld">
+          <label>メールの種類</label>
+          <select name="provider" id="provider" onchange="onProvider()">
+            {% for key, p in providers.items() %}
+              <option value="{{ key }}">{{ p.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label>メールアドレス</label>
+          <input type="email" name="email" placeholder="you@example.com" required>
+        </div>
+        <div class="fld">
+          <label>アプリパスワード</label>
+          <input type="password" name="app_password" placeholder="アプリパスワード" required>
+        </div>
+      </div>
+      <div class="ml-row" id="other_fields">
+        <div class="fld">
+          <label>IMAPサーバー（手動）</label>
+          <input type="text" name="imap_host" placeholder="例: mail.jimusho.co.jp">
+        </div>
+        <div class="fld" style="max-width:120px;">
+          <label>ポート</label>
+          <input type="number" name="imap_port" value="993">
+        </div>
+      </div>
+      <div style="margin-top:.75rem;">
+        <button class="btn btn-primary" type="submit">保存して接続確認</button>
+      </div>
+      <div class="hint" style="margin-top:.75rem;">
+        <strong>アプリパスワードとは:</strong> 通常のログインパスワードではなく、外部アプリ用の専用パスワードです。<br>
+        ・Gmail: 2段階認証を有効化 → <code>myaccount.google.com/apppasswords</code> で発行<br>
+        ・Outlook/M365・その他: 各サービスの「アプリパスワード」から発行（管理者がIMAPを許可している必要があります）
+      </div>
+    </form>
+  </div>
+
+  <!-- 登録済み -->
+  <div class="ml-card">
+    <h2>登録済みのメール
+      {% if sched %}<span class="muted" style="font-weight:400;">／ 自動取得:
+        {% if sched.enabled %}<span class="badge-on">有効（{{ sched.interval_minutes }}分ごと）</span>{% else %}無効{% endif %}</span>{% endif %}
+    </h2>
+    {% if accounts %}
+    <table>
+      <thead><tr><th>メール</th><th>種類</th><th>接続先</th><th></th></tr></thead>
+      <tbody>
+        {% for a in accounts %}
+        <tr>
+          <td>{{ a.email }}</td>
+          <td>{{ providers.get(a.provider, {}).get('label', a.provider) }}</td>
+          <td class="muted">{{ a.imap_host }}:{{ a.imap_port }}</td>
+          <td><form method="post" action="{{ url_for('staff_mypage.mail_delete', account_id=a.id) }}" onsubmit="return confirm('削除しますか?');">
+            {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+            <button class="btn btn-danger" type="submit">削除</button></form></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('staff_mypage.mail_sync_now') }}" style="margin-top:1rem;">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <button class="btn btn-ghost" type="submit">今すぐ取得</button>
+    </form>
+    {% else %}
+    <p class="muted">まだ登録がありません。上のフォームから追加してください。</p>
+    {% endif %}
+  </div>
+
+  <!-- 受信ログ -->
+  {% if recent %}
+  <div class="ml-card">
+    <h2>直近の受信</h2>
+    <table>
+      <thead><tr><th>ファイル名</th><th>差出人</th><th>状態</th><th>日時</th></tr></thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td>{{ r.filename }}</td>
+          <td class="muted">{{ r.room_id }}</td>
+          <td class="st-{{ r.status }}">{{ r.status }}</td>
+          <td class="muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function onProvider() {
+  var v = document.getElementById('provider').value;
+  document.getElementById('other_fields').style.display = (v === 'other') ? 'flex' : 'none';
+}
+onProvider();
+</script>
+{% endblock %}

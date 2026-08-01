@@ -36,6 +36,7 @@ def settings():
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
 
+    from app.utils.integrations.mail import MAIL_PROVIDERS
     db = SessionLocal()
     try:
         setting = get_active_setting(db, tenant_id)
@@ -54,6 +55,10 @@ def settings():
         from app.services.scheduler import get_state
         return render_template('integrations_gmail.html',
                                setting=setting, gmail_email=extra.get('email'),
+                               providers=MAIL_PROVIDERS,
+                               current_provider=extra.get('provider', 'gmail'),
+                               gmail_host=extra.get('imap_host', ''),
+                               gmail_port=extra.get('imap_port', 993),
                                mappings=mappings, clients=clients,
                                recent=recent, client_names=client_names,
                                sched=get_state())
@@ -68,17 +73,34 @@ def save_account():
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
 
+    from app.utils.integrations.mail import resolve_host_port, ImapMailClient, MailError
+
     email_address = (request.form.get('email') or '').strip()
     app_password = (request.form.get('app_password') or '').strip()
+    provider = (request.form.get('provider') or 'gmail').strip()
+    host_in = (request.form.get('imap_host') or '').strip()
+    port_in = request.form.get('imap_port')
+    host, port = resolve_host_port(provider, host_in, port_in)
+
+    # 既存トークンを取得（パスワードが伏字（*のみ）の場合は変更なしとして流用）
+    db = SessionLocal()
+    try:
+        existing = get_active_setting(db, tenant_id)
+        existing_token = existing.api_token if existing else None
+    finally:
+        db.close()
+    if app_password and set(app_password) == {'*'}:
+        app_password = existing_token or ''
+
     if not email_address or not app_password:
         flash('メールアドレスとアプリパスワードを入力してください', 'error')
         return redirect(url_for('gmail_integration.settings'))
 
-    # 疎通確認
+    # 疎通確認（プロバイダ非依存のIMAPで確認）
     try:
-        GmailImapClient(email_address, app_password).verify()
-    except GmailImapError as e:
-        flash(f'Gmail接続に失敗しました: {e}', 'error')
+        ImapMailClient(email_address, app_password, host, port).verify()
+    except MailError as e:
+        flash(f'メール接続に失敗しました: {e}', 'error')
         return redirect(url_for('gmail_integration.settings'))
 
     db = SessionLocal()
@@ -86,7 +108,9 @@ def save_account():
         setting = get_active_setting(db, tenant_id)
         extra = _load_extra(setting) if setting else {}
         extra['email'] = email_address
-        extra.setdefault('imap_host', 'imap.gmail.com')
+        extra['provider'] = provider
+        extra['imap_host'] = host
+        extra['imap_port'] = port
         # since_uid は既存値を維持（再設定時に取りこぼさない）
         if setting:
             setting.api_token = app_password
@@ -100,7 +124,7 @@ def save_account():
                 status='active',
             ))
         db.commit()
-        flash('Gmail連携を保存しました', 'success')
+        flash('メール連携を保存しました', 'success')
     finally:
         db.close()
     return redirect(url_for('gmail_integration.settings'))

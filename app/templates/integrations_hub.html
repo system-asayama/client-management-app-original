@@ -87,12 +87,12 @@
       </div>
     </a>
 
-    <!-- Gmail -->
+    <!-- 各種Eメール -->
     <a class="hub-card" href="{{ url_for('gmail_integration.settings') }}">
       <div class="hub-icon ic-gmail">📧</div>
       <div class="hub-body">
-        <div class="hub-name">Gmail / メール連携</div>
-        <div class="hub-desc">メール添付の資料を選択ストレージへ自動保存。担当ごとの設定はマイページから。</div>
+        <div class="hub-name">各種Eメール連携</div>
+        <div class="hub-desc">Gmail / Outlook / Yahoo / iCloud / その他IMAP に対応。メール添付を選択ストレージへ自動保存（担当ごとの設定はマイページから）。</div>
         <div class="hub-status">
           {% if status.gmail %}<span class="badge badge-on">連携中</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
         </div>

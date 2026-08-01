@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Gmail連携{% endblock %}
+{% block title %}各種Eメール連携{% endblock %}
 {% block header %}{% endblock %}
 {% block content %}
 <style>
   .gm-wrap { max-width: 960px; margin: 0 auto; }
-  .gm-header { background: linear-gradient(135deg, #b23121 0%, #d93025 100%); color:#fff;
+  .gm-header { background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%); color:#fff;
     border-radius:16px; padding:1.75rem 2rem; margin-bottom:1.5rem; }
   .gm-header h1 { margin:0; font-size:1.5rem; color:#fff; }
   .gm-header p { margin:.5rem 0 0; opacity:.9; font-size:.9rem; }
   .gm-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:1.5rem; margin-bottom:1.25rem; }
-  .gm-card h2 { font-size:1.1rem; margin:0 0 1rem; color:#b23121; }
+  .gm-card h2 { font-size:1.1rem; margin:0 0 1rem; color:#1a3a5c; }
   .gm-row { display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end; }
   .gm-row .fld { flex:1; min-width:180px; }
   label { display:block; font-size:.8rem; color:#556; margin-bottom:.25rem; }
   input, select { width:100%; padding:.55rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; }
   .btn { padding:.55rem 1.1rem; border-radius:8px; border:0; cursor:pointer; font-size:.9rem; font-weight:600; }
-  .btn-primary { background:#d93025; color:#fff; }
+  .btn-primary { background:#2563a8; color:#fff; }
   .btn-danger { background:#fdecec; color:#c0392b; }
   .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.75rem; }
   .badge-on { background:#e3f6e8; color:#1e8a4c; } .badge-off { background:#f1f1f4; color:#888; }
@@ -28,8 +28,8 @@
 
 <div class="gm-wrap">
   <div class="gm-header">
-    <h1>📧 Gmail連携</h1>
-    <p>顧問先からメールで届いた添付資料を、選択中のストレージへ自動保存します。</p>
+    <h1>📧 各種Eメール連携</h1>
+    <p>顧問先からメールで届いた添付資料を、選択中のストレージへ自動保存します。Gmail / Outlook / Yahoo / iCloud / その他IMAP に対応。</p>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -40,25 +40,50 @@
 
   <!-- 1. アカウント設定 -->
   <div class="gm-card">
-    <h2>1. Gmailアカウント設定
+    <h2>1. メールアカウント設定
       {% if setting and setting.api_token %}<span class="badge badge-on">連携中</span>
       {% else %}<span class="badge badge-off">未設定</span>{% endif %}
     </h2>
     <form method="post" action="{{ url_for('gmail_integration.save_account') }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
       <div class="gm-row">
+        <div class="fld" style="max-width:240px;">
+          <label>メールの種類</label>
+          <select name="provider" id="provider" onchange="onProvider()">
+            {% for key, p in providers.items() %}
+              <option value="{{ key }}" {% if key == current_provider %}selected{% endif %}>{{ p.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="fld">
           <label>メールアドレス</label>
-          <input type="email" name="email" placeholder="office@gmail.com" value="{{ gmail_email or '' }}">
+          <input type="email" name="email" placeholder="office@example.com" value="{{ gmail_email or '' }}">
         </div>
         <div class="fld">
           <label>アプリパスワード</label>
-          <input type="password" name="app_password" placeholder="16桁のアプリパスワード"
+          <input type="password" name="app_password" placeholder="アプリパスワード"
                  value="{{ '****************' if setting and setting.api_token else '' }}">
         </div>
+      </div>
+      <div class="gm-row" id="other_fields" style="margin-top:.6rem;">
+        <div class="fld">
+          <label>IMAPサーバー（手動）</label>
+          <input type="text" name="imap_host" placeholder="例: mail.jimusho.co.jp" value="{{ gmail_host or '' }}">
+        </div>
+        <div class="fld" style="max-width:120px;">
+          <label>ポート</label>
+          <input type="number" name="imap_port" value="{{ gmail_port or 993 }}">
+        </div>
+      </div>
+      <div style="margin-top:.75rem;">
         <button class="btn btn-primary" type="submit">保存して接続確認</button>
       </div>
-      <p class="muted" style="margin-top:.5rem;">※Googleアカウントの2段階認証を有効にし、<code>myaccount.google.com/apppasswords</code> で発行したアプリパスワードを使用してください。</p>
+      <p class="muted" style="margin-top:.5rem;">
+        ※<strong>アプリパスワード</strong>（通常のログインパスワードとは別の、外部アプリ用パスワード）が必要です。<br>
+        ・Gmail: 2段階認証を有効化 →<code>myaccount.google.com/apppasswords</code> で発行<br>
+        ・Outlook/M365・Yahoo・iCloud・その他: 各サービスの「アプリパスワード」から発行（管理者がIMAPを許可している必要があります）<br>
+        <span style="color:#33507a;">担当者ごとに設定する場合は、各担当が<strong>マイページ →「メール連携」</strong>から登録します。</span>
+      </p>
     </form>
   </div>
 
@@ -183,4 +208,11 @@
     {% endif %}
   </div>
 </div>
+<script>
+function onProvider() {
+  var v = document.getElementById('provider').value;
+  document.getElementById('other_fields').style.display = (v === 'other') ? 'flex' : 'none';
+}
+onProvider();
+</script>
 {% endblock %}

@@ -91,8 +91,12 @@ def sync_tenant(tenant_id: int) -> dict:
             return result
         since_uid = int(extra.get('since_uid') or 0)
         imap_host = extra.get('imap_host') or 'imap.gmail.com'
+        try:
+            imap_port = int(extra.get('imap_port') or 993)
+        except (TypeError, ValueError):
+            imap_port = 993
 
-        client = GmailImapClient(email_address, setting.api_token, host=imap_host)
+        client = GmailImapClient(email_address, setting.api_token, host=imap_host, port=imap_port)
         try:
             client.connect()
             messages, max_uid = client.fetch_new_with_attachments(since_uid=since_uid)

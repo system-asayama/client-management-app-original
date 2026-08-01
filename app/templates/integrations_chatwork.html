@@ -159,7 +159,7 @@
       {% if sched.last_finished_at %}{{ sched.last_finished_at.strftime('%Y-%m-%d %H:%M') }}
         {% if sched.last_status == 'error' %}<span style="color:#c0392b;">(一部エラー)</span>{% endif %}
       {% else %}まだ実行されていません（起動後まもなく開始）{% endif %}
-      <br>※この設定はGmail連携と共通です。保存後、最大1分ほどで反映されます。
+      <br>※この設定は各種Eメール連携と共通です。保存後、最大1分ほどで反映されます。
     </p>
   </div>
   {% endif %}

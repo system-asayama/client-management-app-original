@@ -84,10 +84,10 @@
 
   <!-- Gmail -->
   <div class="ci-card">
-    <h2>📧 Gmail 差出人</h2>
+    <h2>📧 メール差出人</h2>
     {% if not gmail_ready %}
-    <div class="warn">事務所のGmailアカウントが未設定です。先に
-      <a href="{{ url_for('gmail_integration.settings') }}">事務所のGmail連携設定</a>でアカウントを登録してください。</div>
+    <div class="warn">事務所のメールアカウントが未設定です。先に
+      <a href="{{ url_for('gmail_integration.settings') }}">各種Eメール連携設定</a>でアカウントを登録してください。</div>
     {% endif %}
     <form method="post" action="{{ url_for('client_integrations.add_gmail_sender', client_id=client.id) }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}

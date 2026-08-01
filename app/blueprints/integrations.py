@@ -28,6 +28,51 @@ def _require_tenant():
     return tenant_id
 
 
+@bp.route('/', methods=['GET'])
+@bp.route('/hub', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def hub():
+    """各種連携ハブ（ストレージ / ChatWork / Gmail / 会計ソフト を選ぶ入口）"""
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        # 各連携の状態（接続済みか）を表示するために軽く参照
+        storage = None
+        chatwork = None
+        gmail = None
+        try:
+            from sqlalchemy import text
+            storage = db.execute(text(
+                'SELECT provider FROM "T_外部ストレージ連携" '
+                'WHERE tenant_id = :t AND status = \'active\' AND store_id IS NULL '
+                'ORDER BY id DESC LIMIT 1'
+            ), {"t": tenant_id}).fetchone()
+        except Exception:
+            storage = None
+        try:
+            chatwork = (db.query(TIntegrationSetting)
+                          .filter(TIntegrationSetting.tenant_id == tenant_id,
+                                  TIntegrationSetting.provider == 'chatwork',
+                                  TIntegrationSetting.status == 'active').first())
+            gmail = (db.query(TIntegrationSetting)
+                       .filter(TIntegrationSetting.tenant_id == tenant_id,
+                               TIntegrationSetting.provider == 'gmail',
+                               TIntegrationSetting.status == 'active').first())
+        except Exception:
+            pass
+        status = {
+            'storage': storage.provider if storage else None,
+            'chatwork': bool(chatwork and chatwork.api_token),
+            'gmail': bool(gmail and gmail.api_token),
+        }
+        return render_template('integrations_hub.html', status=status)
+    finally:
+        db.close()
+
+
 @bp.route('/chatwork', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def chatwork_settings():

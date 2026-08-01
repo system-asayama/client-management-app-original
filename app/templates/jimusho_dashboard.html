@@ -314,35 +314,11 @@
     <span class="badge-coming">準備中</span>
   </a>
 
-  <a class="app-card" href="{{ url_for('tenant_storage.storage_settings') }}">
-    <div class="app-icon green">📦</div>
+  <a class="app-card" href="{{ url_for('integrations.hub') }}">
+    <div class="app-icon green">🔗</div>
     <div class="app-body">
-      <div class="app-name">ストレージ連携</div>
-      <div class="app-desc">Dropbox / Googleストレージ など資料の保存先を設定（店舗別も可）</div>
-    </div>
-  </a>
-
-  <a class="app-card" href="{{ url_for('integrations.chatwork_settings') }}">
-    <div class="app-icon blue">💬</div>
-    <div class="app-body">
-      <div class="app-name">ChatWork連携</div>
-      <div class="app-desc">顧問先ルームの資料を選択ストレージへ自動保存</div>
-    </div>
-  </a>
-
-  <a class="app-card" href="{{ url_for('gmail_integration.settings') }}">
-    <div class="app-icon amber">📧</div>
-    <div class="app-body">
-      <div class="app-name">Gmail連携</div>
-      <div class="app-desc">メール添付の資料を選択ストレージへ自動保存</div>
-    </div>
-  </a>
-
-  <a class="app-card" href="{{ url_for('accounting.index') }}">
-    <div class="app-icon blue">📤</div>
-    <div class="app-body">
-      <div class="app-name">会計ソフト連携</div>
-      <div class="app-desc">保存済み資料をfreee/MFへ自動アップロード</div>
+      <div class="app-name">各種連携</div>
+      <div class="app-desc">ストレージ / ChatWork / Gmail / 会計ソフト の連携をここから設定</div>
     </div>
   </a>
 </div>

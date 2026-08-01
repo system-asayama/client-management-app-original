@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}各種連携{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .hub-wrap { max-width: 960px; margin: 0 auto; }
+  .hub-header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
+    color: #fff; border-radius: 16px; padding: 1.75rem 2rem; margin-bottom: 1.5rem;
+  }
+  .hub-header h1 { margin: 0; font-size: 1.5rem; color: #fff; }
+  .hub-header p { margin: .5rem 0 0; opacity: .85; font-size: .9rem; }
+  .hub-back { display:inline-block; margin-bottom:1rem; color:#2563a8; text-decoration:none; font-size:.9rem; }
+  .hub-back:hover { text-decoration:underline; }
+
+  .hub-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1.1rem; }
+  @media (max-width: 620px) { .hub-grid { grid-template-columns: 1fr; } }
+
+  .hub-card {
+    display: flex; align-items: flex-start; gap: 1rem;
+    background: #fff; border: 1px solid #e5e9f0; border-radius: 14px;
+    padding: 1.4rem 1.3rem; text-decoration: none; color: inherit;
+    transition: all .16s; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .hub-card:hover { border-color: #2563a8; box-shadow: 0 6px 20px rgba(37,99,168,.12); transform: translateY(-2px); }
+  .hub-icon {
+    width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+  }
+  .ic-storage { background: #dcfce7; }
+  .ic-chatwork { background: #dbeafe; }
+  .ic-gmail { background: #fef3c7; }
+  .ic-accounting { background: #ede9fe; }
+  .hub-body { flex: 1; min-width: 0; }
+  .hub-name { font-size: 1.05rem; font-weight: 700; color: #1a3a5c; margin-bottom: .25rem; }
+  .hub-desc { font-size: .82rem; color: #6b7280; line-height: 1.55; }
+  .hub-status { margin-top: .5rem; }
+  .badge { display: inline-block; padding: .12rem .6rem; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+  .badge-on { background: #e3f6e8; color: #1e8a4c; }
+  .badge-off { background: #f1f1f4; color: #8a8f98; }
+  .hub-note {
+    margin-top: 1.4rem; background: #f5f9ff; border: 1px solid #d8e6fb; color: #33507a;
+    border-radius: 10px; padding: .8rem 1rem; font-size: .82rem; line-height: 1.6;
+  }
+</style>
+
+<div class="hub-wrap">
+  <a class="hub-back" href="{{ url_for('tenant_admin.jimusho_dashboard') }}">← ダッシュボードへ</a>
+
+  <div class="hub-header">
+    <h1>🔗 各種連携</h1>
+    <p>顧問先からの資料の受け取り・保存先・会計ソフトへの連携をここから設定します。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="hub-note" style="border-color:{{ '#b7e1c1' if cat=='success' else '#f5b7c0' if cat=='error' else '#ffd59e' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="hub-grid">
+    <!-- ストレージ -->
+    <a class="hub-card" href="{{ url_for('tenant_storage.storage_settings') }}">
+      <div class="hub-icon ic-storage">📦</div>
+      <div class="hub-body">
+        <div class="hub-name">ストレージ連携</div>
+        <div class="hub-desc">資料の保存先（Dropbox / Googleストレージ）。店舗ごとの設定も可能。</div>
+        <div class="hub-status">
+          {% if status.storage %}
+            <span class="badge badge-on">連携中：{% if status.storage == 'dropbox' %}Dropbox{% elif status.storage == 'gcs' %}Google Cloud Storage{% else %}{{ status.storage }}{% endif %}</span>
+          {% else %}
+            <span class="badge badge-off">未設定</span>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+
+    <!-- ChatWork -->
+    <a class="hub-card" href="{{ url_for('integrations.chatwork_settings') }}">
+      <div class="hub-icon ic-chatwork">💬</div>
+      <div class="hub-body">
+        <div class="hub-name">ChatWork連携</div>
+        <div class="hub-desc">顧問先ルームの資料を選択ストレージへ自動保存。担当ごとの設定はマイページから。</div>
+        <div class="hub-status">
+          {% if status.chatwork %}<span class="badge badge-on">連携中</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
+        </div>
+      </div>
+    </a>
+
+    <!-- Gmail -->
+    <a class="hub-card" href="{{ url_for('gmail_integration.settings') }}">
+      <div class="hub-icon ic-gmail">📧</div>
+      <div class="hub-body">
+        <div class="hub-name">Gmail / メール連携</div>
+        <div class="hub-desc">メール添付の資料を選択ストレージへ自動保存。担当ごとの設定はマイページから。</div>
+        <div class="hub-status">
+          {% if status.gmail %}<span class="badge badge-on">連携中</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
+        </div>
+      </div>
+    </a>
+
+    <!-- 会計ソフト -->
+    <a class="hub-card" href="{{ url_for('accounting.index') }}">
+      <div class="hub-icon ic-accounting">📤</div>
+      <div class="hub-body">
+        <div class="hub-name">会計ソフト連携</div>
+        <div class="hub-desc">保存済みの資料を freee / マネーフォワード のファイルボックスへ自動アップロード。</div>
+        <div class="hub-status"><span class="badge badge-off">設定へ</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="hub-note">
+    💡 データの流れ：<strong>ChatWork / メール</strong>で受け取った資料を <strong>ストレージ</strong>（Dropbox等）に保存し、そこから <strong>会計ソフト</strong>へアップロードします。まずは保存先のストレージ連携から設定するのがおすすめです。
+  </div>
+</div>
+{% endblock %}

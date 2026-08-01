@@ -259,15 +259,26 @@
   </a>
 </div>
 
+{% if session.get('role') in ['system_admin', 'tenant_admin', 'app_manager'] %}
+<!-- 連携 -->
+<div class="section-title">連携</div>
+<div class="app-grid">
+  <a class="app-card" href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}">
+    <div class="app-icon green">📦</div>
+    <div class="app-body">
+      <div class="app-name">ストレージ連携</div>
+      <div class="app-desc">この店舗の資料の保存先（Dropbox / Googleストレージ）を設定</div>
+    </div>
+  </a>
+</div>
+{% endif %}
+
 <!-- 管理・設定 -->
 <div class="section-title">店舗管理</div>
 <div class="mgmt-grid">
   <a class="mgmt-link" href="{{ url_for('tenant_admin.store_detail', store_id=store_id) }}">⚙️ 店舗情報</a>
   <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_admins', store_id=store_id) }}">🔑 管理者管理</a>
   <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_employees', store_id=store_id) }}">👤 従業員管理</a>
-  {% if session.get('role') in ['system_admin', 'tenant_admin', 'app_manager'] %}
-  <a class="mgmt-link" href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}">📦 ストレージ連携（この店舗）</a>
-  {% endif %}
   <a class="mgmt-link" href="{{ url_for('kintaikanri.attendance') }}">📊 全社勤怠（テナント全体）</a>
 </div>
 {% endblock %}

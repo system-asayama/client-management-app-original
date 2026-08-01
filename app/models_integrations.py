@@ -39,6 +39,22 @@ class TChatworkRoomMapping(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TSchedulerConfig(Base):
+    """T_スケジューラ設定テーブル（自動取得のオンオフ・間隔を画面から設定）
+
+    アプリ全体で1行（job_name='integrations_sync'）。DB設定が最優先で、
+    未設定時は環境変数→既定値にフォールバックする。変更は稼働中のスケジューラが
+    次のチェック（最大60秒後）で自動反映するため、再起動不要。
+    """
+    __tablename__ = 'T_スケジューラ設定'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_name = Column(String(100), nullable=False, unique=True)
+    enabled = Column(Integer, nullable=False, default=1)          # 1=有効, 0=無効
+    interval_minutes = Column(Integer, nullable=False, default=5)  # 巡回間隔（分）
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TSchedulerState(Base):
     """T_スケジューラ状態テーブル（アプリ内定期実行の管理・多重起動ロック用）
 

@@ -182,6 +182,32 @@ def chatwork_map_delete(mapping_id):
     return redirect(url_for('integrations.chatwork_settings'))
 
 
+@bp.route('/scheduler/save', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def scheduler_save():
+    """自動取得のオンオフ・巡回間隔を保存（アプリ全体共通設定）"""
+    tenant_id = _require_tenant()
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    from app.services.scheduler import set_config
+    enabled = request.form.get('enabled') == 'on'
+    try:
+        interval = int(request.form.get('interval_minutes') or 5)
+    except Exception:
+        interval = 5
+    cfg = set_config(enabled, interval)
+
+    state = '有効' if cfg['enabled'] else '無効'
+    flash(f"自動取得を保存しました（{state} / {cfg['interval_minutes']}分ごと）", 'success')
+
+    # 送信元の画面に戻る（chatwork / gmail）
+    back = request.form.get('back') or 'chatwork'
+    if back == 'gmail':
+        return redirect(url_for('gmail_integration.settings'))
+    return redirect(url_for('integrations.chatwork_settings'))
+
+
 @bp.route('/chatwork/sync', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def chatwork_sync():

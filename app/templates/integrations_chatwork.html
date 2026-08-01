@@ -119,21 +119,46 @@
     {% endif %}
   </div>
 
-  <!-- 3. 今すぐ同期 -->
+  <!-- 3. 自動取得の設定 -->
+  {% if sched %}
   <div class="cw-card">
-    <h2>3. 今すぐ同期</h2>
-    {% if sched %}
-    <p class="muted" style="margin-top:-.5rem;">
-      🔄 自動取得:
+    <h2>3. 自動取得の設定（アプリ全体共通）</h2>
+    <form method="post" action="{{ url_for('integrations.scheduler_save') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <input type="hidden" name="back" value="chatwork">
+      <div class="cw-row">
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+          <input type="checkbox" name="enabled" style="width:auto;" {% if sched.enabled %}checked{% endif %}>
+          自動取得を有効にする
+        </label>
+        <div class="fld" style="max-width:200px;">
+          <label>巡回間隔</label>
+          <select name="interval_minutes">
+            {% for m in sched.allowed_intervals %}
+              <option value="{{ m }}" {% if m == sched.interval_minutes %}selected{% endif %}>{{ m }}分ごと</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">設定を保存</button>
+      </div>
+    </form>
+    <p class="muted" style="margin-top:.75rem;">
+      現在:
       {% if sched.enabled %}<span style="color:#1e8a4c;font-weight:600;">有効（{{ sched.interval_minutes }}分ごと）</span>
       {% else %}<span style="color:#c0392b;">無効</span>{% endif %}
       ／ 最終自動実行:
       {% if sched.last_finished_at %}{{ sched.last_finished_at.strftime('%Y-%m-%d %H:%M') }}
         {% if sched.last_status == 'error' %}<span style="color:#c0392b;">(一部エラー)</span>{% endif %}
       {% else %}まだ実行されていません（起動後まもなく開始）{% endif %}
+      <br>※この設定はGmail連携と共通です。保存後、最大1分ほどで反映されます。
     </p>
-    {% endif %}
-    <p class="muted">紐付け済みルームの新着ファイルを取得し、ストレージへ保存します。上記のとおり自動でも定期取得されますが、手動で今すぐ実行もできます。</p>
+  </div>
+  {% endif %}
+
+  <!-- 4. 今すぐ同期 -->
+  <div class="cw-card">
+    <h2>4. 今すぐ同期（手動）</h2>
+    <p class="muted">自動取得を待たずに、今すぐ受信して保存します。</p>
     <form method="post" action="{{ url_for('integrations.chatwork_sync') }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
       <button class="btn btn-primary" type="submit"

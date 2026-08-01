@@ -25,15 +25,45 @@ class TIntegrationSetting(Base):
 
 
 class TChatworkRoomMapping(Base):
-    """T_ChatWork連携ルームテーブル（ルーム → 顧問先の対応付け）"""
+    """T_ChatWork連携ルームテーブル（ルーム → 顧問先の対応付け）
+
+    staff_account_id が NULL の行は「事務所（テナント）共通トークン」で巡回する
+    従来方式。値がある行は、その担当スタッフの ChatWork アカウント
+    （T_担当ChatWork連携）のトークンで巡回する担当ごと方式。
+    """
     __tablename__ = 'T_ChatWork連携ルーム'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    staff_account_id = Column(Integer, nullable=True)  # T_担当ChatWork連携.id（NULL=テナント共通）
     room_id = Column(String(50), nullable=False)       # ChatWorkのルームID
     room_name = Column(String(255), nullable=True)     # 表示用ルーム名（キャッシュ）
     client_id = Column(Integer, ForeignKey('T_顧問先.id'), nullable=False)
     subfolder = Column(String(255), nullable=True, default='ChatWork受信')  # 保存先サブフォルダ
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TStaffChatworkAccount(Base):
+    """T_担当ChatWork連携テーブル（担当スタッフごとの ChatWork アカウント）
+
+    ChatWork のAPIトークンはアカウント（個人）ごとに発行されるため、
+    顧問先とやり取りしている担当者本人のトークンを担当単位で登録する。
+    （メールの T_担当メール連携 と同じ考え方）
+    ※api_token は既存踏襲で平文（将来暗号化）。
+    """
+    __tablename__ = 'T_担当ChatWork連携'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False)        # T_管理者.id または T_従業員.id
+    staff_type = Column(String(20), nullable=False, default='admin')  # 'admin' / 'employee'
+
+    api_token = Column(Text, nullable=False)          # ChatWork APIトークン（アカウントごと）
+    account_name = Column(String(255), nullable=True)  # 表示用（get_me の name をキャッシュ）
+    chatwork_account_id = Column(String(50), nullable=True)  # ChatWork の account_id（任意）
+
     status = Column(String(20), nullable=False, default='active')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

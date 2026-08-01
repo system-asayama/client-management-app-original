@@ -22,7 +22,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_login import TKanrisha, TJugyoin, TTenant, TNotice, TAttendance, TAttendanceLocation, TClientAssignment, TNoticeRead
 from app.models_clients import TClient, TMessage, TMessageRead
-from app.models_integrations import TStaffMailAccount, TReceivedFile
+from app.models_integrations import (
+    TStaffMailAccount, TReceivedFile, TStaffChatworkAccount, TChatworkRoomMapping,
+)
 from app.utils.decorators import require_roles, ROLES
 
 bp = Blueprint('staff_mypage', __name__, url_prefix='/staff')
@@ -319,6 +321,265 @@ def mail_sync_now():
     msg = f"取得完了: 保存 {saved}件 / スキップ {skipped}件"
     flash(msg + (f" / エラー {errs}件" if errs else ''), 'warning' if errs else 'success')
     return redirect(url_for('staff_mypage.mail_settings'))
+
+
+# ============================================================
+# ChatWork連携（担当ごと）
+#   ChatWork のAPIトークンはアカウント（個人）ごとに発行されるため、
+#   顧問先とやり取りしている担当者本人のトークンを担当単位で登録する。
+# ============================================================
+@bp.route('/chatwork', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_settings():
+    """自分のChatWork連携（担当ごと）"""
+    from app.services.scheduler import get_state
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        flash('ユーザーが見つかりません', 'error')
+        return redirect(url_for('staff_mypage.dashboard'))
+
+    db = SessionLocal()
+    try:
+        account = (db.query(TStaffChatworkAccount)
+                     .filter(TStaffChatworkAccount.tenant_id == tenant_id,
+                             TStaffChatworkAccount.staff_id == user.id,
+                             TStaffChatworkAccount.staff_type == staff_type)
+                     .order_by(TStaffChatworkAccount.id.desc()).first())
+        mappings = []
+        if account:
+            mappings = (db.query(TChatworkRoomMapping)
+                          .filter(TChatworkRoomMapping.tenant_id == tenant_id,
+                                  TChatworkRoomMapping.staff_account_id == account.id)
+                          .order_by(TChatworkRoomMapping.id.desc()).all())
+        clients = (db.query(TClient)
+                     .filter(TClient.tenant_id == tenant_id)
+                     .order_by(TClient.name).all())
+        client_names = {c.id: c.name for c in clients}
+        recent = (db.query(TReceivedFile)
+                    .filter(TReceivedFile.tenant_id == tenant_id,
+                            TReceivedFile.provider == 'chatwork')
+                    .order_by(TReceivedFile.id.desc()).limit(15).all())
+        unread_count = _get_unread_count(tenant_id, session.get('user_name', ''))
+        return render_template('staff_mypage_chatwork.html',
+                               account=account, mappings=mappings,
+                               clients=clients, client_names=client_names,
+                               recent=recent, sched=get_state(),
+                               unread_count=unread_count)
+    finally:
+        db.close()
+
+
+@bp.route('/chatwork/save', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_save():
+    """ChatWork APIトークンの登録・更新（保存時に疎通確認）"""
+    from app.utils.integrations.chatwork import ChatworkClient, ChatworkError
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+
+    api_token = (request.form.get('api_token') or '').strip()
+    if not api_token:
+        flash('APIトークンを入力してください', 'error')
+        return redirect(url_for('staff_mypage.chatwork_settings'))
+
+    # 疎通確認 & アカウント名取得
+    account_name = None
+    cw_account_id = None
+    try:
+        me = ChatworkClient(api_token).get_me()
+        if isinstance(me, dict):
+            account_name = me.get('name')
+            cw_account_id = str(me.get('account_id')) if me.get('account_id') is not None else None
+    except ChatworkError as e:
+        flash(f'トークンの検証に失敗しました: {e}', 'error')
+        return redirect(url_for('staff_mypage.chatwork_settings'))
+
+    db = SessionLocal()
+    try:
+        existing = (db.query(TStaffChatworkAccount)
+                      .filter(TStaffChatworkAccount.tenant_id == tenant_id,
+                              TStaffChatworkAccount.staff_id == user.id,
+                              TStaffChatworkAccount.staff_type == staff_type)
+                      .first())
+        if existing:
+            existing.api_token = api_token
+            existing.account_name = account_name or existing.account_name
+            existing.chatwork_account_id = cw_account_id or existing.chatwork_account_id
+            existing.status = 'active'
+        else:
+            db.add(TStaffChatworkAccount(
+                tenant_id=tenant_id, staff_id=user.id, staff_type=staff_type,
+                api_token=api_token, account_name=account_name,
+                chatwork_account_id=cw_account_id, status='active'))
+        db.commit()
+        flash('ChatWork連携を保存しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.chatwork_settings'))
+
+
+@bp.route('/chatwork/rooms', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_rooms():
+    """自分のChatWorkルーム一覧を取得（マッピングUIの候補）"""
+    from app.utils.integrations.chatwork import ChatworkClient, ChatworkError
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return jsonify({'error': 'no user'}), 400
+    db = SessionLocal()
+    try:
+        account = (db.query(TStaffChatworkAccount)
+                     .filter(TStaffChatworkAccount.tenant_id == tenant_id,
+                             TStaffChatworkAccount.staff_id == user.id,
+                             TStaffChatworkAccount.staff_type == staff_type)
+                     .order_by(TStaffChatworkAccount.id.desc()).first())
+        if not account or not account.api_token:
+            return jsonify({'error': 'ChatWork連携が未設定です'}), 400
+        token = account.api_token
+    finally:
+        db.close()
+    try:
+        rooms = ChatworkClient(token).list_rooms()
+    except ChatworkError as e:
+        return jsonify({'error': str(e)}), 400
+    return jsonify({'rooms': [
+        {'room_id': r.get('room_id'), 'name': r.get('name')}
+        for r in (rooms or [])
+    ]})
+
+
+@bp.route('/chatwork/map', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_map():
+    """自分のルーム → 顧問先 の紐付けを保存"""
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+
+    room_id = (request.form.get('room_id') or '').strip()
+    room_name = (request.form.get('room_name') or '').strip()
+    client_id = request.form.get('client_id')
+    subfolder = (request.form.get('subfolder') or 'ChatWork受信').strip()
+
+    if not room_id or not client_id:
+        flash('ルームと顧問先を指定してください', 'error')
+        return redirect(url_for('staff_mypage.chatwork_settings'))
+
+    db = SessionLocal()
+    try:
+        account = (db.query(TStaffChatworkAccount)
+                     .filter(TStaffChatworkAccount.tenant_id == tenant_id,
+                             TStaffChatworkAccount.staff_id == user.id,
+                             TStaffChatworkAccount.staff_type == staff_type)
+                     .order_by(TStaffChatworkAccount.id.desc()).first())
+        if not account:
+            flash('先にChatWorkトークンを登録してください', 'error')
+            return redirect(url_for('staff_mypage.chatwork_settings'))
+
+        # 同一アカウント・同一ルームの重複マッピングは上書き
+        existing = (db.query(TChatworkRoomMapping)
+                      .filter(TChatworkRoomMapping.tenant_id == tenant_id,
+                              TChatworkRoomMapping.staff_account_id == account.id,
+                              TChatworkRoomMapping.room_id == room_id)
+                      .first())
+        if existing:
+            existing.client_id = int(client_id)
+            existing.room_name = room_name or existing.room_name
+            existing.subfolder = subfolder
+            existing.status = 'active'
+        else:
+            db.add(TChatworkRoomMapping(
+                tenant_id=tenant_id, staff_account_id=account.id,
+                room_id=room_id, room_name=room_name,
+                client_id=int(client_id), subfolder=subfolder, status='active'))
+        db.commit()
+        flash('ルームの紐付けを保存しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.chatwork_settings'))
+
+
+@bp.route('/chatwork/map/<int:mapping_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_map_delete(mapping_id):
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+    db = SessionLocal()
+    try:
+        # 自分のアカウントに属するマッピングのみ削除可能
+        account_ids = [a.id for a in db.query(TStaffChatworkAccount).filter(
+            TStaffChatworkAccount.tenant_id == tenant_id,
+            TStaffChatworkAccount.staff_id == user.id,
+            TStaffChatworkAccount.staff_type == staff_type).all()]
+        m = (db.query(TChatworkRoomMapping)
+               .filter(TChatworkRoomMapping.id == mapping_id,
+                       TChatworkRoomMapping.tenant_id == tenant_id,
+                       TChatworkRoomMapping.staff_account_id.in_(account_ids or [-1]))
+               .first())
+        if m:
+            db.delete(m)
+            db.commit()
+            flash('紐付けを削除しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.chatwork_settings'))
+
+
+@bp.route('/chatwork/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_delete():
+    """自分のChatWork連携（トークン）を削除"""
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+    db = SessionLocal()
+    try:
+        acc = (db.query(TStaffChatworkAccount)
+                 .filter(TStaffChatworkAccount.tenant_id == tenant_id,
+                         TStaffChatworkAccount.staff_id == user.id,
+                         TStaffChatworkAccount.staff_type == staff_type).first())
+        if acc:
+            db.delete(acc)
+            db.commit()
+            flash('ChatWork連携を削除しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.chatwork_settings'))
+
+
+@bp.route('/chatwork/sync', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def chatwork_sync_now():
+    """自分のChatWorkを今すぐ取得"""
+    from app.services.chatwork_sync import sync_staff_account
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.dashboard'))
+    db = SessionLocal()
+    try:
+        ids = [a.id for a in db.query(TStaffChatworkAccount).filter(
+            TStaffChatworkAccount.tenant_id == tenant_id,
+            TStaffChatworkAccount.staff_id == user.id,
+            TStaffChatworkAccount.staff_type == staff_type,
+            TStaffChatworkAccount.status == 'active').all()]
+    finally:
+        db.close()
+    saved = skipped = errs = 0
+    for aid in ids:
+        r = sync_staff_account(aid)
+        saved += r['saved']; skipped += r['skipped']; errs += len(r['errors'])
+    msg = f"取得完了: 保存 {saved}件 / スキップ {skipped}件"
+    flash(msg + (f" / エラー {errs}件" if errs else ''), 'warning' if errs else 'success')
+    return redirect(url_for('staff_mypage.chatwork_settings'))
 
 
 @bp.route('/profile', methods=['GET', 'POST'])

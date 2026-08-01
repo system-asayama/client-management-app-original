@@ -1433,6 +1433,33 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_ChatWork連携ルームにstaff_account_idカラムを追加（NULL=テナント共通、値=担当ごと）
+        print("\n[マイグレーション] T_ChatWork連携ルームにstaff_account_idカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_ChatWork連携ルーム' AND column_name = 'staff_account_id'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_ChatWork連携ルーム" ADD COLUMN staff_account_id INTEGER')
+                    conn.commit()
+                    print("  ✅ staff_account_idカラムを追加しました")
+                else:
+                    print("  ℹ️  staff_account_idカラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_ChatWork連携ルーム')")
+                cols = [row[1] for row in cur.fetchall()]
+                if 'staff_account_id' not in cols:
+                    cur.execute('ALTER TABLE "T_ChatWork連携ルーム" ADD COLUMN staff_account_id INTEGER')
+                    conn.commit()
+                    print("  ✅ staff_account_idカラムを追加しました")
+                else:
+                    print("  ℹ️  staff_account_idカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         # マイグレーション: T_管理者にphone・positionカラムを追加
         print("\n[マイグレーション] T_管理者にphone・positionカラムを追加")
         try:

@@ -30,8 +30,17 @@
 
 <div class="cw-wrap">
   <div class="cw-header">
-    <h1>💬 ChatWork連携</h1>
+    <h1>💬 ChatWork連携（事務所の代表アカウント）</h1>
     <p>顧問先とのChatWorkルームに届いた資料を、選択中のストレージへ自動保存します。</p>
+  </div>
+
+  <div class="cw-card" style="border-left:4px solid #2563a8;background:#f5f9ff;">
+    <strong>💡 担当ごとに設定したい場合</strong><br>
+    <span class="muted">ChatWorkのAPIトークンは<strong>アカウント（個人）ごと</strong>に発行されます。
+    ここは「事務所の代表アカウント1つで全ルームを巡回する」方式の設定です。
+    担当者それぞれが自分のアカウントで顧問先とやり取りしている場合は、各担当が
+    <strong>マイページ →「💬 ChatWork連携」</strong>から自分のトークンとルームを登録してください
+    （メール連携と同じ考え方です）。</span>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}

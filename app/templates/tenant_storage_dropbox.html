@@ -482,7 +482,7 @@ function renderFolders(container, folders, parentPath) {
             item.classList.add('selected');
         }
         item.innerHTML = `
-            <span class="toggle-btn" data-path="${folder.path}" onclick="toggleFolder(event, '${folder.path}', this)">▶</span>
+            <span class="toggle-btn" data-path="${escapeHtml(folder.path)}" onclick="toggleFolder(event, this)">▶</span>
             <span class="folder-icon">📁</span>
             <span class="folder-name">${escapeHtml(folder.name)}</span>
         `;
@@ -496,18 +496,22 @@ function renderFolders(container, folders, parentPath) {
 
         const children = document.createElement('div');
         children.className = 'folder-children';
-        children.id = `children-${folder.path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        // パスからIDを作ると日本語が全て '_' になり衝突するため、IDは使わず
+        // 子コンテナはDOM上の隣接関係（行の直後）で特定する（下の toggleFolder 参照）
 
         container.appendChild(item);
         container.appendChild(children);
     });
 }
 
-function toggleFolder(event, path, btn) {
+function toggleFolder(event, btn) {
     event.stopPropagation();
-    const childrenId = `children-${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const children = document.getElementById(childrenId);
-    if (!children) return;
+    const path = btn.dataset.path;
+    // 子コンテナは行（.folder-item）の直後の要素。IDに依存しないので
+    // 日本語フォルダ名でも衝突しない。
+    const item = btn.closest('.folder-item');
+    const children = item ? item.nextElementSibling : null;
+    if (!children || !children.classList.contains('folder-children')) return;
 
     if (children.classList.contains('open')) {
         children.classList.remove('open');

@@ -61,7 +61,10 @@
     <h2>🟦 Google（Gmail / Google Workspace）
       {% if cfg.google and cfg.google.client_id %}<span class="badge badge-on">設定済み</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
     </h2>
-    <p class="muted" style="margin:.25rem 0 1rem;">Google Cloud で OAuth クライアントを作成し、下記の値を登録します。</p>
+    <p class="muted" style="margin:.25rem 0 .75rem;">Google Cloud で OAuth クライアントを作成し、下記の値を登録します。</p>
+    <p style="margin:0 0 1rem;">
+      <a class="btn btn-ghost" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">🔗 取得ページを開く（Google Cloud 認証情報）</a>
+    </p>
 
     <div class="fld">
       <label>① プロバイダ側に登録するリダイレクトURI（コピーして使用）</label>
@@ -107,7 +110,10 @@
     <h2>🟧 Microsoft 365 / Outlook
       {% if cfg.microsoft and cfg.microsoft.client_id %}<span class="badge badge-on">設定済み</span>{% else %}<span class="badge badge-off">未設定</span>{% endif %}
     </h2>
-    <p class="muted" style="margin:.25rem 0 1rem;">Microsoft Entra ID でアプリを登録し、下記の値を登録します。</p>
+    <p class="muted" style="margin:.25rem 0 .75rem;">Microsoft Entra ID でアプリを登録し、下記の値を登録します。</p>
+    <p style="margin:0 0 1rem;">
+      <a class="btn btn-ghost" href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener">🔗 取得ページを開く（Entra ID アプリの登録）</a>
+    </p>
 
     <div class="fld">
       <label>① プロバイダ側に登録するリダイレクトURI（コピーして使用）</label>

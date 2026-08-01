@@ -72,6 +72,32 @@ class TSchedulerState(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TStaffMailAccount(Base):
+    """T_担当メール連携テーブル（担当スタッフごとのメール受信アカウント）
+
+    メールは担当者本人の受信箱に届くため、担当（スタッフ）単位で登録する。
+    Gmail / Outlook(M365) / Yahoo / iCloud / その他 を、接続先(IMAP)の違いだけで
+    同一の仕組みで扱う。※app_password は既存踏襲で平文（将来暗号化）。
+    """
+    __tablename__ = 'T_担当メール連携'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    staff_id = Column(Integer, nullable=False)        # T_管理者.id または T_従業員.id
+    staff_type = Column(String(20), nullable=False, default='admin')  # 'admin' / 'employee'
+
+    provider = Column(String(30), nullable=False, default='gmail')  # gmail/outlook/yahoo/icloud/other
+    email = Column(String(320), nullable=False)
+    imap_host = Column(String(255), nullable=False)
+    imap_port = Column(Integer, nullable=False, default=993)
+    app_password = Column(Text, nullable=True)        # アプリパスワード等
+
+    since_uid = Column(Integer, nullable=False, default=0)  # 処理済み管理
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TGmailSenderMapping(Base):
     """T_Gmail送信者マッピングテーブル（差出人メールアドレス → 顧問先の対応付け）"""
     __tablename__ = 'T_Gmail送信者マッピング'

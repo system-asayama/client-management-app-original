@@ -165,6 +165,13 @@ def run_sync_once() -> dict:
         status = 'error'
         detail['gmail_error'] = str(e)
         logger.exception('scheduler: gmail sync failed')
+    try:
+        from app.services.mail_sync import sync_all_tenants as mail_sync
+        detail['mail'] = mail_sync()
+    except Exception as e:  # noqa: BLE001
+        status = 'error'
+        detail['mail_error'] = str(e)
+        logger.exception('scheduler: mail sync failed')
     _record_result(status, detail)
     return detail
 

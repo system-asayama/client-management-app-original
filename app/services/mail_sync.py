@@ -50,7 +50,12 @@ def sync_account(account_id: int) -> dict:
             client.close()
 
         result['messages'] = len(messages)
-        adapter = get_storage_adapter(tenant_id)
+        # 店舗ごとにストレージアダプタを解決（店舗設定→テナント設定）。store_id別にキャッシュ
+        _adapter_cache = {}
+        def _adapter_for(store_id):
+            if store_id not in _adapter_cache:
+                _adapter_cache[store_id] = get_storage_adapter(tenant_id, store_id=store_id)
+            return _adapter_cache[store_id]
 
         for msg in messages:
             sender = msg['from']
@@ -69,6 +74,7 @@ def sync_account(account_id: int) -> dict:
                     continue
                 try:
                     folder_path = client_obj.storage_folder_path if client_obj else None
+                    adapter = _adapter_for(getattr(client_obj, 'store_id', None) if client_obj else None)
                     storage_url = adapter.upload(
                         BytesIO(att['data']), filename,
                         client_id=(client_obj.id if client_obj else 0),

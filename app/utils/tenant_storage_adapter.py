@@ -280,16 +280,42 @@ class GCSAdapter(StorageAdapterBase):
         return True
 
 
-def get_tenant_storage_config(tenant_id: int):
+def get_tenant_storage_config(tenant_id: int, store_id: int = None):
+    """有効なストレージ設定を取得する。
+    店舗が指定され、その店舗の設定があれば店舗設定を優先。無ければテナント設定に
+    フォールバックする（店舗の設定は store_id 一致、テナント設定は store_id IS NULL）。
+    """
     db = SessionLocal()
     try:
-        result = db.execute(text("""
+        # store_id 列が無い旧環境でも動くように、まず店舗優先で試し、失敗時はテナントのみ。
+        if store_id:
+            try:
+                row = db.execute(text("""
+                    SELECT * FROM "T_外部ストレージ連携"
+                    WHERE tenant_id = :tenant_id AND store_id = :store_id AND status = 'active'
+                    ORDER BY id DESC LIMIT 1
+                """), {"tenant_id": tenant_id, "store_id": store_id}).fetchone()
+                if row:
+                    return row
+            except Exception:
+                pass  # store_id 列が無い等 → テナント設定にフォールバック
+        # テナント全体の設定（store_id IS NULL を優先、無ければ従来どおり任意の行）
+        try:
+            row = db.execute(text("""
+                SELECT * FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :tenant_id AND status = 'active' AND store_id IS NULL
+                ORDER BY id DESC LIMIT 1
+            """), {"tenant_id": tenant_id}).fetchone()
+            if row:
+                return row
+        except Exception:
+            pass
+        # 旧スキーマ互換（store_id 列が無い）
+        return db.execute(text("""
             SELECT * FROM "T_外部ストレージ連携"
             WHERE tenant_id = :tenant_id AND status = 'active'
-            ORDER BY id DESC
-            LIMIT 1
-        """), {"tenant_id": tenant_id})
-        return result.fetchone()
+            ORDER BY id DESC LIMIT 1
+        """), {"tenant_id": tenant_id}).fetchone()
     finally:
         db.close()
 
@@ -340,8 +366,9 @@ class CloudinaryAdapter(StorageAdapterBase):
         return True
 
 
-def get_storage_adapter(tenant_id: int) -> StorageAdapterBase:
-    config = get_tenant_storage_config(tenant_id)
+def get_storage_adapter(tenant_id: int, store_id: int = None) -> StorageAdapterBase:
+    # 店舗の設定があれば優先し、無ければテナント設定にフォールバック
+    config = get_tenant_storage_config(tenant_id, store_id=store_id)
     if not config:
         # ストレージ未設定時はCloudinaryにフォールバック
         return CloudinaryAdapter(tenant_id)

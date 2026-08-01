@@ -111,12 +111,24 @@
 <!-- ヘッダー -->
 <div class="office-header">
   <div>
-    <div class="office-title">システム設定</div>
+    <div class="office-title">システム設定{% if store_name %} ／ 店舗別{% endif %}</div>
     <h1>📦 ストレージ連携設定</h1>
   </div>
   <div class="header-actions">
+    {% if store_id %}
+    <a href="{{ url_for('store_dashboard.dashboard', store_id=store_id) }}">← 店舗ダッシュボードへ</a>
+    {% else %}
     <a href="{{ current_dashboard_url }}">← ダッシュボードへ</a>
+    {% endif %}
   </div>
+</div>
+
+<div class="viewing-as-banner" style="{% if store_name %}background:#e3f2fd;color:#1565c0;border-color:#90caf9;{% endif %}">
+  {% if store_name %}
+    🏬 <strong>{{ store_name }}</strong> の店舗別ストレージ設定を編集しています。（未設定の場合は事務所全体の設定が使われます）
+  {% else %}
+    🏢 <strong>事務所全体</strong>のストレージ設定を編集しています。店舗ごとに個別設定することもできます。
+  {% endif %}
 </div>
 {% if viewing_as_banner %}
 <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
@@ -150,7 +162,7 @@
       {% endif %}
     </div>
   </div>
-  <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage') }}"
+  <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage', store_id=store_id) }}"
         onsubmit="return confirm('ストレージ連携を解除しますか？');">
     <input type="hidden" name="provider" value="{{ view.provider }}">
     <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
@@ -160,7 +172,7 @@
 
 <div class="storage-grid">
   <!-- Dropbox -->
-  <a href="{{ url_for('tenant_storage.storage_dropbox') }}"
+  <a href="{{ url_for('tenant_storage.storage_dropbox', store_id=store_id) }}"
      class="storage-card {% if view.provider == 'dropbox' %}active-card{% endif %}">
     <div class="storage-card-icon">📂</div>
     <div class="storage-card-name">Dropbox</div>
@@ -176,7 +188,7 @@
   </a>
 
   <!-- Google Cloud Storage -->
-  <a href="{{ url_for('tenant_storage.storage_gcs') }}"
+  <a href="{{ url_for('tenant_storage.storage_gcs', store_id=store_id) }}"
      class="storage-card {% if view.provider == 'gcs' %}active-card{% endif %}">
     <div class="storage-card-icon">☁️</div>
     <div class="storage-card-name">Google Cloud Storage</div>

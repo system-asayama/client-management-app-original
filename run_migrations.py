@@ -1406,6 +1406,33 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_外部ストレージ連携にstore_idカラムを追加（NULL=テナント全体、値=店舗別設定）
+        print("\n[マイグレーション] T_外部ストレージ連携にstore_idカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_外部ストレージ連携' AND column_name = 'store_id'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_外部ストレージ連携" ADD COLUMN store_id INTEGER')
+                    conn.commit()
+                    print("  ✅ store_idカラムを追加しました")
+                else:
+                    print("  ℹ️  store_idカラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_外部ストレージ連携')")
+                cols = [row[1] for row in cur.fetchall()]
+                if 'store_id' not in cols:
+                    cur.execute('ALTER TABLE "T_外部ストレージ連携" ADD COLUMN store_id INTEGER')
+                    conn.commit()
+                    print("  ✅ store_idカラムを追加しました")
+                else:
+                    print("  ℹ️  store_idカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         # マイグレーション: T_管理者にphone・positionカラムを追加
         print("\n[マイグレーション] T_管理者にphone・positionカラムを追加")
         try:

@@ -47,9 +47,12 @@
   <div class="page-header-inner">
     <div><h1 class="page-header-title">Dropbox連携設定</h1></div>
     <div class="page-header-actions">
-      <a href="{{ url_for('tenant_storage.storage_settings') }}" class="header-btn-outline">ストレージ設定に戻る</a>
+      <a href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}" class="header-btn-outline">ストレージ設定に戻る</a>
     </div>
   </div>
+</div>
+<div class="viewing-as-banner" style="{% if store_name %}background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;{% else %}background:#fff8e1;color:#7a5c00;border:1px solid #ffe082;{% endif %}border-radius:8px;padding:.6rem 1rem;margin:0 0 1rem;font-size:.9rem;">
+  {% if store_name %}🏬 <strong>{{ store_name }}</strong> の店舗別設定{% else %}🏢 <strong>事務所全体</strong>の設定{% endif %}
 </div>
 {% if viewing_as_banner %}
 <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
@@ -310,7 +313,7 @@
 
 <div class="storage-page">
     <div class="breadcrumb">
-        <a href="{{ url_for('tenant_storage.storage_settings') }}">ストレージ連携設定</a> &rsaquo; Dropbox
+        <a href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}">ストレージ連携設定</a> &rsaquo; Dropbox
     </div>
 
     <div class="page-title">📂 Dropbox 連携設定</div>
@@ -330,7 +333,7 @@
             <div class="label">✅ 連携中</div>
             <div class="value">アクセストークン: {{ view.dropbox_access_token }}</div>
         </div>
-        <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage') }}"
+        <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage', store_id=store_id) }}"
               onsubmit="return confirm('Dropbox連携を解除しますか？');">
             <input type="hidden" name="provider" value="dropbox">
             <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
@@ -401,7 +404,7 @@
             下のボタンをクリックするとDropboxの認証画面に移動します。「許可する」をクリックするだけで自動的に連携が完了します。
         </p>
 
-        <a href="{{ url_for('tenant_storage.dropbox_oauth_start') }}" class="btn-dropbox-oauth">
+        <a href="{{ url_for('tenant_storage.dropbox_oauth_start', store_id=store_id) }}" class="btn-dropbox-oauth">
             <img src="https://cfl.dropboxstatic.com/static/images/logo_catalog/dropbox-logo_320x320.png"
                  alt="Dropbox" style="width:22px; height:22px; object-fit:contain; border-radius:4px;">
             Dropboxで連携する
@@ -419,7 +422,7 @@
                     <li>Settings タブで「Generate access token」をクリック</li>
                 </ol>
             </div>
-            <form method="POST">
+            <form method="POST" action="{{ url_for('tenant_storage.storage_dropbox', store_id=store_id) }}">
                 <div class="form-group">
                     <label class="form-label" for="dropbox_access_token">
                         アクセストークン <span class="required">*</span>
@@ -434,12 +437,17 @@
         </div>
     </details>
 
-    <a href="{{ url_for('tenant_storage.storage_settings') }}" class="btn-back">← ストレージ設定に戻る</a>
+    <a href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}" class="btn-back">← ストレージ設定に戻る</a>
 </div>
 
 <script>
 let selectedFolderPath = null;
 let currentPath = '';
+// 店舗スコープ（テナント全体のときは null）。APIリクエストに付与する。
+const STORE_ID = {{ store_id if store_id else 'null' }};
+function storeParam(prefix) {
+    return STORE_ID ? `${prefix}store_id=${STORE_ID}` : '';
+}
 
 function loadFolders(path) {
     currentPath = path;
@@ -447,7 +455,7 @@ function loadFolders(path) {
     tree.innerHTML = '<div class="folder-loading">⏳ 読み込み中...</div>';
     updateBreadcrumb(path);
 
-    fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}`)
+    fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}${storeParam('&')}`)
         .then(r => r.json())
         .then(data => {
             if (data.error) {
@@ -513,7 +521,7 @@ function toggleFolder(event, path, btn) {
         children.classList.add('open');
         btn.textContent = '▼';
 
-        fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}`)
+        fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}${storeParam('&')}`)
             .then(r => r.json())
             .then(data => {
                 if (data.error) {
@@ -545,7 +553,7 @@ function saveFolder() {
     btn.disabled = true;
     btn.textContent = '保存中...';
 
-    fetch('/tenant/storage/dropbox/set-folder', {
+    fetch(`/tenant/storage/dropbox/set-folder?${storeParam('')}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({folder_path: selectedFolderPath})
@@ -606,7 +614,7 @@ function createFolder() {
     btn.textContent = '作成中...';
     showCreateMsg('', '');
 
-    fetch('/tenant/storage/dropbox/create-folder', {
+    fetch(`/tenant/storage/dropbox/create-folder?${storeParam('')}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({folder_path: newPath})

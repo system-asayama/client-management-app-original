@@ -47,9 +47,12 @@
   <div class="page-header-inner">
     <div><h1 class="page-header-title">GCS連携設定</h1></div>
     <div class="page-header-actions">
-      <a href="{{ url_for('tenant_storage.storage_settings') }}" class="header-btn-outline">ストレージ設定に戻る</a>
+      <a href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}" class="header-btn-outline">ストレージ設定に戻る</a>
     </div>
   </div>
+</div>
+<div class="viewing-as-banner" style="{% if store_name %}background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;{% else %}background:#fff8e1;color:#7a5c00;border:1px solid #ffe082;{% endif %}border-radius:8px;padding:.6rem 1rem;margin:0 0 1rem;font-size:.9rem;">
+  {% if store_name %}🏬 <strong>{{ store_name }}</strong> の店舗別設定{% else %}🏢 <strong>事務所全体</strong>の設定{% endif %}
 </div>
 {% if viewing_as_banner %}
 <div class="viewing-as-banner">{{ viewing_as_banner }}</div>
@@ -167,7 +170,7 @@
 
 <div class="storage-page">
     <div class="breadcrumb">
-        <a href="{{ url_for('tenant_storage.storage_settings') }}">ストレージ連携設定</a> &rsaquo; Google Cloud Storage
+        <a href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}">ストレージ連携設定</a> &rsaquo; Google Cloud Storage
     </div>
 
     <div class="page-title">☁️ Google Cloud Storage 連携設定</div>
@@ -190,7 +193,7 @@
                 サービスアカウント: {{ view.gcs_service_account_json_masked }}
             </div>
         </div>
-        <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage') }}"
+        <form method="POST" action="{{ url_for('tenant_storage.disconnect_storage', store_id=store_id) }}"
               onsubmit="return confirm('GCS連携を解除しますか？');">
             <input type="hidden" name="provider" value="gcs">
             <button type="submit" class="btn-disconnect">🔌 連携を解除</button>
@@ -215,7 +218,7 @@
             </ol>
         </div>
 
-        <form method="POST">
+        <form method="POST" action="{{ url_for('tenant_storage.storage_gcs', store_id=store_id) }}">
             <div class="form-group">
                 <label class="form-label" for="gcs_bucket">
                     バケット名 <span class="required">*</span>
@@ -241,6 +244,6 @@
         </form>
     </div>
 
-    <a href="{{ url_for('tenant_storage.storage_settings') }}" class="btn-back">← ストレージ設定に戻る</a>
+    <a href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}" class="btn-back">← ストレージ設定に戻る</a>
 </div>
 {% endblock %}

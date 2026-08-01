@@ -13,6 +13,22 @@ DROPBOX_APP_KEY = 'mwfin8b98ui38m8'
 DROPBOX_APP_SECRET = '1qwwluws6do5ht0'
 
 
+def _deactivate_scope(db, tenant_id, store_id):
+    """指定スコープ（店舗 or テナント全体）の既存設定のみを無効化する。
+    他スコープの設定は温存する。
+    """
+    if store_id:
+        db.execute(text("""
+            UPDATE "T_外部ストレージ連携" SET status = 'inactive'
+            WHERE tenant_id = :tenant_id AND store_id = :store_id
+        """), {"tenant_id": tenant_id, "store_id": store_id})
+    else:
+        db.execute(text("""
+            UPDATE "T_外部ストレージ連携" SET status = 'inactive'
+            WHERE tenant_id = :tenant_id AND store_id IS NULL
+        """), {"tenant_id": tenant_id})
+
+
 def _get_dropbox_client(storage_config, db=None, tenant_id=None):
     """リフレッシュトークンを使ってDropboxクライアントを取得（自動更新対応）"""
     import dropbox
@@ -43,15 +59,63 @@ def _get_dropbox_client(storage_config, db=None, tenant_id=None):
     return dbx_base
 
 
-def _get_storage_config(db, tenant_id):
-    """現在のアクティブなストレージ設定を取得"""
-    result = db.execute(text("""
-        SELECT * FROM "T_外部ストレージ連携"
-        WHERE tenant_id = :tenant_id AND status = 'active'
-        ORDER BY id DESC
-        LIMIT 1
-    """), {"tenant_id": tenant_id})
-    return result.fetchone()
+def _scope_store_id(db, tenant_id):
+    """リクエストから店舗スコープ(store_id)を解決する。
+    store_id が無い/不正/このテナントの店舗でない場合は None（＝テナント全体）を返す。
+    """
+    raw = request.values.get('store_id')
+    if not raw:
+        return None
+    try:
+        sid = int(raw)
+    except (TypeError, ValueError):
+        return None
+    try:
+        row = db.execute(text('SELECT id FROM "T_店舗" WHERE id = :sid AND tenant_id = :tid'),
+                         {"sid": sid, "tid": tenant_id}).fetchone()
+    except Exception:
+        row = None
+    return sid if row else None
+
+
+def _scope_name(db, tenant_id, store_id):
+    """スコープの表示名（店舗名 or テナント全体）"""
+    if not store_id:
+        return None
+    try:
+        row = db.execute(text('SELECT name FROM "T_店舗" WHERE id = :sid AND tenant_id = :tid'),
+                         {"sid": store_id, "tid": tenant_id}).fetchone()
+        return row.name if row else None
+    except Exception:
+        return None
+
+
+def _get_storage_config(db, tenant_id, store_id=None):
+    """現在のアクティブなストレージ設定を取得（指定スコープの設定のみ）。
+    store_id 指定時はその店舗の設定、None のときはテナント全体（store_id IS NULL）の設定。
+    """
+    try:
+        if store_id:
+            result = db.execute(text("""
+                SELECT * FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :tenant_id AND status = 'active' AND store_id = :store_id
+                ORDER BY id DESC LIMIT 1
+            """), {"tenant_id": tenant_id, "store_id": store_id})
+            return result.fetchone()
+        result = db.execute(text("""
+            SELECT * FROM "T_外部ストレージ連携"
+            WHERE tenant_id = :tenant_id AND status = 'active' AND store_id IS NULL
+            ORDER BY id DESC LIMIT 1
+        """), {"tenant_id": tenant_id})
+        return result.fetchone()
+    except Exception:
+        # store_id 列が無い旧スキーマ互換
+        result = db.execute(text("""
+            SELECT * FROM "T_外部ストレージ連携"
+            WHERE tenant_id = :tenant_id AND status = 'active'
+            ORDER BY id DESC LIMIT 1
+        """), {"tenant_id": tenant_id})
+        return result.fetchone()
 
 
 def _build_view(storage_config):
@@ -67,6 +131,10 @@ def _build_view(storage_config):
     if storage_config:
         view['is_connected'] = True
         view['provider'] = storage_config.provider
+        try:
+            view['scope_store_id'] = storage_config.store_id
+        except Exception:
+            view['scope_store_id'] = None
         if storage_config.provider == 'dropbox':
             token = storage_config.access_token or ''
             if len(token) > 10:
@@ -98,9 +166,12 @@ def storage_settings():
 
     db = SessionLocal()
     try:
-        storage_config = _get_storage_config(db, tenant_id)
+        store_id = _scope_store_id(db, tenant_id)
+        storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
-        return render_template('tenant_storage_settings.html', view=view)
+        return render_template('tenant_storage_settings.html', view=view,
+                               store_id=store_id,
+                               store_name=_scope_name(db, tenant_id, store_id))
     finally:
         db.close()
 
@@ -119,7 +190,8 @@ def storage_dropbox():
 
     db = SessionLocal()
     try:
-        storage_config = _get_storage_config(db, tenant_id)
+        store_id = _scope_store_id(db, tenant_id)
+        storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
 
         if request.method == 'POST':
@@ -127,28 +199,27 @@ def storage_dropbox():
             base_folder_path = request.form.get('base_folder_path', '').strip()
 
             if access_token:
-                # 既存設定を無効化
-                db.execute(text("""
-                    UPDATE "T_外部ストレージ連携"
-                    SET status = 'inactive'
-                    WHERE tenant_id = :tenant_id
-                """), {"tenant_id": tenant_id})
+                # 同スコープの既存設定のみを無効化
+                _deactivate_scope(db, tenant_id, store_id)
                 db.execute(text("""
                     INSERT INTO "T_外部ストレージ連携"
-                    (tenant_id, provider, access_token, base_folder_path, status)
-                    VALUES (:tenant_id, 'dropbox', :access_token, :base_folder_path, 'active')
+                    (tenant_id, store_id, provider, access_token, base_folder_path, status)
+                    VALUES (:tenant_id, :store_id, 'dropbox', :access_token, :base_folder_path, 'active')
                 """), {
                     "tenant_id": tenant_id,
+                    "store_id": store_id,
                     "access_token": access_token,
                     "base_folder_path": base_folder_path or None
                 })
                 db.commit()
                 flash('Dropbox連携を設定しました', 'success')
-                return redirect(url_for('tenant_storage.storage_dropbox'))
+                return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
             else:
                 flash('アクセストークンを入力してください', 'error')
 
-        return render_template('tenant_storage_dropbox.html', view=view)
+        return render_template('tenant_storage_dropbox.html', view=view,
+                               store_id=store_id,
+                               store_name=_scope_name(db, tenant_id, store_id))
     finally:
         db.close()
 
@@ -165,6 +236,14 @@ def dropbox_oauth_start():
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_storage.storage_dropbox'))
+
+    db = SessionLocal()
+    try:
+        store_id = _scope_store_id(db, tenant_id)
+    finally:
+        db.close()
+    # OAuthラウンドトリップ後もスコープを保持
+    session['dropbox_scope_store_id'] = store_id
 
     redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
     csrf_token = f"dropbox_csrf_{tenant_id}"
@@ -190,9 +269,10 @@ def dropbox_oauth_callback():
     from dropbox.exceptions import BadRequestException, BadStateException, CsrfException, NotApprovedException, ProviderException
 
     tenant_id = session.get('tenant_id')
+    store_id = session.get('dropbox_scope_store_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
-        return redirect(url_for('tenant_storage.storage_dropbox'))
+        return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
 
     redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
     auth_flow = DropboxOAuth2Flow(
@@ -211,19 +291,16 @@ def dropbox_oauth_callback():
 
         db = SessionLocal()
         try:
-            # 既存設定を無効化
-            db.execute(text("""
-                UPDATE "T_外部ストレージ連携"
-                SET status = 'inactive'
-                WHERE tenant_id = :tenant_id
-            """), {"tenant_id": tenant_id})
+            # 同スコープの既存設定のみを無効化
+            _deactivate_scope(db, tenant_id, store_id)
             # 新しいトークンを保存
             db.execute(text("""
                 INSERT INTO "T_外部ストレージ連携"
-                (tenant_id, provider, access_token, refresh_token, status)
-                VALUES (:tenant_id, 'dropbox', :access_token, :refresh_token, 'active')
+                (tenant_id, store_id, provider, access_token, refresh_token, status)
+                VALUES (:tenant_id, :store_id, 'dropbox', :access_token, :refresh_token, 'active')
             """), {
                 "tenant_id": tenant_id,
+                "store_id": store_id,
                 "access_token": access_token,
                 "refresh_token": refresh_token
             })
@@ -244,7 +321,8 @@ def dropbox_oauth_callback():
     except Exception as e:
         flash(f'Dropbox連携に失敗しました: {e}', 'error')
 
-    return redirect(url_for('tenant_storage.storage_dropbox'))
+    session.pop('dropbox_scope_store_id', None)
+    return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
 
 
 # ===========================
@@ -262,7 +340,8 @@ def dropbox_folders():
 
     db = SessionLocal()
     try:
-        storage_config = _get_storage_config(db, tenant_id)
+        store_id = _scope_store_id(db, tenant_id)
+        storage_config = _get_storage_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
 
@@ -320,7 +399,8 @@ def dropbox_create_folder():
 
     db = SessionLocal()
     try:
-        storage_config = _get_storage_config(db, tenant_id)
+        store_id = _scope_store_id(db, tenant_id)
+        storage_config = _get_storage_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
         token = storage_config.access_token
@@ -361,15 +441,23 @@ def dropbox_set_folder():
 
     db = SessionLocal()
     try:
-        storage_config = _get_storage_config(db, tenant_id)
+        store_id = _scope_store_id(db, tenant_id)
+        storage_config = _get_storage_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
 
-        db.execute(text("""
-            UPDATE "T_外部ストレージ連携"
-            SET base_folder_path = :folder_path
-            WHERE tenant_id = :tenant_id AND status = 'active' AND provider = 'dropbox'
-        """), {"folder_path": folder_path or None, "tenant_id": tenant_id})
+        if store_id:
+            db.execute(text("""
+                UPDATE "T_外部ストレージ連携"
+                SET base_folder_path = :folder_path
+                WHERE tenant_id = :tenant_id AND status = 'active' AND provider = 'dropbox' AND store_id = :store_id
+            """), {"folder_path": folder_path or None, "tenant_id": tenant_id, "store_id": store_id})
+        else:
+            db.execute(text("""
+                UPDATE "T_外部ストレージ連携"
+                SET base_folder_path = :folder_path
+                WHERE tenant_id = :tenant_id AND status = 'active' AND provider = 'dropbox' AND store_id IS NULL
+            """), {"folder_path": folder_path or None, "tenant_id": tenant_id})
         db.commit()
         return jsonify({'success': True, 'folder_path': folder_path})
     except Exception as e:
@@ -393,35 +481,35 @@ def storage_gcs():
 
     db = SessionLocal()
     try:
-        storage_config = _get_storage_config(db, tenant_id)
+        store_id = _scope_store_id(db, tenant_id)
+        storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
 
         if request.method == 'POST':
             bucket_name = request.form.get('gcs_bucket', '').strip()
             service_account_json = request.form.get('gcs_service_account_json', '').strip()
             if bucket_name and service_account_json:
-                # 既存設定を無効化
-                db.execute(text("""
-                    UPDATE "T_外部ストレージ連携"
-                    SET status = 'inactive'
-                    WHERE tenant_id = :tenant_id
-                """), {"tenant_id": tenant_id})
+                # 同スコープの既存設定のみを無効化
+                _deactivate_scope(db, tenant_id, store_id)
                 db.execute(text("""
                     INSERT INTO "T_外部ストレージ連携"
-                    (tenant_id, provider, bucket_name, service_account_json, status)
-                    VALUES (:tenant_id, 'gcs', :bucket_name, :service_account_json, 'active')
+                    (tenant_id, store_id, provider, bucket_name, service_account_json, status)
+                    VALUES (:tenant_id, :store_id, 'gcs', :bucket_name, :service_account_json, 'active')
                 """), {
                     "tenant_id": tenant_id,
+                    "store_id": store_id,
                     "bucket_name": bucket_name,
                     "service_account_json": service_account_json
                 })
                 db.commit()
                 flash('Google Cloud Storage連携を設定しました', 'success')
-                return redirect(url_for('tenant_storage.storage_gcs'))
+                return redirect(url_for('tenant_storage.storage_gcs', store_id=store_id))
             else:
                 flash('バケット名とサービスアカウントJSONを入力してください', 'error')
 
-        return render_template('tenant_storage_gcs.html', view=view)
+        return render_template('tenant_storage_gcs.html', view=view,
+                               store_id=store_id,
+                               store_name=_scope_name(db, tenant_id, store_id))
     finally:
         db.close()
 
@@ -441,11 +529,9 @@ def disconnect_storage():
     provider = request.form.get('provider', '')
     db = SessionLocal()
     try:
-        db.execute(text("""
-            UPDATE "T_外部ストレージ連携"
-            SET status = 'inactive'
-            WHERE tenant_id = :tenant_id
-        """), {"tenant_id": tenant_id})
+        store_id = _scope_store_id(db, tenant_id)
+        # 同スコープの設定のみを解除（他スコープは温存）
+        _deactivate_scope(db, tenant_id, store_id)
         db.commit()
         flash('ストレージ連携を解除しました', 'success')
     finally:
@@ -453,7 +539,7 @@ def disconnect_storage():
 
     # 解除後は元のページに戻す
     if provider == 'dropbox':
-        return redirect(url_for('tenant_storage.storage_dropbox'))
+        return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
     elif provider == 'gcs':
-        return redirect(url_for('tenant_storage.storage_gcs'))
-    return redirect(url_for('tenant_storage.storage_settings'))
+        return redirect(url_for('tenant_storage.storage_gcs', store_id=store_id))
+    return redirect(url_for('tenant_storage.storage_settings', store_id=store_id))

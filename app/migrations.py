@@ -121,6 +121,8 @@ def run_migrations():
             ("T_管理者", "google_vision_api_key", "TEXT NULL"),
             ("T_管理者", "google_api_key", "TEXT NULL"),
             ("T_管理者", "anthropic_api_key", "TEXT NULL"),
+            # 外部ストレージ連携を店舗単位でも設定可能にする（NULL=テナント全体の設定）
+            ("T_外部ストレージ連携", "store_id", "INTEGER NULL"),
             ("truck_routes", "client_id", "INTEGER NULL"),
             ("truck_routes", "contract_amount", "NUMERIC(12,2) NULL"),
             ("truck_accident_records", "driver_id", "INTEGER NULL"),

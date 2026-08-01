@@ -265,6 +265,9 @@
   <a class="mgmt-link" href="{{ url_for('tenant_admin.store_detail', store_id=store_id) }}">⚙️ 店舗情報</a>
   <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_admins', store_id=store_id) }}">🔑 管理者管理</a>
   <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_employees', store_id=store_id) }}">👤 従業員管理</a>
+  {% if session.get('role') in ['system_admin', 'tenant_admin', 'app_manager'] %}
+  <a class="mgmt-link" href="{{ url_for('tenant_storage.storage_settings', store_id=store_id) }}">📦 ストレージ連携（この店舗）</a>
+  {% endif %}
   <a class="mgmt-link" href="{{ url_for('kintaikanri.attendance') }}">📊 全社勤怠（テナント全体）</a>
 </div>
 {% endblock %}

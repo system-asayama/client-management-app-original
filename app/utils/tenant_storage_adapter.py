@@ -2,10 +2,40 @@
 テナント用ストレージアダプタ（Dropbox / GCS / Cloudinary）
 """
 import os
+import re
+import unicodedata
 from datetime import datetime
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename  # noqa: F401 (後方互換のため残置)
 from app.db import SessionLocal
 from sqlalchemy import text
+
+
+# ファイル名に使えない文字（パス区切り・制御文字・OS禁止文字）
+_UNSAFE_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+
+
+def safe_storage_name(original_name: str, fallback: str = 'file') -> str:
+    """
+    ストレージ保存用に安全なファイル名へ整形する。
+    secure_filename と違い、日本語などの非ASCII文字は保持する。
+
+    - パス区切り(/ \\)・OS禁止文字・制御文字を除去
+    - 前後の空白/ドットを除去（先頭ドットの隠しファイル化やトラバーサルを防止）
+    - 長すぎる名前は拡張子を保って切り詰め
+    - 空になる場合は fallback を使用
+    """
+    name = unicodedata.normalize('NFC', original_name or '')
+    # パス要素を除去（basenameのみ採用）
+    name = name.replace('\\', '/').split('/')[-1]
+    name = _UNSAFE_CHARS.sub('_', name)
+    name = name.strip().strip('.').strip()
+    if not name:
+        return fallback
+    # 長さ制限（拡張子を保持）
+    if len(name) > 200:
+        root, ext = os.path.splitext(name)
+        name = root[:200 - len(ext)] + ext
+    return name
 
 
 class StorageAdapterBase:
@@ -98,7 +128,7 @@ class DropboxAdapter(StorageAdapterBase):
                client_folder_path: str = None, subfolder: str = None) -> str:
         import dropbox
         dbx = self._get_client()
-        safe = secure_filename(original_name) or 'uploaded'
+        safe = safe_storage_name(original_name, fallback='uploaded')
 
         if client_folder_path:
             base_path = client_folder_path.rstrip('/')
@@ -113,17 +143,26 @@ class DropboxAdapter(StorageAdapterBase):
 
         dropbox_path = f'{folder_path}/{safe}'
         data = file_stream.read()
-        dbx.files_upload(data, dropbox_path, mode=dropbox.files.WriteMode.overwrite)
+        # add + autorename: 同名ファイルは上書きせず「name (1).pdf」等に自動リネーム
+        meta = dbx.files_upload(
+            data, dropbox_path,
+            mode=dropbox.files.WriteMode.add, autorename=True,
+        )
+        # 実際に保存されたパス（リネーム後）を使う
+        actual_path = getattr(meta, 'path_display', None) or dropbox_path
 
         try:
-            link = dbx.sharing_create_shared_link_with_settings(dropbox_path).url
+            link = dbx.sharing_create_shared_link_with_settings(actual_path).url
         except dropbox.exceptions.ApiError:
-            res = dbx.sharing_list_shared_links(path=dropbox_path, direct_only=True)
-            link = res.links[0].url if res.links else None
+            try:
+                res = dbx.sharing_list_shared_links(path=actual_path, direct_only=True)
+                link = res.links[0].url if res.links else None
+            except dropbox.exceptions.ApiError:
+                link = None
 
         if link and link.endswith('?dl=0'):
             link = link[:-1] + '1'
-        return link or dropbox_path
+        return link or actual_path
 
     def list_folders(self, client_folder_path: str) -> list:
         """Dropboxの顧問先フォルダ内サブフォルダ一覧を返す"""
@@ -191,7 +230,7 @@ class GCSAdapter(StorageAdapterBase):
     def upload(self, file_stream, original_name, client_id: int,
                client_folder_path: str = None, subfolder: str = None) -> str:
         _, bucket = self._get_client_and_bucket()
-        safe = secure_filename(original_name) or 'uploaded'
+        safe = safe_storage_name(original_name, fallback='uploaded')
 
         if client_folder_path:
             base_path = client_folder_path.strip('/')
@@ -204,7 +243,15 @@ class GCSAdapter(StorageAdapterBase):
             today = datetime.now().strftime('%Y-%m')
             folder_path = f'{base_path}/{today}'
 
+        # 同名オブジェクトが既に存在する場合は連番を付けて上書きを防ぐ
         object_name = f'{folder_path}/{safe}'
+        if bucket.blob(object_name).exists():
+            root, ext = os.path.splitext(safe)
+            n = 1
+            while bucket.blob(f'{folder_path}/{root} ({n}){ext}').exists():
+                n += 1
+            object_name = f'{folder_path}/{root} ({n}){ext}'
+
         blob = bucket.blob(object_name)
         blob.upload_from_file(file_stream)
         return blob.public_url

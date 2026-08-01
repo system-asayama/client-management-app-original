@@ -89,6 +89,28 @@ DROPBOX_APP_KEY = 'mwfin8b98ui38m8'
 DROPBOX_APP_SECRET = '1qwwluws6do5ht0'
 
 
+def get_dropbox_app_credentials(tenant_id: int = None):
+    """DropboxアプリのApp Key/Secretを解決する。
+    テナント専用アプリ（T_テナントストレージアプリ設定）が登録されていればそれを、
+    無ければプラットフォーム共通の既定値を返す。共有アプリのユーザー上限回避用。
+    """
+    if tenant_id:
+        db = SessionLocal()
+        try:
+            row = db.execute(text('''
+                SELECT app_key, app_secret FROM "T_テナントストレージアプリ設定"
+                WHERE tenant_id = :t AND provider = 'dropbox' AND status = 'active'
+                ORDER BY id DESC LIMIT 1
+            '''), {"t": tenant_id}).fetchone()
+            if row and row.app_key and row.app_secret:
+                return row.app_key, row.app_secret
+        except Exception:
+            pass
+        finally:
+            db.close()
+    return DROPBOX_APP_KEY, DROPBOX_APP_SECRET
+
+
 class DropboxAdapter(StorageAdapterBase):
     """ドロップボックスストレージアダプタ"""
     
@@ -103,10 +125,12 @@ class DropboxAdapter(StorageAdapterBase):
 
         if refresh_token:
             # リフレッシュトークンがある場合は自動更新クライアントを使用
+            # App Key/Secret はテナント専用アプリ優先（無ければ共通の既定値）
+            app_key, app_secret = get_dropbox_app_credentials(getattr(self, 'tenant_id', None))
             dbx_base = dropbox.Dropbox(
                 oauth2_refresh_token=refresh_token,
-                app_key=DROPBOX_APP_KEY,
-                app_secret=DROPBOX_APP_SECRET
+                app_key=app_key,
+                app_secret=app_secret
             )
         elif token:
             dbx_base = dropbox.Dropbox(oauth2_access_token=token)

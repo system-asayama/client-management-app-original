@@ -6,11 +6,11 @@ from app.db import SessionLocal
 from app.models_login import TTenant
 from sqlalchemy import text
 from app.utils.decorators import require_roles, ROLES
+from app.utils.tenant_storage_adapter import (
+    get_dropbox_app_credentials, DROPBOX_APP_KEY, DROPBOX_APP_SECRET,
+)
 
 bp = Blueprint('tenant_storage', __name__, url_prefix='/tenant/storage')
-
-DROPBOX_APP_KEY = 'mwfin8b98ui38m8'
-DROPBOX_APP_SECRET = '1qwwluws6do5ht0'
 
 
 def _deactivate_scope(db, tenant_id, store_id):
@@ -38,10 +38,12 @@ def _get_dropbox_client(storage_config, db=None, tenant_id=None):
 
     if refresh_token:
         # リフレッシュトークンがある場合は自動更新クライアントを使用
+        # App Key/Secret はテナント専用アプリ優先（無ければ共通の既定値）
+        app_key, app_secret = get_dropbox_app_credentials(tenant_id or session.get('tenant_id'))
         dbx_base = dropbox.Dropbox(
             oauth2_refresh_token=refresh_token,
-            app_key=DROPBOX_APP_KEY,
-            app_secret=DROPBOX_APP_SECRET
+            app_key=app_key,
+            app_secret=app_secret
         )
     else:
         # リフレッシュトークンがない場合は通常のアクセストークンを使用
@@ -251,12 +253,14 @@ def dropbox_oauth_start():
     csrf_token = f"dropbox_csrf_{tenant_id}"
     session['dropbox_csrf_token'] = csrf_token
 
+    # App Key/Secret はテナント専用アプリ優先（無ければ共通の既定値）
+    app_key, app_secret = get_dropbox_app_credentials(tenant_id)
     auth_flow = DropboxOAuth2Flow(
-        consumer_key=DROPBOX_APP_KEY,
+        consumer_key=app_key,
         redirect_uri=redirect_uri,
         session=session,
         csrf_token_session_key='dropbox_csrf_token',
-        consumer_secret=DROPBOX_APP_SECRET,
+        consumer_secret=app_secret,
         token_access_type='offline'
     )
     authorize_url = auth_flow.start()
@@ -277,12 +281,14 @@ def dropbox_oauth_callback():
         return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
 
     redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
+    # App Key/Secret はテナント専用アプリ優先（無ければ共通の既定値）
+    app_key, app_secret = get_dropbox_app_credentials(tenant_id)
     auth_flow = DropboxOAuth2Flow(
-        consumer_key=DROPBOX_APP_KEY,
+        consumer_key=app_key,
         redirect_uri=redirect_uri,
         session=session,
         csrf_token_session_key='dropbox_csrf_token',
-        consumer_secret=DROPBOX_APP_SECRET,
+        consumer_secret=app_secret,
         token_access_type='offline'
     )
 
@@ -325,6 +331,99 @@ def dropbox_oauth_callback():
 
     session.pop('dropbox_scope_store_id', None)
     return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
+
+
+# ===========================
+# Dropbox 専用アプリ（App Key/Secret）設定
+#   共有アプリのユーザー上限を回避するため、各事務所が自分のDropboxアプリを登録する
+# ===========================
+@bp.route('/dropbox/app', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def dropbox_app():
+    """Dropbox専用アプリ（App Key/Secret）の設定＋手順書"""
+    from app.models_integrations import TStorageAppConfig
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    store_id = None
+    try:
+        store_id = int(request.values.get('store_id')) if request.values.get('store_id') else None
+    except (TypeError, ValueError):
+        store_id = None
+
+    redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
+    db = SessionLocal()
+    try:
+        row = (db.query(TStorageAppConfig)
+                 .filter(TStorageAppConfig.tenant_id == tenant_id,
+                         TStorageAppConfig.provider == 'dropbox',
+                         TStorageAppConfig.status == 'active')
+                 .order_by(TStorageAppConfig.id.desc()).first())
+        has_app = bool(row and row.app_key and row.app_secret)
+        app_key = (row.app_key if row else '') or ''
+        return render_template('tenant_storage_dropbox_app.html',
+                               redirect_uri=redirect_uri, has_app=has_app,
+                               app_key=app_key, store_id=store_id)
+    finally:
+        db.close()
+
+
+@bp.route('/dropbox/app/save', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def dropbox_app_save():
+    """Dropbox専用アプリの App Key/Secret を保存"""
+    from app.models_integrations import TStorageAppConfig
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    store_id = request.values.get('store_id') or None
+
+    app_key = (request.form.get('app_key') or '').strip()
+    app_secret = (request.form.get('app_secret') or '').strip()
+    if not app_key:
+        flash('App Key を入力してください', 'error')
+        return redirect(url_for('tenant_storage.dropbox_app', store_id=store_id))
+
+    db = SessionLocal()
+    try:
+        row = (db.query(TStorageAppConfig)
+                 .filter(TStorageAppConfig.tenant_id == tenant_id,
+                         TStorageAppConfig.provider == 'dropbox').first())
+        if not row:
+            row = TStorageAppConfig(tenant_id=tenant_id, provider='dropbox', status='active')
+            db.add(row)
+        row.app_key = app_key
+        # シークレットが伏字（●のみ等）や空なら変更しない
+        if app_secret and set(app_secret) not in ({'●'}, {'*'}, {'•'}):
+            row.app_secret = app_secret
+        row.status = 'active'
+        db.commit()
+        flash('この事務所専用のDropboxアプリを設定しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('tenant_storage.dropbox_app', store_id=store_id))
+
+
+@bp.route('/dropbox/app/reset', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def dropbox_app_reset():
+    """専用アプリ設定を解除し、共通アプリに戻す"""
+    from app.models_integrations import TStorageAppConfig
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    store_id = request.values.get('store_id') or None
+    db = SessionLocal()
+    try:
+        db.query(TStorageAppConfig).filter(
+            TStorageAppConfig.tenant_id == tenant_id,
+            TStorageAppConfig.provider == 'dropbox').delete()
+        db.commit()
+        flash('共有アプリに戻しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('tenant_storage.dropbox_app', store_id=store_id))
 
 
 # ===========================

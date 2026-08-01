@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Dropbox専用アプリ設定{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .da-wrap { max-width: 820px; margin: 0 auto; }
+  .da-header { background: linear-gradient(135deg, #0061ff 0%, #2563a8 100%); color:#fff;
+    border-radius:16px; padding:1.6rem 2rem; margin-bottom:1.25rem; }
+  .da-header h1 { margin:0; font-size:1.4rem; color:#fff; }
+  .da-header p { margin:.5rem 0 0; opacity:.92; font-size:.9rem; }
+  .da-back { display:inline-block; margin-bottom:1rem; color:#2563a8; text-decoration:none; font-size:.9rem; }
+  .da-back:hover { text-decoration:underline; }
+  .da-note { border-radius:10px; padding:.85rem 1rem; font-size:.86rem; line-height:1.65; margin-bottom:1.25rem; }
+  .da-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
+  .badge { display:inline-block; padding:.12rem .55rem; border-radius:999px; font-size:.72rem; font-weight:600; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; } .badge-off { background:#fff4e5; color:#8a4b11; }
+  label { display:block; font-size:.8rem; color:#556; margin-bottom:.25rem; font-weight:600; }
+  input { width:100%; padding:.55rem .7rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; box-sizing:border-box; }
+  .fld { margin-bottom:.8rem; }
+  .row { display:flex; gap:.75rem; flex-wrap:wrap; }
+  .row .fld { flex:1; min-width:220px; }
+  .btn { padding:.55rem 1.1rem; border-radius:8px; border:0; cursor:pointer; font-size:.9rem; font-weight:600; }
+  .btn-primary { background:#0061ff; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-danger { background:#fdecec; color:#c0392b; }
+  .redirect-box { display:flex; gap:.5rem; align-items:center; background:#f6f8fb; border:1px dashed #b9c6d8;
+    border-radius:8px; padding:.5rem .7rem; font-size:.82rem; word-break:break-all; }
+  .redirect-box code { flex:1; }
+  details { margin-top:1rem; border-top:1px solid #eef1f5; padding-top:.75rem; }
+  summary { cursor:pointer; font-weight:600; color:#2563a8; font-size:.9rem; }
+  ol.steps { margin:.75rem 0 0; padding-left:1.25rem; font-size:.86rem; line-height:1.8; color:#334; }
+  ol.steps code { background:#f5f5f7; padding:0 .3em; border-radius:4px; }
+  .muted { color:#889; font-size:.82rem; }
+</style>
+
+<div class="da-wrap">
+  <a class="da-back" href="{{ url_for('tenant_storage.storage_dropbox', store_id=store_id) }}">← Dropbox連携設定へ</a>
+
+  <div class="da-header">
+    <h1>📦 Dropbox 専用アプリ設定</h1>
+    <p>この事務所専用のDropboxアプリを登録して、共有アプリの接続ユーザー上限を回避します。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="da-note" style="background:{{ '#e6f4ea' if cat=='success' else '#fde7e9' if cat=='error' else '#fff4e5' }};border:1px solid {{ '#b7e1c1' if cat=='success' else '#f5b7c0' if cat=='error' else '#ffd59e' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="da-note" style="background:#fff4e5;border:1px solid #ffd59e;color:#8a4b11;">
+    <strong>なぜ必要か</strong>：初期状態では全事務所が共通のDropboxアプリで連携するため、接続数が増えると
+    Dropbox側の<strong>ユーザー上限</strong>（「This app has reached its user limit」）に達します。
+    この事務所専用のDropboxアプリを登録すると、その上限にぶつからず安定して連携できます。
+  </div>
+
+  <div class="da-card">
+    <h2 style="margin:0 0 .5rem;font-size:1.05rem;color:#1a3a5c;">
+      この事務所のDropboxアプリ
+      {% if has_app %}<span class="badge badge-on">専用アプリ設定済み</span>{% else %}<span class="badge badge-off">共有アプリ使用中</span>{% endif %}
+    </h2>
+
+    <div class="fld">
+      <label>① Dropboxアプリに登録するリダイレクトURI（コピーして使用）</label>
+      <div class="redirect-box">
+        <code id="ru">{{ redirect_uri }}</code>
+        <button type="button" class="btn btn-ghost" onclick="copyRU()">コピー</button>
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('tenant_storage.dropbox_app_save', store_id=store_id) }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div class="row">
+        <div class="fld">
+          <label>② App key</label>
+          <input type="text" name="app_key" placeholder="xxxxxxxxxxxxxxx" value="{{ app_key }}">
+        </div>
+        <div class="fld">
+          <label>③ App secret {% if has_app %}<span class="muted">（登録済み・変更時のみ入力）</span>{% endif %}</label>
+          <input type="password" name="app_secret" placeholder="{% if has_app %}●●●●●●（変更する場合のみ）{% else %}App secret{% endif %}">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">保存</button>
+    </form>
+
+    {% if has_app %}
+    <form method="post" action="{{ url_for('tenant_storage.dropbox_app_reset', store_id=store_id) }}" style="margin-top:.75rem;"
+          onsubmit="return confirm('専用アプリ設定を解除して共有アプリに戻しますか？');">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <button class="btn btn-danger" type="submit">共有アプリに戻す</button>
+    </form>
+    {% endif %}
+
+    <details>
+      <summary>登録手順を見る（Dropbox App Console）</summary>
+      <ol class="steps">
+        <li><a href="https://www.dropbox.com/developers/apps" target="_blank" rel="noopener">Dropbox App Console</a> を開き「Create app」</li>
+        <li>「Choose an API」で <strong>Scoped access</strong> を選択</li>
+        <li>「Choose the type of access」で <strong>Full Dropbox</strong> を選択（事務所全体で使う場合）</li>
+        <li>アプリ名を入力して作成</li>
+        <li><strong>Settings</strong> タブ →「Redirect URIs」に、上の①のURIを追加</li>
+        <li><strong>Permissions</strong> タブで <code>files.metadata.read</code>・<code>files.content.read</code>・<code>files.content.write</code>・<code>sharing.read</code>・<code>sharing.write</code>・<code>account_info.read</code> にチェックして「Submit」</li>
+        <li>多人数で使う場合は Settings の「Enable additional users」でユーザー上限を引き上げ（必要に応じて Production 申請）</li>
+        <li>Settings タブの <strong>App key</strong> と <strong>App secret</strong> を、上の②③に貼り付けて保存</li>
+      </ol>
+      <p class="muted" style="margin-top:.5rem;">※ 保存後、Dropbox連携設定に戻って「Dropboxで連携する」を押すと、この専用アプリで接続されます。</p>
+    </details>
+  </div>
+</div>
+
+<script>
+function copyRU() {
+  var t = document.getElementById('ru');
+  var text = t.textContent || '';
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); }
+  else {
+    var r = document.createRange(); r.selectNode(t);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    try { document.execCommand('copy'); } catch (e) {}
+    s.removeAllRanges();
+  }
+}
+</script>
+{% endblock %}

@@ -168,6 +168,29 @@ class TMailOAuthConfig(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TStorageAppConfig(Base):
+    """T_テナントストレージアプリ設定（テナントごとのストレージOAuthアプリ認証情報）
+
+    Dropbox 等のOAuthアプリ（App Key / App Secret）を、各事務所（テナント）が自分で
+    登録した「自前アプリ」の情報として保持する。共有アプリの接続ユーザー上限を
+    回避するための仕組み。未設定時はプラットフォーム共通の既定値にフォールバックする。
+    ※将来的に app_secret は暗号化列へ移行。
+    """
+    __tablename__ = 'T_テナントストレージアプリ設定'
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'provider', name='uq_tenant_provider_storage_app'),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    provider = Column(String(30), nullable=False)      # 'dropbox'
+    app_key = Column(Text, nullable=True)
+    app_secret = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TReceivedFile(Base):
     """T_受信ファイルテーブル（外部連携で受信・保存したファイルのログ／重複防止）"""
     __tablename__ = 'T_受信ファイル'

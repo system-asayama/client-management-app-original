@@ -119,10 +119,21 @@
     {% endif %}
   </div>
 
-  <!-- 3. 手動同期 -->
+  <!-- 3. 今すぐ同期 -->
   <div class="cw-card">
     <h2>3. 今すぐ同期</h2>
-    <p class="muted">紐付け済みルームの新着ファイルを取得し、ストレージへ保存します（定期実行はバッチで自動化）。</p>
+    {% if sched %}
+    <p class="muted" style="margin-top:-.5rem;">
+      🔄 自動取得:
+      {% if sched.enabled %}<span style="color:#1e8a4c;font-weight:600;">有効（{{ sched.interval_minutes }}分ごと）</span>
+      {% else %}<span style="color:#c0392b;">無効</span>{% endif %}
+      ／ 最終自動実行:
+      {% if sched.last_finished_at %}{{ sched.last_finished_at.strftime('%Y-%m-%d %H:%M') }}
+        {% if sched.last_status == 'error' %}<span style="color:#c0392b;">(一部エラー)</span>{% endif %}
+      {% else %}まだ実行されていません（起動後まもなく開始）{% endif %}
+    </p>
+    {% endif %}
+    <p class="muted">紐付け済みルームの新着ファイルを取得し、ストレージへ保存します。上記のとおり自動でも定期取得されますが、手動で今すぐ実行もできます。</p>
     <form method="post" action="{{ url_for('integrations.chatwork_sync') }}">
       {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
       <button class="btn btn-primary" type="submit"

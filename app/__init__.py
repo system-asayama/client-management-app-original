@@ -659,6 +659,14 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ client_integrations blueprint 登録エラー: {e}")
 
+    # アプリ内スケジューラ（Gmail/ChatWork 受信→保存の定期実行・cron不要）
+    try:
+        from .services.scheduler import start_scheduler
+        start_scheduler()
+        print("✅ アプリ内スケジューラ 起動完了")
+    except Exception as e:
+        print(f"⚠️ アプリ内スケジューラ 起動エラー: {e}")
+
     import json as _json
     @app.template_filter('from_json')
     def from_json_filter(value):

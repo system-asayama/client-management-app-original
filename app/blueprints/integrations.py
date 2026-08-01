@@ -50,10 +50,12 @@ def chatwork_settings():
                     .order_by(TReceivedFile.id.desc()).limit(20).all())
         # マッピング済みルームIDのclient名を引くための辞書
         client_names = {c.id: c.name for c in clients}
+        from app.services.scheduler import get_state
         return render_template('integrations_chatwork.html',
                                setting=setting, mappings=mappings,
                                clients=clients, recent=recent,
-                               client_names=client_names)
+                               client_names=client_names,
+                               sched=get_state())
     finally:
         db.close()
 

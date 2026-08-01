@@ -39,6 +39,23 @@ class TChatworkRoomMapping(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TSchedulerState(Base):
+    """T_スケジューラ状態テーブル（アプリ内定期実行の管理・多重起動ロック用）
+
+    複数のgunicornワーカーが同時に走っても、last_run_at への条件付きUPDATEで
+    実行権を1つに絞り、重複実行を防ぐ（ai-app-studio の db_backup と同方式）。
+    """
+    __tablename__ = 'T_スケジューラ状態'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_name = Column(String(100), nullable=False, unique=True)  # 例: 'integrations_sync'
+    last_run_at = Column(DateTime, nullable=True)       # 前回実行を「取得」した時刻
+    last_finished_at = Column(DateTime, nullable=True)  # 前回実行が完了した時刻
+    last_status = Column(String(20), nullable=True)     # 'ok' / 'error'
+    last_detail = Column(Text, nullable=True)           # 直近の結果サマリ（JSON文字列）
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TGmailSenderMapping(Base):
     """T_Gmail送信者マッピングテーブル（差出人メールアドレス → 顧問先の対応付け）"""
     __tablename__ = 'T_Gmail送信者マッピング'

@@ -68,7 +68,43 @@ def hub():
             'chatwork': bool(chatwork and chatwork.api_token),
             'gmail': bool(gmail and gmail.api_token),
         }
-        return render_template('integrations_hub.html', status=status)
+
+        # 担当者ごとの連携状況（読み取り専用の一覧。認証情報は表示しない）
+        staff_list = []
+        try:
+            from app.models_integrations import TStaffMailAccount, TStaffChatworkAccount
+            from app.models_login import TKanrisha, TJugyoin
+            mail_accs = (db.query(TStaffMailAccount)
+                           .filter(TStaffMailAccount.tenant_id == tenant_id,
+                                   TStaffMailAccount.status == 'active').all())
+            cw_accs = (db.query(TStaffChatworkAccount)
+                         .filter(TStaffChatworkAccount.tenant_id == tenant_id,
+                                 TStaffChatworkAccount.status == 'active').all())
+            admin_names = {a.id: a.name for a in db.query(TKanrisha)
+                           .filter(TKanrisha.tenant_id == tenant_id).all()}
+            emp_names = {e.id: e.name for e in db.query(TJugyoin)
+                         .filter(TJugyoin.tenant_id == tenant_id).all()}
+
+            def _name(staff_type, staff_id):
+                m = admin_names if staff_type == 'admin' else emp_names
+                return m.get(staff_id, f'ID:{staff_id}')
+
+            merged = {}
+            for a in mail_accs:
+                key = (a.staff_type, a.staff_id)
+                s = merged.setdefault(key, {'name': _name(*key), 'type': a.staff_type,
+                                            'emails': [], 'chatwork': None})
+                s['emails'].append(a.email)
+            for a in cw_accs:
+                key = (a.staff_type, a.staff_id)
+                s = merged.setdefault(key, {'name': _name(*key), 'type': a.staff_type,
+                                            'emails': [], 'chatwork': None})
+                s['chatwork'] = a.account_name or '連携中'
+            staff_list = sorted(merged.values(), key=lambda x: x['name'])
+        except Exception:
+            staff_list = []
+
+        return render_template('integrations_hub.html', status=status, staff_list=staff_list)
     finally:
         db.close()
 

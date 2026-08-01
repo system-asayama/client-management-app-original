@@ -113,5 +113,49 @@
   <div class="hub-note">
     💡 データの流れ：<strong>ChatWork / メール</strong>で受け取った資料を <strong>ストレージ</strong>（Dropbox等）に保存し、そこから <strong>会計ソフト</strong>へアップロードします。まずは保存先のストレージ連携から設定するのがおすすめです。
   </div>
+
+  <div class="hub-note" style="background:#fffaf0;border-color:#f4d9a8;color:#7a5c00;">
+    🧑‍💼 <strong>メール・ChatWork の接続について</strong>：メールのアプリパスワードや ChatWork のAPIトークンは<strong>担当者個人のもの</strong>のため、各担当が
+    <strong>マイページ →「メール連携」「ChatWork連携」</strong>から自分で登録します（管理者は代理登録できません）。
+    上の「各種Eメール連携」「ChatWork連携」は、<strong>事務所の共有アカウント（info@ 等・代表アカウント）</strong>を使う場合の設定です。
+  </div>
+
+  <!-- 担当者ごとの連携状況（読み取り専用） -->
+  <div style="margin-top:1.6rem;">
+    <h2 style="font-size:1.05rem;color:#1a3a5c;margin:0 0 .6rem;">担当者ごとの連携状況</h2>
+    {% if staff_list %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.86rem;background:#fff;border:1px solid #e5e9f0;border-radius:12px;">
+        <thead>
+          <tr style="background:#f6f8fb;">
+            <th style="text-align:left;padding:.55rem .7rem;border-bottom:1px solid #eef1f5;">担当者</th>
+            <th style="text-align:left;padding:.55rem .7rem;border-bottom:1px solid #eef1f5;">メール連携</th>
+            <th style="text-align:left;padding:.55rem .7rem;border-bottom:1px solid #eef1f5;">ChatWork連携</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in staff_list %}
+          <tr>
+            <td style="padding:.5rem .7rem;border-bottom:1px solid #f1f4f8;">
+              {{ s.name }}<span style="color:#9aa;font-size:.78rem;">（{{ '管理者' if s.type == 'admin' else '従業員' }}）</span>
+            </td>
+            <td style="padding:.5rem .7rem;border-bottom:1px solid #f1f4f8;">
+              {% if s.emails %}<span class="badge badge-on">連携中</span> <span style="color:#889;font-size:.8rem;">{{ s.emails|join(', ') }}</span>
+              {% else %}<span class="badge badge-off">未連携</span>{% endif %}
+            </td>
+            <td style="padding:.5rem .7rem;border-bottom:1px solid #f1f4f8;">
+              {% if s.chatwork %}<span class="badge badge-on">連携中</span> <span style="color:#889;font-size:.8rem;">{{ s.chatwork }}</span>
+              {% else %}<span class="badge badge-off">未連携</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p style="color:#889;font-size:.8rem;margin-top:.5rem;">※ 認証情報（パスワード・トークン）は表示されません。未連携の担当者には、各自のマイページから登録するよう案内してください。</p>
+    {% else %}
+    <p style="color:#889;font-size:.86rem;">まだ担当者による連携がありません。各担当がマイページから登録すると、ここに表示されます。</p>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}

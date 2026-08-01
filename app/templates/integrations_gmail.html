@@ -28,13 +28,20 @@
 
 <div class="gm-wrap">
   <div class="gm-header">
-    <h1>📧 各種Eメール連携</h1>
+    <h1>📧 各種Eメール連携（事務所の共有アカウント）</h1>
     <p>顧問先からメールで届いた添付資料を、選択中のストレージへ自動保存します。Gmail / Outlook / Yahoo / iCloud / その他IMAP に対応。</p>
+  </div>
+
+  <div class="gm-card" style="border-left:4px solid #2563a8;background:#f5f9ff;">
+    <strong>💡 担当者ごとに設定する場合</strong><br>
+    <span class="muted">メールのアプリパスワードは<strong>担当者個人のもの</strong>のため、各担当が
+    <strong>マイページ →「メール連携」</strong>から自分で登録します（管理者は代理登録できません）。
+    ここは <code>info@事務所.co.jp</code> のような<strong>事務所の共有メールアドレス</strong>を使う場合の設定です。</span>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, m in messages %}
-      <div class="gm-card" style="border-left:4px solid {{ '#d93025' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+      <div class="gm-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
     {% endfor %}
   {% endwith %}
 

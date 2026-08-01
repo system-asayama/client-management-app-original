@@ -79,11 +79,13 @@ def _scope_store_id(db, tenant_id):
 
 
 def _scope_name(db, tenant_id, store_id):
-    """スコープの表示名（店舗名 or テナント全体）"""
+    """スコープの表示名（店舗名 or テナント全体）。
+    T_店舗 の店舗名カラムは「名称」（日本語）なので name にエイリアスして取得する。
+    """
     if not store_id:
         return None
     try:
-        row = db.execute(text('SELECT name FROM "T_店舗" WHERE id = :sid AND tenant_id = :tid'),
+        row = db.execute(text('SELECT "名称" AS name FROM "T_店舗" WHERE id = :sid AND tenant_id = :tid'),
                          {"sid": store_id, "tid": tenant_id}).fetchone()
         return row.name if row else None
     except Exception:

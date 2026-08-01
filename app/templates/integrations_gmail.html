@@ -87,55 +87,20 @@
     </form>
   </div>
 
-  <!-- 2. 差出人紐付け -->
+  <!-- 2. 差出人と顧問先の紐付けは顧問先ごとに設定 -->
   <div class="gm-card">
     <h2>2. 差出人メール → 顧問先 の紐付け</h2>
-    <p class="muted" style="margin-top:-.5rem;">紐付けが無い差出人も、顧問先に登録済みのメールアドレスと一致すれば自動振り分けされます。どちらも該当しない場合は「未分類」フォルダに保存されます。</p>
-    <form method="post" action="{{ url_for('gmail_integration.map_sender') }}">
-      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-      <div class="gm-row">
-        <div class="fld">
-          <label>差出人メールアドレス</label>
-          <input type="email" name="sender_email" placeholder="client@example.com" required>
-        </div>
-        <div class="fld">
-          <label>顧問先</label>
-          <select name="client_id" required>
-            <option value="">-- 選択 --</option>
-            {% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="fld">
-          <label>保存先サブフォルダ</label>
-          <input type="text" name="subfolder" value="Gmail受信">
-        </div>
-        <button class="btn btn-primary" type="submit">紐付けを保存</button>
-      </div>
-    </form>
-
-    {% if mappings %}
-    <table style="margin-top:1rem;">
-      <thead><tr><th>差出人</th><th>顧問先</th><th>サブフォルダ</th><th></th></tr></thead>
-      <tbody>
-        {% for m in mappings %}
-        <tr>
-          <td>{{ m.sender_email }}</td>
-          <td>{{ client_names.get(m.client_id, '(削除済み)') }}</td>
-          <td>{{ m.subfolder }}</td>
-          <td>
-            <form method="post" action="{{ url_for('gmail_integration.map_delete', mapping_id=m.id) }}"
-                  onsubmit="return confirm('この紐付けを削除しますか?');">
-              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-              <button class="btn btn-danger" type="submit">削除</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="muted" style="margin-top:1rem;">まだ紐付けがありません。</p>
-    {% endif %}
+    <p class="muted" style="margin-top:-.5rem;">
+      「どの差出人メールがどの顧問先か」は<strong>顧問先ごと</strong>の情報です。
+      各顧問先の詳細ページ →「連携」から、その顧問先の差出人メールアドレスを登録してください。
+    </p>
+    <p style="margin-top:.75rem;">
+      <a class="btn btn-primary" href="{{ url_for('clients.clients') }}">顧問先一覧へ →</a>
+    </p>
+    <p class="muted" style="margin-top:.75rem;">
+      ※紐付けが無い差出人でも、顧問先に登録済みのメールアドレスと一致すれば自動で振り分けられます。
+      どちらにも該当しない場合は「未分類」フォルダに保存されます。
+    </p>
   </div>
 
   <!-- 3. 自動取得の設定 -->

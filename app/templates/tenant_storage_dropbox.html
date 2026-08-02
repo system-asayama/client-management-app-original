@@ -415,19 +415,24 @@
     {% endif %}
 
     <!-- OAuth連携カード -->
-    <div class="form-card">
+    <div class="form-card" {% if view.is_connected and view.provider == 'dropbox' %}style="border:2px solid #0061ff;"{% endif %}>
         <div class="form-card-title">
-            {% if view.is_connected and view.provider == 'dropbox' %}🔄 Dropboxを再連携する{% else %}📦 Dropboxと連携する{% endif %}
+            {% if view.is_connected and view.provider == 'dropbox' %}➕ 別のDropboxを追加（2つ目以降）／再連携{% else %}📦 Dropboxと連携する{% endif %}
         </div>
 
         <p style="font-size:14px; color:#555; margin-bottom:20px; line-height:1.7;">
+            {% if view.is_connected and view.provider == 'dropbox' %}
+            <strong>ここが「2つ目の追加」ボタンです。</strong>下のボタンから、別のDropboxアカウントで許可すると、その接続が追加されこの店舗の「使用中」になります（複数登録できます）。<br>
+            <span style="color:#8a5a00;">※別のアカウントを繋ぐ場合は、先にブラウザでそのアカウントにログインしてください（同じアカウントのままだと同じ接続が更新されます）。</span>
+            {% else %}
             下のボタンをクリックするとDropboxの認証画面に移動します。「許可する」をクリックするだけで自動的に連携が完了します。
+            {% endif %}
         </p>
 
         <a href="{{ url_for('tenant_storage.dropbox_oauth_start', store_id=store_id) }}" class="btn-dropbox-oauth">
             <img src="https://cfl.dropboxstatic.com/static/images/logo_catalog/dropbox-logo_320x320.png"
                  alt="Dropbox" style="width:22px; height:22px; object-fit:contain; border-radius:4px;">
-            Dropboxで連携する
+            {% if view.is_connected and view.provider == 'dropbox' %}別のDropboxを接続（追加）{% else %}Dropboxで連携する{% endif %}
         </a>
     </div>
 

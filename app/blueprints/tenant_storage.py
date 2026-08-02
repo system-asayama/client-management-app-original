@@ -79,7 +79,21 @@ def _store_name(db, tenant_id, store_id):
 def _default_conn_name(db, tenant_id, store_id, provider):
     label = {'dropbox': 'Dropbox', 'gcs': 'Google Cloud Storage'}.get((provider or '').lower(), provider or 'ストレージ')
     sn = _store_name(db, tenant_id, store_id)
-    return f'{label}（{sn}）' if sn else f'{label}（本部）'
+    base = f'{label}（{sn}）' if sn else f'{label}（本部）'
+    # 同名がすでにある場合は連番を付けて見分けられるようにする
+    try:
+        existing = {r.name for r in db.execute(text('''
+            SELECT name FROM "T_外部ストレージ連携"
+            WHERE tenant_id = :t AND status = 'active' AND name IS NOT NULL
+        '''), {"t": tenant_id}).fetchall()}
+    except Exception:
+        existing = set()
+    if base not in existing:
+        return base
+    n = 2
+    while f'{base}({n})' in existing:
+        n += 1
+    return f'{base}({n})'
 
 
 def _get_dropbox_client(storage_config, db=None, tenant_id=None):

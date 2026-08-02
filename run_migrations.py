@@ -1460,6 +1460,33 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_店舗にstorage_isolatedカラムを追加（ストレージ隔離 fail-closed）
+        print("\n[マイグレーション] T_店舗にstorage_isolatedカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_店舗' AND column_name = 'storage_isolated'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_店舗" ADD COLUMN storage_isolated INTEGER DEFAULT 0')
+                    conn.commit()
+                    print("  ✅ storage_isolatedカラムを追加しました")
+                else:
+                    print("  ℹ️  storage_isolatedカラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_店舗')")
+                cols = [row[1] for row in cur.fetchall()]
+                if 'storage_isolated' not in cols:
+                    cur.execute('ALTER TABLE "T_店舗" ADD COLUMN storage_isolated INTEGER DEFAULT 0')
+                    conn.commit()
+                    print("  ✅ storage_isolatedカラムを追加しました")
+                else:
+                    print("  ℹ️  storage_isolatedカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         # マイグレーション: T_外部ストレージ連携にaccount_refカラムを追加（同一アカウント再連携の重複防止）
         print("\n[マイグレーション] T_外部ストレージ連携にaccount_refカラムを追加")
         try:

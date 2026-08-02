@@ -130,6 +130,7 @@ class TTenpo(Base):
     smtp_use_tls = Column(Integer, default=1, comment='TLS設定: 1=STARTTLS, 2=SSL/TLS, 0=なし')
     smtp_from_email = Column(String(255), nullable=True, comment='差出人メールアドレス')
     smtp_from_name = Column(String(255), nullable=True, comment='差出人名')
+    storage_isolated = Column(Integer, default=0, comment='ストレージ隔離: 1=専用ストレージ未設定でもテナント既定に保存しない（fail-closed）')
     有効 = Column(Integer, default=1)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

@@ -316,10 +316,21 @@ def storage_settings():
                             'provider': _plabel.get((c.provider or '').lower(), c.provider or ''),
                             'role': role_map.get(c.id)} for c in cs]
 
+        # 隔離モード（店舗ごと fail-closed）の現在値
+        storage_isolated = False
+        if store_id:
+            try:
+                _r = db.execute(text('SELECT storage_isolated FROM "T_店舗" WHERE id = :s'),
+                                {"s": store_id}).fetchone()
+                storage_isolated = bool(_r and _r[0])
+            except Exception:
+                storage_isolated = False
+
         return render_template('tenant_storage_settings.html', view=view,
                                store_id=store_id,
                                store_name=_scope_name(db, tenant_id, store_id),
-                               store_conns=store_conns, current_conn_id=current_conn_id)
+                               store_conns=store_conns, current_conn_id=current_conn_id,
+                               storage_isolated=storage_isolated)
     finally:
         db.close()
 
@@ -994,6 +1005,49 @@ def set_connection_role():
             flash('保存先から外しました', 'success')
         else:
             flash('不正な操作です', 'error')
+    finally:
+        db.close()
+    return redirect(back)
+
+
+@bp.route('/isolation', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def toggle_isolation():
+    """店舗の隔離モード（fail-closed）を切り替える。
+    オン: 専用ストレージが無いとき本部既定へフォールバックせずエラーにする（漏洩防止）。
+    """
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    raw = request.form.get('store_id')
+    store_id = int(raw) if (raw and raw.isdigit()) else None
+    enabled = 1 if (request.form.get('enabled') in ('1', 'on', 'true')) else 0
+    back = url_for('tenant_storage.storage_settings', store_id=store_id)
+
+    db = SessionLocal()
+    try:
+        if not store_id:
+            flash('隔離モードは店舗ごとの設定です（本部全体には設定できません）', 'error')
+            return redirect(back)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この操作の権限がありません', 'error')
+            return redirect(back)
+        # 対象店舗がこのテナントのものか確認
+        row = db.execute(text('SELECT id FROM "T_店舗" WHERE id = :s AND tenant_id = :t'),
+                         {"s": store_id, "t": tenant_id}).fetchone()
+        if not row:
+            flash('店舗が見つかりません', 'error')
+            return redirect(back)
+        db.execute(text('UPDATE "T_店舗" SET storage_isolated = :v WHERE id = :s'),
+                   {"v": enabled, "s": store_id})
+        db.commit()
+        if enabled:
+            flash('隔離モードをオンにしました（専用ストレージ未設定時は保存せずエラーにします）', 'success')
+        else:
+            flash('隔離モードをオフにしました（未設定時は本部既定へ保存します）', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'設定に失敗しました: {e}', 'error')
     finally:
         db.close()
     return redirect(back)

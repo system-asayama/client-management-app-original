@@ -353,6 +353,23 @@ def _legacy_config(db, tenant_id, store_id=None, any_scope=False):
         return None
 
 
+class StorageIsolationError(RuntimeError):
+    """隔離設定の店舗で、専用ストレージ未設定のため保存できないことを表す。"""
+    pass
+
+
+def _store_isolated(db, store_id):
+    """店舗が「隔離モード（テナント既定にフォールバックしない）」か。"""
+    if not store_id:
+        return False
+    try:
+        row = db.execute(text('SELECT storage_isolated FROM "T_店舗" WHERE id = :s'),
+                         {"s": store_id}).fetchone()
+        return bool(row and row[0])
+    except Exception:
+        return False
+
+
 def get_tenant_storage_config(tenant_id: int, store_id: int = None):
     """有効なストレージ設定（接続）を取得する。
 
@@ -360,7 +377,8 @@ def get_tenant_storage_config(tenant_id: int, store_id: int = None):
       1. 店舗レベル: その店舗への割当 → 旧・店舗スコープ設定
       2. 本部レベル: テナント既定の割当 → 旧・テナントスコープ設定
       3. いずれも無ければ、テナントの任意の有効設定
-    これにより、割当が未設定の既存データは従来どおりに解決される（後方互換）。
+    ただし店舗が隔離モードのときは、店舗レベルで見つからなければ本部既定に
+    フォールバックせず None を返す（fail-closed）。
     """
     db = SessionLocal()
     try:
@@ -368,6 +386,8 @@ def get_tenant_storage_config(tenant_id: int, store_id: int = None):
             row = _assigned_connection(db, tenant_id, store_id) or _legacy_config(db, tenant_id, store_id=store_id)
             if row:
                 return row
+            if _store_isolated(db, store_id):
+                return None  # 隔離: 本部既定に落とさない
         row = _assigned_connection(db, tenant_id, None) or _legacy_config(db, tenant_id, store_id=None)
         if row:
             return row
@@ -490,6 +510,8 @@ def get_tenant_storage_configs(tenant_id: int, store_id: int = None):
             prim = _assigned_connection(db, tenant_id, store_id) or _legacy_config(db, tenant_id, store_id=store_id)
             if prim:
                 return _dedupe(prim, _mirror_configs(db, tenant_id, store_id))
+            if _store_isolated(db, store_id):
+                return []  # 隔離: 本部既定に落とさない（fail-closed）
         # 本部（テナント）レベル
         prim = _assigned_connection(db, tenant_id, None) or _legacy_config(db, tenant_id, store_id=None)
         if prim:
@@ -502,10 +524,22 @@ def get_tenant_storage_configs(tenant_id: int, store_id: int = None):
 
 
 def get_storage_adapters(tenant_id: int, store_id: int = None):
-    """使用中（主）＋ミラー の全アダプタをリストで返す（先頭が主）。"""
+    """使用中（主）＋ミラー の全アダプタをリストで返す（先頭が主）。
+    隔離モードの店舗で専用ストレージが無い場合は StorageIsolationError を送出する
+    （共有先＝本部既定/Cloudinaryへフォールバックしない fail-closed）。
+    """
     configs = get_tenant_storage_configs(tenant_id, store_id=store_id)
     adapters = [_build_adapter(c, tenant_id) for c in configs]
     if not adapters:
+        if store_id:
+            db = SessionLocal()
+            try:
+                if _store_isolated(db, store_id):
+                    raise StorageIsolationError(
+                        f"店舗ID={store_id} は隔離モードですが、専用ストレージが未設定のため保存できません。"
+                    )
+            finally:
+                db.close()
         adapters = [CloudinaryAdapter(tenant_id)]
     return adapters
 

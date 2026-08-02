@@ -44,6 +44,22 @@
     {% endfor %}
   {% endwith %}
 
+  <!-- 接続を追加 -->
+  <div class="cn-card" style="border-left:4px solid #2563a8;background:#f5f9ff;">
+    <h2>接続を追加（2つ目以降もここから）</h2>
+    <p class="muted" style="margin:-.4rem 0 .7rem;">
+      接続すると下の「プール」に追加されます。何個でも登録でき、あとで店舗に割り当てられます。
+    </p>
+    <div class="inline">
+      <a class="btn btn-primary" href="{{ url_for('tenant_storage.storage_dropbox') }}">📂 Dropboxを追加（本部）</a>
+      <a class="btn btn-primary" href="{{ url_for('tenant_storage.storage_gcs') }}">☁️ Google Cloud Storageを追加（本部）</a>
+    </div>
+    <p class="muted" style="margin-top:.7rem;">
+      ※<strong>店舗用の接続</strong>は、その店舗のダッシュボード →「ストレージ連携」から追加すると、その店舗に自動で割り当てられます。<br>
+      ※別のDropboxアカウントを追加する場合は、ブラウザで<strong>追加したい方のアカウントにログイン</strong>してから接続してください。
+    </p>
+  </div>
+
   <!-- 接続プール一覧 -->
   <div class="cn-card">
     <h2>登録済みの接続（プール）</h2>

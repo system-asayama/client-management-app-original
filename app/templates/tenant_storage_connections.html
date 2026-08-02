@@ -50,19 +50,27 @@
     {% if conns %}
     <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>接続名</th><th>種類</th><th>登録元</th><th></th></tr></thead>
+        <thead><tr><th>接続名</th><th>種類</th><th>登録元</th><th>利用中の店舗</th><th></th></tr></thead>
         <tbody>
           {% for c in conns %}
           <tr>
             <td>
               <form method="post" action="{{ url_for('tenant_storage.connection_rename', connection_id=c.id) }}" class="inline">
                 {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-                <input type="text" name="name" value="{{ c.name }}" style="min-width:180px;">
+                <input type="text" name="name" value="{{ c.name }}" style="min-width:160px;">
                 <button class="btn btn-ghost" type="submit">名称保存</button>
               </form>
             </td>
             <td>{{ c.provider }}</td>
             <td><span class="pill">{{ c.registered_by }}</span></td>
+            <td>
+              {% if c.used_by %}
+                {% for label in c.used_by %}<span class="pill" style="background:#e3f6e8;color:#1e8a4c;">{{ label }}</span> {% endfor %}
+              {% else %}
+                <span class="muted">未割当</span>
+              {% endif %}
+              {% if c.is_default %}<div class="muted" style="margin-top:.2rem;">＋ 未割当の店舗もこれを使用</div>{% endif %}
+            </td>
             <td>
               <form method="post" action="{{ url_for('tenant_storage.connection_delete', connection_id=c.id) }}"
                     onsubmit="return confirm('この接続をプールから削除しますか？（割当も解除されます）');">

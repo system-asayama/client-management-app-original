@@ -653,17 +653,27 @@ def connections():
         def _plabel(p):
             return {'dropbox': 'Dropbox', 'gcs': 'Google Cloud Storage', 'cloudinary': 'Cloudinary'}.get((p or '').lower(), p or '')
 
-        conn_view = [{
-            'id': c.id, 'name': c.name or f'接続{c.id}',
-            'provider': _plabel(c.provider),
-            'registered_by': (store_name_map.get(c.store_id) or '本部') if c.store_id else '本部',
-        } for c in conns]
-
         assigns = (db.query(TStoreStorageAssignment)
                      .filter(TStoreStorageAssignment.tenant_id == tenant_id,
                              TStoreStorageAssignment.status == 'active',
                              TStoreStorageAssignment.is_primary == 1).all())
         assign_map = {a.store_id: a.connection_id for a in assigns}
+
+        # 接続ID → その接続を使っている対象（本部既定 / 店舗名）の一覧
+        used_by = {}
+        for a in assigns:
+            label = '本部（既定）' if a.store_id is None else (store_name_map.get(a.store_id) or f'店舗{a.store_id}')
+            used_by.setdefault(a.connection_id, []).append(label)
+        # 本部既定に割り当てられた接続は、未割当の店舗にも実質使われる
+        default_conn_id = assign_map.get(None)
+
+        conn_view = [{
+            'id': c.id, 'name': c.name or f'接続{c.id}',
+            'provider': _plabel(c.provider),
+            'registered_by': (store_name_map.get(c.store_id) or '本部') if c.store_id else '本部',
+            'used_by': used_by.get(c.id, []),
+            'is_default': (c.id == default_conn_id),
+        } for c in conns]
 
         rows = [{'store_id': None, 'label': '本部（既定）', 'current': assign_map.get(None)}]
         for s in stores:

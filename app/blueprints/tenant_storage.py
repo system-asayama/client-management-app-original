@@ -509,6 +509,72 @@ def dropbox_app_reset():
     return redirect(url_for('tenant_storage.dropbox_app', store_id=store_id))
 
 
+def _get_connection_by_id(db, tenant_id, connection_id):
+    """テナント内の有効な接続を id で取得（無ければ None）。"""
+    try:
+        return db.execute(text('''
+            SELECT * FROM "T_外部ストレージ連携"
+            WHERE id = :c AND tenant_id = :t AND status = 'active'
+        '''), {"c": connection_id, "t": tenant_id}).fetchone()
+    except Exception:
+        return None
+
+
+def _resolve_browse_config(db, tenant_id, store_id):
+    """フォルダ閲覧に使う接続を解決する。
+    connection_id 指定があればその接続（アクセス可否を検証）、無ければ主接続。
+    """
+    conn_id = request.args.get('connection_id')
+    if conn_id and str(conn_id).isdigit():
+        row = _get_connection_by_id(db, tenant_id, int(conn_id))
+        if row is not None:
+            # 店舗管理者は自店が登録した接続のみ閲覧可（他店・本部接続は不可）
+            if session.get('role') == ROLES['ADMIN'] and getattr(row, 'store_id', None) != store_id:
+                return None
+            return row
+    return _get_storage_config(db, tenant_id, store_id)
+
+
+@bp.route('/dropbox/browse-connections', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def dropbox_browse_connections():
+    """フォルダ選択で切り替えられる、連携済みDropbox接続の一覧を返す。
+    店舗スコープ: その店舗の接続＋本部の接続。本部スコープ: テナント全体。
+    店舗管理者は自店の接続のみ。
+    """
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'error': 'no tenant'}), 401
+    db = SessionLocal()
+    try:
+        store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            return jsonify({'error': '権限がありません'}), 403
+        is_admin = session.get('role') == ROLES['ADMIN']
+        if store_id and is_admin:
+            rows = db.execute(text('''
+                SELECT id, name FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :t AND status = 'active' AND provider = 'dropbox' AND store_id = :s
+                ORDER BY id DESC
+            '''), {"t": tenant_id, "s": store_id}).fetchall()
+        elif store_id:
+            rows = db.execute(text('''
+                SELECT id, name FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :t AND status = 'active' AND provider = 'dropbox'
+                      AND (store_id = :s OR store_id IS NULL)
+                ORDER BY id DESC
+            '''), {"t": tenant_id, "s": store_id}).fetchall()
+        else:
+            rows = db.execute(text('''
+                SELECT id, name FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :t AND status = 'active' AND provider = 'dropbox'
+                ORDER BY id DESC
+            '''), {"t": tenant_id}).fetchall()
+        return jsonify({'connections': [{'id': r.id, 'name': r.name or f'接続{r.id}'} for r in rows]})
+    finally:
+        db.close()
+
+
 # ===========================
 # Dropbox フォルダ一覧API
 # ===========================
@@ -527,7 +593,7 @@ def dropbox_folders():
         store_id = _scope_store_id(db, tenant_id)
         if not _scope_access_ok(db, tenant_id, store_id):
             return jsonify({'error': '権限がありません'}), 403
-        storage_config = _get_storage_config(db, tenant_id, store_id)
+        storage_config = _resolve_browse_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
 
@@ -588,7 +654,7 @@ def dropbox_create_folder():
         store_id = _scope_store_id(db, tenant_id)
         if not _scope_access_ok(db, tenant_id, store_id):
             return jsonify({'error': '権限がありません'}), 403
-        storage_config = _get_storage_config(db, tenant_id, store_id)
+        storage_config = _resolve_browse_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
         token = storage_config.access_token
@@ -632,22 +698,16 @@ def dropbox_set_folder():
         store_id = _scope_store_id(db, tenant_id)
         if not _scope_access_ok(db, tenant_id, store_id):
             return jsonify({'error': '権限がありません'}), 403
-        storage_config = _get_storage_config(db, tenant_id, store_id)
+        storage_config = _resolve_browse_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
 
-        if store_id:
-            db.execute(text("""
-                UPDATE "T_外部ストレージ連携"
-                SET base_folder_path = :folder_path
-                WHERE tenant_id = :tenant_id AND status = 'active' AND provider = 'dropbox' AND store_id = :store_id
-            """), {"folder_path": folder_path or None, "tenant_id": tenant_id, "store_id": store_id})
-        else:
-            db.execute(text("""
-                UPDATE "T_外部ストレージ連携"
-                SET base_folder_path = :folder_path
-                WHERE tenant_id = :tenant_id AND status = 'active' AND provider = 'dropbox' AND store_id IS NULL
-            """), {"folder_path": folder_path or None, "tenant_id": tenant_id})
+        # 選択中の接続（storage_config）そのものに保存する
+        db.execute(text("""
+            UPDATE "T_外部ストレージ連携"
+            SET base_folder_path = :folder_path
+            WHERE id = :cid AND tenant_id = :tenant_id
+        """), {"folder_path": folder_path or None, "cid": storage_config.id, "tenant_id": tenant_id})
         db.commit()
         return jsonify({'success': True, 'folder_path': folder_path})
     except Exception as e:

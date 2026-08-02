@@ -366,6 +366,13 @@
             📁 保存先フォルダを選択
         </div>
 
+        <div id="connSelectWrap" style="margin-bottom:12px;display:none;">
+            <label style="display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:6px;">連携済みストレージを選択</label>
+            <select id="connSelect" onchange="onConnChange()"
+                    style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;"></select>
+            <div style="font-size:12px;color:#999;margin-top:4px;">複数連携している場合、ここで切り替えて各ストレージのフォルダを選べます。</div>
+        </div>
+
         <div class="current-folder-box">
             📁 現在の保存先：
             <span id="currentFolderDisplay">
@@ -470,9 +477,38 @@ let selectedFolderPath = null;
 let currentPath = '';
 // 店舗スコープ（テナント全体のときは null）。APIリクエストに付与する。
 const STORE_ID = {{ store_id if store_id else 'null' }};
+let CONN_ID = null;  // 選択中の接続（未選択なら主接続）
 function storeParam(prefix) {
     return STORE_ID ? `${prefix}store_id=${STORE_ID}` : '';
 }
+function connParam(prefix) {
+    return CONN_ID ? `${prefix}connection_id=${CONN_ID}` : '';
+}
+
+// 連携済みストレージの一覧を読み込み、セレクタに表示
+function loadConnections() {
+    fetch(`/tenant/storage/dropbox/browse-connections?${storeParam('')}`)
+        .then(r => r.json())
+        .then(data => {
+            const conns = (data && data.connections) || [];
+            if (conns.length <= 1) return;  // 1つ以下なら切替不要
+            const sel = document.getElementById('connSelect');
+            sel.innerHTML = '';
+            conns.forEach(function(c, i) {
+                const o = document.createElement('option');
+                o.value = c.id; o.textContent = c.name;
+                sel.appendChild(o);
+            });
+            CONN_ID = conns[0].id;
+            document.getElementById('connSelectWrap').style.display = 'block';
+        })
+        .catch(function(){});
+}
+function onConnChange() {
+    CONN_ID = document.getElementById('connSelect').value;
+    loadFolders('');  // 選んだ接続のルートから読み直す
+}
+document.addEventListener('DOMContentLoaded', loadConnections);
 
 function loadFolders(path) {
     currentPath = path;
@@ -480,7 +516,7 @@ function loadFolders(path) {
     tree.innerHTML = '<div class="folder-loading">⏳ 読み込み中...</div>';
     updateBreadcrumb(path);
 
-    fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}${storeParam('&')}`)
+    fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}${storeParam('&')}${connParam('&')}`)
         .then(r => r.json())
         .then(data => {
             if (data.error) {
@@ -550,7 +586,7 @@ function toggleFolder(event, btn) {
         children.classList.add('open');
         btn.textContent = '▼';
 
-        fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}${storeParam('&')}`)
+        fetch(`/tenant/storage/dropbox/folders?path=${encodeURIComponent(path)}${storeParam('&')}${connParam('&')}`)
             .then(r => r.json())
             .then(data => {
                 if (data.error) {
@@ -582,7 +618,7 @@ function saveFolder() {
     btn.disabled = true;
     btn.textContent = '保存中...';
 
-    fetch(`/tenant/storage/dropbox/set-folder?${storeParam('')}`, {
+    fetch(`/tenant/storage/dropbox/set-folder?${storeParam('')}${connParam('&')}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({folder_path: selectedFolderPath})
@@ -643,7 +679,7 @@ function createFolder() {
     btn.textContent = '作成中...';
     showCreateMsg('', '');
 
-    fetch(`/tenant/storage/dropbox/create-folder?${storeParam('')}`, {
+    fetch(`/tenant/storage/dropbox/create-folder?${storeParam('')}${connParam('&')}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({folder_path: newPath})

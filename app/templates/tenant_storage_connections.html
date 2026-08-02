@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}ストレージ接続の管理・割当{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .cn-wrap { max-width: 960px; margin: 0 auto; }
+  .cn-header { background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%); color:#fff;
+    border-radius:16px; padding:1.6rem 2rem; margin-bottom:1.25rem; }
+  .cn-header h1 { margin:0; font-size:1.4rem; color:#fff; }
+  .cn-header p { margin:.5rem 0 0; opacity:.9; font-size:.9rem; }
+  .cn-back { display:inline-block; margin-bottom:1rem; color:#2563a8; text-decoration:none; font-size:.9rem; }
+  .cn-back:hover { text-decoration:underline; }
+  .cn-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.4rem 1.5rem; margin-bottom:1.25rem; }
+  .cn-card h2 { font-size:1.05rem; margin:0 0 .8rem; color:#1a3a5c; }
+  .flash-msg { padding:.7rem 1rem; border-radius:8px; font-size:.88rem; margin-bottom:1rem; }
+  .flash-success { background:#e8f5e9; color:#2e7d32; border-left:4px solid #2e7d32; }
+  .flash-error { background:#ffebee; color:#c62828; border-left:4px solid #c62828; }
+  .flash-warning { background:#fff8e1; color:#f57f17; border-left:4px solid #f57f17; }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  th, td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid #eef1f5; vertical-align:middle; }
+  th { background:#f6f8fb; color:#374151; font-weight:600; }
+  .muted { color:#889; font-size:.82rem; }
+  .pill { display:inline-block; padding:.1rem .5rem; border-radius:999px; font-size:.72rem; font-weight:600; background:#e8f0fb; color:#2563a8; }
+  select, input[type=text] { padding:.4rem .55rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.85rem; }
+  .btn { padding:.4rem .9rem; border-radius:8px; border:0; cursor:pointer; font-size:.82rem; font-weight:600; }
+  .btn-primary { background:#2563a8; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-danger { background:#fdecec; color:#c0392b; }
+  .inline { display:inline-flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+  .empty { color:#889; font-size:.86rem; }
+</style>
+
+<div class="cn-wrap">
+  <a class="cn-back" href="{{ url_for('tenant_storage.storage_settings') }}">← ストレージ連携設定へ</a>
+
+  <div class="cn-header">
+    <h1>🗂️ ストレージ接続の管理・割当</h1>
+    <p>本部・店舗が登録したストレージ接続をまとめて管理し、どの店舗がどれを使うかを割り当てます。</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="flash-msg flash-{{ cat }}">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- 接続プール一覧 -->
+  <div class="cn-card">
+    <h2>登録済みの接続（プール）</h2>
+    {% if conns %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>接続名</th><th>種類</th><th>登録元</th><th></th></tr></thead>
+        <tbody>
+          {% for c in conns %}
+          <tr>
+            <td>
+              <form method="post" action="{{ url_for('tenant_storage.connection_rename', connection_id=c.id) }}" class="inline">
+                {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+                <input type="text" name="name" value="{{ c.name }}" style="min-width:180px;">
+                <button class="btn btn-ghost" type="submit">名称保存</button>
+              </form>
+            </td>
+            <td>{{ c.provider }}</td>
+            <td><span class="pill">{{ c.registered_by }}</span></td>
+            <td>
+              <form method="post" action="{{ url_for('tenant_storage.connection_delete', connection_id=c.id) }}"
+                    onsubmit="return confirm('この接続をプールから削除しますか？（割当も解除されます）');">
+                {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+                <button class="btn btn-danger" type="submit">削除</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty">まだ接続がありません。テナントの<a href="{{ url_for('tenant_storage.storage_settings') }}">ストレージ連携設定</a>、または各店舗ダッシュボードの「ストレージ連携」から接続を追加してください。</p>
+    {% endif %}
+    <p class="muted" style="margin-top:.6rem;">※本部・店舗のどちらから登録しても、ここに集約表示されます。</p>
+  </div>
+
+  <!-- 割当 -->
+  <div class="cn-card">
+    <h2>店舗への割当</h2>
+    <p class="muted" style="margin:-.4rem 0 .8rem;">各店舗が実際に保存に使う接続を選びます。「本部（既定）」は、割当が無い店舗が使う既定の接続です。</p>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>対象</th><th>使用する接続</th><th></th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{% if r.store_id is none %}<strong>本部（既定）</strong>{% else %}{{ r.label }}{% endif %}</td>
+            <td colspan="2">
+              <form method="post" action="{{ url_for('tenant_storage.assign_connection') }}" class="inline">
+                {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+                <input type="hidden" name="store_id" value="{{ r.store_id if r.store_id is not none else '' }}">
+                <select name="connection_id">
+                  <option value="">{% if r.store_id is none %}（未設定）{% else %}本部の既定に従う{% endif %}</option>
+                  {% for c in conns %}
+                  <option value="{{ c.id }}" {% if c.id == r.current %}selected{% endif %}>{{ c.name }}（{{ c.provider }}）</option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-primary" type="submit">保存</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

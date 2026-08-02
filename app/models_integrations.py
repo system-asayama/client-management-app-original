@@ -168,6 +168,50 @@ class TMailOAuthConfig(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TStorageConnection(Base):
+    """T_外部ストレージ連携（＝ストレージ接続プール）のORMマッピング。
+
+    既存テーブルをそのまま「接続プール」として使う。1テナントに複数の接続を
+    保持でき、store_id は「登録元（本部=NULL / 店舗=ID）」を表す。実際にどの店舗が
+    どの接続を使うかは T_店舗ストレージ割当（TStoreStorageAssignment）で管理する。
+    """
+    __tablename__ = 'T_外部ストレージ連携'
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=False)
+    store_id = Column(Integer, nullable=True)          # 登録元（NULL=本部）
+    name = Column(String(255), nullable=True)          # 接続の表示名
+    provider = Column(String(50), nullable=True)
+    access_token = Column(Text, nullable=True)
+    refresh_token = Column(Text, nullable=True)
+    bucket_name = Column(Text, nullable=True)
+    service_account_json = Column(Text, nullable=True)
+    base_folder_path = Column(Text, nullable=True)
+    status = Column(String(20), nullable=True, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TStoreStorageAssignment(Base):
+    """T_店舗ストレージ割当（店舗 → 接続 の割り当て）
+
+    どの店舗（or 本部既定）が、プール内のどの接続を使うかを管理する。
+    store_id が NULL の行は「テナント（本部）既定」。将来はミラー/振り分け用に
+    is_primary=0 の行を足すことで拡張できる（現状は各店舗 is_primary=1 が1つ）。
+    """
+    __tablename__ = 'T_店舗ストレージ割当'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, nullable=True)          # NULL=本部（テナント）既定
+    connection_id = Column(Integer, nullable=False)    # T_外部ストレージ連携.id
+    is_primary = Column(Integer, nullable=False, default=1)   # 1=主に使用
+    status = Column(String(20), nullable=False, default='active')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TStorageAppConfig(Base):
     """T_テナントストレージアプリ設定（テナントごとのストレージOAuthアプリ認証情報）
 

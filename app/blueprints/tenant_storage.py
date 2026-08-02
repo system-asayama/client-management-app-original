@@ -29,6 +29,59 @@ def _deactivate_scope(db, tenant_id, store_id):
         """), {"tenant_id": tenant_id})
 
 
+def _set_primary_assignment(db, tenant_id, store_id, connection_id):
+    """スコープ（店舗 or 本部既定=None）の「主に使用する接続」を connection_id に設定。
+    既存の主割当は解除してから新しい割当を作る。
+    """
+    from app.models_integrations import TStoreStorageAssignment
+    q = db.query(TStoreStorageAssignment).filter(
+        TStoreStorageAssignment.tenant_id == tenant_id,
+        TStoreStorageAssignment.status == 'active',
+        TStoreStorageAssignment.is_primary == 1)
+    if store_id is None:
+        q = q.filter(TStoreStorageAssignment.store_id.is_(None))
+    else:
+        q = q.filter(TStoreStorageAssignment.store_id == store_id)
+    for a in q.all():
+        a.is_primary = 0
+        a.status = 'inactive'
+    db.add(TStoreStorageAssignment(
+        tenant_id=tenant_id, store_id=store_id,
+        connection_id=connection_id, is_primary=1, status='active'))
+
+
+def _add_connection(db, tenant_id, scope_store_id, name=None, **fields):
+    """接続プールに新しい接続を追加し、そのスコープの主割当に設定する。
+    scope_store_id は登録元（本部=None / 店舗=ID）で、その店舗（or 本部既定）に自動割当。
+    戻り値: 追加した接続。
+    """
+    from app.models_integrations import TStorageConnection
+    conn = TStorageConnection(
+        tenant_id=tenant_id, store_id=scope_store_id, name=name,
+        status='active', **fields)
+    db.add(conn)
+    db.flush()  # id を確定
+    _set_primary_assignment(db, tenant_id, scope_store_id, conn.id)
+    return conn
+
+
+def _store_name(db, tenant_id, store_id):
+    if not store_id:
+        return None
+    try:
+        row = db.execute(text('SELECT "名称" AS name FROM "T_店舗" WHERE id=:s AND tenant_id=:t'),
+                         {"s": store_id, "t": tenant_id}).fetchone()
+        return row.name if row else None
+    except Exception:
+        return None
+
+
+def _default_conn_name(db, tenant_id, store_id, provider):
+    label = {'dropbox': 'Dropbox', 'gcs': 'Google Cloud Storage'}.get((provider or '').lower(), provider or 'ストレージ')
+    sn = _store_name(db, tenant_id, store_id)
+    return f'{label}（{sn}）' if sn else f'{label}（本部）'
+
+
 def _get_dropbox_client(storage_config, db=None, tenant_id=None):
     """リフレッシュトークンを使ってDropboxクライアントを取得（自動更新対応）"""
     import dropbox
@@ -95,31 +148,11 @@ def _scope_name(db, tenant_id, store_id):
 
 
 def _get_storage_config(db, tenant_id, store_id=None):
-    """現在のアクティブなストレージ設定を取得（指定スコープの設定のみ）。
-    store_id 指定時はその店舗の設定、None のときはテナント全体（store_id IS NULL）の設定。
+    """現在“実際に使われる”ストレージ接続を取得する。
+    ファイル保存と同じ解決（割当→旧スコープ）を使い、画面表示と実挙動を一致させる。
     """
-    try:
-        if store_id:
-            result = db.execute(text("""
-                SELECT * FROM "T_外部ストレージ連携"
-                WHERE tenant_id = :tenant_id AND status = 'active' AND store_id = :store_id
-                ORDER BY id DESC LIMIT 1
-            """), {"tenant_id": tenant_id, "store_id": store_id})
-            return result.fetchone()
-        result = db.execute(text("""
-            SELECT * FROM "T_外部ストレージ連携"
-            WHERE tenant_id = :tenant_id AND status = 'active' AND store_id IS NULL
-            ORDER BY id DESC LIMIT 1
-        """), {"tenant_id": tenant_id})
-        return result.fetchone()
-    except Exception:
-        # store_id 列が無い旧スキーマ互換
-        result = db.execute(text("""
-            SELECT * FROM "T_外部ストレージ連携"
-            WHERE tenant_id = :tenant_id AND status = 'active'
-            ORDER BY id DESC LIMIT 1
-        """), {"tenant_id": tenant_id})
-        return result.fetchone()
+    from app.utils.tenant_storage_adapter import get_tenant_storage_config
+    return get_tenant_storage_config(tenant_id, store_id=store_id)
 
 
 def _build_view(storage_config):
@@ -203,18 +236,11 @@ def storage_dropbox():
             base_folder_path = request.form.get('base_folder_path', '').strip()
 
             if access_token:
-                # 同スコープの既存設定のみを無効化
-                _deactivate_scope(db, tenant_id, store_id)
-                db.execute(text("""
-                    INSERT INTO "T_外部ストレージ連携"
-                    (tenant_id, store_id, provider, access_token, base_folder_path, status)
-                    VALUES (:tenant_id, :store_id, 'dropbox', :access_token, :base_folder_path, 'active')
-                """), {
-                    "tenant_id": tenant_id,
-                    "store_id": store_id,
-                    "access_token": access_token,
-                    "base_folder_path": base_folder_path or None
-                })
+                # 接続プールに追加し、このスコープの主接続に割当
+                _add_connection(db, tenant_id, store_id,
+                                name=_default_conn_name(db, tenant_id, store_id, 'dropbox'),
+                                provider='dropbox', access_token=access_token,
+                                base_folder_path=base_folder_path or None)
                 db.commit()
                 flash('Dropbox連携を設定しました', 'success')
                 return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
@@ -300,19 +326,11 @@ def dropbox_oauth_callback():
 
         db = SessionLocal()
         try:
-            # 同スコープの既存設定のみを無効化
-            _deactivate_scope(db, tenant_id, store_id)
-            # 新しいトークンを保存
-            db.execute(text("""
-                INSERT INTO "T_外部ストレージ連携"
-                (tenant_id, store_id, provider, access_token, refresh_token, status)
-                VALUES (:tenant_id, :store_id, 'dropbox', :access_token, :refresh_token, 'active')
-            """), {
-                "tenant_id": tenant_id,
-                "store_id": store_id,
-                "access_token": access_token,
-                "refresh_token": refresh_token
-            })
+            # 接続プールに追加し、このスコープの主接続に割当
+            _add_connection(db, tenant_id, store_id,
+                            name=_default_conn_name(db, tenant_id, store_id, 'dropbox'),
+                            provider='dropbox', access_token=access_token,
+                            refresh_token=refresh_token)
             db.commit()
             flash('Dropboxとの連携が完了しました！', 'success')
         except Exception as e:
@@ -591,18 +609,11 @@ def storage_gcs():
             bucket_name = request.form.get('gcs_bucket', '').strip()
             service_account_json = request.form.get('gcs_service_account_json', '').strip()
             if bucket_name and service_account_json:
-                # 同スコープの既存設定のみを無効化
-                _deactivate_scope(db, tenant_id, store_id)
-                db.execute(text("""
-                    INSERT INTO "T_外部ストレージ連携"
-                    (tenant_id, store_id, provider, bucket_name, service_account_json, status)
-                    VALUES (:tenant_id, :store_id, 'gcs', :bucket_name, :service_account_json, 'active')
-                """), {
-                    "tenant_id": tenant_id,
-                    "store_id": store_id,
-                    "bucket_name": bucket_name,
-                    "service_account_json": service_account_json
-                })
+                # 接続プールに追加し、このスコープの主接続に割当
+                _add_connection(db, tenant_id, store_id,
+                                name=_default_conn_name(db, tenant_id, store_id, 'gcs'),
+                                provider='gcs', bucket_name=bucket_name,
+                                service_account_json=service_account_json)
                 db.commit()
                 flash('Google Cloud Storage連携を設定しました', 'success')
                 return redirect(url_for('tenant_storage.storage_gcs', store_id=store_id))
@@ -614,6 +625,148 @@ def storage_gcs():
                                store_name=_scope_name(db, tenant_id, store_id))
     finally:
         db.close()
+
+
+# ===========================
+# 本部：接続一覧＆店舗への割当（プール管理）
+# ===========================
+@bp.route('/connections', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def connections():
+    """接続プールの一覧と、店舗への割当を管理する（本部）。"""
+    from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    db = SessionLocal()
+    try:
+        conns = (db.query(TStorageConnection)
+                   .filter(TStorageConnection.tenant_id == tenant_id,
+                           TStorageConnection.status == 'active')
+                   .order_by(TStorageConnection.id.desc()).all())
+        stores = db.execute(text('SELECT id, "名称" AS name FROM "T_店舗" WHERE tenant_id = :t ORDER BY id'),
+                            {"t": tenant_id}).fetchall()
+        store_name_map = {s.id: s.name for s in stores}
+
+        def _plabel(p):
+            return {'dropbox': 'Dropbox', 'gcs': 'Google Cloud Storage', 'cloudinary': 'Cloudinary'}.get((p or '').lower(), p or '')
+
+        conn_view = [{
+            'id': c.id, 'name': c.name or f'接続{c.id}',
+            'provider': _plabel(c.provider),
+            'registered_by': (store_name_map.get(c.store_id) or '本部') if c.store_id else '本部',
+        } for c in conns]
+
+        assigns = (db.query(TStoreStorageAssignment)
+                     .filter(TStoreStorageAssignment.tenant_id == tenant_id,
+                             TStoreStorageAssignment.status == 'active',
+                             TStoreStorageAssignment.is_primary == 1).all())
+        assign_map = {a.store_id: a.connection_id for a in assigns}
+
+        rows = [{'store_id': None, 'label': '本部（既定）', 'current': assign_map.get(None)}]
+        for s in stores:
+            rows.append({'store_id': s.id, 'label': s.name, 'current': assign_map.get(s.id)})
+
+        return render_template('tenant_storage_connections.html', conns=conn_view, rows=rows)
+    finally:
+        db.close()
+
+
+@bp.route('/connections/assign', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def assign_connection():
+    """店舗（or 本部既定）に、プール内の接続を割り当てる。"""
+    from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+
+    raw = request.form.get('store_id')
+    store_id = int(raw) if (raw and raw.isdigit()) else None
+    conn_raw = request.form.get('connection_id')
+
+    db = SessionLocal()
+    try:
+        if not conn_raw:
+            # 割当解除（本部既定にフォールバック）
+            aq = db.query(TStoreStorageAssignment).filter(
+                TStoreStorageAssignment.tenant_id == tenant_id,
+                TStoreStorageAssignment.status == 'active')
+            aq = aq.filter(TStoreStorageAssignment.store_id.is_(None)) if store_id is None \
+                else aq.filter(TStoreStorageAssignment.store_id == store_id)
+            for a in aq.all():
+                a.status = 'inactive'
+                a.is_primary = 0
+            db.commit()
+            flash('割当を解除しました', 'success')
+        else:
+            cid = int(conn_raw)
+            # 接続がこのテナントのものか検証
+            conn = db.query(TStorageConnection).filter(
+                TStorageConnection.id == cid,
+                TStorageConnection.tenant_id == tenant_id,
+                TStorageConnection.status == 'active').first()
+            if not conn:
+                flash('指定した接続が見つかりません', 'error')
+            else:
+                _set_primary_assignment(db, tenant_id, store_id, cid)
+                db.commit()
+                flash('割当を保存しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('tenant_storage.connections'))
+
+
+@bp.route('/connections/<int:connection_id>/rename', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def connection_rename(connection_id):
+    from app.models_integrations import TStorageConnection
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    name = (request.form.get('name') or '').strip()
+    db = SessionLocal()
+    try:
+        conn = db.query(TStorageConnection).filter(
+            TStorageConnection.id == connection_id,
+            TStorageConnection.tenant_id == tenant_id).first()
+        if conn and name:
+            conn.name = name
+            db.commit()
+            flash('接続名を変更しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('tenant_storage.connections'))
+
+
+@bp.route('/connections/<int:connection_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def connection_delete(connection_id):
+    """接続をプールから削除（無効化）。この接続への割当も解除する。"""
+    from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        conn = db.query(TStorageConnection).filter(
+            TStorageConnection.id == connection_id,
+            TStorageConnection.tenant_id == tenant_id).first()
+        if conn:
+            conn.status = 'inactive'
+            for a in db.query(TStoreStorageAssignment).filter(
+                    TStoreStorageAssignment.tenant_id == tenant_id,
+                    TStoreStorageAssignment.connection_id == connection_id,
+                    TStoreStorageAssignment.status == 'active').all():
+                a.status = 'inactive'
+                a.is_primary = 0
+            db.commit()
+            flash('接続を削除しました', 'success')
+    finally:
+        db.close()
+    return redirect(url_for('tenant_storage.connections'))
 
 
 # ===========================
@@ -633,19 +786,30 @@ def disconnect_storage():
     revoke = request.form.get('revoke') == '1'
     db = SessionLocal()
     try:
+        from app.models_integrations import TStoreStorageAssignment
         store_id = _scope_store_id(db, tenant_id)
+        cfg = _get_storage_config(db, tenant_id, store_id)
+        # 現在このスコープが使っている接続が、このスコープ自身の登録か（継承した本部既定でないか）
+        own = bool(cfg and getattr(cfg, 'store_id', None) == store_id)
         revoke_note = None
-        # Dropbox は API で認可自体を取り消せる（連携済みアプリからも消える）
-        if provider == 'dropbox' and revoke:
-            cfg = _get_storage_config(db, tenant_id, store_id)
-            if cfg and (getattr(cfg, 'provider', '') or '').lower() == 'dropbox':
-                try:
-                    dbx = _get_dropbox_client(cfg, tenant_id=tenant_id)
-                    dbx.auth_token_revoke()
-                    revoke_note = ('success', 'Dropbox側の認可も取り消しました（Dropboxの「連携済みアプリ」からも削除されます）')
-                except Exception as e:  # noqa: BLE001 - 失敗してもアプリ側の解除は続行
-                    revoke_note = ('warning', f'Dropbox側の認可取り消しに失敗しました（アプリ側の連携は解除しました）。必要なら https://www.dropbox.com/account/connected_apps から手動で解除してください: {e}')
-        # 同スコープの設定のみを解除（他スコープは温存）
+        # Dropbox は API で認可自体を取り消せる（連携済みアプリからも消える）。自スコープの接続のみ対象
+        if provider == 'dropbox' and revoke and own and cfg and (getattr(cfg, 'provider', '') or '').lower() == 'dropbox':
+            try:
+                dbx = _get_dropbox_client(cfg, tenant_id=tenant_id)
+                dbx.auth_token_revoke()
+                revoke_note = ('success', 'Dropbox側の認可も取り消しました（Dropboxの「連携済みアプリ」からも削除されます）')
+            except Exception as e:  # noqa: BLE001 - 失敗してもアプリ側の解除は続行
+                revoke_note = ('warning', f'Dropbox側の認可取り消しに失敗しました（アプリ側の連携は解除しました）。必要なら https://www.dropbox.com/account/connected_apps から手動で解除してください: {e}')
+        # このスコープの主割当を解除（未割当なら本部既定にフォールバックする）
+        aq = db.query(TStoreStorageAssignment).filter(
+            TStoreStorageAssignment.tenant_id == tenant_id,
+            TStoreStorageAssignment.status == 'active')
+        aq = aq.filter(TStoreStorageAssignment.store_id.is_(None)) if store_id is None \
+            else aq.filter(TStoreStorageAssignment.store_id == store_id)
+        for a in aq.all():
+            a.status = 'inactive'
+            a.is_primary = 0
+        # このスコープ自身が登録した接続のみ無効化（継承した本部既定は温存）
         _deactivate_scope(db, tenant_id, store_id)
         db.commit()
         flash('ストレージ連携を解除しました', 'success')

@@ -304,42 +304,74 @@ class GCSAdapter(StorageAdapterBase):
         return True
 
 
+def _assigned_connection(db, tenant_id, store_id):
+    """割当（T_店舗ストレージ割当）経由で接続を解決する。
+    store_id=None はテナント（本部）既定の割当を指す。無ければ None。
+    """
+    try:
+        if store_id is None:
+            q = text('''
+                SELECT c.* FROM "T_外部ストレージ連携" c
+                JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
+                WHERE a.tenant_id = :t AND a.store_id IS NULL AND a.is_primary = 1
+                      AND a.status = 'active' AND c.status = 'active'
+                ORDER BY a.id DESC LIMIT 1
+            ''')
+            return db.execute(q, {"t": tenant_id}).fetchone()
+        q = text('''
+            SELECT c.* FROM "T_外部ストレージ連携" c
+            JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
+            WHERE a.tenant_id = :t AND a.store_id = :s AND a.is_primary = 1
+                  AND a.status = 'active' AND c.status = 'active'
+            ORDER BY a.id DESC LIMIT 1
+        ''')
+        return db.execute(q, {"t": tenant_id, "s": store_id}).fetchone()
+    except Exception:
+        return None  # 割当テーブルが無い等 → 旧ロジックへ
+
+
+def _legacy_config(db, tenant_id, store_id=None, any_scope=False):
+    """旧スコープ方式（後方互換）でストレージ設定を取得。"""
+    try:
+        if any_scope:
+            return db.execute(text('''
+                SELECT * FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :t AND status = 'active' ORDER BY id DESC LIMIT 1
+            '''), {"t": tenant_id}).fetchone()
+        if store_id is None:
+            return db.execute(text('''
+                SELECT * FROM "T_外部ストレージ連携"
+                WHERE tenant_id = :t AND status = 'active' AND store_id IS NULL
+                ORDER BY id DESC LIMIT 1
+            '''), {"t": tenant_id}).fetchone()
+        return db.execute(text('''
+            SELECT * FROM "T_外部ストレージ連携"
+            WHERE tenant_id = :t AND status = 'active' AND store_id = :s
+            ORDER BY id DESC LIMIT 1
+        '''), {"t": tenant_id, "s": store_id}).fetchone()
+    except Exception:
+        return None
+
+
 def get_tenant_storage_config(tenant_id: int, store_id: int = None):
-    """有効なストレージ設定を取得する。
-    店舗が指定され、その店舗の設定があれば店舗設定を優先。無ければテナント設定に
-    フォールバックする（店舗の設定は store_id 一致、テナント設定は store_id IS NULL）。
+    """有効なストレージ設定（接続）を取得する。
+
+    解決順（各レベルで「割当（新方式）→ 旧スコープ設定」の順に見る）:
+      1. 店舗レベル: その店舗への割当 → 旧・店舗スコープ設定
+      2. 本部レベル: テナント既定の割当 → 旧・テナントスコープ設定
+      3. いずれも無ければ、テナントの任意の有効設定
+    これにより、割当が未設定の既存データは従来どおりに解決される（後方互換）。
     """
     db = SessionLocal()
     try:
-        # store_id 列が無い旧環境でも動くように、まず店舗優先で試し、失敗時はテナントのみ。
         if store_id:
-            try:
-                row = db.execute(text("""
-                    SELECT * FROM "T_外部ストレージ連携"
-                    WHERE tenant_id = :tenant_id AND store_id = :store_id AND status = 'active'
-                    ORDER BY id DESC LIMIT 1
-                """), {"tenant_id": tenant_id, "store_id": store_id}).fetchone()
-                if row:
-                    return row
-            except Exception:
-                pass  # store_id 列が無い等 → テナント設定にフォールバック
-        # テナント全体の設定（store_id IS NULL を優先、無ければ従来どおり任意の行）
-        try:
-            row = db.execute(text("""
-                SELECT * FROM "T_外部ストレージ連携"
-                WHERE tenant_id = :tenant_id AND status = 'active' AND store_id IS NULL
-                ORDER BY id DESC LIMIT 1
-            """), {"tenant_id": tenant_id}).fetchone()
+            row = _assigned_connection(db, tenant_id, store_id) or _legacy_config(db, tenant_id, store_id=store_id)
             if row:
                 return row
-        except Exception:
-            pass
-        # 旧スキーマ互換（store_id 列が無い）
-        return db.execute(text("""
-            SELECT * FROM "T_外部ストレージ連携"
-            WHERE tenant_id = :tenant_id AND status = 'active'
-            ORDER BY id DESC LIMIT 1
-        """), {"tenant_id": tenant_id}).fetchone()
+        row = _assigned_connection(db, tenant_id, None) or _legacy_config(db, tenant_id, store_id=None)
+        if row:
+            return row
+        return _legacy_config(db, tenant_id, any_scope=True)
     finally:
         db.close()
 

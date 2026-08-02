@@ -115,6 +115,9 @@
     <h1>📦 ストレージ連携設定</h1>
   </div>
   <div class="header-actions">
+    {% if not store_id %}
+    <a href="{{ url_for('tenant_storage.connections') }}">🗂️ 接続の管理・割当</a>
+    {% endif %}
     {% if store_id %}
     <a href="{{ url_for('store_dashboard.dashboard', store_id=store_id) }}">← 店舗ダッシュボードへ</a>
     {% else %}

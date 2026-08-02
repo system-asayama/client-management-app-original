@@ -229,9 +229,32 @@ def storage_settings():
             return redirect(url_for('staff_mypage.dashboard'))
         storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
+
+        # 店舗スコープでは、この店舗に登録された接続一覧と使用中を渡す（2つ目以降の管理用）
+        store_conns = []
+        current_conn_id = None
+        if store_id:
+            from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+            _plabel = {'dropbox': 'Dropbox', 'gcs': 'Google Cloud Storage', 'cloudinary': 'Cloudinary'}
+            cs = (db.query(TStorageConnection)
+                    .filter(TStorageConnection.tenant_id == tenant_id,
+                            TStorageConnection.store_id == store_id,
+                            TStorageConnection.status == 'active')
+                    .order_by(TStorageConnection.id.desc()).all())
+            store_conns = [{'id': c.id, 'name': c.name or f'接続{c.id}',
+                            'provider': _plabel.get((c.provider or '').lower(), c.provider or '')} for c in cs]
+            a = (db.query(TStoreStorageAssignment)
+                   .filter(TStoreStorageAssignment.tenant_id == tenant_id,
+                           TStoreStorageAssignment.store_id == store_id,
+                           TStoreStorageAssignment.status == 'active',
+                           TStoreStorageAssignment.is_primary == 1)
+                   .order_by(TStoreStorageAssignment.id.desc()).first())
+            current_conn_id = a.connection_id if a else None
+
         return render_template('tenant_storage_settings.html', view=view,
                                store_id=store_id,
-                               store_name=_scope_name(db, tenant_id, store_id))
+                               store_name=_scope_name(db, tenant_id, store_id),
+                               store_conns=store_conns, current_conn_id=current_conn_id)
     finally:
         db.close()
 
@@ -732,9 +755,11 @@ def connections():
 
 
 @bp.route('/connections/assign', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def assign_connection():
-    """店舗（or 本部既定）に、プール内の接続を割り当てる。"""
+    """店舗（or 本部既定）に、プール内の接続を割り当てる。
+    本部系は任意スコープ可。店舗管理者は自店のみ（本部既定は不可）。
+    """
     from app.models_integrations import TStorageConnection, TStoreStorageAssignment
     tenant_id = session.get('tenant_id')
     if not tenant_id:
@@ -743,9 +768,15 @@ def assign_connection():
     raw = request.form.get('store_id')
     store_id = int(raw) if (raw and raw.isdigit()) else None
     conn_raw = request.form.get('connection_id')
+    # 戻り先: 店舗管理者は店舗設定へ、本部は接続管理へ
+    back = url_for('tenant_storage.storage_settings', store_id=store_id) if session.get('role') == ROLES['ADMIN'] \
+        else url_for('tenant_storage.connections')
 
     db = SessionLocal()
     try:
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この割当を操作する権限がありません', 'error')
+            return redirect(back)
         if not conn_raw:
             # 割当解除（本部既定にフォールバック）
             aq = db.query(TStoreStorageAssignment).filter(
@@ -770,10 +801,10 @@ def assign_connection():
             else:
                 _set_primary_assignment(db, tenant_id, store_id, cid)
                 db.commit()
-                flash('割当を保存しました', 'success')
+                flash('使用する接続を切り替えました', 'success')
     finally:
         db.close()
-    return redirect(url_for('tenant_storage.connections'))
+    return redirect(back)
 
 
 @bp.route('/connections/<int:connection_id>/rename', methods=['POST'])

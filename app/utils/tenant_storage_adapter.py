@@ -422,13 +422,11 @@ class CloudinaryAdapter(StorageAdapterBase):
         return True
 
 
-def get_storage_adapter(tenant_id: int, store_id: int = None) -> StorageAdapterBase:
-    # 店舗の設定があれば優先し、無ければテナント設定にフォールバック
-    config = get_tenant_storage_config(tenant_id, store_id=store_id)
+def _build_adapter(config, tenant_id: int) -> StorageAdapterBase:
+    """1つの接続設定からアダプタを生成する。"""
     if not config:
-        # ストレージ未設定時はCloudinaryにフォールバック
         return CloudinaryAdapter(tenant_id)
-    provider = (config.provider or '').strip().lower()
+    provider = (getattr(config, 'provider', '') or '').strip().lower()
     if provider == 'dropbox':
         return DropboxAdapter(config, tenant_id)
     elif provider in ('gcs', 'google', 'google_cloud_storage'):
@@ -436,5 +434,97 @@ def get_storage_adapter(tenant_id: int, store_id: int = None) -> StorageAdapterB
     elif provider == 'cloudinary':
         return CloudinaryAdapter(tenant_id)
     else:
-        # 未対応プロバイダーもCloudinaryにフォールバック
         return CloudinaryAdapter(tenant_id)
+
+
+def get_storage_adapter(tenant_id: int, store_id: int = None) -> StorageAdapterBase:
+    # 店舗の設定があれば優先し、無ければテナント設定にフォールバック（使用中=主のみ）
+    config = get_tenant_storage_config(tenant_id, store_id=store_id)
+    if not config:
+        return CloudinaryAdapter(tenant_id)
+    return _build_adapter(config, tenant_id)
+
+
+def _mirror_configs(db, tenant_id, store_id):
+    """指定スコープの「ミラー（is_primary=0）」接続一覧を返す。"""
+    try:
+        if store_id is None:
+            q = text('''
+                SELECT c.* FROM "T_外部ストレージ連携" c
+                JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
+                WHERE a.tenant_id = :t AND a.store_id IS NULL AND a.is_primary = 0
+                      AND a.status = 'active' AND c.status = 'active'
+                ORDER BY a.id ASC
+            ''')
+            return db.execute(q, {"t": tenant_id}).fetchall()
+        q = text('''
+            SELECT c.* FROM "T_外部ストレージ連携" c
+            JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
+            WHERE a.tenant_id = :t AND a.store_id = :s AND a.is_primary = 0
+                  AND a.status = 'active' AND c.status = 'active'
+            ORDER BY a.id ASC
+        ''')
+        return db.execute(q, {"t": tenant_id, "s": store_id}).fetchall()
+    except Exception:
+        return []
+
+
+def get_tenant_storage_configs(tenant_id: int, store_id: int = None):
+    """保存先の全接続（先頭=使用中/主、以降=ミラー）をリストで返す。
+    主が来たスコープ（店舗 or 本部）に合わせて、そのスコープのミラーを付ける。
+    """
+    def _dedupe(prim, mirrors):
+        out = [prim]
+        seen = {getattr(prim, 'id', None)}
+        for m in mirrors:
+            mid = getattr(m, 'id', None)
+            if mid not in seen:
+                seen.add(mid)
+                out.append(m)
+        return out
+
+    db = SessionLocal()
+    try:
+        # 店舗レベルに主がある場合は、店舗のミラーを付ける
+        if store_id:
+            prim = _assigned_connection(db, tenant_id, store_id) or _legacy_config(db, tenant_id, store_id=store_id)
+            if prim:
+                return _dedupe(prim, _mirror_configs(db, tenant_id, store_id))
+        # 本部（テナント）レベル
+        prim = _assigned_connection(db, tenant_id, None) or _legacy_config(db, tenant_id, store_id=None)
+        if prim:
+            return _dedupe(prim, _mirror_configs(db, tenant_id, None))
+        # フォールバック
+        prim = _legacy_config(db, tenant_id, any_scope=True)
+        return [prim] if prim else []
+    finally:
+        db.close()
+
+
+def get_storage_adapters(tenant_id: int, store_id: int = None):
+    """使用中（主）＋ミラー の全アダプタをリストで返す（先頭が主）。"""
+    configs = get_tenant_storage_configs(tenant_id, store_id=store_id)
+    adapters = [_build_adapter(c, tenant_id) for c in configs]
+    if not adapters:
+        adapters = [CloudinaryAdapter(tenant_id)]
+    return adapters
+
+
+def upload_to_adapters(adapters, data_bytes, original_name, client_id,
+                       client_folder_path=None, subfolder=None):
+    """全アダプタ（先頭=主）へ保存する。主のURLを返す。
+    主の失敗は例外送出（保存失敗）。ミラーの失敗は握りつぶす（主が成功していれば保存成立）。
+    """
+    from io import BytesIO
+    primary_url = None
+    for i, ad in enumerate(adapters):
+        try:
+            url = ad.upload(BytesIO(data_bytes), original_name, client_id=client_id,
+                            client_folder_path=client_folder_path, subfolder=subfolder)
+            if i == 0:
+                primary_url = url
+        except Exception:
+            if i == 0:
+                raise
+            # ミラー失敗は無視（主は成功済み）
+    return primary_url

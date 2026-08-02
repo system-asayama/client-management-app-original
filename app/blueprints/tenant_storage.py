@@ -241,15 +241,18 @@ def storage_settings():
                             TStorageConnection.store_id == store_id,
                             TStorageConnection.status == 'active')
                     .order_by(TStorageConnection.id.desc()).all())
+            # この店舗スコープの割当（役割）を取得
+            role_map = {}
+            for a in (db.query(TStoreStorageAssignment)
+                        .filter(TStoreStorageAssignment.tenant_id == tenant_id,
+                                TStoreStorageAssignment.store_id == store_id,
+                                TStoreStorageAssignment.status == 'active').all()):
+                role_map[a.connection_id] = 'primary' if a.is_primary == 1 else 'mirror'
+                if a.is_primary == 1:
+                    current_conn_id = a.connection_id
             store_conns = [{'id': c.id, 'name': c.name or f'接続{c.id}',
-                            'provider': _plabel.get((c.provider or '').lower(), c.provider or '')} for c in cs]
-            a = (db.query(TStoreStorageAssignment)
-                   .filter(TStoreStorageAssignment.tenant_id == tenant_id,
-                           TStoreStorageAssignment.store_id == store_id,
-                           TStoreStorageAssignment.status == 'active',
-                           TStoreStorageAssignment.is_primary == 1)
-                   .order_by(TStoreStorageAssignment.id.desc()).first())
-            current_conn_id = a.connection_id if a else None
+                            'provider': _plabel.get((c.provider or '').lower(), c.provider or ''),
+                            'role': role_map.get(c.id)} for c in cs]
 
         return render_template('tenant_storage_settings.html', view=view,
                                store_id=store_id,
@@ -802,6 +805,74 @@ def assign_connection():
                 _set_primary_assignment(db, tenant_id, store_id, cid)
                 db.commit()
                 flash('使用する接続を切り替えました', 'success')
+    finally:
+        db.close()
+    return redirect(back)
+
+
+def _deactivate_assignment(db, tenant_id, store_id, connection_id):
+    """指定スコープ・指定接続の有効な割当（主/ミラー問わず）を無効化する。"""
+    from app.models_integrations import TStoreStorageAssignment
+    q = db.query(TStoreStorageAssignment).filter(
+        TStoreStorageAssignment.tenant_id == tenant_id,
+        TStoreStorageAssignment.connection_id == connection_id,
+        TStoreStorageAssignment.status == 'active')
+    q = q.filter(TStoreStorageAssignment.store_id.is_(None)) if store_id is None \
+        else q.filter(TStoreStorageAssignment.store_id == store_id)
+    for a in q.all():
+        a.status = 'inactive'
+        a.is_primary = 0
+
+
+@bp.route('/connections/role', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def set_connection_role():
+    """接続の役割を設定: primary=主に使用 / mirror=ミラー(同時保存) / off=保存先から外す。"""
+    from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    raw = request.form.get('store_id')
+    store_id = int(raw) if (raw and raw.isdigit()) else None
+    conn_raw = request.form.get('connection_id')
+    role = (request.form.get('role') or '').strip()
+    back = url_for('tenant_storage.storage_settings', store_id=store_id) if session.get('role') == ROLES['ADMIN'] \
+        else url_for('tenant_storage.connections')
+
+    db = SessionLocal()
+    try:
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この操作の権限がありません', 'error')
+            return redirect(back)
+        if not conn_raw:
+            return redirect(back)
+        cid = int(conn_raw)
+        conn = db.query(TStorageConnection).filter(
+            TStorageConnection.id == cid,
+            TStorageConnection.tenant_id == tenant_id,
+            TStorageConnection.status == 'active').first()
+        if not conn:
+            flash('指定した接続が見つかりません', 'error')
+            return redirect(back)
+
+        if role == 'primary':
+            _deactivate_assignment(db, tenant_id, store_id, cid)
+            _set_primary_assignment(db, tenant_id, store_id, cid)
+            db.commit()
+            flash('使用中（主）に設定しました', 'success')
+        elif role == 'mirror':
+            _deactivate_assignment(db, tenant_id, store_id, cid)
+            db.add(TStoreStorageAssignment(
+                tenant_id=tenant_id, store_id=store_id,
+                connection_id=cid, is_primary=0, status='active'))
+            db.commit()
+            flash('ミラー（同時保存先）に追加しました', 'success')
+        elif role == 'off':
+            _deactivate_assignment(db, tenant_id, store_id, cid)
+            db.commit()
+            flash('保存先から外しました', 'success')
+        else:
+            flash('不正な操作です', 'error')
     finally:
         db.close()
     return redirect(back)

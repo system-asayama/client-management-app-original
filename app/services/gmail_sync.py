@@ -23,7 +23,7 @@ from app.models_integrations import (
 )
 from app.models_clients import TClient, TFile
 from app.utils.integrations.gmail_imap import GmailImapClient, GmailImapError
-from app.utils.tenant_storage_adapter import get_storage_adapter
+from app.utils.tenant_storage_adapter import get_storage_adapters, upload_to_adapters
 
 
 def get_active_setting(db, tenant_id: int):
@@ -107,11 +107,11 @@ def sync_tenant(tenant_id: int) -> dict:
             client.close()
 
         result['messages'] = len(messages)
-        _adapter_cache = {}
-        def _adapter_for(store_id):
-            if store_id not in _adapter_cache:
-                _adapter_cache[store_id] = get_storage_adapter(tenant_id, store_id=store_id)
-            return _adapter_cache[store_id]
+        _adapters_cache = {}
+        def _adapters_for(store_id):
+            if store_id not in _adapters_cache:
+                _adapters_cache[store_id] = get_storage_adapters(tenant_id, store_id=store_id)
+            return _adapters_cache[store_id]
 
         for msg in messages:
             sender = msg['from']
@@ -129,9 +129,9 @@ def sync_tenant(tenant_id: int) -> dict:
                     continue
                 try:
                     folder_path = client_obj.storage_folder_path if client_obj else None
-                    adapter = _adapter_for(getattr(client_obj, 'store_id', None) if client_obj else None)
-                    storage_url = adapter.upload(
-                        BytesIO(att['data']), filename,
+                    adapters = _adapters_for(getattr(client_obj, 'store_id', None) if client_obj else None)
+                    storage_url = upload_to_adapters(
+                        adapters, att['data'], filename,
                         client_id=(client_obj.id if client_obj else 0),
                         client_folder_path=folder_path,
                         subfolder=subfolder,

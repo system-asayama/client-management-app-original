@@ -181,7 +181,10 @@
 <!-- この店舗の接続一覧＆使用中の切替（2つ目以降の管理） -->
 {% if store_conns and store_conns|length > 0 %}
 <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
-  <div style="font-weight:700;color:#1a3a5c;margin-bottom:.5rem;">この店舗に登録済みの接続</div>
+  <div style="font-weight:700;color:#1a3a5c;margin-bottom:.3rem;">この店舗に登録済みの接続</div>
+  <div style="color:#889;font-size:.8rem;margin-bottom:.5rem;">
+    <strong>主</strong>＝保存に使用／<strong>ミラー</strong>＝主と同時に二重保存／未使用＝保存しない
+  </div>
   <div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:.86rem;">
       <tbody>
@@ -189,15 +192,30 @@
         <tr style="border-bottom:1px solid #f1f4f8;">
           <td style="padding:.5rem .3rem;">
             {{ c.name }} <span style="color:#889;font-size:.8rem;">（{{ c.provider }}）</span>
-            {% if c.id == current_conn_id %}<span style="background:#e3f6e8;color:#1e8a4c;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;margin-left:.3rem;">使用中</span>{% endif %}
+            {% if c.role == 'primary' %}<span style="background:#e3f6e8;color:#1e8a4c;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;margin-left:.3rem;">主（使用中）</span>
+            {% elif c.role == 'mirror' %}<span style="background:#e8f0fb;color:#2563a8;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;margin-left:.3rem;">ミラー</span>
+            {% else %}<span style="background:#f1f1f4;color:#8a8f98;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;margin-left:.3rem;">未使用</span>{% endif %}
           </td>
-          <td style="padding:.5rem .3rem;text-align:right;">
-            {% if c.id != current_conn_id %}
-            <form method="post" action="{{ url_for('tenant_storage.assign_connection') }}" style="display:inline;">
+          <td style="padding:.5rem .3rem;text-align:right;white-space:nowrap;">
+            {% if c.role != 'primary' %}
+            <form method="post" action="{{ url_for('tenant_storage.set_connection_role') }}" style="display:inline;">
               {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
-              <input type="hidden" name="store_id" value="{{ store_id }}">
-              <input type="hidden" name="connection_id" value="{{ c.id }}">
-              <button type="submit" style="background:#eef2f7;color:#1a3a5c;border:0;border-radius:8px;padding:.35rem .8rem;font-size:.8rem;font-weight:600;cursor:pointer;">これを使用</button>
+              <input type="hidden" name="store_id" value="{{ store_id }}"><input type="hidden" name="connection_id" value="{{ c.id }}"><input type="hidden" name="role" value="primary">
+              <button type="submit" style="background:#eef2f7;color:#1a3a5c;border:0;border-radius:8px;padding:.3rem .6rem;font-size:.78rem;font-weight:600;cursor:pointer;">主にする</button>
+            </form>
+            {% endif %}
+            {% if c.role != 'mirror' and c.role != 'primary' %}
+            <form method="post" action="{{ url_for('tenant_storage.set_connection_role') }}" style="display:inline;">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <input type="hidden" name="store_id" value="{{ store_id }}"><input type="hidden" name="connection_id" value="{{ c.id }}"><input type="hidden" name="role" value="mirror">
+              <button type="submit" style="background:#e8f0fb;color:#2563a8;border:0;border-radius:8px;padding:.3rem .6rem;font-size:.78rem;font-weight:600;cursor:pointer;">ミラーに追加</button>
+            </form>
+            {% endif %}
+            {% if c.role %}
+            <form method="post" action="{{ url_for('tenant_storage.set_connection_role') }}" style="display:inline;">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <input type="hidden" name="store_id" value="{{ store_id }}"><input type="hidden" name="connection_id" value="{{ c.id }}"><input type="hidden" name="role" value="off">
+              <button type="submit" style="background:#fff;color:#c0392b;border:1px solid #f5b7c0;border-radius:8px;padding:.3rem .6rem;font-size:.78rem;font-weight:600;cursor:pointer;">外す</button>
             </form>
             {% endif %}
           </td>
@@ -210,7 +228,7 @@
 {% endif %}
 
 <div class="viewing-as-banner" style="background:#f5f9ff;color:#33507a;border:1px solid #d8e6fb;">
-  ➕ <strong>2つ目以降の接続を追加</strong>するには、下の <strong>Dropbox</strong> または <strong>Google Cloud Storage</strong> をもう一度選んで接続してください。追加した接続がこの店舗の「使用中」になります（過去の接続は上の一覧から切り替えられます）。
+  ➕ <strong>2つ目以降の接続を追加</strong>するには、下の <strong>Dropbox</strong> または <strong>Google Cloud Storage</strong> をもう一度選んで接続してください。追加後、上の一覧で <strong>「ミラーに追加」</strong>を押すと、主と<strong>同時に二重保存</strong>されます。
 </div>
 {% endif %}
 

@@ -319,10 +319,12 @@
     <div class="page-title">📂 Dropbox 連携設定</div>
     <div class="page-desc">Dropboxアカウントと連携して、ファイルを保存できるようにします。</div>
 
+    {% if session.get('role') in ['system_admin', 'tenant_admin', 'app_manager'] %}
     <div style="background:#fff4e5;border:1px solid #ffd59e;color:#8a4b11;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem;font-size:.86rem;line-height:1.6;">
       ⚠️ 連携時に「This app has reached its user limit」と出る場合は、共有アプリの上限に達しています。
       <a href="{{ url_for('tenant_storage.dropbox_app', store_id=store_id) }}"><strong>この事務所専用のDropboxアプリを設定</strong></a>すると回避できます（手順書つき）。
     </div>
+    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}

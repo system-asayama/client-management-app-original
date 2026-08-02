@@ -133,6 +133,26 @@ def _scope_store_id(db, tenant_id):
     return sid if row else None
 
 
+def _scope_access_ok(db, tenant_id, store_id):
+    """このスコープ（テナント全体 or 店舗）を操作してよいユーザーか判定する。
+    - 本部系（system_admin / tenant_admin / app_manager）: テナント全体・任意店舗OK
+    - 店舗管理者（admin）: 自分が所属する店舗のみOK（テナント全体設定は不可）
+    """
+    role = session.get('role')
+    if role in (ROLES['SYSTEM_ADMIN'], ROLES['TENANT_ADMIN'], ROLES['APP_MANAGER']):
+        return True
+    if role == ROLES['ADMIN']:
+        if not store_id:
+            return False  # 店舗管理者はテナント全体（本部）設定は不可
+        try:
+            row = db.execute(text('SELECT 1 FROM "T_管理者_店舗" WHERE admin_id = :a AND store_id = :s'),
+                             {"a": session.get('user_id'), "s": store_id}).fetchone()
+            return bool(row)
+        except Exception:
+            return False
+    return False
+
+
 def _scope_name(db, tenant_id, store_id):
     """スコープの表示名（店舗名 or テナント全体）。
     T_店舗 の店舗名カラムは「名称」（日本語）なので name にエイリアスして取得する。
@@ -193,7 +213,7 @@ def _build_view(storage_config):
 # 一覧ページ（トップ）
 # ===========================
 @bp.route('/', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def storage_settings():
     """ストレージ連携設定トップ（一覧）"""
     tenant_id = session.get('tenant_id')
@@ -204,6 +224,9 @@ def storage_settings():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この設定を操作する権限がありません（店舗管理者は自店のみ設定できます）', 'error')
+            return redirect(url_for('staff_mypage.dashboard'))
         storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
         return render_template('tenant_storage_settings.html', view=view,
@@ -217,7 +240,7 @@ def storage_settings():
 # Dropbox 設定ページ
 # ===========================
 @bp.route('/dropbox', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def storage_dropbox():
     """Dropbox連携設定ページ"""
     tenant_id = session.get('tenant_id')
@@ -228,6 +251,9 @@ def storage_dropbox():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この設定を操作する権限がありません（店舗管理者は自店のみ設定できます）', 'error')
+            return redirect(url_for('staff_mypage.dashboard'))
         storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
 
@@ -258,7 +284,7 @@ def storage_dropbox():
 # Dropbox OAuth2 認可フロー
 # ===========================
 @bp.route('/dropbox/oauth/start', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_oauth_start():
     """DropboxのOAuth2認可フローを開始する"""
     from dropbox import DropboxOAuth2Flow
@@ -270,8 +296,12 @@ def dropbox_oauth_start():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        access_ok = _scope_access_ok(db, tenant_id, store_id)
     finally:
         db.close()
+    if not access_ok:
+        flash('この設定を操作する権限がありません（店舗管理者は自店のみ設定できます）', 'error')
+        return redirect(url_for('staff_mypage.dashboard'))
     # OAuthラウンドトリップ後もスコープを保持
     session['dropbox_scope_store_id'] = store_id
 
@@ -294,7 +324,7 @@ def dropbox_oauth_start():
 
 
 @bp.route('/dropbox/oauth/callback', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def dropbox_oauth_callback():
     """DropboxのOAuth2コールバック処理"""
     from dropbox import DropboxOAuth2Flow
@@ -306,6 +336,14 @@ def dropbox_oauth_callback():
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
         return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
+    _db = SessionLocal()
+    try:
+        _ok = _scope_access_ok(_db, tenant_id, store_id)
+    finally:
+        _db.close()
+    if not _ok:
+        flash('この設定を操作する権限がありません', 'error')
+        return redirect(url_for('staff_mypage.dashboard'))
 
     redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
     # App Key/Secret はテナント専用アプリ優先（無ければ共通の既定値）
@@ -461,6 +499,8 @@ def dropbox_folders():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            return jsonify({'error': '権限がありません'}), 403
         storage_config = _get_storage_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
@@ -520,6 +560,8 @@ def dropbox_create_folder():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            return jsonify({'error': '権限がありません'}), 403
         storage_config = _get_storage_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
@@ -562,6 +604,8 @@ def dropbox_set_folder():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            return jsonify({'error': '権限がありません'}), 403
         storage_config = _get_storage_config(db, tenant_id, store_id)
         if not storage_config or storage_config.provider != 'dropbox':
             return jsonify({'error': 'Dropboxが設定されていません'}), 400
@@ -591,7 +635,7 @@ def dropbox_set_folder():
 # Google Cloud Storage 設定ページ
 # ===========================
 @bp.route('/gcs', methods=['GET', 'POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def storage_gcs():
     """Google Cloud Storage連携設定ページ"""
     tenant_id = session.get('tenant_id')
@@ -602,6 +646,9 @@ def storage_gcs():
     db = SessionLocal()
     try:
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この設定を操作する権限がありません（店舗管理者は自店のみ設定できます）', 'error')
+            return redirect(url_for('staff_mypage.dashboard'))
         storage_config = _get_storage_config(db, tenant_id, store_id)
         view = _build_view(storage_config)
 
@@ -783,7 +830,7 @@ def connection_delete(connection_id):
 # 連携解除
 # ===========================
 @bp.route('/disconnect', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def disconnect_storage():
     """ストレージ連携を解除"""
     tenant_id = session.get('tenant_id')
@@ -798,6 +845,9 @@ def disconnect_storage():
     try:
         from app.models_integrations import TStoreStorageAssignment
         store_id = _scope_store_id(db, tenant_id)
+        if not _scope_access_ok(db, tenant_id, store_id):
+            flash('この設定を操作する権限がありません', 'error')
+            return redirect(url_for('staff_mypage.dashboard'))
         cfg = _get_storage_config(db, tenant_id, store_id)
         # 現在このスコープが使っている接続が、このスコープ自身の登録か（継承した本部既定でないか）
         own = bool(cfg and getattr(cfg, 'store_id', None) == store_id)

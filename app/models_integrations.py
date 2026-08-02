@@ -188,6 +188,7 @@ class TStorageConnection(Base):
     bucket_name = Column(Text, nullable=True)
     service_account_json = Column(Text, nullable=True)
     base_folder_path = Column(Text, nullable=True)
+    account_ref = Column(String(255), nullable=True)   # プロバイダのアカウント識別子（重複防止）
     status = Column(String(20), nullable=True, default='active')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

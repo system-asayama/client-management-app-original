@@ -65,6 +65,54 @@ def _add_connection(db, tenant_id, scope_store_id, name=None, **fields):
     return conn
 
 
+def _dropbox_account_ref(access_token, refresh_token, tenant_id):
+    """Dropboxアカウントの識別子（account_id）を取得する。失敗時は None。"""
+    try:
+        import dropbox
+        if refresh_token:
+            app_key, app_secret = get_dropbox_app_credentials(tenant_id)
+            dbx = dropbox.Dropbox(oauth2_refresh_token=refresh_token,
+                                  app_key=app_key, app_secret=app_secret)
+        else:
+            dbx = dropbox.Dropbox(oauth2_access_token=access_token)
+        acc = dbx.users_get_current_account()
+        return getattr(acc, 'account_id', None)
+    except Exception:
+        return None
+
+
+def _connect_dropbox(db, tenant_id, store_id, access_token, refresh_token, name,
+                     base_folder_path=None):
+    """Dropbox接続を追加。ただし同じアカウントが同スコープに既にあれば、
+    新規作成せず既存を更新（重複を作らない）。戻り値: (接続, 更新したか)。
+    """
+    from app.models_integrations import TStorageConnection
+    account_ref = _dropbox_account_ref(access_token, refresh_token, tenant_id)
+    existing = None
+    if account_ref:
+        q = db.query(TStorageConnection).filter(
+            TStorageConnection.tenant_id == tenant_id,
+            TStorageConnection.provider == 'dropbox',
+            TStorageConnection.status == 'active',
+            TStorageConnection.account_ref == account_ref)
+        q = q.filter(TStorageConnection.store_id.is_(None)) if store_id is None \
+            else q.filter(TStorageConnection.store_id == store_id)
+        existing = q.order_by(TStorageConnection.id.desc()).first()
+    if existing:
+        existing.access_token = access_token
+        if refresh_token:
+            existing.refresh_token = refresh_token
+        if base_folder_path is not None:
+            existing.base_folder_path = base_folder_path
+        existing.status = 'active'
+        _set_primary_assignment(db, tenant_id, store_id, existing.id)
+        return existing, True
+    conn = _add_connection(db, tenant_id, store_id, name=name, provider='dropbox',
+                           access_token=access_token, refresh_token=refresh_token,
+                           account_ref=account_ref, base_folder_path=base_folder_path)
+    return conn, False
+
+
 def _store_name(db, tenant_id, store_id):
     if not store_id:
         return None
@@ -302,13 +350,13 @@ def storage_dropbox():
             base_folder_path = request.form.get('base_folder_path', '').strip()
 
             if access_token:
-                # 接続プールに追加し、このスコープの主接続に割当
-                _add_connection(db, tenant_id, store_id,
-                                name=_default_conn_name(db, tenant_id, store_id, 'dropbox'),
-                                provider='dropbox', access_token=access_token,
-                                base_folder_path=base_folder_path or None)
+                # 同じアカウントなら重複を作らず既存を更新
+                _, updated = _connect_dropbox(
+                    db, tenant_id, store_id, access_token, None,
+                    name=_default_conn_name(db, tenant_id, store_id, 'dropbox'),
+                    base_folder_path=base_folder_path or None)
                 db.commit()
-                flash('Dropbox連携を設定しました', 'success')
+                flash('既存の接続を更新しました（重複は作成していません）' if updated else 'Dropbox連携を設定しました', 'success')
                 return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
             else:
                 flash('アクセストークンを入力してください', 'error')
@@ -404,13 +452,12 @@ def dropbox_oauth_callback():
 
         db = SessionLocal()
         try:
-            # 接続プールに追加し、このスコープの主接続に割当
-            _add_connection(db, tenant_id, store_id,
-                            name=_default_conn_name(db, tenant_id, store_id, 'dropbox'),
-                            provider='dropbox', access_token=access_token,
-                            refresh_token=refresh_token)
+            # 同じアカウントなら重複を作らず既存を更新
+            _, updated = _connect_dropbox(
+                db, tenant_id, store_id, access_token, refresh_token,
+                name=_default_conn_name(db, tenant_id, store_id, 'dropbox'))
             db.commit()
-            flash('Dropboxとの連携が完了しました！', 'success')
+            flash('既存のDropbox接続を更新しました（重複は作成していません）' if updated else 'Dropboxとの連携が完了しました！', 'success')
         except Exception as e:
             db.rollback()
             flash(f'DB保存に失敗しました: {e}', 'error')

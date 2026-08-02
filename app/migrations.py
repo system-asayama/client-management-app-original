@@ -125,6 +125,8 @@ def run_migrations():
             ("T_外部ストレージ連携", "store_id", "INTEGER NULL"),
             # 接続プール化: 接続の表示名（本部/店舗で複数登録・割当するため）
             ("T_外部ストレージ連携", "name", "VARCHAR(255) NULL"),
+            # 重複防止: プロバイダのアカウント識別子（同じアカウントの再連携で重複を作らない）
+            ("T_外部ストレージ連携", "account_ref", "VARCHAR(255) NULL"),
             # ChatWork連携ルームを担当ごとのアカウントに紐付け可能にする（NULL=テナント共通）
             ("T_ChatWork連携ルーム", "staff_account_id", "INTEGER NULL"),
             ("truck_routes", "client_id", "INTEGER NULL"),

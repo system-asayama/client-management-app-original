@@ -1460,6 +1460,33 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: T_外部ストレージ連携にaccount_refカラムを追加（同一アカウント再連携の重複防止）
+        print("\n[マイグレーション] T_外部ストレージ連携にaccount_refカラムを追加")
+        try:
+            if _is_pg(conn):
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'T_外部ストレージ連携' AND column_name = 'account_ref'
+                """)
+                if not cur.fetchone():
+                    cur.execute('ALTER TABLE "T_外部ストレージ連携" ADD COLUMN account_ref VARCHAR(255)')
+                    conn.commit()
+                    print("  ✅ account_refカラムを追加しました")
+                else:
+                    print("  ℹ️  account_refカラムは既に存在します（スキップ）")
+            else:
+                cur.execute("PRAGMA table_info('T_外部ストレージ連携')")
+                cols = [row[1] for row in cur.fetchall()]
+                if 'account_ref' not in cols:
+                    cur.execute('ALTER TABLE "T_外部ストレージ連携" ADD COLUMN account_ref VARCHAR(255)')
+                    conn.commit()
+                    print("  ✅ account_refカラムを追加しました")
+                else:
+                    print("  ℹ️  account_refカラムは既に存在します（スキップ）")
+        except Exception as e:
+            print(f"  ⚠️  マイグレーションエラー: {e}")
+            conn.rollback()
+
         # マイグレーション: T_ChatWork連携ルームにstaff_account_idカラムを追加（NULL=テナント共通、値=担当ごと）
         print("\n[マイグレーション] T_ChatWork連携ルームにstaff_account_idカラムを追加")
         try:

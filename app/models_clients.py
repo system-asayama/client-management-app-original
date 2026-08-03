@@ -18,6 +18,7 @@ class TClient(Base):
     phone = Column(String(50))
     notes = Column(Text)
     bookkeeping_instructions = Column(Text)  # AI記帳指示書（日々の記帳をAIに任せるためのルール・指示）
+    accounting_software = Column(String(100))  # 使用会計ソフト（freee/マネーフォワード/その他は自由記入）
     storage_folder_path = Column(String(500))  # ストレージ内の保存先フォルダパス（例: /clients/株式会社A）
     store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)  # 担当店舗ID（店舗ベースアーキテクチャ対応）
 

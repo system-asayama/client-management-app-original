@@ -585,10 +585,25 @@ def bookkeeping_instructions(client_id):
             return redirect(url_for('clients.clients'))
         if request.method == 'POST':
             c.bookkeeping_instructions = request.form.get('bookkeeping_instructions') or None
+            # 会計ソフト: freee/マネーフォワード はそのまま、その他は自由記入を採用
+            choice = (request.form.get('accounting_software_choice') or '').strip()
+            if choice == 'その他':
+                c.accounting_software = (request.form.get('accounting_software_other') or '').strip() or None
+            else:
+                c.accounting_software = choice or None
             db.commit()
             flash('AI記帳指示書を保存しました', 'success')
             return redirect(url_for('clients.bookkeeping_instructions', client_id=client_id))
-        return render_template('bookkeeping_instructions.html', client=c)
+        # 表示用: 現在の選択状態を判定
+        sw = c.accounting_software
+        if sw in ('freee', 'マネーフォワード'):
+            sw_choice, sw_other = sw, ''
+        elif sw:
+            sw_choice, sw_other = 'その他', sw
+        else:
+            sw_choice, sw_other = '', ''
+        return render_template('bookkeeping_instructions.html', client=c,
+                               sw_choice=sw_choice, sw_other=sw_other)
     finally:
         db.close()
 

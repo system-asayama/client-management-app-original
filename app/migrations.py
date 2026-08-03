@@ -131,6 +131,8 @@ def run_migrations():
             ("T_店舗", "storage_isolated", "INTEGER DEFAULT 0"),
             # AI記帳指示書（顧問先ごと・日々の記帳をAIに任せるための指示）
             ("T_顧問先", "bookkeeping_instructions", "TEXT NULL"),
+            # 使用会計ソフト（freee/マネーフォワード/その他）
+            ("T_顧問先", "accounting_software", "VARCHAR(100) NULL"),
             # 担当者ごとの個人ストレージ: 接続の所有者と割当の対象担当者
             ("T_外部ストレージ連携", "staff_id", "INTEGER NULL"),
             ("T_外部ストレージ連携", "staff_type", "VARCHAR(20) NULL"),

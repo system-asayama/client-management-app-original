@@ -44,8 +44,25 @@
 
   <form method="post" action="{{ url_for('clients.bookkeeping_instructions', client_id=client.id) }}">
     {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+    <div class="bk-card" style="margin-bottom:1rem;">
+      <label style="display:block;font-weight:700;color:#1a3a5c;margin-bottom:.4rem;">使用している会計ソフト</label>
+      <select name="accounting_software_choice" id="swChoice"
+              style="width:100%;padding:.6rem .7rem;border:1px solid #cbd5e1;border-radius:10px;font-size:.92rem;box-sizing:border-box;"
+              onchange="document.getElementById('swOtherWrap').style.display = this.value==='その他' ? 'block' : 'none';">
+        <option value="" {% if not sw_choice %}selected{% endif %}>— 選択してください —</option>
+        <option value="freee" {% if sw_choice=='freee' %}selected{% endif %}>freee</option>
+        <option value="マネーフォワード" {% if sw_choice=='マネーフォワード' %}selected{% endif %}>マネーフォワード</option>
+        <option value="その他" {% if sw_choice=='その他' %}selected{% endif %}>その他（自分で記入）</option>
+      </select>
+      <div id="swOtherWrap" style="margin-top:.6rem;{% if sw_choice!='その他' %}display:none;{% endif %}">
+        <input type="text" name="accounting_software_other" value="{{ sw_other }}"
+               placeholder="会計ソフト名を入力（例：弥生会計、勘定奉行 など）"
+               style="width:100%;padding:.6rem .7rem;border:1px solid #cbd5e1;border-radius:10px;font-size:.92rem;box-sizing:border-box;">
+      </div>
+    </div>
     <div class="bk-card">
-      <textarea name="bookkeeping_instructions" placeholder="例）&#10;・会計ソフト：freee（法人・原則課税）&#10;・売上は請求書ベースで計上。入金は普通預金(freee)に自動連携。&#10;・Amazon購入は「消耗品費」、10万円以上は要確認。&#10;・毎月25日 家賃 200,000円/地代家賃、リース 50,000円。&#10;・不明な取引は記帳せず、チャットで担当に確認する。">{{ client.bookkeeping_instructions or '' }}</textarea>
+      <label style="display:block;font-weight:700;color:#1a3a5c;margin-bottom:.4rem;">記帳のルール・指示</label>
+      <textarea name="bookkeeping_instructions" placeholder="例）&#10;・売上は請求書ベースで計上。入金は普通預金に自動連携。&#10;・Amazon購入は「消耗品費」、10万円以上は要確認。&#10;・毎月25日 家賃 200,000円/地代家賃、リース 50,000円。&#10;・不明な取引は記帳せず、チャットで担当に確認する。">{{ client.bookkeeping_instructions or '' }}</textarea>
       <div style="margin-top:1rem;display:flex;gap:.6rem;flex-wrap:wrap;">
         <button type="submit" class="btn btn-primary">保存する</button>
       </div>

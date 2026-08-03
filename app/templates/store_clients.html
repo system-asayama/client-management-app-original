@@ -209,10 +209,28 @@
   </div>
 
   {% if clients %}
+  <!-- 一括操作バー -->
+  <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem;background:#f7f9fc;border:1px solid #e5e9f0;border-radius:10px;padding:.6rem .8rem;">
+    <span style="font-size:.85rem;color:#556;">選択した顧問先のステータスを一括更新：</span>
+    <span id="chkCount" style="font-size:.82rem;color:#667;font-weight:700;">0件選択</span>
+    <select id="bulkStatusSel" style="padding:.4rem .5rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;">
+      <option value="">ステータスを選択</option>
+      {% for s in ['契約中','検討中','未契約','解約'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <button type="button" class="btn btn-primary" style="padding:.45rem .9rem;font-size:.85rem;" onclick="applyBulkStatus()">選択を一括更新</button>
+  </div>
+  <form id="bulkStatusForm" method="post" action="{{ url_for('clients.bulk_status') }}" style="display:none;">
+    {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+    <input type="hidden" name="status" id="bulkStatusField">
+    <input type="hidden" name="back" value="{{ request.full_path }}">
+    <div id="bulkIdsContainer"></div>
+  </form>
+
   <div style="overflow-x:auto;">
     <table class="clients-table">
       <thead>
         <tr>
+          <th><input type="checkbox" id="chkAll" onclick="toggleAllChk(this)"></th>
           <th>区分</th>
           <th>顧問先名</th>
           <th>電話番号</th>
@@ -224,6 +242,7 @@
       <tbody>
         {% for c in clients %}
         <tr>
+          <td><input type="checkbox" class="rowchk" value="{{ c.id }}" onchange="updateChkCount()"></td>
           <td>
             {% if c.type == '法人' %}
               <span class="badge badge-corp">法人</span>
@@ -262,4 +281,32 @@
   </div>
   {% endif %}
 </div>
+
+<script>
+function updateChkCount() {
+  var n = document.querySelectorAll('.rowchk:checked').length;
+  var el = document.getElementById('chkCount');
+  if (el) el.innerText = n + '件選択';
+}
+function toggleAllChk(el) {
+  document.querySelectorAll('.rowchk').forEach(function(c){ c.checked = el.checked; });
+  updateChkCount();
+}
+function applyBulkStatus() {
+  var st = document.getElementById('bulkStatusSel').value;
+  if (!st) { alert('ステータスを選択してください'); return; }
+  var ids = Array.prototype.slice.call(document.querySelectorAll('.rowchk:checked')).map(function(c){ return c.value; });
+  if (!ids.length) { alert('顧問先を選択してください'); return; }
+  if (!confirm(ids.length + '件のステータスを「' + st + '」に更新します。よろしいですか？')) return;
+  document.getElementById('bulkStatusField').value = st;
+  var cont = document.getElementById('bulkIdsContainer');
+  cont.innerHTML = '';
+  ids.forEach(function(id){
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = 'client_ids'; i.value = id;
+    cont.appendChild(i);
+  });
+  document.getElementById('bulkStatusForm').submit();
+}
+</script>
 {% endblock %}

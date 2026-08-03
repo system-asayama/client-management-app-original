@@ -625,6 +625,37 @@ def bookkeeping_instructions(client_id):
         db.close()
 
 
+@bp.route('/bulk_status', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def bulk_status():
+    """選択した顧問先の契約ステータスを一括更新する。"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    status = request.form.get('status') or ''
+    ids = [int(i) for i in request.form.getlist('client_ids') if str(i).isdigit()]
+    back = request.form.get('back') or url_for('clients.clients')
+    if status not in ('契約中', '解約', '検討中', '未契約'):
+        flash('ステータスを選択してください', 'error')
+        return redirect(back)
+    if not ids:
+        flash('顧問先が選択されていません', 'error')
+        return redirect(back)
+    db = SessionLocal()
+    try:
+        n = (db.query(TClient)
+               .filter(TClient.tenant_id == tenant_id, TClient.id.in_(ids))
+               .update({TClient.contract_status: status}, synchronize_session=False))
+        db.commit()
+        flash(f'{n}件のステータスを「{status}」に更新しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'更新に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+    return redirect(back)
+
+
 @bp.route('/<int:client_id>/delete', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def delete_client(client_id):

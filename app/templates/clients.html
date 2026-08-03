@@ -263,18 +263,37 @@
   {% if store_filter == 'unassigned' %}<span style="color:#f59e0b; font-size:0.8rem;">（店舗未割り当て）</span>{% endif %}
 </div>
 
+<!-- 一括操作バー（契約ステータス） -->
+{% if clients %}
+<div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem;background:#f7f9fc;border:1px solid #e5e9f0;border-radius:10px;padding:.6rem .8rem;">
+  <label style="font-size:.85rem;cursor:pointer;"><input type="checkbox" id="chkAll" onclick="toggleAllChk(this)"> 全選択</label>
+  <span id="chkCount" style="font-size:.82rem;color:#667;font-weight:700;">0件選択</span>
+  <span style="font-size:.85rem;color:#556;">ステータスを一括更新：</span>
+  <select id="bulkStatusSel" style="padding:.4rem .5rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;">
+    <option value="">選択</option>
+    {% for s in ['契約中','検討中','未契約','解約'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+  </select>
+  <button type="button" class="btn-add-header" style="border:0;cursor:pointer;padding:.45rem .9rem;" onclick="applyBulkStatus()">選択を更新</button>
+</div>
+<form id="bulkStatusForm" method="post" action="{{ url_for('clients.bulk_status') }}" style="display:none;">
+  {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+  <input type="hidden" name="status" id="bulkStatusField">
+  <input type="hidden" name="back" value="{{ request.full_path }}">
+  <div id="bulkIdsContainer"></div>
+</form>
+{% endif %}
+
 {% if clients %}
 <div class="client-list" id="clientList">
   {% for c in clients %}
   <div class="client-row" id="row-{{ c.id }}"
        data-name="{{ c.name | lower }}" data-email="{{ (c.email or '') | lower }}" data-phone="{{ c.phone or '' }}">
-    {% if store_filter == 'unassigned' and stores %}
     <div class="row-check">
-      <input type="checkbox" name="client_ids" value="{{ c.id }}" form="assignForm"
-             onchange="updateCount()" style="width:18px;height:18px;cursor:pointer;"
-             onclick="toggleRowSelect(this)">
+      <input type="checkbox" class="bulkchk" value="{{ c.id }}"
+             {% if store_filter == 'unassigned' and stores %}name="client_ids" form="assignForm" onclick="toggleRowSelect(this)"{% endif %}
+             onchange="updateBulkCount(); {% if store_filter == 'unassigned' and stores %}updateCount();{% endif %}"
+             style="width:18px;height:18px;cursor:pointer;">
     </div>
-    {% endif %}
     <a href="{{ url_for('clients.client_info', client_id=c.id) }}" class="row-link">
       <div class="client-card-left">
         <div class="client-card-name">{{ c.name }}</div>
@@ -394,6 +413,33 @@ function confirmAssign() {
     return false;
   }
   return confirm(checked + '件の顧問先を「' + store.options[store.selectedIndex].text + '」に割り当てますか？');
+}
+
+// ステータス一括更新
+function updateBulkCount() {
+  var n = document.querySelectorAll('.bulkchk:checked').length;
+  var el = document.getElementById('chkCount');
+  if (el) el.innerText = n + '件選択';
+}
+function toggleAllChk(el) {
+  document.querySelectorAll('.bulkchk').forEach(function(c){ c.checked = el.checked; });
+  updateBulkCount();
+}
+function applyBulkStatus() {
+  var st = document.getElementById('bulkStatusSel').value;
+  if (!st) { alert('ステータスを選択してください'); return; }
+  var ids = Array.prototype.slice.call(document.querySelectorAll('.bulkchk:checked')).map(function(c){ return c.value; });
+  if (!ids.length) { alert('顧問先を選択してください'); return; }
+  if (!confirm(ids.length + '件のステータスを「' + st + '」に更新します。よろしいですか？')) return;
+  document.getElementById('bulkStatusField').value = st;
+  var cont = document.getElementById('bulkIdsContainer');
+  cont.innerHTML = '';
+  ids.forEach(function(id){
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = 'client_ids'; i.value = id;
+    cont.appendChild(i);
+  });
+  document.getElementById('bulkStatusForm').submit();
 }
 </script>
 {% endblock %}

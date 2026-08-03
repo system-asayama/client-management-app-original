@@ -67,8 +67,8 @@ def _add_connection(db, tenant_id, scope_store_id, name=None, **fields):
     return conn
 
 
-def _dropbox_account_ref(access_token, refresh_token, tenant_id):
-    """Dropboxアカウントの識別子（account_id）を取得する。失敗時は None。"""
+def _dropbox_account_info(access_token, refresh_token, tenant_id):
+    """Dropboxアカウントの (account_id, email, 表示名) を取得する。失敗時は (None, None, None)。"""
     try:
         import dropbox
         if refresh_token:
@@ -78,9 +78,16 @@ def _dropbox_account_ref(access_token, refresh_token, tenant_id):
         else:
             dbx = dropbox.Dropbox(oauth2_access_token=access_token)
         acc = dbx.users_get_current_account()
-        return getattr(acc, 'account_id', None)
+        email = getattr(acc, 'email', None)
+        name = getattr(getattr(acc, 'name', None), 'display_name', None)
+        return getattr(acc, 'account_id', None), email, name
     except Exception:
-        return None
+        return None, None, None
+
+
+def _dropbox_account_ref(access_token, refresh_token, tenant_id):
+    """Dropboxアカウントの識別子（account_id）を取得する。失敗時は None。"""
+    return _dropbox_account_info(access_token, refresh_token, tenant_id)[0]
 
 
 def _connect_dropbox(db, tenant_id, store_id, access_token, refresh_token, name,

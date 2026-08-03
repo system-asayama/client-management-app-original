@@ -36,6 +36,15 @@
         <span style="margin-left:.5rem;font-weight:600;">{{ conn.name }}</span>
         <span class="muted">（Dropbox）</span>
       </p>
+      <div style="background:#f5f9ff;border:1px solid #d8e6fb;border-radius:10px;padding:.7rem .9rem;margin-bottom:1rem;">
+        <div style="font-size:.82rem;color:#33507a;">接続先のDropboxアカウント</div>
+        <div style="font-weight:700;color:#1a3a5c;font-size:1rem;word-break:break-all;">
+          {{ conn.account_email or '（アカウント情報を取得できませんでした）' }}
+        </div>
+        <div style="font-size:.8rem;color:#889;margin-top:.3rem;">
+          ✅ これがあなた自身のDropboxか確認してください。違う場合は下の「別のDropboxに繋ぎ直す」から、<strong>正しいアカウントにログインし直して</strong>連携してください。
+        </div>
+      </div>
       <a href="{{ url_for('staff_mypage.storage_dropbox_start') }}" class="btn btn-ghost">別のDropboxに繋ぎ直す</a>
       <form method="post" action="{{ url_for('staff_mypage.storage_disconnect') }}" style="display:inline;margin-left:.4rem;"
             onsubmit="return confirm('個人ストレージ連携を解除します。以後あなた宛のファイルは店舗／本部のストレージに保存されます。よろしいですか？');">

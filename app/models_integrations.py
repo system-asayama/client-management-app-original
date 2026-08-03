@@ -192,6 +192,7 @@ class TStorageConnection(Base):
     service_account_json = Column(Text, nullable=True)
     base_folder_path = Column(Text, nullable=True)
     account_ref = Column(String(255), nullable=True)   # プロバイダのアカウント識別子（重複防止）
+    account_email = Column(String(255), nullable=True)  # 接続先アカウントのメール/表示名（確認用）
     status = Column(String(20), nullable=True, default='active')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

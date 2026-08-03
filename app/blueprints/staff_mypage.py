@@ -1371,8 +1371,10 @@ def _staff_connect_dropbox(db, tenant_id, staff_id, staff_type,
                            access_token, refresh_token, name):
     """担当者の個人Dropbox接続を追加/更新（同一アカウントの重複は作らない）。"""
     from app.models_integrations import TStorageConnection
-    from app.blueprints.tenant_storage import _dropbox_account_ref
-    account_ref = _dropbox_account_ref(access_token, refresh_token, tenant_id)
+    from app.blueprints.tenant_storage import _dropbox_account_info
+    account_ref, account_email, account_name = _dropbox_account_info(access_token, refresh_token, tenant_id)
+    # 表示用の接続先（メール優先、無ければ表示名）
+    account_label = account_email or account_name
     existing = None
     if account_ref:
         existing = (db.query(TStorageConnection)
@@ -1387,13 +1389,16 @@ def _staff_connect_dropbox(db, tenant_id, staff_id, staff_type,
         existing.access_token = access_token
         if refresh_token:
             existing.refresh_token = refresh_token
+        if account_label:
+            existing.account_email = account_label
         existing.status = 'active'
         _staff_set_primary_assignment(db, tenant_id, staff_id, staff_type, existing.id)
         return existing, True
     conn = TStorageConnection(
         tenant_id=tenant_id, staff_id=staff_id, staff_type=staff_type,
         name=name, provider='dropbox', access_token=access_token,
-        refresh_token=refresh_token, account_ref=account_ref, status='active')
+        refresh_token=refresh_token, account_ref=account_ref,
+        account_email=account_label, status='active')
     db.add(conn)
     db.flush()
     _staff_set_primary_assignment(db, tenant_id, staff_id, staff_type, conn.id)
@@ -1435,6 +1440,7 @@ def storage_settings():
                 'name': conn.name or 'Dropbox',
                 'provider': (conn.provider or '').lower(),
                 'account_ref': conn.account_ref,
+                'account_email': conn.account_email,
             }
         return render_template('staff_mypage_storage.html', conn=conn_view)
     finally:

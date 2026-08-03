@@ -127,6 +127,8 @@ def run_migrations():
             ("T_外部ストレージ連携", "name", "VARCHAR(255) NULL"),
             # 重複防止: プロバイダのアカウント識別子（同じアカウントの再連携で重複を作らない）
             ("T_外部ストレージ連携", "account_ref", "VARCHAR(255) NULL"),
+            # 接続先アカウントのメール/表示名（取り違え確認用）
+            ("T_外部ストレージ連携", "account_email", "VARCHAR(255) NULL"),
             # ストレージ隔離（fail-closed）: 専用未設定でもテナント既定に保存しない
             ("T_店舗", "storage_isolated", "INTEGER DEFAULT 0"),
             # AI記帳指示書（顧問先ごと・日々の記帳をAIに任せるための指示）

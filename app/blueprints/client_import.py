@@ -74,6 +74,7 @@ _COL_MAP = {
     'corporate_number': 'tax_id_number', '法人番号': 'tax_id_number',
     'tax_id_number': 'tax_id_number',
     'established_date': 'established_date', '設立年月日': 'established_date',
+    'status': 'contract_status', 'ステータス': 'contract_status', 'contract_status': 'contract_status',
 }
 
 
@@ -158,7 +159,7 @@ def run():
     store_id = int(store_raw) if (store_raw and store_raw.isdigit()) else None
 
     _extra = ('email', 'phone', 'address', 'industry',
-              'fiscal_year_end_month', 'tax_id_number')
+              'fiscal_year_end_month', 'tax_id_number', 'contract_status')
     db = SessionLocal()
     try:
         existing = {_norm(n[0]) for n in

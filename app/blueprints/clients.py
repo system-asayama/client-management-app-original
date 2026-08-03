@@ -280,6 +280,9 @@ def edit_client(client_id):
         if request.method == 'POST':
             client.type = request.form.get('type') or client.type
             client.name = request.form.get('name') or client.name
+            _cs = request.form.get('contract_status')
+            if _cs in ('契約中', '解約', '検討中', '未契約'):
+                client.contract_status = _cs
             client.email = request.form.get('email') or None
             client.phone = request.form.get('phone') or None
             client.notes = request.form.get('notes') or None

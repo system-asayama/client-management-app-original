@@ -42,6 +42,7 @@
       <div class="row"><div class="k">{{ k }}</div><div class="v {% if not v %}empty{% endif %}">{{ v if v else '未登録' }}</div></div>
     {% endmacro %}
     {{ field('区分', client.type) }}
+    {{ field('ステータス', client.contract_status or '契約中') }}
     {{ field('名称', client.name) }}
     {{ field('メールアドレス', client.email) }}
     {{ field('電話番号', client.phone) }}

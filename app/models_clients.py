@@ -13,6 +13,7 @@ class TClient(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
     type = Column(String(50))  # 個人/法人
+    contract_status = Column(String(20), default='契約中')  # 契約中/解約/検討中/未契約
     name = Column(String(255), nullable=False)
     email = Column(String(255))
     phone = Column(String(50))

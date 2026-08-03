@@ -62,6 +62,7 @@ def _get_client_or_raise(ctx, client_id):
 def _client_dict(c, full=False):
     d = {
         'id': c.id, 'name': c.name, 'type': c.type,
+        'contract_status': c.contract_status,
         'email': c.email, 'phone': c.phone, 'store_id': c.store_id,
         'industry': c.industry, 'address': c.address,
     }
@@ -129,6 +130,8 @@ def _h_list_clients(ctx, args):
         q = q.filter((TClient.name.like(like)) | (TClient.email.like(like)))
     if args.get('store_id'):
         q = q.filter(TClient.store_id == int(args['store_id']))
+    if args.get('status'):
+        q = q.filter(TClient.contract_status == args['status'])
     limit = min(int(args.get('limit') or 100), 500)
     rows = q.order_by(TClient.name).limit(limit).all()
     return {'clients': [_client_dict(c) for c in rows], 'count': len(rows)}
@@ -145,7 +148,7 @@ _CLIENT_WRITABLE = {
     'fiscal_year_start_month', 'fiscal_year_end_month', 'established_date',
     'blue_return', 'consumption_tax_payer', 'consumption_tax_method',
     'qualified_invoice_number', 'employee_count', 'contract_start_date',
-    'bookkeeping_instructions', 'accounting_software',
+    'bookkeeping_instructions', 'accounting_software', 'contract_status',
 }
 
 
@@ -429,9 +432,10 @@ _B = lambda desc: {'type': 'boolean', 'description': desc}
 
 TOOLS = [
     _tool('list_clients', 'read',
-          '顧問先の一覧を取得する。query（名前・メール部分一致）、store_id、limit で絞り込み可能。',
+          '顧問先の一覧を取得する。query（名前・メール部分一致）、store_id、status、limit で絞り込み可能。',
           {'query': _S('検索キーワード（顧問先名・メール）'),
            'store_id': _I('店舗IDで絞り込み'),
+           'status': _S('ステータスで絞り込み（契約中/解約/検討中/未契約）'),
            'limit': _I('最大件数（既定100・最大500）')}, [],
           _h_list_clients),
     _tool('get_client', 'read',
@@ -440,6 +444,7 @@ TOOLS = [
     _tool('create_client', 'write',
           '新しい顧問先を登録する。name は必須。担当者トークンの場合は自動でその担当者に割り当てる。',
           {'name': _S('顧問先名（必須）'), 'type': _S('個人/法人'),
+           'contract_status': _S('ステータス（契約中/解約/検討中/未契約）'),
            'email': _S('メール'), 'phone': _S('電話'),
            'address': _S('住所'), 'industry': _S('業種'),
            'notes': _S('備考'), 'store_id': _I('店舗ID')},
@@ -447,7 +452,8 @@ TOOLS = [
     _tool('update_client', 'write',
           '既存の顧問先情報を更新する。指定したフィールドのみ変更する。',
           {'client_id': _I('顧問先ID（必須）'), 'name': _S('顧問先名'),
-           'type': _S('個人/法人'), 'email': _S('メール'), 'phone': _S('電話'),
+           'type': _S('個人/法人'), 'contract_status': _S('ステータス（契約中/解約/検討中/未契約）'),
+           'email': _S('メール'), 'phone': _S('電話'),
            'address': _S('住所'), 'industry': _S('業種'), 'notes': _S('備考'),
            'store_id': _I('店舗ID')},
           ['client_id'], _h_update_client),

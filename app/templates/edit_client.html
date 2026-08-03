@@ -147,6 +147,15 @@
           </select>
         </div>
         <div class="form-row">
+          <label>ステータス</label>
+          <select name="contract_status">
+            {% set _st = client.contract_status or '契約中' %}
+            {% for s in ['契約中', '検討中', '未契約', '解約'] %}
+            <option value="{{ s }}" {% if _st == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
           <label>
             {% if profession == 'legal' %}依頼者名 / 案件名
             {% elif profession == 'sr' %}会社名 / 事業所名

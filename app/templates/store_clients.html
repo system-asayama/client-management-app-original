@@ -192,6 +192,9 @@
           </td>
           <td>
             <a class="client-name-link" href="{{ url_for('clients.client_info', client_id=c.id) }}">{{ c.name }}</a>
+            {% set cs = c.contract_status or '契約中' %}
+            {% set cs_style = {'契約中':'background:#e3f6e8;color:#1e8a4c;','検討中':'background:#fff4e0;color:#b26a00;','未契約':'background:#f1f1f4;color:#8a8f98;','解約':'background:#fdece9;color:#c0392b;'} %}
+            <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.7rem;font-weight:700;margin-left:.3rem;{{ cs_style.get(cs, 'background:#eef2f7;color:#1a3a5c;') }}">{{ cs }}</span>
           </td>
           <td>{{ c.phone or '' }}</td>
           <td>{{ c.email or '' }}</td>

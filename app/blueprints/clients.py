@@ -94,6 +94,19 @@ def clients():
             query = query.filter(TClient.store_id == None)
         elif store_filter and store_filter.isdigit():
             query = query.filter(TClient.store_id == int(store_filter))
+        # 絞り込み（名称・区分・決算月・ステータス）
+        f_q = (request.args.get('q') or '').strip()
+        f_type = request.args.get('type') or ''
+        f_month = request.args.get('fiscal_month') or ''
+        f_status = request.args.get('status') or ''
+        if f_q:
+            query = query.filter(TClient.name.like(f'%{f_q}%'))
+        if f_type in ('個人', '法人'):
+            query = query.filter(TClient.type == f_type)
+        if f_month.isdigit() and 1 <= int(f_month) <= 12:
+            query = query.filter(TClient.fiscal_year_end_month == int(f_month))
+        if f_status in ('契約中', '解約', '検討中', '未契約'):
+            query = query.filter(TClient.contract_status == f_status)
         clients = query.order_by(TClient.id.desc()).all()
         profession = _get_profession(tenant_id)
         # 店舗一覧を取得
@@ -103,7 +116,8 @@ def clients():
         ).order_by(TTenpo.id).all()
         return render_template('clients.html', clients=clients, profession=profession,
                                profession_label=PROFESSION_LABELS.get(profession, ''),
-                               stores=stores, store_filter=store_filter)
+                               stores=stores, store_filter=store_filter,
+                               filters={'q': f_q, 'type': f_type, 'fiscal_month': f_month, 'status': f_status})
     finally:
         db.close()
 

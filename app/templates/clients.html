@@ -187,9 +187,51 @@
 </div>
 {% endif %}
 
-<!-- 検索 -->
+<!-- 絞り込み（名称・区分・決算月・ステータス） -->
+<form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin:0 0 1rem;background:#fff;border:1px solid #e5e9f0;border-radius:12px;padding:.8rem 1rem;">
+  {% if store_filter %}<input type="hidden" name="store_filter" value="{{ store_filter }}">{% endif %}
+  <div style="flex:2;min-width:150px;">
+    <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">名称</label>
+    <input type="text" name="q" value="{{ filters.q }}" placeholder="顧問先名で検索"
+           style="width:100%;padding:.45rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+  </div>
+  <div style="flex:1;min-width:90px;">
+    <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">区分</label>
+    <select name="type" style="width:100%;padding:.45rem .4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+      <option value="">すべて</option>
+      <option value="法人" {% if filters.type=='法人' %}selected{% endif %}>法人</option>
+      <option value="個人" {% if filters.type=='個人' %}selected{% endif %}>個人</option>
+    </select>
+  </div>
+  <div style="flex:1;min-width:90px;">
+    <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">決算月</label>
+    <select name="fiscal_month" style="width:100%;padding:.45rem .4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+      <option value="">すべて</option>
+      {% for m in range(1,13) %}
+      <option value="{{ m }}" {% if filters.fiscal_month == (m|string) %}selected{% endif %}>{{ m }}月</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div style="flex:1;min-width:100px;">
+    <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">ステータス</label>
+    <select name="status" style="width:100%;padding:.45rem .4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+      <option value="">すべて</option>
+      {% for s in ['契約中','検討中','未契約','解約'] %}
+      <option value="{{ s }}" {% if filters.status==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div style="display:flex;gap:.4rem;">
+    <button type="submit" class="btn-add-header" style="border:0;cursor:pointer;">絞り込む</button>
+    {% if filters.q or filters.type or filters.fiscal_month or filters.status %}
+    <a href="{{ url_for('clients.clients', store_filter=store_filter) }}" style="align-self:center;font-size:.82rem;color:#667;">クリア</a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- 検索（この一覧内の絞り込み表示） -->
 <div class="search-box">
-  <input type="text" id="searchInput" placeholder="顧問先名・メール・電話番号で検索..." oninput="filterClients()">
+  <input type="text" id="searchInput" placeholder="表示中から更に絞り込み（名称・メール・電話）..." oninput="filterClients()">
 </div>
 
 <!-- 一括割り当てバー（未割り当てフィルター時のみ表示） -->
@@ -239,6 +281,12 @@
         <div class="client-card-meta">
           {% if c.type %}
           <span class="meta-tag {% if c.type == '法人' %}tag-type-corp{% else %}tag-type-ind{% endif %}">{{ c.type }}</span>
+          {% endif %}
+          {% set cs = c.contract_status or '契約中' %}
+          {% set cs_style = {'契約中':'background:#e3f6e8;color:#1e8a4c;','検討中':'background:#fff4e0;color:#b26a00;','未契約':'background:#f1f1f4;color:#8a8f98;','解約':'background:#fdece9;color:#c0392b;'} %}
+          <span class="meta-tag" style="{{ cs_style.get(cs, '') }}">{{ cs }}</span>
+          {% if c.fiscal_year_end_month %}
+          <span class="meta-tag" style="background:#eef2f7;color:#1a3a5c;">決算{{ c.fiscal_year_end_month }}月</span>
           {% endif %}
           {% if c.email %}
           <span class="meta-tag tag-email">✉ {{ c.email }}</span>

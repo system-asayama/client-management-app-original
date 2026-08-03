@@ -161,7 +161,10 @@
 <div class="card">
   <div class="action-bar">
     <span style="font-size:0.875rem;color:#6b7280;">全 <strong>{{ clients|length }}</strong> 件</span>
-    <a class="btn btn-primary" href="{{ url_for('clients.add_client') }}?store_id={{ store.id }}">＋ 顧問先を追加</a>
+    <span style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="{{ url_for('client_import.index') }}">📥 一括インポート</a>
+      <a class="btn btn-primary" href="{{ url_for('clients.add_client') }}?store_id={{ store.id }}">＋ 顧問先を追加</a>
+    </span>
   </div>
 
   {% if clients %}

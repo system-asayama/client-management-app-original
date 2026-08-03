@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}AI記帳指示書{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .bk-wrap { max-width: 820px; margin: 0 auto; }
+  .bk-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.6rem; }
+  .bk-title { font-size:1.4rem; font-weight:800; color:#1a3a5c; }
+  .bk-sub { color:#889; font-size:.86rem; line-height:1.7; margin-bottom:1rem; }
+  .btn { display:inline-block; padding:.6rem 1.15rem; border-radius:10px; border:0; cursor:pointer; font-size:.92rem; font-weight:700; text-decoration:none; }
+  .btn-primary { background:#1a3a5c; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .bk-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.2rem 1.25rem; }
+  textarea { width:100%; min-height:340px; padding:.8rem .9rem; border:1px solid #cbd5e1; border-radius:10px;
+             font-size:.92rem; line-height:1.7; box-sizing:border-box; font-family:inherit; resize:vertical; }
+  .hint { background:#f5f9ff; border:1px solid #d8e6fb; color:#33507a; border-radius:10px; padding:.8rem 1rem; font-size:.83rem; line-height:1.8; margin-bottom:1rem; }
+  .hint code { background:#fff; padding:.05rem .3rem; border-radius:4px; }
+</style>
+
+<div class="bk-wrap">
+  <div class="bk-head">
+    <div class="bk-title">🧾 AI記帳指示書</div>
+    <a class="btn btn-ghost" href="{{ url_for('clients.client_info', client_id=client.id) }}">← 顧問先へ戻る</a>
+  </div>
+  <div class="bk-sub">
+    <strong>{{ client.name }}</strong> の日々の記帳をAIに任せるための指示・ルールをここに書きます。<br>
+    AI（Claude等）は連携（MCP）経由でこの指示書を読み取り、記帳の判断に使います。書けば書くほど精度が上がります。
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="bk-card" style="border-left:4px solid {{ '#1e8a4c' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};margin-bottom:1rem;">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="hint">
+    💡 <strong>書くとよいこと（例）</strong><br>
+    ・使用している会計ソフト（freee / マネーフォワード 等）と事業区分<br>
+    ・勘定科目のルール（例：<code>Amazon→消耗品費</code>、<code>ガソリン→旅費交通費</code>）<br>
+    ・摘要の付け方／税区分（課税・非課税・不課税）の扱い<br>
+    ・毎月の定期取引（家賃・リース・顧問料 等）<br>
+    ・按分ルール（家事按分・部門按分）、例外処理、確認が必要なケース
+  </div>
+
+  <form method="post" action="{{ url_for('clients.bookkeeping_instructions', client_id=client.id) }}">
+    {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+    <div class="bk-card">
+      <textarea name="bookkeeping_instructions" placeholder="例）&#10;・会計ソフト：freee（法人・原則課税）&#10;・売上は請求書ベースで計上。入金は普通預金(freee)に自動連携。&#10;・Amazon購入は「消耗品費」、10万円以上は要確認。&#10;・毎月25日 家賃 200,000円/地代家賃、リース 50,000円。&#10;・不明な取引は記帳せず、チャットで担当に確認する。">{{ client.bookkeeping_instructions or '' }}</textarea>
+      <div style="margin-top:1rem;display:flex;gap:.6rem;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">保存する</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

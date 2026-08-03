@@ -80,6 +80,7 @@ def _client_dict(c, full=False):
             'employee_count': c.employee_count,
             'contract_start_date': c.contract_start_date,
             'storage_folder_path': c.storage_folder_path,
+            'bookkeeping_instructions': c.bookkeeping_instructions,
         })
     return d
 
@@ -143,6 +144,7 @@ _CLIENT_WRITABLE = {
     'fiscal_year_start_month', 'fiscal_year_end_month', 'established_date',
     'blue_return', 'consumption_tax_payer', 'consumption_tax_method',
     'qualified_invoice_number', 'employee_count', 'contract_start_date',
+    'bookkeeping_instructions',
 }
 
 

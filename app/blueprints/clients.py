@@ -568,6 +568,31 @@ def company_basic(client_id):
         db.close()
 
 
+@bp.route('/<int:client_id>/bookkeeping', methods=['GET', 'POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def bookkeeping_instructions(client_id):
+    """AI記帳指示書の閲覧・編集（日々の記帳をAIに任せるための指示を書く場所）。"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        c = db.query(TClient).filter(
+            TClient.id == client_id, TClient.tenant_id == tenant_id).first()
+        if not c:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        if request.method == 'POST':
+            c.bookkeeping_instructions = request.form.get('bookkeeping_instructions') or None
+            db.commit()
+            flash('AI記帳指示書を保存しました', 'success')
+            return redirect(url_for('clients.bookkeeping_instructions', client_id=client_id))
+        return render_template('bookkeeping_instructions.html', client=c)
+    finally:
+        db.close()
+
+
 @bp.route('/<int:client_id>/delete', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def delete_client(client_id):

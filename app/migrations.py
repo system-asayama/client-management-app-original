@@ -129,6 +129,8 @@ def run_migrations():
             ("T_外部ストレージ連携", "account_ref", "VARCHAR(255) NULL"),
             # ストレージ隔離（fail-closed）: 専用未設定でもテナント既定に保存しない
             ("T_店舗", "storage_isolated", "INTEGER DEFAULT 0"),
+            # AI記帳指示書（顧問先ごと・日々の記帳をAIに任せるための指示）
+            ("T_顧問先", "bookkeeping_instructions", "TEXT NULL"),
             # 担当者ごとの個人ストレージ: 接続の所有者と割当の対象担当者
             ("T_外部ストレージ連携", "staff_id", "INTEGER NULL"),
             ("T_外部ストレージ連携", "staff_type", "VARCHAR(20) NULL"),

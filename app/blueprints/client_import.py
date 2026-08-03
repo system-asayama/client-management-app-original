@@ -60,24 +60,69 @@ def index():
         db.close()
 
 
+# CSVヘッダ名 → TClient フィールド名 のマッピング（大小文字無視）
+_COL_MAP = {
+    'name': 'name', '名称': 'name', '名前': 'name', '顧問先名': 'name',
+    'type': 'type', '区分': 'type', '種別': 'type',
+    'email': 'email', 'メール': 'email', 'メールアドレス': 'email',
+    'phone': 'phone', '電話': 'phone', '電話番号': 'phone',
+    'address': 'address', '住所': 'address',
+    'industry': 'industry', '業種': 'industry',
+    'fiscal_month': 'fiscal_year_end_month', '決算月': 'fiscal_year_end_month', '決算': 'fiscal_year_end_month',
+    'corporate_number': 'tax_id_number', '法人番号': 'tax_id_number',
+    'tax_id_number': 'tax_id_number',
+}
+
+
 def _parse_rows(content):
-    """テキスト（貼り付け or ファイル）を [(name, type_or_None)] に解析する。"""
+    """テキスト/CSVを [dict(name, type, email, phone, address, industry,
+    fiscal_year_end_month, tax_id_number)] に解析する。
+
+    - 1行目が列見出し（name/名称/住所/法人番号 等）なら複数列CSVとして解釈
+    - 見出しが無ければ「名前」または「名前,種別」の簡易形式として解釈
+    """
+    import csv
+    import io
+    text_ = (content or '').lstrip('﻿')
+    lines = [l for l in text_.splitlines() if l.strip()]
+    if not lines:
+        return []
+
+    # 先頭行がヘッダかどうか判定
+    first_cells = [c.strip().lower() for c in next(csv.reader([lines[0]]))]
+    header = None
+    if any(c in _COL_MAP for c in first_cells):
+        header = [_COL_MAP.get(c) for c in first_cells]
+
     rows = []
-    for raw in (content or '').splitlines():
-        line = raw.strip().lstrip('﻿')
-        if not line:
-            continue
-        low = line.lower().replace(' ', '')
-        if low in ('name,type', 'name', '名前,種別', '名前', 'name\ttype'):
-            continue  # ヘッダ行はスキップ
-        parts = [p.strip() for p in re.split(r'[,\t]', line)]
-        name = parts[0].strip()
-        if not name:
-            continue
-        typ = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
-        if typ not in ('法人', '個人', None):
-            typ = None
-        rows.append((name, typ))
+    if header:
+        reader = csv.reader(io.StringIO('\n'.join(lines[1:])))
+        for cells in reader:
+            rec = {}
+            for i, val in enumerate(cells):
+                if i < len(header) and header[i] and val.strip():
+                    rec[header[i]] = val.strip()
+            if rec.get('name'):
+                rows.append(rec)
+    else:
+        for line in lines:
+            parts = [p.strip() for p in re.split(r'[,\t]', line)]
+            if not parts or not parts[0]:
+                continue
+            rec = {'name': parts[0]}
+            if len(parts) > 1 and parts[1] in ('法人', '個人'):
+                rec['type'] = parts[1]
+            rows.append(rec)
+
+    # 種別・決算月の正規化
+    for rec in rows:
+        if rec.get('type') not in ('法人', '個人'):
+            rec.pop('type', None)
+        if 'fiscal_year_end_month' in rec:
+            m = re.sub(r'\D', '', rec['fiscal_year_end_month'] or '')
+            rec['fiscal_year_end_month'] = int(m) if m and 1 <= int(m) <= 12 else None
+            if rec['fiscal_year_end_month'] is None:
+                rec.pop('fiscal_year_end_month')
     return rows
 
 
@@ -109,6 +154,8 @@ def run():
     store_raw = request.form.get('store_id')
     store_id = int(store_raw) if (store_raw and store_raw.isdigit()) else None
 
+    _extra = ('email', 'phone', 'address', 'industry',
+              'fiscal_year_end_month', 'tax_id_number')
     db = SessionLocal()
     try:
         existing = {_norm(n[0]) for n in
@@ -116,7 +163,8 @@ def run():
         seen = set()
         created, skipped = 0, 0
         skipped_names = []
-        for name, typ in rows:
+        for rec in rows:
+            name = rec.get('name')
             k = _norm(name)
             if k in existing or k in seen:
                 skipped += 1
@@ -125,7 +173,10 @@ def run():
                 continue
             seen.add(k)
             c = TClient(tenant_id=tenant_id, name=name,
-                        type=typ or _guess_type(name), store_id=store_id)
+                        type=rec.get('type') or _guess_type(name), store_id=store_id)
+            for f in _extra:
+                if rec.get(f) not in (None, ''):
+                    setattr(c, f, rec[f])
             db.add(c)
             created += 1
         db.commit()

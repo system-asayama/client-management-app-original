@@ -67,7 +67,12 @@
       <div class="divider">— または —</div>
       <label>貼り付ける（1行に1件。「名前」または「名前,種別」）</label>
       <textarea name="pasted" placeholder="株式会社サンプル,法人&#10;山田太郎,個人&#10;○○商店"></textarea>
-      <div class="muted" style="margin-top:.3rem;">※種別（法人/個人）を省略すると、名前から自動判定します（「株式会社」等が含まれれば法人）。</div>
+      <div class="muted" style="margin-top:.3rem;">
+        ※種別（法人/個人）を省略すると、名前から自動判定します（「株式会社」等が含まれれば法人）。<br>
+        ※<strong>1行目に見出し</strong>を付ければ、住所などの複数項目も取り込めます。使える列名：
+        <code>name,type,email,phone,address,industry,fiscal_month,corporate_number</code>
+        （＝名称・区分・メール・電話・住所・業種・決算月・法人番号）。
+      </div>
     </div>
 
     <button type="submit" class="btn btn-primary">この内容で取り込む</button>

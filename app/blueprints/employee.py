@@ -60,7 +60,11 @@ def dashboard():
             if has_distribution and app['name'] not in distributed_app_ids:
                 continue
             app_copy = dict(app)
-            if store_id and app_copy['name'] in STORE_URLS:
+            if app_copy['name'] == 'client-management-tenant':
+                # 事務所運営アプリ: 従業員は tenant_admin/店舗ダッシュボードに入れないため、
+                # 担当顧問先の作業ができるスタッフマイページへ誘導する
+                app_copy['url'] = url_for('staff_mypage.dashboard')
+            elif store_id and app_copy['name'] in STORE_URLS:
                 app_copy['url'] = STORE_URLS[app_copy['name']](store_id)
             enabled_apps.append(app_copy)
     finally:

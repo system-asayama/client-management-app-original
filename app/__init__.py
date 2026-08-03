@@ -708,13 +708,7 @@ def create_app() -> Flask:
 
     @app.errorhandler(500)
     def internal_error(error):
-        from flask import render_template, request as _rq
-        # 一時的な診断: ?debug=1 のときは例外トレースバックを表示（原因特定後に削除する）
-        if _rq.args.get('debug') == '1':
-            import traceback
-            tb = traceback.format_exc()
-            return ('<pre style="white-space:pre-wrap;font-size:12px;">'
-                    + (tb or str(error)) + '</pre>'), 500
+        from flask import render_template
         return render_template('500.html'), 500
 
     return app

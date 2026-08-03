@@ -69,8 +69,11 @@ _COL_MAP = {
     'address': 'address', '住所': 'address',
     'industry': 'industry', '業種': 'industry',
     'fiscal_month': 'fiscal_year_end_month', '決算月': 'fiscal_year_end_month', '決算': 'fiscal_year_end_month',
+    'fiscal_end_month': 'fiscal_year_end_month', '会計期間終了月': 'fiscal_year_end_month',
+    'fiscal_start_month': 'fiscal_year_start_month', '会計期間開始月': 'fiscal_year_start_month', '開始月': 'fiscal_year_start_month',
     'corporate_number': 'tax_id_number', '法人番号': 'tax_id_number',
     'tax_id_number': 'tax_id_number',
+    'established_date': 'established_date', '設立年月日': 'established_date',
 }
 
 

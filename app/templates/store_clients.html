@@ -196,8 +196,14 @@
           <td>{{ c.phone or '' }}</td>
           <td>{{ c.email or '' }}</td>
           <td>{{ c.industry or '' }}</td>
-          <td>
+          <td style="white-space:nowrap;">
             <a class="btn btn-secondary" href="{{ url_for('clients.edit_client', client_id=c.id) }}" style="padding:0.3rem 0.75rem;font-size:0.8rem;">編集</a>
+            <form method="post" action="{{ url_for('clients.delete_client', client_id=c.id) }}" style="display:inline;"
+                  onsubmit="return confirm('顧問先「{{ c.name }}」を削除します。関連データ（担当・ファイル・チャット等）も削除されます。よろしいですか？');">
+              {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+              <input type="hidden" name="store_id" value="{{ store.id }}">
+              <button type="submit" class="btn" style="padding:0.3rem 0.75rem;font-size:0.8rem;background:#fff;color:#c0392b;border:1px solid #f5b7c0;">削除</button>
+            </form>
           </td>
         </tr>
         {% endfor %}

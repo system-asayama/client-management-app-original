@@ -94,7 +94,11 @@
   </div>
   <div class="header-actions">
     <a href="{{ url_for('clients.clients') }}">← 顧問先一覧へ</a>
+    <a href="{{ url_for('client_import.index') }}">📥 CSVで一括インポート</a>
   </div>
+</div>
+<div class="viewing-as-banner" style="background:#f5f9ff;color:#33507a;border:1px solid #d8e6fb;">
+  📥 <strong>まとめて登録したい</strong>場合は、上の「CSVで一括インポート」から、名前・住所などをCSV/貼り付けで一括登録できます。
 </div>
 {% if viewing_as_banner %}
 <div class="viewing-as-banner">{{ viewing_as_banner }}</div>

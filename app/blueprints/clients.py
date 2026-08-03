@@ -544,6 +544,63 @@ def company_delete(company_id):
         db.close()
 
 
+@bp.route('/<int:client_id>/delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def delete_client(client_id):
+    """顧問先を削除する（担当・ファイル・メッセージ・納税実績等の関連データも一緒に削除）。"""
+    from sqlalchemy import text as _text
+    from app.db import Base
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    raw_store = request.form.get('store_id')
+    store_id = int(raw_store) if (raw_store and str(raw_store).isdigit()) else None
+
+    db = SessionLocal()
+    try:
+        c = db.query(TClient).filter(
+            TClient.id == client_id, TClient.tenant_id == tenant_id).first()
+        if not c:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        name = c.name
+
+        def _try(sql, params):
+            # 個々の削除はセーブポイントで囲み、テーブル未存在等でも全体を止めない
+            try:
+                with db.begin_nested():
+                    db.execute(_text(sql), params)
+            except Exception:
+                pass
+
+        # 孫テーブル（メッセージ既読・納税実績の内訳）を先に削除
+        _try('DELETE FROM "T_メッセージ既読" WHERE message_id IN '
+             '(SELECT id FROM "T_メッセージ" WHERE client_id = :cid)', {'cid': client_id})
+        for gt in ('T_納税実績_都道府県', 'T_納税実績_市区町村'):
+            _try(f'DELETE FROM "{gt}" WHERE tax_record_id IN '
+                 '(SELECT id FROM "T_納税実績" WHERE client_id = :cid)', {'cid': client_id})
+
+        # 顧問先を直接参照する子テーブルを動的に列挙して削除
+        for table in Base.metadata.tables.values():
+            for col in table.columns:
+                if any(fk.column.table.name == 'T_顧問先' for fk in col.foreign_keys):
+                    _try(f'DELETE FROM "{table.name}" WHERE "{col.name}" = :cid', {'cid': client_id})
+
+        db.delete(c)
+        db.commit()
+        flash(f'顧問先「{name}」を削除しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'削除に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+
+    if store_id:
+        return redirect(url_for('store_dashboard.clients', store_id=store_id))
+    return redirect(url_for('clients.clients'))
+
+
 # ========================================
 # 会社拠点情報（本店・支店）管理
 # ========================================

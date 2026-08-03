@@ -280,6 +280,10 @@
                class="nav-item {% if request.endpoint == 'staff_mypage.chatwork_settings' %}active{% endif %}">
                 <span class="icon">💬</span> ChatWork連携
             </a>
+            <a href="{{ url_for('staff_mypage.storage_settings') }}"
+               class="nav-item {% if request.endpoint and request.endpoint.startswith('staff_mypage.storage') %}active{% endif %}">
+                <span class="icon">📦</span> 個人ストレージ連携
+            </a>
 
             {% if staff_stores is defined and staff_stores %}
             <div class="nav-section-label">店舗</div>

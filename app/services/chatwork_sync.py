@@ -46,18 +46,22 @@ def _already_received(db, tenant_id: int, file_id) -> bool:
     ).first() is not None
 
 
-def _process_mappings(db, tenant_id: int, cw_client, mappings, result: dict):
+def _process_mappings(db, tenant_id: int, cw_client, mappings, result: dict,
+                      staff_id=None, staff_type=None):
     """ルームマッピング群を巡回して新着ファイルをストレージへ保存する共通処理。
 
     cw_client: 認証済み ChatworkClient（テナント共通 or 担当のトークン）
     mappings : TChatworkRoomMapping のリスト
     result   : {'saved','skipped','errors',...} を加算していく
+    staff_id/staff_type: 担当者アカウント経由の場合、担当者個人ストレージを最優先で使う
     """
-    # 店舗ごとにストレージアダプタ（主＋ミラー）を解決。store_id別にキャッシュ
+    # ストレージアダプタ（主＋ミラー）を解決（担当者個人→店舗→本部）。store_id別にキャッシュ
     _adapters_cache = {}
     def _adapters_for(store_id):
         if store_id not in _adapters_cache:
-            _adapters_cache[store_id] = get_storage_adapters(tenant_id, store_id=store_id)
+            _adapters_cache[store_id] = get_storage_adapters(
+                tenant_id, store_id=store_id,
+                staff_id=staff_id, staff_type=staff_type)
         return _adapters_cache[store_id]
 
     for m in mappings:
@@ -180,7 +184,9 @@ def sync_staff_account(account_id: int) -> dict:
                               TChatworkRoomMapping.staff_account_id == account_id)
                       .all())
         result['rooms'] = len(mappings)
-        _process_mappings(db, tenant_id, client, mappings, result)
+        _process_mappings(db, tenant_id, client, mappings, result,
+                          staff_id=getattr(acc, 'staff_id', None),
+                          staff_type=getattr(acc, 'staff_type', None))
         return result
     finally:
         db.close()

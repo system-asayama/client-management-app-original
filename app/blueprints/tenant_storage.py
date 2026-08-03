@@ -37,7 +37,9 @@ def _set_primary_assignment(db, tenant_id, store_id, connection_id):
     q = db.query(TStoreStorageAssignment).filter(
         TStoreStorageAssignment.tenant_id == tenant_id,
         TStoreStorageAssignment.status == 'active',
-        TStoreStorageAssignment.is_primary == 1)
+        TStoreStorageAssignment.is_primary == 1,
+        # 担当者個人スコープの割当には触れない（本部/店舗スコープのみ）
+        TStoreStorageAssignment.staff_id.is_(None))
     if store_id is None:
         q = q.filter(TStoreStorageAssignment.store_id.is_(None))
     else:
@@ -862,20 +864,49 @@ def connections():
                      .filter(TStoreStorageAssignment.tenant_id == tenant_id,
                              TStoreStorageAssignment.status == 'active',
                              TStoreStorageAssignment.is_primary == 1).all())
-        assign_map = {a.store_id: a.connection_id for a in assigns}
+        # 店舗/本部スコープの割当のみ（担当者スコープは別扱い）
+        assign_map = {a.store_id: a.connection_id for a in assigns if not a.staff_id}
 
-        # 接続ID → その接続を使っている対象（本部既定 / 店舗名）の一覧
+        # 担当者名の解決（個人ストレージの所有者・利用者表示用）
+        def _staff_name_map():
+            m = {}
+            try:
+                for tbl, stype in (('T_管理者', 'admin'), ('T_従業員', 'employee')):
+                    for r in db.execute(text(f'SELECT id, name FROM "{tbl}" WHERE tenant_id = :t'),
+                                        {"t": tenant_id}).fetchall():
+                        m[(stype, r.id)] = r.name
+            except Exception:
+                pass
+            return m
+        staff_name_map = _staff_name_map()
+
+        def _staff_label(stype, sid):
+            nm = staff_name_map.get((stype, sid)) or f'ID{sid}'
+            return f'担当: {nm}'
+
+        # 接続ID → その接続を使っている対象（本部既定 / 店舗名 / 担当者名）の一覧
         used_by = {}
         for a in assigns:
-            label = '本部（既定）' if a.store_id is None else (store_name_map.get(a.store_id) or f'店舗{a.store_id}')
+            if a.staff_id:
+                label = _staff_label(a.staff_type, a.staff_id) + '（個人）'
+            elif a.store_id is None:
+                label = '本部（既定）'
+            else:
+                label = store_name_map.get(a.store_id) or f'店舗{a.store_id}'
             used_by.setdefault(a.connection_id, []).append(label)
         # 本部既定に割り当てられた接続は、未割当の店舗にも実質使われる
         default_conn_id = assign_map.get(None)
 
+        def _registered_by(c):
+            if getattr(c, 'staff_id', None):
+                return _staff_label(c.staff_type, c.staff_id) + '（個人）'
+            return (store_name_map.get(c.store_id) or '本部') if c.store_id else '本部'
+
         conn_view = [{
             'id': c.id, 'name': c.name or f'接続{c.id}',
             'provider': _plabel(c.provider),
-            'registered_by': (store_name_map.get(c.store_id) or '本部') if c.store_id else '本部',
+            'registered_by': _registered_by(c),
+            'is_personal': bool(getattr(c, 'staff_id', None)),
             'used_by': used_by.get(c.id, []),
             'is_default': (c.id == default_conn_id),
         } for c in conns]
@@ -948,7 +979,9 @@ def _deactivate_assignment(db, tenant_id, store_id, connection_id):
     q = db.query(TStoreStorageAssignment).filter(
         TStoreStorageAssignment.tenant_id == tenant_id,
         TStoreStorageAssignment.connection_id == connection_id,
-        TStoreStorageAssignment.status == 'active')
+        TStoreStorageAssignment.status == 'active',
+        # 担当者個人スコープの割当には触れない（本部/店舗スコープのみ）
+        TStoreStorageAssignment.staff_id.is_(None))
     q = q.filter(TStoreStorageAssignment.store_id.is_(None)) if store_id is None \
         else q.filter(TStoreStorageAssignment.store_id == store_id)
     for a in q.all():

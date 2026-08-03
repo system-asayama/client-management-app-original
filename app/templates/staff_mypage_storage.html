@@ -1,0 +1,59 @@
+{% extends "staff_mypage_base.html" %}
+{% block title %}個人ストレージ連携{% endblock %}
+{% block content %}
+<style>
+  .st-wrap { max-width: 760px; }
+  .st-card { background:#fff; border:1px solid #e5e9f0; border-radius:12px; padding:1.5rem; margin-bottom:1.25rem; }
+  .st-card h2 { font-size:1.05rem; margin:0 0 .8rem; color:#1a3a5c; }
+  .muted { color:#889; font-size:.85rem; line-height:1.7; }
+  .btn { display:inline-block; padding:.6rem 1.1rem; border-radius:9px; border:0; cursor:pointer; font-size:.9rem; font-weight:700; text-decoration:none; }
+  .btn-primary { background:#0061FF; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-danger { background:#fff; color:#c0392b; border:1px solid #f5b7c0; }
+  .badge-on { background:#e3f6e8; color:#1e8a4c; padding:.15rem .6rem; border-radius:999px; font-size:.75rem; font-weight:700; }
+  .badge-off { background:#f1f1f4; color:#8a8f98; padding:.15rem .6rem; border-radius:999px; font-size:.75rem; font-weight:700; }
+  .note { background:#fff7e6; border:1px solid #ffe1a8; color:#8a5a00; padding:.7rem .9rem; border-radius:9px; font-size:.83rem; line-height:1.7; }
+</style>
+
+<div class="st-wrap">
+  <h1 style="font-size:1.4rem;margin-bottom:.25rem;">📦 個人ストレージ連携（あなた専用）</h1>
+  <p class="muted" style="margin-bottom:1.25rem;">
+    あなたが担当する顧問先の受信ファイルを、あなた自身のDropboxへ保存します。<br>
+    保存先の優先順位は <strong>あなたの個人ストレージ → 店舗 → 事務所（本部）</strong> の順です。設定しない場合は、これまで通り店舗／本部のストレージに保存されます。
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="st-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="st-card">
+    <h2>現在の連携状況</h2>
+    {% if conn %}
+      <p style="margin:.2rem 0 1rem;">
+        <span class="badge-on">連携中</span>
+        <span style="margin-left:.5rem;font-weight:600;">{{ conn.name }}</span>
+        <span class="muted">（Dropbox）</span>
+      </p>
+      <a href="{{ url_for('staff_mypage.storage_dropbox_start') }}" class="btn btn-ghost">別のDropboxに繋ぎ直す</a>
+      <form method="post" action="{{ url_for('staff_mypage.storage_disconnect') }}" style="display:inline;margin-left:.4rem;"
+            onsubmit="return confirm('個人ストレージ連携を解除します。以後あなた宛のファイルは店舗／本部のストレージに保存されます。よろしいですか？');">
+        {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+        <button type="submit" class="btn btn-danger">連携を解除</button>
+      </form>
+    {% else %}
+      <p style="margin:.2rem 0 1rem;"><span class="badge-off">未連携</span></p>
+      <a href="{{ url_for('staff_mypage.storage_dropbox_start') }}" class="btn btn-primary">自分のDropboxを連携する</a>
+    {% endif %}
+  </div>
+
+  <div class="st-card">
+    <h2>ご注意（事務所のデータの取り扱い）</h2>
+    <div class="note">
+      個人のDropboxに保存しても、<strong>連携情報は事務所のシステムに保存されるため、あなたが退職・異動しても事務所はアプリ経由でファイルを確認できます</strong>。<br>
+      ただし、あなたのDropbox上のフォルダ権限そのものは事務所では変更できません。事務所の共有アカウントで一元管理したい場合は、この個人連携は使わず、店舗／本部のストレージ設定をご利用ください。
+    </div>
+  </div>
+</div>
+{% endblock %}

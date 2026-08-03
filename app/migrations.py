@@ -129,6 +129,11 @@ def run_migrations():
             ("T_外部ストレージ連携", "account_ref", "VARCHAR(255) NULL"),
             # ストレージ隔離（fail-closed）: 専用未設定でもテナント既定に保存しない
             ("T_店舗", "storage_isolated", "INTEGER DEFAULT 0"),
+            # 担当者ごとの個人ストレージ: 接続の所有者と割当の対象担当者
+            ("T_外部ストレージ連携", "staff_id", "INTEGER NULL"),
+            ("T_外部ストレージ連携", "staff_type", "VARCHAR(20) NULL"),
+            ("T_店舗ストレージ割当", "staff_id", "INTEGER NULL"),
+            ("T_店舗ストレージ割当", "staff_type", "VARCHAR(20) NULL"),
             # ChatWork連携ルームを担当ごとのアカウントに紐付け可能にする（NULL=テナント共通）
             ("T_ChatWork連携ルーム", "staff_account_id", "INTEGER NULL"),
             ("truck_routes", "client_id", "INTEGER NULL"),

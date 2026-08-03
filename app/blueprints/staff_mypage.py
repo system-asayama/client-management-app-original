@@ -1344,3 +1344,198 @@ def apk_download():
             return redirect(url_for('staff_mypage.dashboard'))
     finally:
         db.close()
+
+
+# ============================================================
+# 担当者ごとの個人ストレージ連携（自分のDropbox）
+#   保存先の優先順位: 担当者個人 → 店舗 → 本部
+#   メール/ChatWork連携と同じく、担当者本人がマイページから設定する。
+# ============================================================
+def _staff_set_primary_assignment(db, tenant_id, staff_id, staff_type, connection_id):
+    """担当者スコープの「主に使用する接続」を connection_id に設定する。"""
+    from app.models_integrations import TStoreStorageAssignment
+    for a in (db.query(TStoreStorageAssignment)
+                .filter(TStoreStorageAssignment.tenant_id == tenant_id,
+                        TStoreStorageAssignment.staff_id == staff_id,
+                        TStoreStorageAssignment.staff_type == staff_type,
+                        TStoreStorageAssignment.status == 'active',
+                        TStoreStorageAssignment.is_primary == 1).all()):
+        a.is_primary = 0
+        a.status = 'inactive'
+    db.add(TStoreStorageAssignment(
+        tenant_id=tenant_id, staff_id=staff_id, staff_type=staff_type,
+        connection_id=connection_id, is_primary=1, status='active'))
+
+
+def _staff_connect_dropbox(db, tenant_id, staff_id, staff_type,
+                           access_token, refresh_token, name):
+    """担当者の個人Dropbox接続を追加/更新（同一アカウントの重複は作らない）。"""
+    from app.models_integrations import TStorageConnection
+    from app.blueprints.tenant_storage import _dropbox_account_ref
+    account_ref = _dropbox_account_ref(access_token, refresh_token, tenant_id)
+    existing = None
+    if account_ref:
+        existing = (db.query(TStorageConnection)
+                      .filter(TStorageConnection.tenant_id == tenant_id,
+                              TStorageConnection.provider == 'dropbox',
+                              TStorageConnection.status == 'active',
+                              TStorageConnection.staff_id == staff_id,
+                              TStorageConnection.staff_type == staff_type,
+                              TStorageConnection.account_ref == account_ref)
+                      .order_by(TStorageConnection.id.desc()).first())
+    if existing:
+        existing.access_token = access_token
+        if refresh_token:
+            existing.refresh_token = refresh_token
+        existing.status = 'active'
+        _staff_set_primary_assignment(db, tenant_id, staff_id, staff_type, existing.id)
+        return existing, True
+    conn = TStorageConnection(
+        tenant_id=tenant_id, staff_id=staff_id, staff_type=staff_type,
+        name=name, provider='dropbox', access_token=access_token,
+        refresh_token=refresh_token, account_ref=account_ref, status='active')
+    db.add(conn)
+    db.flush()
+    _staff_set_primary_assignment(db, tenant_id, staff_id, staff_type, conn.id)
+    return conn, False
+
+
+def _staff_current_connection(db, tenant_id, staff_id, staff_type):
+    """担当者の現在の主・個人ストレージ接続を返す（無ければ None）。"""
+    from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+    a = (db.query(TStoreStorageAssignment)
+           .filter(TStoreStorageAssignment.tenant_id == tenant_id,
+                   TStoreStorageAssignment.staff_id == staff_id,
+                   TStoreStorageAssignment.staff_type == staff_type,
+                   TStoreStorageAssignment.is_primary == 1,
+                   TStoreStorageAssignment.status == 'active')
+           .order_by(TStoreStorageAssignment.id.desc()).first())
+    if not a:
+        return None
+    return (db.query(TStorageConnection)
+              .filter(TStorageConnection.id == a.connection_id,
+                      TStorageConnection.status == 'active').first())
+
+
+@bp.route('/storage', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def storage_settings():
+    """自分の個人ストレージ連携（担当ごと）"""
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        flash('ユーザーが見つかりません', 'error')
+        return redirect(url_for('staff_mypage.dashboard'))
+    db = SessionLocal()
+    try:
+        conn = _staff_current_connection(db, tenant_id, user.id, staff_type)
+        conn_view = None
+        if conn:
+            conn_view = {
+                'name': conn.name or 'Dropbox',
+                'provider': (conn.provider or '').lower(),
+                'account_ref': conn.account_ref,
+            }
+        return render_template('staff_mypage_storage.html', conn=conn_view)
+    finally:
+        db.close()
+
+
+@bp.route('/storage/dropbox/oauth/start', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def storage_dropbox_start():
+    """担当者個人のDropbox OAuth を開始する"""
+    from dropbox import DropboxOAuth2Flow
+    from app.utils.tenant_storage_adapter import get_dropbox_app_credentials
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('staff_mypage.storage_settings'))
+    redirect_uri = url_for('staff_mypage.storage_dropbox_callback', _external=True)
+    session['staff_dropbox_csrf'] = f'staff_dropbox_{tenant_id}'
+    app_key, app_secret = get_dropbox_app_credentials(tenant_id)
+    auth_flow = DropboxOAuth2Flow(
+        consumer_key=app_key, redirect_uri=redirect_uri, session=session,
+        csrf_token_session_key='staff_dropbox_csrf',
+        consumer_secret=app_secret, token_access_type='offline')
+    return redirect(auth_flow.start())
+
+
+@bp.route('/storage/dropbox/oauth/callback', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def storage_dropbox_callback():
+    """担当者個人のDropbox OAuth コールバック"""
+    from dropbox import DropboxOAuth2Flow
+    from dropbox.oauth import BadStateException, CsrfException, NotApprovedException
+    from app.utils.tenant_storage_adapter import get_dropbox_app_credentials
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        flash('ユーザーが見つかりません', 'error')
+        return redirect(url_for('staff_mypage.storage_settings'))
+    redirect_uri = url_for('staff_mypage.storage_dropbox_callback', _external=True)
+    app_key, app_secret = get_dropbox_app_credentials(tenant_id)
+    auth_flow = DropboxOAuth2Flow(
+        consumer_key=app_key, redirect_uri=redirect_uri, session=session,
+        csrf_token_session_key='staff_dropbox_csrf',
+        consumer_secret=app_secret, token_access_type='offline')
+    try:
+        res = auth_flow.finish(request.args)
+        db = SessionLocal()
+        try:
+            _, updated = _staff_connect_dropbox(
+                db, tenant_id, user.id, staff_type,
+                res.access_token, res.refresh_token,
+                name=f'Dropbox（{getattr(user, "name", None) or "担当"}）')
+            db.commit()
+            flash('個人Dropboxの連携を更新しました' if updated else '個人Dropboxとの連携が完了しました！', 'success')
+        except Exception as e:
+            db.rollback()
+            flash(f'保存に失敗しました: {e}', 'error')
+        finally:
+            db.close()
+    except BadStateException:
+        flash('セッションが切れました。もう一度お試しください。', 'error')
+    except CsrfException:
+        flash('セキュリティエラーが発生しました。もう一度お試しください。', 'error')
+    except NotApprovedException:
+        flash('Dropboxの認証がキャンセルされました。', 'warning')
+    except Exception as e:
+        flash(f'Dropbox連携に失敗しました: {e}', 'error')
+    return redirect(url_for('staff_mypage.storage_settings'))
+
+
+@bp.route('/storage/disconnect', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def storage_disconnect():
+    """自分の個人ストレージ連携を解除する（このアプリ内の割当を無効化）。"""
+    from app.models_integrations import TStorageConnection, TStoreStorageAssignment
+    user, staff_type, role = _get_current_user()
+    tenant_id = session.get('tenant_id')
+    if not user:
+        return redirect(url_for('staff_mypage.storage_settings'))
+    db = SessionLocal()
+    try:
+        # 担当者スコープの割当を無効化
+        for a in (db.query(TStoreStorageAssignment)
+                    .filter(TStoreStorageAssignment.tenant_id == tenant_id,
+                            TStoreStorageAssignment.staff_id == user.id,
+                            TStoreStorageAssignment.staff_type == staff_type,
+                            TStoreStorageAssignment.status == 'active').all()):
+            a.status = 'inactive'
+            a.is_primary = 0
+        # 担当者所有の接続も無効化
+        for c in (db.query(TStorageConnection)
+                    .filter(TStorageConnection.tenant_id == tenant_id,
+                            TStorageConnection.staff_id == user.id,
+                            TStorageConnection.staff_type == staff_type,
+                            TStorageConnection.status == 'active').all()):
+            c.status = 'inactive'
+        db.commit()
+        flash('個人ストレージ連携を解除しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'解除に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+    return redirect(url_for('staff_mypage.storage_settings'))

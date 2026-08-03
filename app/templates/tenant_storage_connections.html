@@ -78,7 +78,10 @@
               </form>
             </td>
             <td>{{ c.provider }}</td>
-            <td><span class="pill">{{ c.registered_by }}</span></td>
+            <td>
+              <span class="pill">{{ c.registered_by }}</span>
+              {% if c.is_personal %}<span class="pill" style="background:#eef2ff;color:#3949ab;">個人</span>{% endif %}
+            </td>
             <td>
               {% if c.used_by %}
                 {% for label in c.used_by %}<span class="pill" style="background:#e3f6e8;color:#1e8a4c;">{{ label }}</span> {% endfor %}

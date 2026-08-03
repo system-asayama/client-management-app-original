@@ -310,10 +310,12 @@ def _assigned_connection(db, tenant_id, store_id):
     """
     try:
         if store_id is None:
+            # 本部（テナント）既定。担当者スコープ（staff_id あり）の割当は除外する
             q = text('''
                 SELECT c.* FROM "T_外部ストレージ連携" c
                 JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
-                WHERE a.tenant_id = :t AND a.store_id IS NULL AND a.is_primary = 1
+                WHERE a.tenant_id = :t AND a.store_id IS NULL AND a.staff_id IS NULL
+                      AND a.is_primary = 1
                       AND a.status = 'active' AND c.status = 'active'
                 ORDER BY a.id DESC LIMIT 1
             ''')
@@ -321,7 +323,8 @@ def _assigned_connection(db, tenant_id, store_id):
         q = text('''
             SELECT c.* FROM "T_外部ストレージ連携" c
             JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
-            WHERE a.tenant_id = :t AND a.store_id = :s AND a.is_primary = 1
+            WHERE a.tenant_id = :t AND a.store_id = :s AND a.staff_id IS NULL
+                  AND a.is_primary = 1
                   AND a.status = 'active' AND c.status = 'active'
             ORDER BY a.id DESC LIMIT 1
         ''')
@@ -330,23 +333,59 @@ def _assigned_connection(db, tenant_id, store_id):
         return None  # 割当テーブルが無い等 → 旧ロジックへ
 
 
+def _staff_assigned_connection(db, tenant_id, staff_id, staff_type):
+    """担当者ごとの割当（個人ストレージ）の主接続を解決する。無ければ None。"""
+    if not staff_id:
+        return None
+    try:
+        q = text('''
+            SELECT c.* FROM "T_外部ストレージ連携" c
+            JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
+            WHERE a.tenant_id = :t AND a.staff_id = :sid AND a.staff_type = :stype
+                  AND a.is_primary = 1 AND a.status = 'active' AND c.status = 'active'
+            ORDER BY a.id DESC LIMIT 1
+        ''')
+        return db.execute(q, {"t": tenant_id, "sid": staff_id, "stype": staff_type}).fetchone()
+    except Exception:
+        return None
+
+
+def _staff_mirror_configs(db, tenant_id, staff_id, staff_type):
+    """担当者ごとの割当の「ミラー（is_primary=0）」接続一覧を返す。"""
+    if not staff_id:
+        return []
+    try:
+        q = text('''
+            SELECT c.* FROM "T_外部ストレージ連携" c
+            JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
+            WHERE a.tenant_id = :t AND a.staff_id = :sid AND a.staff_type = :stype
+                  AND a.is_primary = 0 AND a.status = 'active' AND c.status = 'active'
+            ORDER BY a.id ASC
+        ''')
+        return db.execute(q, {"t": tenant_id, "sid": staff_id, "stype": staff_type}).fetchall()
+    except Exception:
+        return []
+
+
 def _legacy_config(db, tenant_id, store_id=None, any_scope=False):
     """旧スコープ方式（後方互換）でストレージ設定を取得。"""
     try:
+        # 旧スコープ方式。担当者個人の接続（staff_id あり）はここでは対象外
         if any_scope:
             return db.execute(text('''
                 SELECT * FROM "T_外部ストレージ連携"
-                WHERE tenant_id = :t AND status = 'active' ORDER BY id DESC LIMIT 1
+                WHERE tenant_id = :t AND status = 'active' AND staff_id IS NULL
+                ORDER BY id DESC LIMIT 1
             '''), {"t": tenant_id}).fetchone()
         if store_id is None:
             return db.execute(text('''
                 SELECT * FROM "T_外部ストレージ連携"
-                WHERE tenant_id = :t AND status = 'active' AND store_id IS NULL
+                WHERE tenant_id = :t AND status = 'active' AND store_id IS NULL AND staff_id IS NULL
                 ORDER BY id DESC LIMIT 1
             '''), {"t": tenant_id}).fetchone()
         return db.execute(text('''
             SELECT * FROM "T_外部ストレージ連携"
-            WHERE tenant_id = :t AND status = 'active' AND store_id = :s
+            WHERE tenant_id = :t AND status = 'active' AND store_id = :s AND staff_id IS NULL
             ORDER BY id DESC LIMIT 1
         '''), {"t": tenant_id, "s": store_id}).fetchone()
     except Exception:
@@ -370,10 +409,12 @@ def _store_isolated(db, store_id):
         return False
 
 
-def get_tenant_storage_config(tenant_id: int, store_id: int = None):
+def get_tenant_storage_config(tenant_id: int, store_id: int = None,
+                              staff_id: int = None, staff_type: str = None):
     """有効なストレージ設定（接続）を取得する。
 
-    解決順（各レベルで「割当（新方式）→ 旧スコープ設定」の順に見る）:
+    解決順:
+      0. 担当者レベル: その担当者の個人ストレージ割当（設定されていれば最優先）
       1. 店舗レベル: その店舗への割当 → 旧・店舗スコープ設定
       2. 本部レベル: テナント既定の割当 → 旧・テナントスコープ設定
       3. いずれも無ければ、テナントの任意の有効設定
@@ -382,6 +423,10 @@ def get_tenant_storage_config(tenant_id: int, store_id: int = None):
     """
     db = SessionLocal()
     try:
+        if staff_id:
+            row = _staff_assigned_connection(db, tenant_id, staff_id, staff_type)
+            if row:
+                return row
         if store_id:
             row = _assigned_connection(db, tenant_id, store_id) or _legacy_config(db, tenant_id, store_id=store_id)
             if row:
@@ -472,7 +517,8 @@ def _mirror_configs(db, tenant_id, store_id):
             q = text('''
                 SELECT c.* FROM "T_外部ストレージ連携" c
                 JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
-                WHERE a.tenant_id = :t AND a.store_id IS NULL AND a.is_primary = 0
+                WHERE a.tenant_id = :t AND a.store_id IS NULL AND a.staff_id IS NULL
+                      AND a.is_primary = 0
                       AND a.status = 'active' AND c.status = 'active'
                 ORDER BY a.id ASC
             ''')
@@ -480,7 +526,8 @@ def _mirror_configs(db, tenant_id, store_id):
         q = text('''
             SELECT c.* FROM "T_外部ストレージ連携" c
             JOIN "T_店舗ストレージ割当" a ON a.connection_id = c.id
-            WHERE a.tenant_id = :t AND a.store_id = :s AND a.is_primary = 0
+            WHERE a.tenant_id = :t AND a.store_id = :s AND a.staff_id IS NULL
+                  AND a.is_primary = 0
                   AND a.status = 'active' AND c.status = 'active'
             ORDER BY a.id ASC
         ''')
@@ -489,9 +536,10 @@ def _mirror_configs(db, tenant_id, store_id):
         return []
 
 
-def get_tenant_storage_configs(tenant_id: int, store_id: int = None):
+def get_tenant_storage_configs(tenant_id: int, store_id: int = None,
+                               staff_id: int = None, staff_type: str = None):
     """保存先の全接続（先頭=使用中/主、以降=ミラー）をリストで返す。
-    主が来たスコープ（店舗 or 本部）に合わせて、そのスコープのミラーを付ける。
+    主が来たスコープ（担当者 or 店舗 or 本部）に合わせて、そのスコープのミラーを付ける。
     """
     def _dedupe(prim, mirrors):
         out = [prim]
@@ -505,6 +553,11 @@ def get_tenant_storage_configs(tenant_id: int, store_id: int = None):
 
     db = SessionLocal()
     try:
+        # 担当者レベルに主がある場合は、担当者のミラーを付ける（最優先）
+        if staff_id:
+            prim = _staff_assigned_connection(db, tenant_id, staff_id, staff_type)
+            if prim:
+                return _dedupe(prim, _staff_mirror_configs(db, tenant_id, staff_id, staff_type))
         # 店舗レベルに主がある場合は、店舗のミラーを付ける
         if store_id:
             prim = _assigned_connection(db, tenant_id, store_id) or _legacy_config(db, tenant_id, store_id=store_id)
@@ -523,12 +576,14 @@ def get_tenant_storage_configs(tenant_id: int, store_id: int = None):
         db.close()
 
 
-def get_storage_adapters(tenant_id: int, store_id: int = None):
+def get_storage_adapters(tenant_id: int, store_id: int = None,
+                         staff_id: int = None, staff_type: str = None):
     """使用中（主）＋ミラー の全アダプタをリストで返す（先頭が主）。
     隔離モードの店舗で専用ストレージが無い場合は StorageIsolationError を送出する
     （共有先＝本部既定/Cloudinaryへフォールバックしない fail-closed）。
     """
-    configs = get_tenant_storage_configs(tenant_id, store_id=store_id)
+    configs = get_tenant_storage_configs(tenant_id, store_id=store_id,
+                                         staff_id=staff_id, staff_type=staff_type)
     adapters = [_build_adapter(c, tenant_id) for c in configs]
     if not adapters:
         if store_id:

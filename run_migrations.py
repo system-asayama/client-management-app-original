@@ -1487,6 +1487,40 @@ def run_migrations():
             print(f"  ⚠️  マイグレーションエラー: {e}")
             conn.rollback()
 
+        # マイグレーション: 担当者ごとの個人ストレージ用カラム（所有者/割当対象の担当者）
+        print("\n[マイグレーション] 担当者ごとの個人ストレージ用カラムを追加")
+        _staff_storage_cols = [
+            ('T_外部ストレージ連携', 'staff_id', 'INTEGER'),
+            ('T_外部ストレージ連携', 'staff_type', 'VARCHAR(20)'),
+            ('T_店舗ストレージ割当', 'staff_id', 'INTEGER'),
+            ('T_店舗ストレージ割当', 'staff_type', 'VARCHAR(20)'),
+        ]
+        for _tbl, _col, _type in _staff_storage_cols:
+            try:
+                if _is_pg(conn):
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = %s AND column_name = %s
+                    """, (_tbl, _col))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE "{_tbl}" ADD COLUMN {_col} {_type}')
+                        conn.commit()
+                        print(f"  ✅ {_tbl}.{_col} を追加しました")
+                    else:
+                        print(f"  ℹ️  {_tbl}.{_col} は既に存在します（スキップ）")
+                else:
+                    cur.execute(f"PRAGMA table_info('{_tbl}')")
+                    cols = [row[1] for row in cur.fetchall()]
+                    if _col not in cols:
+                        cur.execute(f'ALTER TABLE "{_tbl}" ADD COLUMN {_col} {_type}')
+                        conn.commit()
+                        print(f"  ✅ {_tbl}.{_col} を追加しました")
+                    else:
+                        print(f"  ℹ️  {_tbl}.{_col} は既に存在します（スキップ）")
+            except Exception as e:
+                print(f"  ⚠️  マイグレーションエラー({_tbl}.{_col}): {e}")
+                conn.rollback()
+
         # マイグレーション: T_外部ストレージ連携にaccount_refカラムを追加（同一アカウント再連携の重複防止）
         print("\n[マイグレーション] T_外部ストレージ連携にaccount_refカラムを追加")
         try:

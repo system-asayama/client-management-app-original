@@ -50,11 +50,16 @@ def sync_account(account_id: int) -> dict:
             client.close()
 
         result['messages'] = len(messages)
-        # 店舗ごとにストレージアダプタを解決（店舗設定→テナント設定）。store_id別にキャッシュ
+        # ストレージアダプタを解決（担当者個人→店舗→本部）。store_id別にキャッシュ
+        # このアカウントは担当者本人のものなので、担当者個人ストレージを最優先で使う
+        _staff_id = getattr(acc, 'staff_id', None)
+        _staff_type = getattr(acc, 'staff_type', None)
         _adapters_cache = {}
         def _adapters_for(store_id):
             if store_id not in _adapters_cache:
-                _adapters_cache[store_id] = get_storage_adapters(tenant_id, store_id=store_id)
+                _adapters_cache[store_id] = get_storage_adapters(
+                    tenant_id, store_id=store_id,
+                    staff_id=_staff_id, staff_type=_staff_type)
             return _adapters_cache[store_id]
 
         for msg in messages:

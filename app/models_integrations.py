@@ -181,6 +181,9 @@ class TStorageConnection(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, nullable=False)
     store_id = Column(Integer, nullable=True)          # 登録元（NULL=本部）
+    # 担当者本人が登録した「個人ストレージ」の場合の所有者。NULL=本部/店舗が登録
+    staff_id = Column(Integer, nullable=True)          # T_管理者.id または T_従業員.id
+    staff_type = Column(String(20), nullable=True)     # 'admin' / 'employee'
     name = Column(String(255), nullable=True)          # 接続の表示名
     provider = Column(String(50), nullable=True)
     access_token = Column(Text, nullable=True)
@@ -206,6 +209,9 @@ class TStoreStorageAssignment(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
     store_id = Column(Integer, nullable=True)          # NULL=本部（テナント）既定
+    # 担当者ごとの割当。staff_id が設定されている行は「その担当者の保存先」。
+    staff_id = Column(Integer, nullable=True)          # NULL=店舗/本部スコープ
+    staff_type = Column(String(20), nullable=True)     # 'admin' / 'employee'
     connection_id = Column(Integer, nullable=False)    # T_外部ストレージ連携.id
     is_primary = Column(Integer, nullable=False, default=1)   # 1=主に使用
     status = Column(String(20), nullable=False, default='active')

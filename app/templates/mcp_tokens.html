@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}AI連携（MCP）{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .mcp-wrap { max-width: 900px; margin: 0 auto; }
+  .mcp-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.4rem 1.5rem; margin-bottom:1.25rem; }
+  .mcp-card h2 { font-size:1.05rem; margin:0 0 .8rem; color:#1a3a5c; }
+  .muted { color:#889; font-size:.85rem; line-height:1.7; }
+  label { display:block; font-size:.8rem; color:#556; margin:.6rem 0 .25rem; font-weight:600; }
+  input, select { width:100%; padding:.55rem .7rem; border:1px solid #cbd5e1; border-radius:9px; font-size:.9rem; box-sizing:border-box; }
+  .row { display:flex; gap:.8rem; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:180px; }
+  .btn { display:inline-block; padding:.6rem 1.15rem; border-radius:9px; border:0; cursor:pointer; font-size:.9rem; font-weight:700; text-decoration:none; }
+  .btn-primary { background:#1a3a5c; color:#fff; }
+  .btn-danger { background:#fff; color:#c0392b; border:1px solid #f5b7c0; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th, td { text-align:left; padding:.55rem .5rem; border-bottom:1px solid #eef1f5; }
+  th { color:#667; font-size:.78rem; }
+  .pill { display:inline-block; background:#eef2f7; color:#1a3a5c; padding:.1rem .55rem; border-radius:999px; font-size:.74rem; }
+  .code { font-family:ui-monospace,Menlo,Consolas,monospace; background:#0f172a; color:#e2e8f0; padding:.9rem 1rem; border-radius:10px; font-size:.82rem; overflow-x:auto; white-space:pre; }
+  .token-box { background:#fff8e1; border:1px solid #ffe08a; border-radius:10px; padding:1rem; margin-bottom:1rem; }
+  .token-val { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.9rem; word-break:break-all; background:#fff; border:1px dashed #d9b25a; padding:.6rem .7rem; border-radius:8px; }
+  .warn { background:#fdece9; border:1px solid #f0c9c0; color:#a5311f; padding:.7rem .9rem; border-radius:10px; font-size:.83rem; line-height:1.7; }
+</style>
+
+<div class="mcp-wrap">
+  <h1 style="font-size:1.5rem;margin-bottom:.25rem;">🤖 AI連携（MCP）</h1>
+  <p class="muted" style="margin-bottom:1.25rem;">
+    Claude などのAIが、このアプリの機能（顧問先・ファイル・チャット等）を直接利用できるようにします。<br>
+    用途ごとに<strong>トークン</strong>を発行し、<strong>権限（閲覧／編集／削除）</strong>と<strong>範囲（事務所全体／担当者ごと）</strong>を選べます。
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="mcp-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if new_token %}
+  <div class="token-box">
+    <div style="font-weight:700;color:#8a5a00;margin-bottom:.4rem;">✅ 発行されたトークン（今だけ表示されます）</div>
+    <div class="token-val" id="newtok">{{ new_token }}</div>
+    <button class="btn btn-primary" style="margin-top:.6rem;" onclick="navigator.clipboard.writeText(document.getElementById('newtok').innerText);this.innerText='コピーしました';">コピー</button>
+    <div class="muted" style="margin-top:.5rem;">この画面を離れると再表示できません。安全な場所に保管してください。紛失した場合は失効して再発行します。</div>
+  </div>
+  {% endif %}
+
+  <!-- トークン発行 -->
+  <div class="mcp-card">
+    <h2>トークンを発行</h2>
+    <form method="post" action="{{ url_for('mcp_admin.issue') }}">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <label>用途メモ（名前）</label>
+      <input type="text" name="name" placeholder="例: Claude 顧問先アシスタント">
+      <div class="row">
+        <div>
+          <label>権限</label>
+          <select name="permission">
+            <option value="read">閲覧のみ（安全）</option>
+            <option value="write">閲覧＋登録・更新</option>
+            <option value="full">閲覧＋登録・更新＋削除</option>
+          </select>
+        </div>
+        <div>
+          <label>範囲</label>
+          <select name="scope" id="scopeSel" onchange="document.getElementById('staffWrap').style.display=this.value=='staff'?'block':'none';">
+            <option value="tenant">事務所全体</option>
+            <option value="staff">担当者ごと（担当分のみ）</option>
+          </select>
+        </div>
+      </div>
+      <div id="staffWrap" style="display:none;">
+        <label>対象の担当者</label>
+        <select name="staff">
+          <option value="">— 選択してください —</option>
+          {% for s in staff %}
+          <option value="{{ s.type }}:{{ s.id }}">{{ s.name }}（{{ '管理者' if s.type=='admin' else '従業員' }}）</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-top:1rem;"><button type="submit" class="btn btn-primary">発行する</button></div>
+    </form>
+  </div>
+
+  <!-- トークン一覧 -->
+  <div class="mcp-card">
+    <h2>発行済みトークン</h2>
+    {% if tokens %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>名前</th><th>先頭</th><th>権限</th><th>範囲</th><th>最終利用</th><th></th></tr></thead>
+        <tbody>
+          {% for t in tokens %}
+          <tr>
+            <td>{{ t.name }}</td>
+            <td><span class="pill">{{ t.prefix }}…</span></td>
+            <td>{{ t.permission }}</td>
+            <td>{{ t.scope }}{% if t.staff %}<br><span class="muted">{{ t.staff }}</span>{% endif %}</td>
+            <td class="muted">{{ t.last_used }}</td>
+            <td>
+              <form method="post" action="{{ url_for('mcp_admin.revoke', token_id=t.id) }}"
+                    onsubmit="return confirm('このトークンを失効します。使用中のAI連携は動かなくなります。よろしいですか？');">
+                {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+                <button type="submit" class="btn btn-danger">失効</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">まだトークンがありません。上のフォームから発行してください。</p>
+    {% endif %}
+  </div>
+
+  <!-- 接続手順 -->
+  <div class="mcp-card">
+    <h2>接続方法（Claude などから使う）</h2>
+    <p class="muted">このアプリのMCPエンドポイントURLは以下です：</p>
+    <div class="code">{{ mcp_url }}</div>
+    <p class="muted" style="margin-top:1rem;"><strong>Claude Desktop の設定例</strong>（<code>claude_desktop_config.json</code>）：<br>
+    リモートMCP（HTTP）に対応したクライアントで、上記URLと発行トークンを設定します。</p>
+    <div class="code">{
+  "mcpServers": {
+    "komonsaki": {
+      "type": "http",
+      "url": "{{ mcp_url }}",
+      "headers": {
+        "Authorization": "Bearer &lt;発行したトークン&gt;"
+      }
+    }
+  }
+}</div>
+    <p class="muted" style="margin-top:1rem;">
+      対応する主なツール：顧問先の検索・詳細・登録・更新・削除／共有ファイル一覧・削除／受信ファイル一覧／チャット履歴・送信／担当の確認・割当／スタッフ・店舗・受託業務・納税実績の参照 など。<br>
+      ※権限「閲覧のみ」のトークンでは、編集・削除系のツールは表示されません。
+    </p>
+    <div class="warn" style="margin-top:1rem;">
+      ⚠️ トークンはパスワードと同じです。第三者に渡さないでください。「削除」権限のトークンは、AIの操作で顧問先やファイルが消える可能性があります。まずは「閲覧のみ」で試し、必要な範囲だけ権限を上げることをおすすめします。
+    </div>
+  </div>
+</div>
+{% endblock %}

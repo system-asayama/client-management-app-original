@@ -257,3 +257,32 @@ class TReceivedFile(Base):
     status = Column(String(20), nullable=False, default='saved')  # 'saved' / 'error' / 'skipped'
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TMCPToken(Base):
+    """T_MCP連携トークン（AI（MCP）連携用のアクセストークン）
+
+    外部のAI（Claude等）が MCP 経由でこのアプリの機能を利用するための
+    アクセストークンを管理する。トークン本体は保存せず、SHA-256 ハッシュのみ保持し、
+    発行時に一度だけ平文を表示する。
+      scope='tenant' … その事務所（テナント）の全データにアクセス可能
+      scope='staff'  … その担当者が担当する顧問先データのみにアクセス可能
+      permission='read'  … 閲覧のみ
+      permission='write' … 閲覧＋登録・更新（削除は不可）
+      permission='full'  … 閲覧＋登録・更新＋削除
+    """
+    __tablename__ = 'T_MCP連携トークン'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    name = Column(String(255), nullable=True)             # 表示名（用途のメモ）
+    token_hash = Column(String(64), nullable=False)       # SHA-256(token) の16進
+    token_prefix = Column(String(16), nullable=True)      # 表示用の先頭数文字
+    scope = Column(String(20), nullable=False, default='tenant')   # 'tenant' / 'staff'
+    staff_id = Column(Integer, nullable=True)             # scope='staff' のとき
+    staff_type = Column(String(20), nullable=True)        # 'admin' / 'employee'
+    permission = Column(String(20), nullable=False, default='read')  # 'read'/'write'/'full'
+    status = Column(String(20), nullable=False, default='active')    # 'active'/'revoked'
+    last_used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

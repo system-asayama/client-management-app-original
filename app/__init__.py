@@ -397,6 +397,20 @@ def create_app() -> Flask:
         print(f"⚠️ tenant_storage blueprint 登録エラー: {e}")
 
     try:
+        from .blueprints.mcp_api import bp as mcp_api_bp
+        app.register_blueprint(mcp_api_bp)
+        print("✅ mcp_api blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ mcp_api blueprint 登録エラー: {e}")
+
+    try:
+        from .blueprints.mcp_admin import bp as mcp_admin_bp
+        app.register_blueprint(mcp_admin_bp)
+        print("✅ mcp_admin blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ mcp_admin blueprint 登録エラー: {e}")
+
+    try:
         from .blueprints.client_auth import bp as client_auth_bp
         app.register_blueprint(client_auth_bp)
     except Exception as e:

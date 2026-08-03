@@ -140,6 +140,10 @@ def run_migrations():
             ("T_店舗ストレージ割当", "staff_type", "VARCHAR(20) NULL"),
             # ChatWork連携ルームを担当ごとのアカウントに紐付け可能にする（NULL=テナント共通）
             ("T_ChatWork連携ルーム", "staff_account_id", "INTEGER NULL"),
+            # 店舗ベース対応: トラック関連テーブルの所属店舗ID（未適用環境の保険）
+            ("trucks", "store_id", "INTEGER NULL"),
+            ("truck_drivers", "store_id", "INTEGER NULL"),
+            ("truck_routes", "store_id", "INTEGER NULL"),
             ("truck_routes", "client_id", "INTEGER NULL"),
             ("truck_routes", "contract_amount", "NUMERIC(12,2) NULL"),
             ("truck_accident_records", "driver_id", "INTEGER NULL"),

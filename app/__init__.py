@@ -25,24 +25,27 @@ try:
     print("✅ データベーステーブル作成完了")
     
     # ログインシステムの自動マイグレーション実行
+    # 各マイグレーションは個別に try/except で囲み、1つが失敗しても
+    # 後続のマイグレーションが必ず実行されるようにする（依存の連鎖失敗を防ぐ）
     try:
         from .auto_migrations import run_auto_migrations, run_truck_doc_migrations, run_breeder_new_table_migrations, run_pedigree_ancestor_migration, run_truck_schedule_migration, run_truck_store_id_migration, run_platform_table_migrations
-        run_auto_migrations()
-        print("✅ ログインシステム自動マイグレーション完了")
-        run_truck_doc_migrations()
-        print("✅ トラック書類カラムマイグレーション完了")
-        run_breeder_new_table_migrations()
-        print("✅ ブリーダー新テーブルマイグレーション完了")
-        run_pedigree_ancestor_migration()
-        print("✅ 血統書祖先テーブルマイグレーション完了")
-        run_truck_schedule_migration()
-        print("✅ 運行スケジュールテーブルマイグレーション完了")
-        run_truck_store_id_migration()
-        print("✅ トラック・ドライバー store_id マイグレーション完了")
-        run_platform_table_migrations()
-        print("✅ プラットフォームテーブルマイグレーション完了")
+        _auto_migrations = [
+            ("ログインシステム自動", run_auto_migrations),
+            ("トラック書類カラム", run_truck_doc_migrations),
+            ("ブリーダー新テーブル", run_breeder_new_table_migrations),
+            ("血統書祖先テーブル", run_pedigree_ancestor_migration),
+            ("運行スケジュールテーブル", run_truck_schedule_migration),
+            ("トラック・ドライバー store_id", run_truck_store_id_migration),
+            ("プラットフォームテーブル", run_platform_table_migrations),
+        ]
+        for _label, _fn in _auto_migrations:
+            try:
+                _fn()
+                print(f"✅ {_label}マイグレーション完了")
+            except Exception as e:
+                print(f"⚠️ {_label}マイグレーションエラー: {e}")
     except Exception as e:
-        print(f"⚠️ ログインシステム自動マイグレーションエラー: {e}")
+        print(f"⚠️ 自動マイグレーションのインポートに失敗: {e}")
 except Exception as e:
     print(f"⚠️ データベーステーブル作成エラー: {e}")
 

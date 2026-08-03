@@ -10,6 +10,11 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
+
+def get_db_url():
+    """正規化済みのDATABASE_URL文字列を返す（各種マイグレーションが使用）。"""
+    return DATABASE_URL
+
 # SQLite接続関数（顧問先管理機能用）
 import sqlite3
 

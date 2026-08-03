@@ -210,15 +210,9 @@
     <a href="{{ url_for('clients.client_accounts', client_id=client.id) }}" class="action-btn btn-accounts">
       <span class="icon">&#128100;</span> アカウント管理
     </a>
-    {% if company %}
-    <a href="{{ url_for('clients.company_info', company_id=company.id) }}" class="action-btn btn-company">
+    <a href="{{ url_for('clients.company_basic', client_id=client.id) }}" class="action-btn btn-company">
       <span class="icon">&#127970;</span> 会社基本情報
     </a>
-    {% else %}
-    <a href="{{ url_for('clients.company_create', client_id=client.id) }}" class="action-btn btn-company">
-      <span class="icon">&#127970;</span> 会社情報を登録
-    </a>
-    {% endif %}
     <a href="{{ url_for('clients.client_storage_folder', client_id=client.id) }}" class="action-btn btn-storage">
       <span class="icon">&#128194;</span> ストレージ設定
     </a>

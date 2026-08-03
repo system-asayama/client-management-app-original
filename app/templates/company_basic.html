@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}会社基本情報{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .cb-wrap { max-width: 760px; margin: 0 auto; }
+  .cb-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .cb-title { font-size:1.4rem; font-weight:800; color:#1a3a5c; }
+  .cb-title .badge { font-size:.8rem; background:#eef2ff; color:#3949ab; padding:.15rem .6rem; border-radius:999px; margin-left:.5rem; vertical-align:middle; }
+  .btn { display:inline-block; padding:.6rem 1.15rem; border-radius:10px; border:0; cursor:pointer; font-size:.92rem; font-weight:700; text-decoration:none; }
+  .btn-edit { background:#f0a500; color:#fff; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .cb-card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:.5rem 1.25rem; }
+  .row { display:flex; padding:.75rem 0; border-bottom:1px solid #f1f4f8; gap:1rem; }
+  .row:last-child { border-bottom:0; }
+  .row .k { width:130px; flex-shrink:0; color:#667; font-size:.85rem; font-weight:600; }
+  .row .v { flex:1; color:#233; font-size:.95rem; word-break:break-word; }
+  .row .v.empty { color:#aab; }
+  .note { color:#889; font-size:.83rem; line-height:1.7; margin-top:1rem; }
+</style>
+
+<div class="cb-wrap">
+  <div class="cb-head">
+    <div class="cb-title">
+      🏢 会社基本情報
+      {% if client.type %}<span class="badge">{{ client.type }}</span>{% endif %}
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a class="btn btn-ghost" href="{{ url_for('clients.client_info', client_id=client.id) }}">← 戻る</a>
+      <a class="btn btn-edit" href="{{ url_for('clients.edit_client', client_id=client.id) }}">✎ 編集</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="cb-card" style="border-left:4px solid {{ '#2563a8' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};margin-bottom:1rem;padding:.9rem 1.25rem;">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="cb-card">
+    {% macro field(k, v) %}
+      <div class="row"><div class="k">{{ k }}</div><div class="v {% if not v %}empty{% endif %}">{{ v if v else '未登録' }}</div></div>
+    {% endmacro %}
+    {{ field('区分', client.type) }}
+    {{ field('名称', client.name) }}
+    {{ field('メールアドレス', client.email) }}
+    {{ field('電話番号', client.phone) }}
+    {{ field('住所', client.address) }}
+    {{ field('業種', client.industry) }}
+    {{ field('法人番号 / マイナンバー', client.tax_id_number) }}
+    {{ field('従業員数', client.employee_count) }}
+    {{ field('会計期間 開始月', (client.fiscal_year_start_month ~ '月') if client.fiscal_year_start_month else '') }}
+    {{ field('決算月', (client.fiscal_year_end_month ~ '月') if client.fiscal_year_end_month else '') }}
+    {{ field('顧問先コード', client.tax_accountant_code) }}
+    {{ field('契約開始日', client.contract_start_date) }}
+  </div>
+
+  <div class="note">
+    ※ ここは<strong>顧問先情報を表示</strong>しています（情報は1か所で管理）。変更は右上の<strong>「✎ 編集」</strong>から行ってください。<br>
+    ※ さらに詳しい税務区分・会計期間などは、顧問先詳細の「業務情報」からも設定できます。
+  </div>
+</div>
+{% endblock %}

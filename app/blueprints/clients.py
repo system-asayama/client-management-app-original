@@ -544,6 +544,26 @@ def company_delete(company_id):
         db.close()
 
 
+@bp.route('/<int:client_id>/company-basic')
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def company_basic(client_id):
+    """会社基本情報（顧問先情報を唯一の置き場として表示。編集は顧問先編集へ）。"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        c = db.query(TClient).filter(
+            TClient.id == client_id, TClient.tenant_id == tenant_id).first()
+        if not c:
+            flash('顧問先が見つかりません', 'error')
+            return redirect(url_for('clients.clients'))
+        return render_template('company_basic.html', client=c)
+    finally:
+        db.close()
+
+
 @bp.route('/<int:client_id>/delete', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def delete_client(client_id):

@@ -184,6 +184,54 @@ def _h_delete_client(ctx, args):
     return {'deleted': True, 'client_id': int(args['client_id']), 'name': name}
 
 
+def _norm_name(s):
+    return ''.join((s or '').split()).lower()
+
+
+def _h_bulk_create_clients(ctx, args):
+    """顧問先を一括登録する。既存名・バッチ内の重複はスキップする。
+    clients: [{name(必須), type, email, phone, address, industry, notes}] の配列
+    """
+    items = args.get('clients') or []
+    if not isinstance(items, list) or not items:
+        raise ToolError('clients（登録する顧問先の配列）が必要です')
+    if len(items) > 1000:
+        raise ToolError('一度に登録できるのは1000件までです')
+    store_id = args.get('store_id')
+
+    # 既存の顧問先名（正規化）を集める（重複防止）
+    existing = {_norm_name(n[0]) for n in
+                ctx.db.query(TClient.name).filter(TClient.tenant_id == ctx.tenant_id).all()}
+    seen = set()
+    created, skipped = [], []
+    for it in items:
+        name = (it.get('name') or '').strip() if isinstance(it, dict) else ''
+        if not name:
+            skipped.append({'name': '(空)', 'reason': 'name無し'})
+            continue
+        key = _norm_name(name)
+        if key in existing or key in seen:
+            skipped.append({'name': name, 'reason': '重複'})
+            continue
+        seen.add(key)
+        c = TClient(tenant_id=ctx.tenant_id, name=name)
+        if store_id is not None:
+            c.store_id = store_id
+        for k in ('type', 'email', 'phone', 'address', 'industry', 'notes'):
+            if it.get(k):
+                setattr(c, k, it[k])
+        ctx.db.add(c)
+        ctx.db.flush()
+        if ctx.scope == 'staff':
+            ctx.db.add(TClientAssignment(
+                tenant_id=ctx.tenant_id, client_id=c.id,
+                staff_id=ctx.staff_id, staff_type=ctx.staff_type, is_primary=1))
+        created.append({'id': c.id, 'name': name})
+    ctx.db.commit()
+    return {'created_count': len(created), 'skipped_count': len(skipped),
+            'created': created, 'skipped': skipped}
+
+
 # ---------------------------------------------------------------------------
 # ハンドラ: 受託業務
 # ---------------------------------------------------------------------------
@@ -403,6 +451,20 @@ TOOLS = [
     _tool('delete_client', 'full',
           '顧問先を削除する。取り消せないので注意。',
           {'client_id': _I('顧問先ID')}, ['client_id'], _h_delete_client),
+    _tool('bulk_create_clients', 'write',
+          '顧問先を一括登録する。既存名・バッチ内の重複は自動でスキップする。'
+          'freee等から取り込んだ多数の顧問先をまとめて登録する用途。',
+          {'clients': {'type': 'array',
+                       'description': '顧問先の配列。各要素は {name(必須), type, email, phone, address, industry, notes}',
+                       'items': {'type': 'object',
+                                 'properties': {
+                                     'name': _S('顧問先名（必須）'), 'type': _S('個人/法人'),
+                                     'email': _S('メール'), 'phone': _S('電話'),
+                                     'address': _S('住所'), 'industry': _S('業種'),
+                                     'notes': _S('備考')},
+                                 'required': ['name']}},
+           'store_id': _I('登録先の店舗ID（全件に適用）')},
+          ['clients'], _h_bulk_create_clients),
     _tool('list_commissioned_work', 'read',
           '顧問先の受託業務（顧問料・業務名等）の一覧を取得する。',
           {'client_id': _I('顧問先ID')}, ['client_id'], _h_list_commissioned_work),

@@ -411,6 +411,13 @@ def create_app() -> Flask:
         print(f"⚠️ mcp_admin blueprint 登録エラー: {e}")
 
     try:
+        from .blueprints.client_import import bp as client_import_bp
+        app.register_blueprint(client_import_bp)
+        print("✅ client_import blueprint 登録完了")
+    except Exception as e:
+        print(f"⚠️ client_import blueprint 登録エラー: {e}")
+
+    try:
         from .blueprints.client_auth import bp as client_auth_bp
         app.register_blueprint(client_auth_bp)
     except Exception as e:

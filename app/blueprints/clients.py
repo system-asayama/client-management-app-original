@@ -559,7 +559,11 @@ def company_basic(client_id):
         if not c:
             flash('顧問先が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
-        return render_template('company_basic.html', client=c)
+        store_name = None
+        if c.store_id:
+            st = db.query(TTenpo).filter(TTenpo.id == c.store_id).first()
+            store_name = st.名称 if st else None
+        return render_template('company_basic.html', client=c, store_name=store_name)
     finally:
         db.close()
 

@@ -53,6 +53,8 @@
     {{ field('決算月', (client.fiscal_year_end_month ~ '月') if client.fiscal_year_end_month else '') }}
     {{ field('顧問先コード', client.tax_accountant_code) }}
     {{ field('契約開始日', client.contract_start_date) }}
+    {{ field('所属店舗', store_name) }}
+    {{ field('メモ', client.notes) }}
   </div>
 
   <div class="note">

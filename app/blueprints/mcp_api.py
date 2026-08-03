@@ -111,72 +111,93 @@ _METHODS = {
 }
 
 
+def _process(db, token_row):
+    """認証済みトークンで JSON-RPC を処理してレスポンスを返す（共通本体）。"""
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return _err(None, -32700, 'JSONの解析に失敗しました', http=400)
+
+    # バッチ（配列）にも対応
+    single = not isinstance(payload, list)
+    messages = [payload] if single else payload
+
+    ctx = MCPContext(db, token_row)
+    # 最終利用時刻を更新
+    try:
+        token_row.last_used_at = datetime.utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    responses = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            responses.append({'jsonrpc': '2.0', 'id': None,
+                              'error': {'code': -32600, 'message': '不正なリクエスト'}})
+            continue
+        req_id = msg.get('id')
+        method = msg.get('method')
+        params = msg.get('params')
+        # 通知（idなし）はレスポンスを返さない
+        is_notification = 'id' not in msg
+        handler = _METHODS.get(method)
+        if handler is None:
+            if not is_notification:
+                responses.append({'jsonrpc': '2.0', 'id': req_id,
+                                  'error': {'code': -32601,
+                                            'message': f'未対応のメソッド: {method}'}})
+            continue
+        try:
+            result = handler(params, ctx)
+            if not is_notification:
+                responses.append({'jsonrpc': '2.0', 'id': req_id, 'result': result})
+        except Exception as e:  # noqa: BLE001
+            db.rollback()
+            current_app.logger.exception('MCP method error: %s', e)
+            if not is_notification:
+                responses.append({'jsonrpc': '2.0', 'id': req_id,
+                                  'error': {'code': -32603, 'message': f'内部エラー: {e}'}})
+
+    if not responses:
+        # 通知のみ → 202 No Content 相当
+        return ('', 202)
+    return jsonify(responses[0] if single else responses)
+
+
 @bp.route('', methods=['POST'])
 @bp.route('/', methods=['POST'])
 def mcp_endpoint():
-    # 認証
+    """トークンは Authorization: Bearer ヘッダで受け取る（Claude Desktop 等）。"""
     db = SessionLocal()
     try:
         token_row = _lookup_token(db, _bearer_from_request())
         if not token_row:
             return _err(None, -32001, '認証に失敗しました（有効なトークンが必要です）', http=401)
+        return _process(db, token_row)
+    finally:
+        db.close()
 
-        payload = request.get_json(silent=True)
-        if payload is None:
-            return _err(None, -32700, 'JSONの解析に失敗しました', http=400)
 
-        # バッチ（配列）にも対応
-        single = not isinstance(payload, list)
-        messages = [payload] if single else payload
-
-        ctx = MCPContext(db, token_row)
-        # 最終利用時刻を更新
-        try:
-            token_row.last_used_at = datetime.utcnow()
-            db.commit()
-        except Exception:
-            db.rollback()
-
-        responses = []
-        for msg in messages:
-            if not isinstance(msg, dict):
-                responses.append({'jsonrpc': '2.0', 'id': None,
-                                  'error': {'code': -32600, 'message': '不正なリクエスト'}})
-                continue
-            req_id = msg.get('id')
-            method = msg.get('method')
-            params = msg.get('params')
-            # 通知（idなし）はレスポンスを返さない
-            is_notification = 'id' not in msg
-            handler = _METHODS.get(method)
-            if handler is None:
-                if not is_notification:
-                    responses.append({'jsonrpc': '2.0', 'id': req_id,
-                                      'error': {'code': -32601,
-                                                'message': f'未対応のメソッド: {method}'}})
-                continue
-            try:
-                result = handler(params, ctx)
-                if not is_notification:
-                    responses.append({'jsonrpc': '2.0', 'id': req_id, 'result': result})
-            except Exception as e:  # noqa: BLE001
-                db.rollback()
-                current_app.logger.exception('MCP method error: %s', e)
-                if not is_notification:
-                    responses.append({'jsonrpc': '2.0', 'id': req_id,
-                                      'error': {'code': -32603, 'message': f'内部エラー: {e}'}})
-
-        if not responses:
-            # 通知のみ → 202 No Content 相当
-            return ('', 202)
-        return jsonify(responses[0] if single else responses)
+@bp.route('/t/<token>', methods=['POST'])
+def mcp_endpoint_token_in_url(token):
+    """トークンをURLに埋め込む方式（claude.ai の「カスタムコネクタ」用）。
+    ヘッダにトークンを付けられないクライアント向け。URLの秘匿に注意。
+    """
+    db = SessionLocal()
+    try:
+        token_row = _lookup_token(db, token)
+        if not token_row:
+            return _err(None, -32001, '認証に失敗しました（URLのトークンが無効です）', http=401)
+        return _process(db, token_row)
     finally:
         db.close()
 
 
 @bp.route('', methods=['GET'])
 @bp.route('/', methods=['GET'])
-def mcp_info():
+@bp.route('/t/<token>', methods=['GET'])
+def mcp_info(token=None):
     """疎通確認用（GET）。MCP自体はPOSTで話す。"""
     return jsonify({'name': _SERVER_INFO['name'], 'transport': 'streamable-http',
-                    'usage': 'POST /mcp with JSON-RPC 2.0 and Authorization: Bearer <token>'})
+                    'usage': 'POST JSON-RPC 2.0. 認証はヘッダ Authorization: Bearer <token> '
+                             'または URL /mcp/t/<token>'})

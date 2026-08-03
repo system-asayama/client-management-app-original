@@ -39,10 +39,18 @@
 
   {% if new_token %}
   <div class="token-box">
-    <div style="font-weight:700;color:#8a5a00;margin-bottom:.4rem;">✅ 発行されたトークン（今だけ表示されます）</div>
+    <div style="font-weight:700;color:#8a5a00;margin-bottom:.4rem;">✅ 発行されました（今だけ表示されます）</div>
+
+    <div style="font-weight:700;color:#1a3a5c;margin:.6rem 0 .2rem;">① claude.ai / スマホアプリで繋ぐ場合はこのURLを貼るだけ</div>
+    <div class="muted" style="margin-bottom:.3rem;">「カスタムコネクタを追加」→「リモートMCPサーバーURL」欄に貼り付け（OAuth欄は空のままでOK）。</div>
+    <div class="token-val" id="newurl">{{ mcp_url }}/t/{{ new_token }}</div>
+    <button class="btn btn-primary" style="margin-top:.6rem;" onclick="navigator.clipboard.writeText(document.getElementById('newurl').innerText);this.innerText='URLをコピーしました';">接続URLをコピー</button>
+
+    <div style="font-weight:700;color:#1a3a5c;margin:1rem 0 .2rem;">② トークン単体（Claude Desktop等でヘッダに使う場合）</div>
     <div class="token-val" id="newtok">{{ new_token }}</div>
-    <button class="btn btn-primary" style="margin-top:.6rem;" onclick="navigator.clipboard.writeText(document.getElementById('newtok').innerText);this.innerText='コピーしました';">コピー</button>
-    <div class="muted" style="margin-top:.5rem;">この画面を離れると再表示できません。安全な場所に保管してください。紛失した場合は失効して再発行します。</div>
+    <button class="btn btn-primary" style="margin-top:.6rem;" onclick="navigator.clipboard.writeText(document.getElementById('newtok').innerText);this.innerText='コピーしました';">トークンをコピー</button>
+
+    <div class="muted" style="margin-top:.7rem;">この画面を離れると再表示できません。安全な場所に保管してください。紛失した場合は失効して再発行します。</div>
   </div>
   {% endif %}
 
@@ -117,8 +125,20 @@
 
   <!-- 接続手順 -->
   <div class="mcp-card">
-    <h2>接続方法（Claude などから使う）</h2>
-    <p class="muted">このアプリのMCPエンドポイントURLは以下です：</p>
+    <h2>接続方法A：claude.ai / スマホアプリ（かんたん）</h2>
+    <p class="muted">
+      claude.ai の <strong>設定 →「カスタムコネクタを追加」</strong>を開き、<br>
+      ・<strong>名前</strong>：任意（例：顧問先管理）<br>
+      ・<strong>リモートMCPサーバーURL</strong>：<u>トークン発行時に表示される「接続URL」</u>（<code>{{ mcp_url }}/t/&lt;トークン&gt;</code>）を貼り付け<br>
+      ・<strong>OAuth Client ID / シークレット</strong>：<u>空のままでOK</u><br>
+      最後に「追加」を押せば完了です。トークンがURLに含まれているので、別途トークンを入力する必要はありません。
+    </p>
+    <div class="warn" style="margin-top:.8rem;">
+      🔒 この接続URLはトークン入りのため、<strong>URL自体がパスワード</strong>です。人に見せない・共有しないでください。漏れたら「失効」して再発行できます。
+    </div>
+
+    <h2 style="margin-top:1.4rem;">接続方法B：Claude Desktop（設定ファイル）</h2>
+    <p class="muted">MCPエンドポイントURL：</p>
     <div class="code">{{ mcp_url }}</div>
     <p class="muted" style="margin-top:1rem;"><strong>Claude Desktop の設定例</strong>（<code>claude_desktop_config.json</code>）：<br>
     リモートMCP（HTTP）に対応したクライアントで、上記URLと発行トークンを設定します。</p>

@@ -405,6 +405,7 @@ def dropbox_oauth_start():
         return redirect(url_for('staff_mypage.dashboard'))
     # OAuthラウンドトリップ後もスコープを保持
     session['dropbox_scope_store_id'] = store_id
+    session.pop('dropbox_staff_scope', None)  # 担当者スコープの残りを消す（取り違え防止）
 
     redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
     csrf_token = f"dropbox_csrf_{tenant_id}"
@@ -425,18 +426,62 @@ def dropbox_oauth_start():
 
 
 @bp.route('/dropbox/oauth/callback', methods=['GET'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def dropbox_oauth_callback():
-    """DropboxのOAuth2コールバック処理"""
+    """DropboxのOAuth2コールバック処理（テナント/店舗＋担当者個人 共通）。
+    従業員個人の連携も、この登録済みコールバックURLを共用する
+    （Dropboxアプリに別URIを登録しなくて済むように統合）。
+    """
     from dropbox import DropboxOAuth2Flow
     # OAuth関連の例外は dropbox.oauth に定義されている（dropbox.exceptions ではない）
     from dropbox.oauth import BadRequestException, BadStateException, CsrfException, NotApprovedException, ProviderException
 
     tenant_id = session.get('tenant_id')
-    store_id = session.get('dropbox_scope_store_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
-        return redirect(url_for('tenant_storage.storage_dropbox', store_id=store_id))
+        return redirect(url_for('staff_mypage.dashboard'))
+
+    redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
+    app_key, app_secret = get_dropbox_app_credentials(tenant_id)
+
+    def _make_flow():
+        return DropboxOAuth2Flow(
+            consumer_key=app_key, redirect_uri=redirect_uri, session=session,
+            csrf_token_session_key='dropbox_csrf_token',
+            consumer_secret=app_secret, token_access_type='offline')
+
+    # --- 担当者個人（マイページ）フロー ---
+    staff_scope = session.get('dropbox_staff_scope')
+    if staff_scope:
+        try:
+            res = _make_flow().finish(request.args)
+            from app.blueprints.staff_mypage import _staff_connect_dropbox
+            db = SessionLocal()
+            try:
+                _, updated = _staff_connect_dropbox(
+                    db, tenant_id, staff_scope.get('staff_id'), staff_scope.get('staff_type'),
+                    res.access_token, res.refresh_token,
+                    name=staff_scope.get('name') or 'Dropbox（担当）')
+                db.commit()
+                flash('個人Dropboxの連携を更新しました' if updated else '個人Dropboxとの連携が完了しました！', 'success')
+            except Exception as e:
+                db.rollback()
+                flash(f'保存に失敗しました: {e}', 'error')
+            finally:
+                db.close()
+        except BadStateException:
+            flash('セッションが切れました。もう一度お試しください。', 'error')
+        except CsrfException:
+            flash('セキュリティエラーが発生しました。もう一度お試しください。', 'error')
+        except NotApprovedException:
+            flash('Dropboxの認証がキャンセルされました。', 'warning')
+        except Exception as e:
+            flash(f'Dropbox連携に失敗しました: {e}', 'error')
+        session.pop('dropbox_staff_scope', None)
+        return redirect(url_for('staff_mypage.storage_settings'))
+
+    # --- テナント/店舗フロー（従来） ---
+    store_id = session.get('dropbox_scope_store_id')
     _db = SessionLocal()
     try:
         _ok = _scope_access_ok(_db, tenant_id, store_id)
@@ -446,17 +491,7 @@ def dropbox_oauth_callback():
         flash('この設定を操作する権限がありません', 'error')
         return redirect(url_for('staff_mypage.dashboard'))
 
-    redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
-    # App Key/Secret はテナント専用アプリ優先（無ければ共通の既定値）
-    app_key, app_secret = get_dropbox_app_credentials(tenant_id)
-    auth_flow = DropboxOAuth2Flow(
-        consumer_key=app_key,
-        redirect_uri=redirect_uri,
-        session=session,
-        csrf_token_session_key='dropbox_csrf_token',
-        consumer_secret=app_secret,
-        token_access_type='offline'
-    )
+    auth_flow = _make_flow()
 
     try:
         oauth_result = auth_flow.finish(request.args)

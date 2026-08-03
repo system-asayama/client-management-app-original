@@ -1444,19 +1444,29 @@ def storage_settings():
 @bp.route('/storage/dropbox/oauth/start', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def storage_dropbox_start():
-    """担当者個人のDropbox OAuth を開始する"""
+    """担当者個人のDropbox OAuth を開始する。
+    コールバックは登録済みのテナント用URL（tenant_storage.dropbox_oauth_callback）を
+    共用し、セッションに担当者スコープを持たせて識別する
+    （Dropboxアプリに従業員用の別Redirect URIを登録しなくて済むように統合）。
+    """
     from dropbox import DropboxOAuth2Flow
     from app.utils.tenant_storage_adapter import get_dropbox_app_credentials
+    user, staff_type, role = _get_current_user()
     tenant_id = session.get('tenant_id')
-    if not tenant_id:
-        flash('テナントが選択されていません', 'error')
+    if not user or not tenant_id:
+        flash('ユーザーが見つかりません', 'error')
         return redirect(url_for('staff_mypage.storage_settings'))
-    redirect_uri = url_for('staff_mypage.storage_dropbox_callback', _external=True)
-    session['staff_dropbox_csrf'] = f'staff_dropbox_{tenant_id}'
+    # 共用コールバックURL（登録済み）。担当者スコープをセッションに保持
+    redirect_uri = url_for('tenant_storage.dropbox_oauth_callback', _external=True)
+    session.pop('dropbox_scope_store_id', None)  # 店舗スコープ残りを消す
+    session['dropbox_staff_scope'] = {
+        'staff_id': user.id, 'staff_type': staff_type,
+        'name': f'Dropbox（{getattr(user, "name", None) or "担当"}）',
+    }
     app_key, app_secret = get_dropbox_app_credentials(tenant_id)
     auth_flow = DropboxOAuth2Flow(
         consumer_key=app_key, redirect_uri=redirect_uri, session=session,
-        csrf_token_session_key='staff_dropbox_csrf',
+        csrf_token_session_key='dropbox_csrf_token',
         consumer_secret=app_secret, token_access_type='offline')
     return redirect(auth_flow.start())
 

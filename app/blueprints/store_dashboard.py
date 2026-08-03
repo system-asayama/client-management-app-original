@@ -156,9 +156,23 @@ def clients(store_id):
         tenant = db.query(TTenant).filter(TTenant.id == tenant_id).first()
         profession = getattr(tenant, 'profession', None) or '' if tenant else ''
 
-        client_list = db.query(TClient).filter(
-            and_(TClient.tenant_id == tenant_id, TClient.store_id == store_id)
-        ).order_by(TClient.id.desc()).all()
+        # 絞り込み条件
+        f_q = (request.args.get('q') or '').strip()
+        f_type = request.args.get('type') or ''
+        f_month = request.args.get('fiscal_month') or ''
+        f_status = request.args.get('status') or ''
+
+        q = db.query(TClient).filter(
+            and_(TClient.tenant_id == tenant_id, TClient.store_id == store_id))
+        if f_q:
+            q = q.filter(TClient.name.like(f'%{f_q}%'))
+        if f_type in ('個人', '法人'):
+            q = q.filter(TClient.type == f_type)
+        if f_month.isdigit() and 1 <= int(f_month) <= 12:
+            q = q.filter(TClient.fiscal_year_end_month == int(f_month))
+        if f_status in ('契約中', '解約', '検討中', '未契約'):
+            q = q.filter(TClient.contract_status == f_status)
+        client_list = q.order_by(TClient.id.desc()).all()
 
         return render_template(
             'store_clients.html',
@@ -168,6 +182,7 @@ def clients(store_id):
             tenant=tenant,
             profession=profession,
             profession_label=PROFESSION_LABELS.get(profession, ''),
+            filters={'q': f_q, 'type': f_type, 'fiscal_month': f_month, 'status': f_status},
         )
     finally:
         db.close()

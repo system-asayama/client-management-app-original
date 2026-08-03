@@ -159,6 +159,47 @@
 {% endwith %}
 
 <div class="card">
+  <!-- 絞り込み -->
+  <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #eef1f5;">
+    <div style="flex:2;min-width:150px;">
+      <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">名称</label>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="顧問先名で検索"
+             style="width:100%;padding:.45rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+    </div>
+    <div style="flex:1;min-width:90px;">
+      <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">区分</label>
+      <select name="type" style="width:100%;padding:.45rem .4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+        <option value="">すべて</option>
+        <option value="法人" {% if filters.type=='法人' %}selected{% endif %}>法人</option>
+        <option value="個人" {% if filters.type=='個人' %}selected{% endif %}>個人</option>
+      </select>
+    </div>
+    <div style="flex:1;min-width:90px;">
+      <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">決算月</label>
+      <select name="fiscal_month" style="width:100%;padding:.45rem .4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+        <option value="">すべて</option>
+        {% for m in range(1,13) %}
+        <option value="{{ m }}" {% if filters.fiscal_month == (m|string) %}selected{% endif %}>{{ m }}月</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1;min-width:100px;">
+      <label style="display:block;font-size:.72rem;color:#667;margin-bottom:.2rem;">ステータス</label>
+      <select name="status" style="width:100%;padding:.45rem .4rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;box-sizing:border-box;">
+        <option value="">すべて</option>
+        {% for s in ['契約中','検討中','未契約','解約'] %}
+        <option value="{{ s }}" {% if filters.status==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex;gap:.4rem;">
+      <button type="submit" class="btn btn-primary" style="padding:.5rem .9rem;font-size:.85rem;">絞り込む</button>
+      {% if filters.q or filters.type or filters.fiscal_month or filters.status %}
+      <a class="btn btn-secondary" href="{{ url_for('store_dashboard.clients', store_id=store.id) }}" style="padding:.5rem .9rem;font-size:.85rem;">クリア</a>
+      {% endif %}
+    </div>
+  </form>
+
   <div class="action-bar">
     <span style="font-size:0.875rem;color:#6b7280;">全 <strong>{{ clients|length }}</strong> 件</span>
     <span style="display:flex;gap:.5rem;flex-wrap:wrap;">

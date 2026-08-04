@@ -163,7 +163,8 @@ def clients(store_id):
         f_status = request.args.get('status') or ''
 
         q = db.query(TClient).filter(
-            and_(TClient.tenant_id == tenant_id, TClient.store_id == store_id))
+            and_(TClient.tenant_id == tenant_id, TClient.store_id == store_id,
+                 TClient.deleted_at.is_(None)))
         if f_q:
             q = q.filter(TClient.name.like(f'%{f_q}%'))
         if f_type in ('個人', '法人'):

@@ -118,7 +118,8 @@ def _received_dict(r):
 # ハンドラ: 顧問先
 # ---------------------------------------------------------------------------
 def _h_list_clients(ctx, args):
-    q = ctx.db.query(TClient).filter(TClient.tenant_id == ctx.tenant_id)
+    q = ctx.db.query(TClient).filter(TClient.tenant_id == ctx.tenant_id,
+                                     TClient.deleted_at.is_(None))
     if ctx.scope == 'staff':
         ids = _assigned_client_ids(ctx)
         if not ids:

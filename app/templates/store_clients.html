@@ -203,6 +203,7 @@
   <div class="action-bar">
     <span style="font-size:0.875rem;color:#6b7280;">全 <strong>{{ clients|length }}</strong> 件</span>
     <span style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="{{ url_for('clients.trash') }}">🗑 ゴミ箱</a>
       <a class="btn btn-secondary" href="{{ url_for('client_import.index') }}">📥 一括インポート</a>
       <a class="btn btn-primary" href="{{ url_for('clients.add_client') }}?store_id={{ store.id }}">＋ 顧問先を追加</a>
     </span>
@@ -218,7 +219,7 @@
       {% for s in ['契約中','検討中','未契約','解約'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
     </select>
     <button type="button" class="btn btn-primary" style="padding:.45rem .9rem;font-size:.85rem;" onclick="applyBulkStatus()">選択を一括更新</button>
-    <button type="button" class="btn" style="padding:.45rem .9rem;font-size:.85rem;background:#fff;color:#c0392b;border:1px solid #f5b7c0;" onclick="applyBulkDelete()">選択を削除</button>
+    <button type="button" class="btn" style="padding:.45rem .9rem;font-size:.85rem;background:#fff;color:#c0392b;border:1px solid #f5b7c0;" onclick="applyBulkDelete()">選択をゴミ箱へ</button>
   </div>
   <form id="bulkStatusForm" method="post" action="{{ url_for('clients.bulk_status') }}" style="display:none;">
     {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
@@ -268,10 +269,10 @@
           <td style="white-space:nowrap;">
             <a class="btn btn-secondary" href="{{ url_for('clients.edit_client', client_id=c.id) }}" style="padding:0.3rem 0.75rem;font-size:0.8rem;">編集</a>
             <form method="post" action="{{ url_for('clients.delete_client', client_id=c.id) }}" style="display:inline;"
-                  onsubmit="return confirm('顧問先「{{ c.name }}」を削除します。関連データ（担当・ファイル・チャット等）も削除されます。よろしいですか？');">
+                  onsubmit="return confirm('顧問先「{{ c.name }}」をゴミ箱に移動します。ゴミ箱からいつでも復元できます。よろしいですか？');">
               {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
               <input type="hidden" name="store_id" value="{{ store.id }}">
-              <button type="submit" class="btn" style="padding:0.3rem 0.75rem;font-size:0.8rem;background:#fff;color:#c0392b;border:1px solid #f5b7c0;">削除</button>
+              <button type="submit" class="btn" style="padding:0.3rem 0.75rem;font-size:0.8rem;background:#fff;color:#c0392b;border:1px solid #f5b7c0;">🗑 ゴミ箱へ</button>
             </form>
           </td>
         </tr>
@@ -317,7 +318,7 @@ function applyBulkStatus() {
 function applyBulkDelete() {
   var ids = Array.prototype.slice.call(document.querySelectorAll('.rowchk:checked')).map(function(c){ return c.value; });
   if (!ids.length) { alert('顧問先を選択してください'); return; }
-  if (!confirm(ids.length + '件の顧問先を削除します。関連データ（担当・ファイル・チャット等）も削除され、元に戻せません。よろしいですか？')) return;
+  if (!confirm(ids.length + '件の顧問先をゴミ箱に移動します。ゴミ箱からいつでも復元できます。よろしいですか？')) return;
   var cont = document.getElementById('bulkDelIdsContainer');
   cont.innerHTML = '';
   ids.forEach(function(id){

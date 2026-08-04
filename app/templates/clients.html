@@ -159,6 +159,7 @@
   </div>
   <div class="header-actions">
     <a href="{{ url_for('clients.home') }}">← ホームへ</a>
+    <a href="{{ url_for('clients.trash') }}">🗑 ゴミ箱</a>
     <a href="{{ url_for('client_import.index') }}" class="btn-add-header">📥 一括インポート</a>
     <a href="{{ url_for('clients.add_client') }}" class="btn-add-header">＋ 顧問先を追加</a>
   </div>
@@ -274,7 +275,7 @@
     {% for s in ['契約中','検討中','未契約','解約'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
   </select>
   <button type="button" class="btn-add-header" style="border:0;cursor:pointer;padding:.45rem .9rem;" onclick="applyBulkStatus()">選択を更新</button>
-  <button type="button" style="border:1px solid #f5b7c0;background:#fff;color:#c0392b;cursor:pointer;padding:.45rem .9rem;border-radius:8px;font-weight:700;" onclick="applyBulkDelete()">選択を削除</button>
+  <button type="button" style="border:1px solid #f5b7c0;background:#fff;color:#c0392b;cursor:pointer;padding:.45rem .9rem;border-radius:8px;font-weight:700;" onclick="applyBulkDelete()">選択をゴミ箱へ</button>
 </div>
 <form id="bulkStatusForm" method="post" action="{{ url_for('clients.bulk_status') }}" style="display:none;">
   {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
@@ -450,7 +451,7 @@ function applyBulkStatus() {
 function applyBulkDelete() {
   var ids = Array.prototype.slice.call(document.querySelectorAll('.bulkchk:checked')).map(function(c){ return c.value; });
   if (!ids.length) { alert('顧問先を選択してください'); return; }
-  if (!confirm(ids.length + '件の顧問先を削除します。関連データ（担当・ファイル・チャット等）も削除され、元に戻せません。よろしいですか？')) return;
+  if (!confirm(ids.length + '件の顧問先をゴミ箱に移動します。ゴミ箱からいつでも復元できます。よろしいですか？')) return;
   var cont = document.getElementById('bulkDelIdsContainer');
   cont.innerHTML = '';
   ids.forEach(function(id){

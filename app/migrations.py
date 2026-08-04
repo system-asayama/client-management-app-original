@@ -137,6 +137,8 @@ def run_migrations():
             ("T_顧問先", "accounting_software", "VARCHAR(100) NULL"),
             # 顧問先ステータス（契約中/解約/検討中/未契約）
             ("T_顧問先", "contract_status", "VARCHAR(20) NULL"),
+            # 論理削除（ゴミ箱）: NULL=有効, 値あり=削除済み
+            ("T_顧問先", "deleted_at", "TIMESTAMP NULL"),
             # 担当者ごとの個人ストレージ: 接続の所有者と割当の対象担当者
             ("T_外部ストレージ連携", "staff_id", "INTEGER NULL"),
             ("T_外部ストレージ連携", "staff_type", "VARCHAR(20) NULL"),

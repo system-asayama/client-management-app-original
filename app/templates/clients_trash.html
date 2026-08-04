@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}顧問先ゴミ箱{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .tr-wrap { max-width: 900px; margin: 0 auto; }
+  .tr-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .tr-title { font-size:1.4rem; font-weight:800; color:#1a3a5c; }
+  .btn { display:inline-block; padding:.5rem 1rem; border-radius:9px; border:0; cursor:pointer; font-size:.88rem; font-weight:700; text-decoration:none; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-primary { background:#1a3a5c; color:#fff; }
+  .btn-restore { background:#e3f6e8; color:#1e8a4c; }
+  .btn-danger { background:#fff; color:#c0392b; border:1px solid #f5b7c0; }
+  .card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.1rem 1.25rem; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  th,td { text-align:left; padding:.55rem .5rem; border-bottom:1px solid #eef1f5; }
+  th { color:#667; font-size:.78rem; }
+  .muted { color:#889; font-size:.85rem; }
+  .bar { display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem;background:#f7f9fc;border:1px solid #e5e9f0;border-radius:10px;padding:.6rem .8rem; }
+</style>
+
+<div class="tr-wrap">
+  <div class="tr-head">
+    <div class="tr-title">🗑 顧問先ゴミ箱</div>
+    <a class="btn btn-ghost" href="{{ url_for('clients.clients') }}">← 顧問先一覧へ</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="card" style="border-left:4px solid {{ '#1e8a4c' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};margin-bottom:1rem;">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <p class="muted" style="margin-bottom:1rem;">
+    論理削除（ゴミ箱へ移動）された顧問先です。<strong>復元</strong>で元に戻せます。
+    {% if can_hard_delete %}<strong>完全削除</strong>はデータベースから消去され、元に戻せません。{% else %}完全削除はテナント管理者以上のみ実行できます。{% endif %}
+  </p>
+
+  {% if clients %}
+  <div class="card">
+    <div class="bar">
+      <label style="font-size:.85rem;cursor:pointer;"><input type="checkbox" id="chkAll" onclick="toggleAllChk(this)"> 全選択</label>
+      <span id="chkCount" style="font-size:.82rem;color:#667;font-weight:700;">0件選択</span>
+      <button type="button" class="btn btn-restore" onclick="applyRestore()">選択を復元</button>
+      {% if can_hard_delete %}
+      <button type="button" class="btn btn-danger" onclick="applyHardDelete()">選択を完全削除</button>
+      {% endif %}
+    </div>
+
+    <form id="restoreForm" method="post" action="{{ url_for('clients.restore_clients') }}" style="display:none;">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div id="restoreIds"></div>
+    </form>
+    {% if can_hard_delete %}
+    <form id="hardDeleteForm" method="post" action="{{ url_for('clients.hard_delete_clients') }}" style="display:none;">
+      {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+      <div id="hardDeleteIds"></div>
+    </form>
+    {% endif %}
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th></th><th>区分</th><th>顧問先名</th><th>ステータス</th><th>削除日時</th></tr></thead>
+        <tbody>
+          {% for c in clients %}
+          <tr>
+            <td><input type="checkbox" class="rowchk" value="{{ c.id }}" onchange="updateChkCount()"></td>
+            <td>{{ c.type or '' }}</td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.contract_status or '' }}</td>
+            <td class="muted">{{ c.deleted_at.strftime('%Y-%m-%d %H:%M') if c.deleted_at else '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><p class="muted">ゴミ箱は空です。</p></div>
+  {% endif %}
+</div>
+
+<script>
+function updateChkCount(){var n=document.querySelectorAll('.rowchk:checked').length;var e=document.getElementById('chkCount');if(e)e.innerText=n+'件選択';}
+function toggleAllChk(el){document.querySelectorAll('.rowchk').forEach(function(c){c.checked=el.checked;});updateChkCount();}
+function _ids(){return Array.prototype.slice.call(document.querySelectorAll('.rowchk:checked')).map(function(c){return c.value;});}
+function _fill(cont, ids){cont.innerHTML='';ids.forEach(function(id){var i=document.createElement('input');i.type='hidden';i.name='client_ids';i.value=id;cont.appendChild(i);});}
+function applyRestore(){var ids=_ids();if(!ids.length){alert('顧問先を選択してください');return;}_fill(document.getElementById('restoreIds'),ids);document.getElementById('restoreForm').submit();}
+function applyHardDelete(){var ids=_ids();if(!ids.length){alert('顧問先を選択してください');return;}if(!confirm(ids.length+'件をデータベースから完全に削除します。元に戻せません。本当によろしいですか？'))return;_fill(document.getElementById('hardDeleteIds'),ids);document.getElementById('hardDeleteForm').submit();}
+</script>
+{% endblock %}

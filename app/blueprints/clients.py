@@ -89,7 +89,8 @@ def clients():
     try:
         # 店舗フィルターパラメータ
         store_filter = request.args.get('store_filter', '')
-        query = db.query(TClient).filter(TClient.tenant_id == tenant_id)
+        query = db.query(TClient).filter(TClient.tenant_id == tenant_id,
+                                         TClient.deleted_at.is_(None))
         if store_filter == 'unassigned':
             query = query.filter(TClient.store_id == None)
         elif store_filter and store_filter.isdigit():
@@ -686,9 +687,9 @@ def _delete_client_cascade(db, client_id):
 
 
 @bp.route('/<int:client_id>/delete', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def delete_client(client_id):
-    """顧問先を削除する（担当・ファイル・メッセージ・納税実績等の関連データも一緒に削除）。"""
+    """顧問先を論理削除（ゴミ箱へ移動）する。完全削除はゴミ箱から（テナント管理者以上）。"""
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
@@ -703,11 +704,9 @@ def delete_client(client_id):
         if not c:
             flash('顧問先が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
-        name = c.name
-        _delete_client_cascade(db, client_id)
-        db.delete(c)
+        c.deleted_at = datetime.utcnow()
         db.commit()
-        flash(f'顧問先「{name}」を削除しました', 'success')
+        flash(f'顧問先「{c.name}」をゴミ箱に移動しました（完全には削除されていません）', 'success')
     except Exception as e:
         db.rollback()
         flash(f'削除に失敗しました: {e}', 'error')
@@ -720,9 +719,9 @@ def delete_client(client_id):
 
 
 @bp.route('/bulk_delete', methods=['POST'])
-@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def bulk_delete():
-    """選択した顧問先をまとめて削除する（関連データも一緒に削除）。"""
+    """選択した顧問先をまとめて論理削除（ゴミ箱へ移動）する。"""
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         return redirect(url_for('tenant_admin.dashboard'))
@@ -732,22 +731,99 @@ def bulk_delete():
         flash('顧問先が選択されていません', 'error')
         return redirect(back)
     db = SessionLocal()
-    deleted = 0
     try:
-        rows = db.query(TClient).filter(
-            TClient.tenant_id == tenant_id, TClient.id.in_(ids)).all()
-        for c in rows:
-            _delete_client_cascade(db, c.id)
-            db.delete(c)
-            deleted += 1
+        n = (db.query(TClient)
+               .filter(TClient.tenant_id == tenant_id, TClient.id.in_(ids),
+                       TClient.deleted_at.is_(None))
+               .update({TClient.deleted_at: datetime.utcnow()}, synchronize_session=False))
         db.commit()
-        flash(f'{deleted}件の顧問先を削除しました', 'success')
+        flash(f'{n}件の顧問先をゴミ箱に移動しました', 'success')
     except Exception as e:
         db.rollback()
         flash(f'削除に失敗しました: {e}', 'error')
     finally:
         db.close()
     return redirect(back)
+
+
+@bp.route('/trash', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def trash():
+    """ゴミ箱（論理削除済みの顧問先）。復元と、テナント管理者以上は完全削除ができる。"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    role = session.get('role')
+    can_hard_delete = role in (ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+    db = SessionLocal()
+    try:
+        rows = (db.query(TClient)
+                  .filter(TClient.tenant_id == tenant_id, TClient.deleted_at.isnot(None))
+                  .order_by(TClient.deleted_at.desc()).all())
+        return render_template('clients_trash.html', clients=rows,
+                               can_hard_delete=can_hard_delete)
+    finally:
+        db.close()
+
+
+@bp.route('/restore', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def restore_clients():
+    """選択した顧問先をゴミ箱から復元する。"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    ids = [int(i) for i in request.form.getlist('client_ids') if str(i).isdigit()]
+    if not ids:
+        flash('顧問先が選択されていません', 'error')
+        return redirect(url_for('clients.trash'))
+    db = SessionLocal()
+    try:
+        n = (db.query(TClient)
+               .filter(TClient.tenant_id == tenant_id, TClient.id.in_(ids))
+               .update({TClient.deleted_at: None}, synchronize_session=False))
+        db.commit()
+        flash(f'{n}件を復元しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'復元に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+    return redirect(url_for('clients.trash'))
+
+
+@bp.route('/hard_delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"], ROLES["TENANT_ADMIN"])
+def hard_delete_clients():
+    """選択した顧問先をデータベースから完全に削除する（テナント管理者以上）。
+    論理削除済み（ゴミ箱内）のもののみ対象とする。
+    """
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    ids = [int(i) for i in request.form.getlist('client_ids') if str(i).isdigit()]
+    if not ids:
+        flash('顧問先が選択されていません', 'error')
+        return redirect(url_for('clients.trash'))
+    db = SessionLocal()
+    deleted = 0
+    try:
+        rows = (db.query(TClient)
+                  .filter(TClient.tenant_id == tenant_id, TClient.id.in_(ids),
+                          TClient.deleted_at.isnot(None)).all())
+        for c in rows:
+            _delete_client_cascade(db, c.id)
+            db.delete(c)
+            deleted += 1
+        db.commit()
+        flash(f'{deleted}件をデータベースから完全に削除しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'完全削除に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+    return redirect(url_for('clients.trash'))
 
 
 # ========================================

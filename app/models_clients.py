@@ -267,6 +267,36 @@ class TEtaxRequest(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TTaxAccountant(Base):
+    """T_税理士テーブル（代理送信を行う税理士。e-Tax/eLTAX認証情報を保持）
+
+    代理送信は税理士個人の資格・識別番号に紐づくため、税理士単位で登録する。
+    各税理士は所属店舗（store_id）を持つ。暗証番号は暗号化して保管する。
+    """
+    __tablename__ = 'T_税理士'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, ForeignKey('T_テナント.id'), nullable=False)
+    store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)  # 所属店舗
+
+    name = Column(String(100), nullable=False)                 # 氏名
+    registration_number = Column(String(50), nullable=True)    # 税理士登録番号
+
+    # e-Tax（国税）認証情報
+    etax_user_id = Column(String(100), nullable=True)          # 利用者識別番号
+    etax_password = Column(EncryptedString(255), nullable=True)  # 暗証番号（暗号化保管）
+
+    # eLTAX（地方税）認証情報
+    eltax_user_id = Column(String(100), nullable=True)         # 利用者ID
+    eltax_password = Column(EncryptedString(255), nullable=True)  # 暗証番号（暗号化保管）
+
+    is_active = Column(Integer, nullable=False, default=1)      # 有効(1)/無効(0)
+    notes = Column(Text, nullable=True)                        # 備考
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TVideoCallUsage(Base):
     """T_ビデオ通話利用量テーブル（月次集計）"""
     __tablename__ = 'T_ビデオ通話利用量'

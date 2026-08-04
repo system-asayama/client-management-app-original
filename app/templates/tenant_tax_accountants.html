@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}税理士登録{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .ta-wrap { max-width: 860px; margin: 0 auto; }
+  .ta-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .ta-title { font-size:1.4rem; font-weight:800; color:#1a3a5c; }
+  .btn { display:inline-block; padding:.55rem 1.1rem; border-radius:9px; border:0; cursor:pointer; font-size:.9rem; font-weight:700; text-decoration:none; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-primary { background:#1a3a5c; color:#fff; }
+  .btn-sm { padding:.35rem .8rem; font-size:.82rem; }
+  .btn-danger { background:#fff; color:#c0392b; border:1px solid #f5b7c0; }
+  .card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.1rem 1.25rem; }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; }
+  th,td { text-align:left; padding:.6rem .5rem; border-bottom:1px solid #eef1f5; vertical-align:middle; }
+  th { color:#667; font-size:.78rem; }
+  .pill { display:inline-block; padding:.12rem .5rem; border-radius:999px; font-size:.72rem; font-weight:700; }
+  .pill.on { background:#e3f6e8; color:#1e8a4c; }
+  .pill.off { background:#fdecea; color:#c0392b; }
+  .muted { color:#889; }
+  .note { background:#f0f6ff; border:1px solid #cfe0fb; border-radius:10px; padding:.9rem 1rem; font-size:.85rem; color:#33506e; line-height:1.6; margin-bottom:1.2rem; }
+</style>
+
+<div class="ta-wrap">
+  <div class="ta-head">
+    <div class="ta-title">🧑‍💼 税理士登録</div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+      <a class="btn btn-ghost" href="{{ url_for('tenant_admin.dashboard') }}">← 戻る</a>
+      <a class="btn btn-primary" href="{{ url_for('tenant_admin.tax_accountant_new') }}">＋ 税理士を登録</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="card" style="border-left:4px solid {{ '#1e8a4c' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};margin-bottom:1rem;">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="note">
+    代理送信を行う<strong>税理士ごと</strong>に、所属店舗とe-Tax/eLTAXの認証情報を登録します。<br>
+    納付情報の発行時は、ここで登録した税理士の認証情報でログインし、顧問先の識別番号を指定して代理発行します。<br>
+    暗証番号は<strong>暗号化して保管</strong>されます。
+  </div>
+
+  <div class="card">
+    {% if accountants %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>氏名</th><th>登録番号</th><th>所属店舗</th><th>e-Tax</th><th>eLTAX</th><th>状態</th><th></th>
+        </tr></thead>
+        <tbody>
+          {% for a in accountants %}
+          <tr>
+            <td><strong>{{ a.name }}</strong></td>
+            <td class="muted">{{ a.registration_number or '—' }}</td>
+            <td>{{ a.store_name }}</td>
+            <td>{{ '✓' if a.has_etax else '—' }}</td>
+            <td>{{ '✓' if a.has_eltax else '—' }}</td>
+            <td>
+              {% if a.is_active %}<span class="pill on">有効</span>{% else %}<span class="pill off">無効</span>{% endif %}
+            </td>
+            <td style="white-space:nowrap;">
+              <a class="btn btn-ghost btn-sm" href="{{ url_for('tenant_admin.tax_accountant_edit', acc_id=a.id) }}">編集</a>
+              <form method="post" action="{{ url_for('tenant_admin.tax_accountant_delete', acc_id=a.id) }}" style="display:inline;"
+                    onsubmit="return confirm('税理士「{{ a.name }}」を削除します。よろしいですか？');">
+                {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+                <button type="submit" class="btn btn-danger btn-sm">削除</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted" style="text-align:center;padding:1.5rem 0;">まだ税理士が登録されていません。</p>
+    <div style="text-align:center;">
+      <a class="btn btn-primary" href="{{ url_for('tenant_admin.tax_accountant_new') }}">＋ 税理士を登録する</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

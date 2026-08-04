@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ '税理士 編集' if accountant else '税理士 登録' }}{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .tf-wrap { max-width: 720px; margin: 0 auto; }
+  .tf-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .tf-title { font-size:1.4rem; font-weight:800; color:#1a3a5c; }
+  .btn { display:inline-block; padding:.55rem 1.1rem; border-radius:9px; border:0; cursor:pointer; font-size:.9rem; font-weight:700; text-decoration:none; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-primary { background:#1a3a5c; color:#fff; }
+  .card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.3rem 1.5rem; margin-bottom:1.3rem; }
+  .sec-title { font-size:1rem; font-weight:800; color:#1a3a5c; border-left:4px solid #2563a8; padding-left:.7rem; margin:0 0 1rem; }
+  label.f { display:block; font-size:.8rem; color:#556; font-weight:700; margin:.9rem 0 .3rem; }
+  input[type=text], input[type=password], select, textarea { width:100%; padding:.6rem .7rem; border:1px solid #cbd5e1; border-radius:9px; font-size:.95rem; box-sizing:border-box; }
+  .hint { font-size:.78rem; color:#889; margin-top:.25rem; }
+  .status { font-size:.82rem; font-weight:700; }
+  .status.on { color:#1e8a4c; } .status.off { color:#c0392b; }
+  .row2 { display:flex; gap:1rem; flex-wrap:wrap; }
+  .row2 > div { flex:1; min-width:220px; }
+  .clearline { font-size:.8rem; color:#889; margin-top:.4rem; }
+</style>
+
+<div class="tf-wrap">
+  <div class="tf-head">
+    <div class="tf-title">{{ '🧑‍💼 税理士 編集' if accountant else '🧑‍💼 税理士 登録' }}</div>
+    <a class="btn btn-ghost" href="{{ url_for('tenant_admin.tax_accountants') }}">← 一覧へ</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="card" style="border-left:4px solid {{ '#1e8a4c' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('tenant_admin.tax_accountant_edit', acc_id=accountant.id) if accountant else url_for('tenant_admin.tax_accountant_new') }}">
+    {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+
+    <div class="card">
+      <div class="sec-title">基本情報</div>
+      <div class="row2">
+        <div>
+          <label class="f">氏名 <span style="color:#c0392b;">*</span></label>
+          <input type="text" name="name" value="{{ accountant.name if accountant else '' }}" required>
+        </div>
+        <div>
+          <label class="f">税理士登録番号</label>
+          <input type="text" name="registration_number" value="{{ accountant.registration_number if accountant else '' }}" placeholder="例: 第123456号">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="f">所属店舗</label>
+          <select name="store_id">
+            <option value="">（未所属）</option>
+            {% for s in stores %}
+            <option value="{{ s.id }}" {{ 'selected' if accountant and accountant.store_id == s.id else '' }}>{{ s.名称 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="f">状態</label>
+          <select name="is_active">
+            <option value="1" {{ 'selected' if (not accountant) or accountant.is_active else '' }}>有効</option>
+            <option value="0" {{ 'selected' if accountant and not accountant.is_active else '' }}>無効</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">e-Tax（国税）認証情報</div>
+      <label class="f">利用者識別番号</label>
+      <input type="text" name="etax_user_id" value="{{ accountant.etax_user_id if accountant else '' }}" placeholder="半角16桁（ハイフンなし）" autocomplete="off">
+      <label class="f">暗証番号
+        {% if accountant %}<span class="status {{ 'on' if accountant.has_etax_password else 'off' }}">{{ '（登録済み）' if accountant.has_etax_password else '（未登録）' }}</span>{% endif %}
+      </label>
+      <input type="password" name="etax_password" placeholder="{{ '変更する場合のみ入力' if accountant and accountant.has_etax_password else '暗証番号を入力' }}" autocomplete="new-password">
+      <div class="hint">空欄のままなら暗証番号は変更されません。</div>
+      {% if accountant and accountant.has_etax_password %}
+      <div class="clearline"><label><input type="checkbox" name="clear_etax_password" value="1"> 登録済みの暗証番号を削除する</label></div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="sec-title">eLTAX（地方税）認証情報</div>
+      <label class="f">利用者ID</label>
+      <input type="text" name="eltax_user_id" value="{{ accountant.eltax_user_id if accountant else '' }}" placeholder="eLTAXの利用者ID" autocomplete="off">
+      <label class="f">暗証番号
+        {% if accountant %}<span class="status {{ 'on' if accountant.has_eltax_password else 'off' }}">{{ '（登録済み）' if accountant.has_eltax_password else '（未登録）' }}</span>{% endif %}
+      </label>
+      <input type="password" name="eltax_password" placeholder="{{ '変更する場合のみ入力' if accountant and accountant.has_eltax_password else '暗証番号を入力' }}" autocomplete="new-password">
+      <div class="hint">空欄のままなら暗証番号は変更されません。</div>
+      {% if accountant and accountant.has_eltax_password %}
+      <div class="clearline"><label><input type="checkbox" name="clear_eltax_password" value="1"> 登録済みの暗証番号を削除する</label></div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="sec-title">備考</div>
+      <textarea name="notes" rows="2" placeholder="任意のメモ">{{ accountant.notes if accountant else '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">{{ '更新する' if accountant else '登録する' }}</button>
+  </form>
+</div>
+{% endblock %}

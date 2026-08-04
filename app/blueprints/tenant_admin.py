@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.db import SessionLocal
 from app.models_login import TKanrisha, TJugyoin, TTenant, TTenpo, TKanrishaTenpo, TJugyoinTenpo, TTenantAppSetting, TTenpoAppSetting, TTenantAdminTenant, TAttendance
-from app.models_clients import TClient
+from app.models_clients import TClient, TTaxAccountant
 from sqlalchemy import func, and_, or_
 from ..utils.decorators import ROLES
 from ..utils.decorators import require_roles
@@ -3494,15 +3494,43 @@ def api_settings():
         db.close()
 
 
-@bp.route('/mypage/tax_proxy_settings', methods=['GET', 'POST'])
-@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
-def tax_proxy_settings():
-    """税務代理送信設定（方式B）: 事務所自身のe-Tax/eLTAX認証情報を登録する。
+# ========================================
+# 税理士登録（代理送信用の認証情報を保持）
+# ========================================
 
-    ここで登録した事務所の認証情報でログインし、各顧問先の識別番号を指定して
-    納付情報を代理発行する。顧問先個々のパスワードは不要になる。
-    暗証番号は EncryptedString により暗号化して保管される。
-    """
+def _tenant_stores(db, tenant_id):
+    return db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id).order_by(TTenpo.id).all()
+
+
+@bp.route('/tax_accountants')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def tax_accountants():
+    """税理士一覧"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        rows = (db.query(TTaxAccountant)
+                  .filter(TTaxAccountant.tenant_id == tenant_id)
+                  .order_by(TTaxAccountant.id).all())
+        store_map = {s.id: s.名称 for s in _tenant_stores(db, tenant_id)}
+        accountants = [{
+            'id': a.id, 'name': a.name, 'registration_number': a.registration_number or '',
+            'store_id': a.store_id, 'store_name': store_map.get(a.store_id, '未所属'),
+            'has_etax': bool(a.etax_user_id), 'has_eltax': bool(a.eltax_user_id),
+            'is_active': a.is_active,
+        } for a in rows]
+        return render_template('tenant_tax_accountants.html', accountants=accountants)
+    finally:
+        db.close()
+
+
+@bp.route('/tax_accountants/new', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def tax_accountant_new():
+    """税理士 新規登録"""
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
@@ -3510,40 +3538,116 @@ def tax_proxy_settings():
     db = SessionLocal()
     try:
         if request.method == 'POST':
-            etax_user = request.form.get('etax_proxy_user_id', '').strip() or None
-            etax_pw = request.form.get('etax_proxy_password', '').strip()
-            eltax_user = request.form.get('eltax_proxy_user_id', '').strip() or None
-            eltax_pw = request.form.get('eltax_proxy_password', '').strip()
-            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-            if not tenant_obj:
-                flash('テナント情報が見つかりません', 'error')
-                return redirect(url_for('tenant_admin.tax_proxy_settings'))
-            tenant_obj.etax_proxy_user_id = etax_user
-            tenant_obj.eltax_proxy_user_id = eltax_user
-            # パスワードは空欄なら「変更しない」（既存を保持）。値ありなら更新。
-            if etax_pw:
-                tenant_obj.etax_proxy_password = etax_pw
-            if eltax_pw:
-                tenant_obj.eltax_proxy_password = eltax_pw
-            # 明示的にクリアしたい場合のチェックボックス
-            if request.form.get('clear_etax_password'):
-                tenant_obj.etax_proxy_password = None
-            if request.form.get('clear_eltax_password'):
-                tenant_obj.eltax_proxy_password = None
-            db.commit()
-            flash('税務代理送信の認証情報を保存しました', 'success')
-            return redirect(url_for('tenant_admin.tax_proxy_settings'))
-
-        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
-        proxy = {
-            'etax_proxy_user_id': getattr(tenant_obj, 'etax_proxy_user_id', None) or '',
-            'eltax_proxy_user_id': getattr(tenant_obj, 'eltax_proxy_user_id', None) or '',
-            'has_etax_password': bool(getattr(tenant_obj, 'etax_proxy_password', None)),
-            'has_eltax_password': bool(getattr(tenant_obj, 'eltax_proxy_password', None)),
-        }
-        return render_template('tenant_tax_proxy_settings.html', proxy=proxy)
+            name = request.form.get('name', '').strip()
+            if not name:
+                flash('氏名は必須です', 'error')
+            else:
+                a = TTaxAccountant(
+                    tenant_id=tenant_id,
+                    store_id=_form_store_id(request),
+                    name=name,
+                    registration_number=request.form.get('registration_number', '').strip() or None,
+                    etax_user_id=request.form.get('etax_user_id', '').strip() or None,
+                    eltax_user_id=request.form.get('eltax_user_id', '').strip() or None,
+                    is_active=int(request.form.get('is_active', '1') or 1),
+                    notes=request.form.get('notes', '').strip() or None,
+                )
+                etax_pw = request.form.get('etax_password', '').strip()
+                eltax_pw = request.form.get('eltax_password', '').strip()
+                if etax_pw:
+                    a.etax_password = etax_pw
+                if eltax_pw:
+                    a.eltax_password = eltax_pw
+                db.add(a)
+                db.commit()
+                flash(f'税理士「{name}」を登録しました', 'success')
+                return redirect(url_for('tenant_admin.tax_accountants'))
+        return render_template('tenant_tax_accountant_form.html',
+                               accountant=None, stores=_tenant_stores(db, tenant_id))
     finally:
         db.close()
+
+
+@bp.route('/tax_accountants/<int:acc_id>/edit', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def tax_accountant_edit(acc_id):
+    """税理士 編集"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        a = db.query(TTaxAccountant).filter(
+            TTaxAccountant.id == acc_id, TTaxAccountant.tenant_id == tenant_id).first()
+        if not a:
+            flash('税理士が見つかりません', 'error')
+            return redirect(url_for('tenant_admin.tax_accountants'))
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            if not name:
+                flash('氏名は必須です', 'error')
+            else:
+                a.name = name
+                a.store_id = _form_store_id(request)
+                a.registration_number = request.form.get('registration_number', '').strip() or None
+                a.etax_user_id = request.form.get('etax_user_id', '').strip() or None
+                a.eltax_user_id = request.form.get('eltax_user_id', '').strip() or None
+                a.is_active = int(request.form.get('is_active', '1') or 1)
+                a.notes = request.form.get('notes', '').strip() or None
+                # パスワードは空欄なら変更しない。値ありなら更新。クリアも可。
+                etax_pw = request.form.get('etax_password', '').strip()
+                eltax_pw = request.form.get('eltax_password', '').strip()
+                if etax_pw:
+                    a.etax_password = etax_pw
+                if eltax_pw:
+                    a.eltax_password = eltax_pw
+                if request.form.get('clear_etax_password'):
+                    a.etax_password = None
+                if request.form.get('clear_eltax_password'):
+                    a.eltax_password = None
+                db.commit()
+                flash(f'税理士「{name}」を更新しました', 'success')
+                return redirect(url_for('tenant_admin.tax_accountants'))
+        accountant = {
+            'id': a.id, 'name': a.name, 'registration_number': a.registration_number or '',
+            'store_id': a.store_id,
+            'etax_user_id': a.etax_user_id or '', 'eltax_user_id': a.eltax_user_id or '',
+            'has_etax_password': bool(a.etax_password), 'has_eltax_password': bool(a.eltax_password),
+            'is_active': a.is_active, 'notes': a.notes or '',
+        }
+        return render_template('tenant_tax_accountant_form.html',
+                               accountant=accountant, stores=_tenant_stores(db, tenant_id))
+    finally:
+        db.close()
+
+
+@bp.route('/tax_accountants/<int:acc_id>/delete', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def tax_accountant_delete(acc_id):
+    """税理士 削除"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        a = db.query(TTaxAccountant).filter(
+            TTaxAccountant.id == acc_id, TTaxAccountant.tenant_id == tenant_id).first()
+        if a:
+            nm = a.name
+            db.delete(a)
+            db.commit()
+            flash(f'税理士「{nm}」を削除しました', 'success')
+        else:
+            flash('税理士が見つかりません', 'error')
+    finally:
+        db.close()
+    return redirect(url_for('tenant_admin.tax_accountants'))
+
+
+def _form_store_id(req):
+    v = req.form.get('store_id', '').strip()
+    return int(v) if v.isdigit() else None
 
 @bp.route('/mypage/profile', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])

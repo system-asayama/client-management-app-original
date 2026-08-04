@@ -4,7 +4,6 @@ login-system-app用のSQLAlchemyモデル
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Date, Float
 from sqlalchemy.sql import func
 from app.db import Base
-from app.utils.crypto import EncryptedString
 
 
 class TKanrisha(Base):
@@ -100,11 +99,6 @@ class TTenant(Base):
     smtp_use_tls = Column(Integer, default=1, comment='TLS使用: 1=STARTTLS, 2=SSL/TLS, 0=なし')
     smtp_from_email = Column(String(255), nullable=True, comment='差出人メールアドレス')
     smtp_from_name = Column(String(255), nullable=True, comment='差出人名')
-    # 税務代理送信（方式B）: 事務所自身の認証情報で顧問先の納付情報を代理発行するための認証情報
-    etax_proxy_user_id = Column(String(100), nullable=True, comment='e-Tax 事務所の利用者識別番号（代理送信用）')
-    etax_proxy_password = Column(EncryptedString(255), nullable=True, comment='e-Tax 事務所の暗証番号（暗号化保管）')
-    eltax_proxy_user_id = Column(String(100), nullable=True, comment='eLTAX 事務所の利用者ID（代理送信用）')
-    eltax_proxy_password = Column(EncryptedString(255), nullable=True, comment='eLTAX 事務所の暗証番号（暗号化保管）')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
 

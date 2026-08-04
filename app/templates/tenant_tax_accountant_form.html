@@ -50,6 +50,15 @@
       </div>
       <div class="row2">
         <div>
+          <label class="f">所属税理士会</label>
+          <select name="tax_association">
+            <option value="">（未選択）</option>
+            {% for ta in tax_associations %}
+            <option value="{{ ta }}" {{ 'selected' if accountant and accountant.tax_association == ta else '' }}>{{ ta }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
           <label class="f">所属店舗</label>
           <select name="store_id">
             <option value="">（未所属）</option>

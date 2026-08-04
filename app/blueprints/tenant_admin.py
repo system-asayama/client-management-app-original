@@ -3502,6 +3502,15 @@ def _tenant_stores(db, tenant_id):
     return db.query(TTenpo).filter(TTenpo.tenant_id == tenant_id).order_by(TTenpo.id).all()
 
 
+# 全国15の税理士会
+TAX_ASSOCIATIONS = [
+    '北海道税理士会', '東北税理士会', '関東信越税理士会', '千葉県税理士会',
+    '東京税理士会', '東京地方税理士会', '名古屋税理士会', '東海税理士会',
+    '北陸税理士会', '近畿税理士会', '中国税理士会', '四国税理士会',
+    '九州北部税理士会', '南九州税理士会', '沖縄税理士会',
+]
+
+
 @bp.route('/tax_accountants')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def tax_accountants():
@@ -3547,6 +3556,7 @@ def tax_accountant_new():
                     store_id=_form_store_id(request),
                     name=name,
                     registration_number=request.form.get('registration_number', '').strip() or None,
+                    tax_association=request.form.get('tax_association', '').strip() or None,
                     etax_user_id=request.form.get('etax_user_id', '').strip() or None,
                     eltax_user_id=request.form.get('eltax_user_id', '').strip() or None,
                     is_active=int(request.form.get('is_active', '1') or 1),
@@ -3563,7 +3573,8 @@ def tax_accountant_new():
                 flash(f'税理士「{name}」を登録しました', 'success')
                 return redirect(url_for('tenant_admin.tax_accountants'))
         return render_template('tenant_tax_accountant_form.html',
-                               accountant=None, stores=_tenant_stores(db, tenant_id))
+                               accountant=None, stores=_tenant_stores(db, tenant_id),
+                               tax_associations=TAX_ASSOCIATIONS)
     finally:
         db.close()
 
@@ -3591,6 +3602,7 @@ def tax_accountant_edit(acc_id):
                 a.name = name
                 a.store_id = _form_store_id(request)
                 a.registration_number = request.form.get('registration_number', '').strip() or None
+                a.tax_association = request.form.get('tax_association', '').strip() or None
                 a.etax_user_id = request.form.get('etax_user_id', '').strip() or None
                 a.eltax_user_id = request.form.get('eltax_user_id', '').strip() or None
                 a.is_active = int(request.form.get('is_active', '1') or 1)
@@ -3611,13 +3623,15 @@ def tax_accountant_edit(acc_id):
                 return redirect(url_for('tenant_admin.tax_accountants'))
         accountant = {
             'id': a.id, 'name': a.name, 'registration_number': a.registration_number or '',
+            'tax_association': a.tax_association or '',
             'store_id': a.store_id,
             'etax_user_id': a.etax_user_id or '', 'eltax_user_id': a.eltax_user_id or '',
             'has_etax_password': bool(a.etax_password), 'has_eltax_password': bool(a.eltax_password),
             'is_active': a.is_active, 'notes': a.notes or '',
         }
         return render_template('tenant_tax_accountant_form.html',
-                               accountant=accountant, stores=_tenant_stores(db, tenant_id))
+                               accountant=accountant, stores=_tenant_stores(db, tenant_id),
+                               tax_associations=TAX_ASSOCIATIONS)
     finally:
         db.close()
 

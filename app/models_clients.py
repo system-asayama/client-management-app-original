@@ -281,6 +281,7 @@ class TTaxAccountant(Base):
 
     name = Column(String(100), nullable=False)                 # 氏名
     registration_number = Column(String(50), nullable=True)    # 税理士登録番号
+    tax_association = Column(String(50), nullable=True)        # 所属税理士会（例: 中国税理士会）
 
     # e-Tax（国税）認証情報
     etax_user_id = Column(String(100), nullable=True)          # 利用者識別番号

@@ -141,6 +141,8 @@ def run_migrations():
             ("T_顧問先", "deleted_at", "TIMESTAMP NULL"),
             # e-Tax送信要求: 国税(national)/地方税(local)の区別
             ("T_eTax送信要求", "tax_system", "VARCHAR(20) NULL"),
+            # 税理士: 所属税理士会
+            ("T_税理士", "tax_association", "VARCHAR(50) NULL"),
             # 担当者ごとの個人ストレージ: 接続の所有者と割当の対象担当者
             ("T_外部ストレージ連携", "staff_id", "INTEGER NULL"),
             ("T_外部ストレージ連携", "staff_type", "VARCHAR(20) NULL"),

@@ -3,7 +3,7 @@
 """
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from app.db import SessionLocal
-from app.models_clients import TClient, TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality, TFilingOfficeTaxOffice, TFilingOfficePrefecture, TFilingOfficeMunicipality
+from app.models_clients import TClient, TTaxRecord, TTaxRecordPrefecture, TTaxRecordMunicipality, TFilingOfficeTaxOffice, TFilingOfficePrefecture, TFilingOfficeMunicipality, TTaxAccountant
 from flask import jsonify
 from app.models_login import TTenant, TKanrisha, TTenpo
 from app.utils.decorators import require_roles, ROLES
@@ -311,6 +311,9 @@ def edit_client(client_id):
                 client.store_id = None
             elif store_id_raw.isdigit():
                 client.store_id = int(store_id_raw)
+            # 担当税理士の割り当て（代理送信を行う税理士）
+            ta_raw = request.form.get('tax_accountant_id', '')
+            client.tax_accountant_id = int(ta_raw) if ta_raw.isdigit() else None
 
             if profession == 'tax':
                 client.tax_accountant_code = request.form.get('tax_accountant_code') or None
@@ -338,9 +341,14 @@ def edit_client(client_id):
             TTenpo.tenant_id == tenant_id,
             TTenpo.有効 == 1
         ).order_by(TTenpo.id).all()
+        # 担当税理士の選択肢（有効な税理士）
+        tax_accountants = db.query(TTaxAccountant).filter(
+            TTaxAccountant.tenant_id == tenant_id,
+            TTaxAccountant.is_active == 1
+        ).order_by(TTaxAccountant.id).all()
         return render_template('edit_client.html', client=client, profession=profession,
                                profession_label=PROFESSION_LABELS.get(profession, ''),
-                               stores=stores)
+                               stores=stores, tax_accountants=tax_accountants)
     finally:
         db.close()
 
@@ -581,7 +589,12 @@ def company_basic(client_id):
         if c.store_id:
             st = db.query(TTenpo).filter(TTenpo.id == c.store_id).first()
             store_name = st.名称 if st else None
-        return render_template('company_basic.html', client=c, store_name=store_name)
+        tax_accountant_name = None
+        if getattr(c, 'tax_accountant_id', None):
+            ta = db.query(TTaxAccountant).filter(TTaxAccountant.id == c.tax_accountant_id).first()
+            tax_accountant_name = ta.name if ta else None
+        return render_template('company_basic.html', client=c, store_name=store_name,
+                               tax_accountant_name=tax_accountant_name)
     finally:
         db.close()
 

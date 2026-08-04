@@ -24,6 +24,7 @@ class TClient(Base):
     deleted_at = Column(DateTime, nullable=True)  # 論理削除（ゴミ箱）: NULL=有効, 値あり=削除済み
     storage_folder_path = Column(String(500))  # ストレージ内の保存先フォルダパス（例: /clients/株式会社A）
     store_id = Column(Integer, ForeignKey('T_店舗.id'), nullable=True)  # 担当店舗ID（店舗ベースアーキテクチャ対応）
+    tax_accountant_id = Column(Integer, ForeignKey('T_税理士.id'), nullable=True)  # 担当税理士（代理送信を行う税理士）
 
     # 士業共通追加情報
     address = Column(String(500), nullable=True)          # 住所・所在地

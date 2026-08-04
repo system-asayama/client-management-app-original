@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}税務代理送信設定{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+<style>
+  .tp-wrap { max-width: 760px; margin: 0 auto; }
+  .tp-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .tp-title { font-size:1.4rem; font-weight:800; color:#1a3a5c; }
+  .btn { display:inline-block; padding:.55rem 1.1rem; border-radius:9px; border:0; cursor:pointer; font-size:.9rem; font-weight:700; text-decoration:none; }
+  .btn-ghost { background:#eef2f7; color:#1a3a5c; }
+  .btn-primary { background:#1a3a5c; color:#fff; }
+  .card { background:#fff; border:1px solid #e5e9f0; border-radius:14px; padding:1.3rem 1.5rem; margin-bottom:1.3rem; }
+  .sec-title { font-size:1rem; font-weight:800; color:#1a3a5c; border-left:4px solid #2563a8; padding-left:.7rem; margin:0 0 1rem; }
+  label.f { display:block; font-size:.8rem; color:#556; font-weight:700; margin:.9rem 0 .3rem; }
+  input[type=text], input[type=password] { width:100%; padding:.6rem .7rem; border:1px solid #cbd5e1; border-radius:9px; font-size:.95rem; box-sizing:border-box; }
+  .hint { font-size:.78rem; color:#889; margin-top:.25rem; }
+  .status { font-size:.82rem; font-weight:700; }
+  .status.on { color:#1e8a4c; }
+  .status.off { color:#c0392b; }
+  .note { background:#f0f6ff; border:1px solid #cfe0fb; border-radius:10px; padding:.9rem 1rem; font-size:.85rem; color:#33506e; line-height:1.6; }
+  .clearline { font-size:.8rem; color:#889; margin-top:.4rem; }
+</style>
+
+<div class="tp-wrap">
+  <div class="tp-head">
+    <div class="tp-title">🏛 税務代理送信設定（e-Tax / eLTAX）</div>
+    <a class="btn btn-ghost" href="{{ url_for('tenant_admin.dashboard') }}">← 戻る</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in messages %}
+      <div class="card" style="border-left:4px solid {{ '#1e8a4c' if cat=='success' else '#c0392b' if cat=='error' else '#e0a800' }};">{{ m }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="note" style="margin-bottom:1.3rem;">
+    <strong>方式B（事務所による代理発行）の設定です。</strong><br>
+    ここに登録した<strong>事務所（貴事務所）自身の認証情報</strong>でログインし、各顧問先の
+    識別番号を指定して納付情報を代理発行します。<br>
+    ・顧問先ごとの暗証番号は不要になります（顧問先は識別番号のみ登録）。<br>
+    ・暗証番号は<strong>暗号化して保管</strong>されます。<br>
+    ・「納付情報の発行」は署名省略手続きのため、電子証明書は原則不要です。
+  </div>
+
+  <form method="post" action="{{ url_for('tenant_admin.tax_proxy_settings') }}">
+    {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+
+    <div class="card">
+      <div class="sec-title">e-Tax（国税）</div>
+      <label class="f">利用者識別番号（事務所）</label>
+      <input type="text" name="etax_proxy_user_id" value="{{ proxy.etax_proxy_user_id }}" placeholder="半角16桁（ハイフンなし）" autocomplete="off">
+      <label class="f">暗証番号
+        <span class="status {{ 'on' if proxy.has_etax_password else 'off' }}">
+          {{ '（登録済み）' if proxy.has_etax_password else '（未登録）' }}
+        </span>
+      </label>
+      <input type="password" name="etax_proxy_password" placeholder="{{ '変更する場合のみ入力' if proxy.has_etax_password else '暗証番号を入力' }}" autocomplete="new-password">
+      <div class="hint">空欄のままなら暗証番号は変更されません。</div>
+      {% if proxy.has_etax_password %}
+      <div class="clearline"><label><input type="checkbox" name="clear_etax_password" value="1"> 登録済みの暗証番号を削除する</label></div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="sec-title">eLTAX（地方税）</div>
+      <label class="f">利用者ID（事務所）</label>
+      <input type="text" name="eltax_proxy_user_id" value="{{ proxy.eltax_proxy_user_id }}" placeholder="eLTAXの利用者ID" autocomplete="off">
+      <label class="f">暗証番号
+        <span class="status {{ 'on' if proxy.has_eltax_password else 'off' }}">
+          {{ '（登録済み）' if proxy.has_eltax_password else '（未登録）' }}
+        </span>
+      </label>
+      <input type="password" name="eltax_proxy_password" placeholder="{{ '変更する場合のみ入力' if proxy.has_eltax_password else '暗証番号を入力' }}" autocomplete="new-password">
+      <div class="hint">空欄のままなら暗証番号は変更されません。</div>
+      {% if proxy.has_eltax_password %}
+      <div class="clearline"><label><input type="checkbox" name="clear_eltax_password" value="1"> 登録済みの暗証番号を削除する</label></div>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">保存する</button>
+  </form>
+</div>
+{% endblock %}

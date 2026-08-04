@@ -3493,6 +3493,58 @@ def api_settings():
     finally:
         db.close()
 
+
+@bp.route('/mypage/tax_proxy_settings', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
+def tax_proxy_settings():
+    """税務代理送信設定（方式B）: 事務所自身のe-Tax/eLTAX認証情報を登録する。
+
+    ここで登録した事務所の認証情報でログインし、各顧問先の識別番号を指定して
+    納付情報を代理発行する。顧問先個々のパスワードは不要になる。
+    暗証番号は EncryptedString により暗号化して保管される。
+    """
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        flash('テナントが選択されていません', 'error')
+        return redirect(url_for('tenant_admin.dashboard'))
+    db = SessionLocal()
+    try:
+        if request.method == 'POST':
+            etax_user = request.form.get('etax_proxy_user_id', '').strip() or None
+            etax_pw = request.form.get('etax_proxy_password', '').strip()
+            eltax_user = request.form.get('eltax_proxy_user_id', '').strip() or None
+            eltax_pw = request.form.get('eltax_proxy_password', '').strip()
+            tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+            if not tenant_obj:
+                flash('テナント情報が見つかりません', 'error')
+                return redirect(url_for('tenant_admin.tax_proxy_settings'))
+            tenant_obj.etax_proxy_user_id = etax_user
+            tenant_obj.eltax_proxy_user_id = eltax_user
+            # パスワードは空欄なら「変更しない」（既存を保持）。値ありなら更新。
+            if etax_pw:
+                tenant_obj.etax_proxy_password = etax_pw
+            if eltax_pw:
+                tenant_obj.eltax_proxy_password = eltax_pw
+            # 明示的にクリアしたい場合のチェックボックス
+            if request.form.get('clear_etax_password'):
+                tenant_obj.etax_proxy_password = None
+            if request.form.get('clear_eltax_password'):
+                tenant_obj.eltax_proxy_password = None
+            db.commit()
+            flash('税務代理送信の認証情報を保存しました', 'success')
+            return redirect(url_for('tenant_admin.tax_proxy_settings'))
+
+        tenant_obj = db.query(TTenant).filter(TTenant.id == tenant_id).first()
+        proxy = {
+            'etax_proxy_user_id': getattr(tenant_obj, 'etax_proxy_user_id', None) or '',
+            'eltax_proxy_user_id': getattr(tenant_obj, 'eltax_proxy_user_id', None) or '',
+            'has_etax_password': bool(getattr(tenant_obj, 'etax_proxy_password', None)),
+            'has_eltax_password': bool(getattr(tenant_obj, 'eltax_proxy_password', None)),
+        }
+        return render_template('tenant_tax_proxy_settings.html', proxy=proxy)
+    finally:
+        db.close()
+
 @bp.route('/mypage/profile', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["APP_MANAGER"])
 def mypage_profile():

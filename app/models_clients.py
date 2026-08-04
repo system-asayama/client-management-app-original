@@ -4,6 +4,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Numeric
 from datetime import datetime
 from app.db import Base
+from app.utils.crypto import EncryptedString
 
 
 class TClient(Base):
@@ -56,13 +57,13 @@ class TClient(Base):
     has_fixed_asset_tax = Column(Integer, nullable=True, default=0)           # 固定資産税の有無（0=なし, 1=あり）
     has_depreciable_asset_tax = Column(Integer, nullable=True, default=0)     # 償却資産税の有無（0=なし, 1=あり）
 
-    # e-Tax認証情報
+    # e-Tax認証情報（暗証番号は保管時に暗号化: EncryptedString）
     etax_user_id = Column(String(100), nullable=True)    # e-Tax 利用者識別番号
-    etax_password = Column(String(255), nullable=True)   # e-Tax パスワード
+    etax_password = Column(EncryptedString(255), nullable=True)   # e-Tax パスワード（暗号化保管）
 
-    # eLTAX認証情報
+    # eLTAX認証情報（暗証番号は保管時に暗号化: EncryptedString）
     eltax_user_id = Column(String(100), nullable=True)   # eLTAX 利用者ID
-    eltax_password = Column(String(255), nullable=True)  # eLTAX パスワード
+    eltax_password = Column(EncryptedString(255), nullable=True)  # eLTAX パスワード（暗号化保管）
 
     # 弁護士固有
     case_number = Column(String(100), nullable=True)      # 事件番号

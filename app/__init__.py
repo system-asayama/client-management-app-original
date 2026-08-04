@@ -302,6 +302,13 @@ def create_app() -> Flask:
     except Exception as e:
         print(f"⚠️ データベースマイグレーションエラー: {e}")
 
+    # 既存の平文で保存された税認証情報を暗号化（冪等）
+    try:
+        from .utils.crypto import encrypt_existing_tax_credentials
+        encrypt_existing_tax_credentials()
+    except Exception as e:
+        print(f"⚠️ 税認証情報の暗号化移行エラー: {e}")
+
     # blueprints 登録
     try:
         from .blueprints.health import bp as health_bp  # type: ignore

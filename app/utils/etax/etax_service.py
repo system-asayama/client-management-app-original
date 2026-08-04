@@ -25,7 +25,7 @@ def execute_etax_request(request_id: int) -> dict:
         dict: {"status": "completed"|"error", "message": str}
     """
     from app.db import SessionLocal
-    from app.models_clients import TEtaxRequest, TClient
+    from app.models_clients import TEtaxRequest, TClient, TTaxAccountant
 
     db = SessionLocal()
     try:
@@ -50,15 +50,33 @@ def execute_etax_request(request_id: int) -> dict:
         # 国税(national)/地方税(local)で使う認証情報とRPAワーカーを切り替える
         tax_system = getattr(req, 'tax_system', None) or 'national'
 
+        # 担当税理士（代理送信）の判定: 顧問先に有効な担当税理士がいればその認証情報でログインし、
+        # 顧問先の識別番号を代理対象として指定する（方式B）。
+        ta = None
+        if getattr(client, 'tax_accountant_id', None):
+            ta = db.query(TTaxAccountant).filter(
+                TTaxAccountant.id == client.tax_accountant_id,
+                TTaxAccountant.is_active == 1).first()
+
         if tax_system == 'local':
             # 地方税（eLTAX / 共通納税 納付情報発行依頼）
-            if not client.eltax_user_id or not client.eltax_password:
-                _mark_error(db, req, "eLTAX 利用者IDまたは暗証番号が未登録です")
+            if ta and ta.eltax_user_id and ta.eltax_password:
+                login_id, login_pw, proxy = ta.eltax_user_id, ta.eltax_password, True
+                target_id = client.eltax_user_id  # 代理対象（顧問先）の利用者ID
+            elif client.eltax_user_id and client.eltax_password:
+                login_id, login_pw, proxy, target_id = client.eltax_user_id, client.eltax_password, False, None
+            else:
+                _mark_error(db, req, "eLTAX 認証情報が未登録です（担当税理士または顧問先）")
                 return {"status": "error", "message": "eLTAX 認証情報が未登録です"}
+            if proxy and not target_id:
+                _mark_error(db, req, "顧問先のeLTAX利用者IDが未登録です（代理発行に必要）")
+                return {"status": "error", "message": "顧問先のeLTAX利用者IDが未登録です"}
             from app.utils.etax.eltax_rpa_worker import run_eltax_payment_request
             result = run_eltax_payment_request(
-                eltax_user_id=client.eltax_user_id,
-                eltax_password=client.eltax_password,
+                eltax_user_id=login_id,
+                eltax_password=login_pw,
+                target_user_id=target_id,
+                proxy=proxy,
                 tax_type=req.tax_type or "",
                 filing_type=req.filing_type or "",
                 fiscal_year=req.fiscal_year or 0,
@@ -69,13 +87,23 @@ def execute_etax_request(request_id: int) -> dict:
             )
         else:
             # 国税（e-Tax / 納付情報登録依頼）
-            if not client.etax_user_id or not client.etax_password:
-                _mark_error(db, req, "e-Tax 利用者識別番号または暗証番号が未登録です")
+            if ta and ta.etax_user_id and ta.etax_password:
+                login_id, login_pw, proxy = ta.etax_user_id, ta.etax_password, True
+                target_id = client.etax_user_id  # 代理対象（顧問先）の利用者識別番号
+            elif client.etax_user_id and client.etax_password:
+                login_id, login_pw, proxy, target_id = client.etax_user_id, client.etax_password, False, None
+            else:
+                _mark_error(db, req, "e-Tax 認証情報が未登録です（担当税理士または顧問先）")
                 return {"status": "error", "message": "e-Tax 認証情報が未登録です"}
+            if proxy and not target_id:
+                _mark_error(db, req, "顧問先のe-Tax利用者識別番号が未登録です（代理発行に必要）")
+                return {"status": "error", "message": "顧問先のe-Tax利用者識別番号が未登録です"}
             from app.utils.etax.rpa_worker import run_etax_payment_request
             result = run_etax_payment_request(
-                etax_user_id=client.etax_user_id,
-                etax_password=client.etax_password,
+                etax_user_id=login_id,
+                etax_password=login_pw,
+                target_user_id=target_id,
+                proxy=proxy,
                 tax_type=req.tax_type or "",
                 filing_type=req.filing_type or "",
                 fiscal_year=req.fiscal_year or 0,

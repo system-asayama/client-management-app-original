@@ -49,6 +49,11 @@ class EtaxSubmitError(EtaxRPAError):
     pass
 
 
+# 代理送信（税理士のログインで顧問先を指定して発行）の画面手順は実地確認で確定する。
+# 未確定のまま代理発行を実行しないよう、既定ではガードする。
+PROXY_CONFIRMED = False
+
+
 def run_etax_payment_request(
     etax_user_id: str,
     etax_password: str,
@@ -59,9 +64,15 @@ def run_etax_payment_request(
     amount: int,
     tax_office_name: str,
     request_id: int,
+    target_user_id: str = None,
+    proxy: bool = False,
 ) -> Dict[str, Any]:
     """
     e-Tax 納付情報登録依頼を実行するメイン関数。
+
+    proxy=True の場合は etax_user_id/password を税理士（代理送信者）の認証情報とし、
+    target_user_id を代理対象（顧問先）の利用者識別番号として指定する。
+    代理での顧問先選択画面は未確定のため、PROXY_CONFIRMED=False の間はガードする。
 
     Args:
         etax_user_id: e-Tax 利用者識別番号（16桁）
@@ -82,6 +93,13 @@ def run_etax_payment_request(
             "error_message": str or None,
         }
     """
+    # 代理発行（税理士ログイン＋顧問先指定）の画面手順は未確定のためガードする
+    if proxy and not PROXY_CONFIRMED:
+        msg = ("e-Taxの代理発行（税理士ログインで顧問先を指定）は画面手順が未確定のため未実行です。"
+               "実アカウントで代理送信の顧問先選択画面を確認し、PROXY_CONFIRMED=True にしてください。")
+        logger.warning(f"[RPA] request_id={request_id} {msg}")
+        return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": msg}
+
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
     except ImportError:
@@ -92,7 +110,7 @@ def run_etax_payment_request(
             "error_message": "Playwrightがインストールされていません。pip install playwright && playwright install chromium を実行してください。",
         }
 
-    logger.info(f"[RPA] request_id={request_id} 処理開始: {tax_type} {filing_type} {fiscal_year}年{fiscal_end_month}月期 {amount:,}円")
+    logger.info(f"[RPA] request_id={request_id} 処理開始: {'代理' if proxy else '直接'} {tax_type} {filing_type} {fiscal_year}年{fiscal_end_month}月期 {amount:,}円")
 
     pdf_path = None
     payment_code = None

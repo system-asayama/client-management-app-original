@@ -87,9 +87,14 @@ def run_eltax_payment_request(
     amount: int,
     tax_office_name: str,
     request_id: int,
+    target_user_id: str = None,
+    proxy: bool = False,
 ) -> Dict[str, Any]:
     """
     eLTAX 共通納税「納付情報発行依頼」を実行するメイン関数。
+
+    proxy=True の場合は eltax_user_id/password を税理士（代理送信者）の認証情報とし、
+    target_user_id を代理対象（顧問先）の利用者IDとして指定する。
 
     戻り値は e-Tax 版と同一契約:
         {

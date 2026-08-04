@@ -2314,7 +2314,14 @@ def add_tax_record(client_id):
             return redirect(url_for('clients.tax_records', client_id=client_id))
 
         # GET
-        client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        # 決算月の推定: 整数の fiscal_year_end_month を優先。旧 fiscal_year_end は
+        # "5月" のような文字列があり得るため数字部分のみ抽出する。
+        _fm = client.fiscal_year_end_month
+        if not _fm:
+            import re as _re
+            _m = _re.search(r'\d+', str(client.fiscal_year_end or ''))
+            _fm = int(_m.group()) if _m else 3
+        client_fiscal_month = int(_fm)
         filing_tax_offices = db.query(TFilingOfficeTaxOffice).filter(
             TFilingOfficeTaxOffice.client_id == client_id).all()
         filing_prefectures = db.query(TFilingOfficePrefecture).filter(
@@ -2410,7 +2417,12 @@ def edit_tax_record(client_id, record_id):
         rec.municipalities = db.query(TTaxRecordMunicipality).filter(
             TTaxRecordMunicipality.tax_record_id == rec.id
         ).all()
-        client_fiscal_month = int(client.fiscal_year_end or client.fiscal_year_end_month or 3)
+        _fm = client.fiscal_year_end_month
+        if not _fm:
+            import re as _re
+            _m = _re.search(r'\d+', str(client.fiscal_year_end or ''))
+            _fm = int(_m.group()) if _m else 3
+        client_fiscal_month = int(_fm)
         filing_tax_offices = db.query(TFilingOfficeTaxOffice).filter(
             TFilingOfficeTaxOffice.client_id == client_id).all()
         filing_prefectures = db.query(TFilingOfficePrefecture).filter(

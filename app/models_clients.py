@@ -27,6 +27,7 @@ class TClient(Base):
     tax_accountant_id = Column(Integer, ForeignKey('T_税理士.id'), nullable=True)  # 担当税理士（代理送信を行う税理士）
 
     # 士業共通追加情報
+    postal_code = Column(String(10), nullable=True)       # 郵便番号（例: 700-0901）
     address = Column(String(500), nullable=True)          # 住所・所在地
     industry = Column(String(100), nullable=True)         # 業種
     fiscal_year_end = Column(String(10), nullable=True)   # 決算月（後方互換用・非推奨）

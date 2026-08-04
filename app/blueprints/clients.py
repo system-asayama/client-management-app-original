@@ -301,6 +301,7 @@ def edit_client(client_id):
             client.email = request.form.get('email') or None
             client.phone = request.form.get('phone') or None
             client.notes = request.form.get('notes') or None
+            client.postal_code = request.form.get('postal_code') or None
             client.address = request.form.get('address') or None
             client.industry = request.form.get('industry') or None
             client.fiscal_year_end = request.form.get('fiscal_year_end') or None
@@ -1944,6 +1945,9 @@ def branches_for_filing(client_id):
             # 会社基本情報(TCompanyInfo)が無い場合は、顧問先(TClient)の登録情報を本店として使う。
             # 会社基本情報は顧問先情報に集約済みのため、住所から郵便番号・都道府県を抽出する。
             zip_, pref, rest = _parse_jp_address(client.address or '')
+            # 明示的な郵便番号欄があればそれを優先する
+            if getattr(client, 'postal_code', None):
+                zip_ = client.postal_code
             return jsonify({'branches': [{
                 'id': 'client',
                 'branch_type': '本店',

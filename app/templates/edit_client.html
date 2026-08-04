@@ -176,6 +176,10 @@
         </div>
       </div>
       <div class="form-row">
+        <label>郵便番号</label>
+        <input type="text" name="postal_code" value="{{ client.postal_code or '' }}" placeholder="例: 700-0901" style="max-width:200px;">
+      </div>
+      <div class="form-row">
         <label>住所</label>
         <input type="text" name="address" value="{{ client.address or '' }}">
       </div>

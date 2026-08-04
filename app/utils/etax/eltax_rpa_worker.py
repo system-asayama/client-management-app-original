@@ -33,9 +33,10 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# PCdesk（WEB版）URL — ※実地確認で確定する（ログイン後の遷移URLはセッション依存）
-PCDESK_WEB_TOP_URL = "https://www.eltax.lta.go.jp/"
-PCDESK_WEB_LOGIN_URL = "https://www.eltax.lta.go.jp/"  # TODO: PCdesk(WEB版)ログイン画面のURLに差し替え
+# PCdesk（WEB版）URL — ポータルは portal.eltax.lta.go.jp。
+# ログイン画面の正確なパスは tools/eltax_selector_capture.py で実地確認して確定する。
+PCDESK_WEB_TOP_URL = "https://www.portal.eltax.lta.go.jp/"
+PCDESK_WEB_LOGIN_URL = "https://www.portal.eltax.lta.go.jp/"  # TODO: ログイン画面のURLを実地確認で差し替え
 
 # タイムアウト設定（ミリ秒）
 PAGE_TIMEOUT = 60000

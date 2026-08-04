@@ -656,12 +656,39 @@ def bulk_status():
     return redirect(back)
 
 
+def _delete_client_cascade(db, client_id):
+    """顧問先とその関連データ（担当・ファイル・メッセージ・納税実績等）を削除する。
+    呼び出し側で commit すること。対象の TClient は事前に取得済みで db.delete する。
+    """
+    from sqlalchemy import text as _text
+    from app.db import Base
+
+    def _try(sql, params):
+        # 個々の削除はセーブポイントで囲み、テーブル未存在等でも全体を止めない
+        try:
+            with db.begin_nested():
+                db.execute(_text(sql), params)
+        except Exception:
+            pass
+
+    # 孫テーブル（メッセージ既読・納税実績の内訳）を先に削除
+    _try('DELETE FROM "T_メッセージ既読" WHERE message_id IN '
+         '(SELECT id FROM "T_メッセージ" WHERE client_id = :cid)', {'cid': client_id})
+    for gt in ('T_納税実績_都道府県', 'T_納税実績_市区町村'):
+        _try(f'DELETE FROM "{gt}" WHERE tax_record_id IN '
+             '(SELECT id FROM "T_納税実績" WHERE client_id = :cid)', {'cid': client_id})
+
+    # 顧問先を直接参照する子テーブルを動的に列挙して削除
+    for table in Base.metadata.tables.values():
+        for col in table.columns:
+            if any(fk.column.table.name == 'T_顧問先' for fk in col.foreign_keys):
+                _try(f'DELETE FROM "{table.name}" WHERE "{col.name}" = :cid', {'cid': client_id})
+
+
 @bp.route('/<int:client_id>/delete', methods=['POST'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def delete_client(client_id):
     """顧問先を削除する（担当・ファイル・メッセージ・納税実績等の関連データも一緒に削除）。"""
-    from sqlalchemy import text as _text
-    from app.db import Base
     tenant_id = session.get('tenant_id')
     if not tenant_id:
         flash('テナントが選択されていません', 'error')
@@ -677,28 +704,7 @@ def delete_client(client_id):
             flash('顧問先が見つかりません', 'error')
             return redirect(url_for('clients.clients'))
         name = c.name
-
-        def _try(sql, params):
-            # 個々の削除はセーブポイントで囲み、テーブル未存在等でも全体を止めない
-            try:
-                with db.begin_nested():
-                    db.execute(_text(sql), params)
-            except Exception:
-                pass
-
-        # 孫テーブル（メッセージ既読・納税実績の内訳）を先に削除
-        _try('DELETE FROM "T_メッセージ既読" WHERE message_id IN '
-             '(SELECT id FROM "T_メッセージ" WHERE client_id = :cid)', {'cid': client_id})
-        for gt in ('T_納税実績_都道府県', 'T_納税実績_市区町村'):
-            _try(f'DELETE FROM "{gt}" WHERE tax_record_id IN '
-                 '(SELECT id FROM "T_納税実績" WHERE client_id = :cid)', {'cid': client_id})
-
-        # 顧問先を直接参照する子テーブルを動的に列挙して削除
-        for table in Base.metadata.tables.values():
-            for col in table.columns:
-                if any(fk.column.table.name == 'T_顧問先' for fk in col.foreign_keys):
-                    _try(f'DELETE FROM "{table.name}" WHERE "{col.name}" = :cid', {'cid': client_id})
-
+        _delete_client_cascade(db, client_id)
         db.delete(c)
         db.commit()
         flash(f'顧問先「{name}」を削除しました', 'success')
@@ -711,6 +717,37 @@ def delete_client(client_id):
     if store_id:
         return redirect(url_for('store_dashboard.clients', store_id=store_id))
     return redirect(url_for('clients.clients'))
+
+
+@bp.route('/bulk_delete', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
+def bulk_delete():
+    """選択した顧問先をまとめて削除する（関連データも一緒に削除）。"""
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return redirect(url_for('tenant_admin.dashboard'))
+    ids = [int(i) for i in request.form.getlist('client_ids') if str(i).isdigit()]
+    back = request.form.get('back') or url_for('clients.clients')
+    if not ids:
+        flash('顧問先が選択されていません', 'error')
+        return redirect(back)
+    db = SessionLocal()
+    deleted = 0
+    try:
+        rows = db.query(TClient).filter(
+            TClient.tenant_id == tenant_id, TClient.id.in_(ids)).all()
+        for c in rows:
+            _delete_client_cascade(db, c.id)
+            db.delete(c)
+            deleted += 1
+        db.commit()
+        flash(f'{deleted}件の顧問先を削除しました', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'削除に失敗しました: {e}', 'error')
+    finally:
+        db.close()
+    return redirect(back)
 
 
 # ========================================

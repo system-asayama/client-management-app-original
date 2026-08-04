@@ -274,12 +274,18 @@
     {% for s in ['契約中','検討中','未契約','解約'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
   </select>
   <button type="button" class="btn-add-header" style="border:0;cursor:pointer;padding:.45rem .9rem;" onclick="applyBulkStatus()">選択を更新</button>
+  <button type="button" style="border:1px solid #f5b7c0;background:#fff;color:#c0392b;cursor:pointer;padding:.45rem .9rem;border-radius:8px;font-weight:700;" onclick="applyBulkDelete()">選択を削除</button>
 </div>
 <form id="bulkStatusForm" method="post" action="{{ url_for('clients.bulk_status') }}" style="display:none;">
   {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
   <input type="hidden" name="status" id="bulkStatusField">
   <input type="hidden" name="back" value="{{ request.full_path }}">
   <div id="bulkIdsContainer"></div>
+</form>
+<form id="bulkDeleteForm" method="post" action="{{ url_for('clients.bulk_delete') }}" style="display:none;">
+  {% if get_csrf %}<input type="hidden" name="csrf_token" value="{{ get_csrf() }}">{% endif %}
+  <input type="hidden" name="back" value="{{ request.full_path }}">
+  <div id="bulkDelIdsContainer"></div>
 </form>
 {% endif %}
 
@@ -440,6 +446,19 @@ function applyBulkStatus() {
     cont.appendChild(i);
   });
   document.getElementById('bulkStatusForm').submit();
+}
+function applyBulkDelete() {
+  var ids = Array.prototype.slice.call(document.querySelectorAll('.bulkchk:checked')).map(function(c){ return c.value; });
+  if (!ids.length) { alert('顧問先を選択してください'); return; }
+  if (!confirm(ids.length + '件の顧問先を削除します。関連データ（担当・ファイル・チャット等）も削除され、元に戻せません。よろしいですか？')) return;
+  var cont = document.getElementById('bulkDelIdsContainer');
+  cont.innerHTML = '';
+  ids.forEach(function(id){
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = 'client_ids'; i.value = id;
+    cont.appendChild(i);
+  });
+  document.getElementById('bulkDeleteForm').submit();
 }
 </script>
 {% endblock %}

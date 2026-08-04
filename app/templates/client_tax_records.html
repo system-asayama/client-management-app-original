@@ -441,6 +441,7 @@
       <div class="modal-field">
         <div class="modal-label">納付金額（円） <span style="color:#c62828;">*</span></div>
         <input type="number" name="amount" id="modal-amount" class="modal-input" required min="1" placeholder="例: 150000">
+        <div style="font-size:11px; color:#78909c; margin-top:4px;">※ 国税は税目・申告区分の選択で納税実績から自動入力されます（編集可）。中間・予定は1/2を100円未満切り捨て。</div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-modal-cancel" onclick="closeEtaxModal()">キャンセル</button>
@@ -453,7 +454,32 @@
 <script>
 const CLIENT_ID = {{ client.id }};
 
+// 各納税実績の税額（国税）。発行モーダルで税目に応じて金額を自動入力する。
+const TAX_RECORDS = {
+  {% for rec in records %}"{{ rec.id }}": {corporate_tax: {{ rec.corporate_tax or 0 }}, local_corporate_tax: {{ rec.local_corporate_tax or 0 }}, consumption_tax: {{ (rec.consumption_tax or 0) + (rec.local_consumption_tax or 0) }}},
+  {% endfor %}
+};
+// 税目 -> 国税フィールド
+const NATIONAL_TAX_MAP = {'法人税': 'corporate_tax', '地方法人税': 'local_corporate_tax', '消費税及地方消費税': 'consumption_tax'};
+
+function yen100(v) { return Math.floor(v / 100) * 100; }
+
+// 選択された税目・申告区分から納付金額を自動入力（確定=全額 / 中間・予定=1/2の100円未満切り捨て）
+function autofillAmount() {
+  const rec = TAX_RECORDS[document.getElementById('modal-tax-record-id').value];
+  const taxType = document.getElementById('modal-tax-type').value;
+  const filing = document.getElementById('modal-filing-type').value;
+  const amountInput = document.getElementById('modal-amount');
+  const field = rec ? NATIONAL_TAX_MAP[taxType] : null;
+  if (!field) return;  // 地方税・源泉所得税等は自動入力対象外（手入力）
+  document.getElementById('modal-tax-system').value = 'national';
+  let amt = rec[field] || 0;
+  if (filing === '中間申告' || filing === '予定申告') amt = yen100(Math.floor(amt / 2));
+  amountInput.value = amt || '';
+}
+
 function openEtaxModal(recordId, fiscalYear, fiscalMonth) {
+  document.getElementById('etax-modal-form').reset();
   document.getElementById('modal-tax-record-id').value = recordId;
   document.getElementById('modal-fiscal-year').value = fiscalYear;
   document.getElementById('modal-fiscal-month').value = fiscalMonth;
@@ -469,6 +495,10 @@ function closeEtaxModal() {
 document.getElementById('etax-modal').addEventListener('click', function(e) {
   if (e.target === this) closeEtaxModal();
 });
+
+// 税目・申告区分を選ぶと納付金額を自動入力
+document.getElementById('modal-tax-type').addEventListener('change', autofillAmount);
+document.getElementById('modal-filing-type').addEventListener('change', autofillAmount);
 
 // 送信フォームのサブミット
 document.getElementById('etax-modal-form').addEventListener('submit', async function(e) {

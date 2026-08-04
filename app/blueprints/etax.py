@@ -43,11 +43,32 @@ def create_request(client_id):
         if not client:
             return jsonify({"error": "顧問先が見つかりません"}), 404
 
-        # e-Tax認証情報の確認
-        if not client.etax_user_id or not client.etax_password:
-            return jsonify({
-                "error": "e-Tax 利用者識別番号または暗証番号が未登録です。税務申告基本情報ページで登録してください。"
-            }), 400
+        # 国税(national)/地方税(local)の別
+        tax_system = (request.form.get('tax_system') or 'national').strip()
+        if tax_system not in ('national', 'local'):
+            tax_system = 'national'
+
+        # 認証情報の確認（方式B: 担当税理士 > 方式A: 顧問先本人）
+        from app.models_clients import TTaxAccountant
+        ta = None
+        if getattr(client, 'tax_accountant_id', None):
+            ta = db.query(TTaxAccountant).filter(
+                TTaxAccountant.id == client.tax_accountant_id,
+                TTaxAccountant.is_active == 1).first()
+        if tax_system == 'local':
+            has_login = bool((ta and ta.eltax_user_id and ta.eltax_password)
+                             or (client.eltax_user_id and client.eltax_password))
+            if not has_login:
+                return jsonify({"error": "eLTAX 認証情報が未登録です（担当税理士または顧問先）。税務申告基本情報／税理士登録で登録してください。"}), 400
+            if (ta and ta.eltax_user_id) and not client.eltax_user_id:
+                return jsonify({"error": "代理発行には顧問先のeLTAX利用者IDが必要です。税務申告基本情報ページで登録してください。"}), 400
+        else:
+            has_login = bool((ta and ta.etax_user_id and ta.etax_password)
+                             or (client.etax_user_id and client.etax_password))
+            if not has_login:
+                return jsonify({"error": "e-Tax 認証情報が未登録です（担当税理士または顧問先）。税務申告基本情報／税理士登録で登録してください。"}), 400
+            if (ta and ta.etax_user_id) and not client.etax_user_id:
+                return jsonify({"error": "代理発行には顧問先のe-Tax利用者識別番号が必要です。税務申告基本情報ページで登録してください。"}), 400
 
         # フォームデータの取得
         tax_record_id = request.form.get('tax_record_id', type=int)
@@ -63,11 +84,13 @@ def create_request(client_id):
         if amount <= 0:
             return jsonify({"error": "納付金額は1円以上を入力してください"}), 400
 
-        # 申告先税務署を取得
-        filing_office = db.query(TFilingOfficeTaxOffice).filter(
-            TFilingOfficeTaxOffice.client_id == client_id
-        ).first()
-        tax_office_name = filing_office.tax_office_name if filing_office else ""
+        # 申告先税務署を取得（国税のみ）
+        tax_office_name = ""
+        if tax_system == 'national':
+            filing_office = db.query(TFilingOfficeTaxOffice).filter(
+                TFilingOfficeTaxOffice.client_id == client_id
+            ).first()
+            tax_office_name = filing_office.tax_office_name if filing_office else ""
 
         # TEtaxRequestレコードを作成
         req = TEtaxRequest(
@@ -75,6 +98,7 @@ def create_request(client_id):
             tenant_id=tenant_id,
             tax_record_id=tax_record_id,
             request_type="manual",
+            tax_system=tax_system,
             tax_type=tax_type,
             filing_type=filing_type,
             fiscal_year=fiscal_year,

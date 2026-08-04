@@ -360,15 +360,15 @@
       <!-- e-Tax 送信セクション -->
       <hr class="divider">
       <div class="etax-section">
-        <div class="etax-section-title">📤 e-Tax 納付情報登録依頼</div>
+        <div class="etax-section-title">📤 納付情報の発行（e-Tax / eLTAX）</div>
         <div class="etax-actions" id="etax-actions-{{ rec.id }}">
-          {% if client.etax_user_id %}
+          {% if client.etax_user_id or client.eltax_user_id %}
             <button class="btn-etax" onclick="openEtaxModal({{ rec.id }}, {{ rec.fiscal_year }}, {{ rec.fiscal_end_month }})">
-              📤 e-Taxに送信
+              📤 納付情報を発行
             </button>
           {% else %}
             <span style="font-size:12px; color:#c62828;">
-              ⚠️ e-Tax認証情報が未登録です。
+              ⚠️ 顧問先の識別番号が未登録です。
               <a href="{{ url_for('clients.tax_info', client_id=client.id) }}" style="color:#1a237e;">税務申告基本情報ページ</a>で登録してください。
             </span>
           {% endif %}
@@ -387,9 +387,16 @@
 <!-- e-Tax 送信モーダル -->
 <div class="modal-overlay" id="etax-modal">
   <div class="modal-box">
-    <div class="modal-title">📤 e-Tax 納付情報登録依頼の送信</div>
+    <div class="modal-title">📤 納付情報の発行</div>
     <form id="etax-modal-form">
       <input type="hidden" id="modal-tax-record-id" name="tax_record_id">
+      <div class="modal-field">
+        <div class="modal-label">送信先 <span style="color:#c62828;">*</span></div>
+        <select name="tax_system" id="modal-tax-system" class="modal-select" required>
+          <option value="national">国税（e-Tax）</option>
+          <option value="local">地方税（eLTAX 共通納税）</option>
+        </select>
+      </div>
       <div class="modal-field">
         <div class="modal-label">税目 <span style="color:#c62828;">*</span></div>
         <select name="tax_type" id="modal-tax-type" class="modal-select" required>

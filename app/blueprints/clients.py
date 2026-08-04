@@ -1896,6 +1896,34 @@ def delete_filing_office(client_id, office_type, office_id):
 # ─────────────────────────────────────────────
 # 申告先情報用拠点一覧・税務署自動取得 API
 # ─────────────────────────────────────────────
+_PREFECTURES = [
+    '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県', '茨城県', '栃木県',
+    '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県', '新潟県', '富山県', '石川県', '福井県',
+    '山梨県', '長野県', '岐阜県', '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府',
+    '兵庫県', '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県',
+    '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県',
+    '鹿児島県', '沖縄県',
+]
+
+
+def _parse_jp_address(addr):
+    """住所文字列から (郵便番号, 都道府県, 残りの住所) を可能な範囲で抽出する。"""
+    import re
+    s = (addr or '').strip()
+    zip_ = ''
+    m = re.search(r'〒?\s*(\d{3}-?\d{4})', s)
+    if m:
+        zip_ = m.group(1)
+        s = (s[:m.start()] + s[m.end():]).strip()
+    pref = ''
+    for p in _PREFECTURES:
+        if p in s:
+            pref = p
+            s = s.replace(p, '', 1).strip()
+            break
+    return zip_, pref, s
+
+
 @bp.route('/<int:client_id>/branches_for_filing')
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"])
 def branches_for_filing(client_id):
@@ -1913,7 +1941,17 @@ def branches_for_filing(client_id):
             return jsonify({'error': '顧問先が見つかりません'}), 404
         company = db.query(TCompanyInfo).filter(TCompanyInfo.顧問先ID == client_id).first()
         if not company:
-            return jsonify({'branches': []})
+            # 会社基本情報(TCompanyInfo)が無い場合は、顧問先(TClient)の登録情報を本店として使う。
+            # 会社基本情報は顧問先情報に集約済みのため、住所から郵便番号・都道府県を抽出する。
+            zip_, pref, rest = _parse_jp_address(client.address or '')
+            return jsonify({'branches': [{
+                'id': 'client',
+                'branch_type': '本店',
+                'branch_name': client.name or '',
+                '郵便番号': zip_,
+                '都道府県': pref,
+                '市区町村番地': rest or (client.address or ''),
+            }]})
         # 会社基本情報を本店として先頭に追加
         result = [{
             'id': 'company',

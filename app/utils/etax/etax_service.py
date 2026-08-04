@@ -47,23 +47,43 @@ def execute_etax_request(request_id: int) -> dict:
             _mark_error(db, req, "顧問先が見つかりません")
             return {"status": "error", "message": "顧問先が見つかりません"}
 
-        if not client.etax_user_id or not client.etax_password:
-            _mark_error(db, req, "e-Tax 利用者識別番号または暗証番号が未登録です")
-            return {"status": "error", "message": "e-Tax 認証情報が未登録です"}
+        # 国税(national)/地方税(local)で使う認証情報とRPAワーカーを切り替える
+        tax_system = getattr(req, 'tax_system', None) or 'national'
 
-        # RPAワーカーを実行
-        from app.utils.etax.rpa_worker import run_etax_payment_request
-        result = run_etax_payment_request(
-            etax_user_id=client.etax_user_id,
-            etax_password=client.etax_password,
-            tax_type=req.tax_type or "",
-            filing_type=req.filing_type or "",
-            fiscal_year=req.fiscal_year or 0,
-            fiscal_end_month=req.fiscal_end_month or 0,
-            amount=req.amount or 0,
-            tax_office_name=req.tax_office_name or "",
-            request_id=request_id,
-        )
+        if tax_system == 'local':
+            # 地方税（eLTAX / 共通納税 納付情報発行依頼）
+            if not client.eltax_user_id or not client.eltax_password:
+                _mark_error(db, req, "eLTAX 利用者IDまたは暗証番号が未登録です")
+                return {"status": "error", "message": "eLTAX 認証情報が未登録です"}
+            from app.utils.etax.eltax_rpa_worker import run_eltax_payment_request
+            result = run_eltax_payment_request(
+                eltax_user_id=client.eltax_user_id,
+                eltax_password=client.eltax_password,
+                tax_type=req.tax_type or "",
+                filing_type=req.filing_type or "",
+                fiscal_year=req.fiscal_year or 0,
+                fiscal_end_month=req.fiscal_end_month or 0,
+                amount=req.amount or 0,
+                tax_office_name=req.tax_office_name or "",
+                request_id=request_id,
+            )
+        else:
+            # 国税（e-Tax / 納付情報登録依頼）
+            if not client.etax_user_id or not client.etax_password:
+                _mark_error(db, req, "e-Tax 利用者識別番号または暗証番号が未登録です")
+                return {"status": "error", "message": "e-Tax 認証情報が未登録です"}
+            from app.utils.etax.rpa_worker import run_etax_payment_request
+            result = run_etax_payment_request(
+                etax_user_id=client.etax_user_id,
+                etax_password=client.etax_password,
+                tax_type=req.tax_type or "",
+                filing_type=req.filing_type or "",
+                fiscal_year=req.fiscal_year or 0,
+                fiscal_end_month=req.fiscal_end_month or 0,
+                amount=req.amount or 0,
+                tax_office_name=req.tax_office_name or "",
+                request_id=request_id,
+            )
 
         if result["status"] == "completed":
             # PDFをストレージにアップロード

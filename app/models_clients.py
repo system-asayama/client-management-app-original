@@ -245,6 +245,7 @@ class TEtaxRequest(Base):
     tax_record_id = Column(Integer, ForeignKey('T_納税実績.id'), nullable=True)  # 紐づく納税実績（任意）
 
     request_type = Column(String(20), nullable=False, default='manual')  # 'manual'=都度送信, 'auto'=定期自動送信
+    tax_system = Column(String(20), nullable=False, default='national')   # 'national'=国税(e-Tax), 'local'=地方税(eLTAX)
     tax_type = Column(String(100), nullable=True)       # 税目（例: 消費税及地方消費税、法人税）
     filing_type = Column(String(50), nullable=True)     # 申告区分（例: 確定申告、中間申告）
     fiscal_year = Column(Integer, nullable=True)        # 対象決算年度

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Heroku Python buildpack はビルド後にこのスクリプトを実行する。
-# 実行時に参照する PLAYWRIGHT_BROWSERS_PATH へ Chromium 本体（headless shell 含む）を
-# 確実に導入する。OS依存ライブラリは playwright buildpack 側が用意する。
+# playwright buildpack は実行時に PLAYWRIGHT_BROWSERS_PATH=0 を強制する
+# （＝playwrightパッケージ内 .local-browsers を参照）。
+# そのため導入先も 0 に固定し、実行時の参照先と一致させる。
 set +e
-echo "-----> post_compile: Playwright Chromium を導入します (PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-default})"
+export PLAYWRIGHT_BROWSERS_PATH=0
+echo "-----> post_compile: Playwright Chromium を導入します (PLAYWRIGHT_BROWSERS_PATH=0 / パッケージ内)"
 python -m playwright install chromium
 echo "-----> post_compile: 導入完了 (exit=$?)"
 exit 0

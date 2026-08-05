@@ -502,15 +502,29 @@ def _navigate_to_issue_request(page, request_id: int):
         except Exception:
             return False
 
-    # ログイン直後は「申請・届出」サブシステム(GWB01020)に直行してしまい、
-    # そこにはメインメニューへ戻るUIが無い。
+    # ログイン直後は「申請・届出メニュー」(GWB01020)に直行する。
+    # ユーザー確認済みの正しい動線: 画面下部の「戻る」を押すとメインメニュー
+    # （納税メニュータイルがある画面）へ遷移する。
     # 注意: ヘッダーの「終了する」は完全ログアウト（実測で確認）なので絶対に押さない。
-    # → ログインセッションを保ったままSPAのルートURLを再読込し、
-    #   既定画面（メインメニュー＝納税メニュータイルがある画面）への復帰を試みる。
     if not _has_nozei():
-        # 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
+        # 画面下部までスクロールして「戻る」を押す（a/button以外の擬似ボタンにも対応）
+        try:
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        except Exception:
+            pass
+        if _nav_click(page, ["戻る"]):
+            # メインメニュー（納税メニュータイル）が描画されるまで待つ
+            try:
+                page.wait_for_function(
+                    "() => document.body && document.body.innerText.includes('納税メニュー')",
+                    timeout=9000)
+            except Exception:
+                pass
+    if not _has_nozei():
+        # 予備1: 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
         _open_main_menu(page)
     if not _has_nozei():
+        # 予備2: セッション維持のままSPAルートを再読込して既定画面へ
         for url in ("https://www.portal.eltax.lta.go.jp/apa/web/webindexb",
                     "https://www.portal.eltax.lta.go.jp/apa/web/webindexa",
                     "https://www.portal.eltax.lta.go.jp/apa/web/webindex"):

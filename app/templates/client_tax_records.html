@@ -3,7 +3,14 @@
 {% block content %}
 {# 中間納税額は100円未満切り捨て。値vを100円単位に切り捨ててカンマ整形する #}
 {%- macro y100(v) -%}{{ "{:,}".format((v|int // 100) * 100) }}{%- endmacro -%}
+{# 税目ごとの「納付情報を発行」ボタン。押すとモーダルに送信先・税目・申告区分・金額が自動反映される #}
+{%- macro issue_btn(rec, sys, val, filing, label) -%}
+<button type="button" class="btn-issue" onclick="issueFor({{ rec.id }}, {{ rec.fiscal_year }}, {{ rec.fiscal_end_month }}, '{{ sys }}', '{{ val }}', '{{ filing }}')">📤 {{ label }}</button>
+{%- endmacro -%}
 <style>
+  .btn-issue { margin:4px 4px 0 0; padding:3px 10px; font-size:11px; font-weight:700; border:1px solid #3949ab; background:#e8eaf6; color:#283593; border-radius:6px; cursor:pointer; }
+  .btn-issue:hover { background:#c5cae9; }
+  .issue-row { margin-top:6px; }
   .page-wrap { max-width: 860px; margin: 0 auto; }
   .breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; }
   .breadcrumb a { color: #1a237e; text-decoration: none; }
@@ -241,6 +248,14 @@
             </div>
           </div>
         </div>
+        {% if client.etax_user_id %}
+        <div class="issue-row">
+          <span style="font-size:11px;color:#607d8b;">確定の納付情報を発行：</span>
+          {% if rec.corporate_tax %}{{ issue_btn(rec, 'national', '法人税', '確定申告', '法人税') }}{% endif %}
+          {% if rec.local_corporate_tax %}{{ issue_btn(rec, 'national', '地方法人税', '確定申告', '地方法人税') }}{% endif %}
+          {% if rec.consumption_tax %}{{ issue_btn(rec, 'national', '消費税及地方消費税', '確定申告', '消費税') }}{% endif %}
+        </div>
+        {% endif %}
       </div>
 
       <!-- 中間納税額（自動算定） -->
@@ -251,11 +266,13 @@
           {% if rec.corporate_tax %}
           <div class="intermediate-item">
             <span class="intermediate-label">法人税中間：</span>{{ y100(rec.corporate_tax // 2) }}円
+            {% if client.etax_user_id %}{{ issue_btn(rec, 'national', '法人税', '中間申告', '発行') }}{% endif %}
           </div>
           {% endif %}
           {% if rec.local_corporate_tax %}
           <div class="intermediate-item">
             <span class="intermediate-label">地方法人税中間：</span>{{ y100(rec.local_corporate_tax // 2) }}円
+            {% if client.etax_user_id %}{{ issue_btn(rec, 'national', '地方法人税', '中間申告', '発行') }}{% endif %}
           </div>
           {% endif %}
           {% if rec.consumption_tax %}
@@ -267,6 +284,7 @@
             {% else %}
               <span class="intermediate-label">消費税中間（年11回）：</span>各{{ y100(rec.consumption_tax // 12) }}円
             {% endif %}
+            {% if client.etax_user_id %}{{ issue_btn(rec, 'national', '消費税及地方消費税', '中間申告', '発行') }}{% endif %}
           </div>
           {% endif %}
         </div>
@@ -309,6 +327,11 @@
           </div>
           <!-- 都道府県税中間算定 -->
           {% set pref_total = (pref.equal_levy or 0) + (pref.income_levy or 0) + (pref.business_tax or 0) + (pref.special_business_tax or 0) %}
+          {% if pref_total > 0 and client.eltax_user_id %}
+          <div class="issue-row">
+            <span style="font-size:11px;color:#607d8b;">確定の納付情報を発行：</span>{{ issue_btn(rec, 'local', 'pref:' ~ loop.index0, '確定申告', pref.prefecture_name + ' 確定') }}
+          </div>
+          {% endif %}
           {% if pref_total > 0 %}
           <div class="intermediate-box" style="margin-top:8px; background:#f3e5f5; border-left-color:#7b1fa2;">
             <div class="intermediate-title" style="color:#6a1b9a;">📊 中間納税額（自動算定）</div>
@@ -318,6 +341,7 @@
               {% if pref.business_tax %}<div class="intermediate-item" style="color:#6a1b9a;"><span class="intermediate-label">事業税中間：</span>{{ y100(pref.business_tax // 2) }}円</div>{% endif %}
               {% if pref.special_business_tax %}<div class="intermediate-item" style="color:#6a1b9a;"><span class="intermediate-label">特別法人事業税中間：</span>{{ y100(pref.special_business_tax // 2) }}円</div>{% endif %}
             </div>
+            {% if client.eltax_user_id %}<div class="issue-row">{{ issue_btn(rec, 'local', 'pref:' ~ loop.index0, '中間申告', pref.prefecture_name + ' 中間') }}</div>{% endif %}
           </div>
           {% endif %}
         </div>
@@ -348,6 +372,11 @@
             </div>
           </div>
           {% set muni_total = (muni.equal_levy or 0) + (muni.corporate_tax_levy or 0) %}
+          {% if muni_total > 0 and client.eltax_user_id %}
+          <div class="issue-row">
+            <span style="font-size:11px;color:#607d8b;">確定の納付情報を発行：</span>{{ issue_btn(rec, 'local', 'muni:' ~ loop.index0, '確定申告', muni.municipality_name + ' 確定') }}
+          </div>
+          {% endif %}
           {% if muni_total > 0 %}
           <div class="intermediate-box" style="margin-top:8px; background:#e0f2f1; border-left-color:#00796b;">
             <div class="intermediate-title" style="color:#004d40;">📊 中間納税額（自動算定）</div>
@@ -355,6 +384,7 @@
               {% if muni.equal_levy %}<div class="intermediate-item" style="color:#004d40;"><span class="intermediate-label">均等割中間：</span>{{ y100(muni.equal_levy // 2) }}円</div>{% endif %}
               {% if muni.corporate_tax_levy %}<div class="intermediate-item" style="color:#004d40;"><span class="intermediate-label">法人税割中間：</span>{{ y100(muni.corporate_tax_levy // 2) }}円</div>{% endif %}
             </div>
+            {% if client.eltax_user_id %}<div class="issue-row">{{ issue_btn(rec, 'local', 'muni:' ~ loop.index0, '中間申告', muni.municipality_name + ' 中間') }}</div>{% endif %}
           </div>
           {% endif %}
         </div>
@@ -365,11 +395,12 @@
       <!-- e-Tax 送信セクション -->
       <hr class="divider">
       <div class="etax-section">
-        <div class="etax-section-title">📤 納付情報の発行（e-Tax / eLTAX）</div>
+        <div class="etax-section-title">📤 その他の納付情報を発行（手動入力）</div>
+        <div style="font-size:11px;color:#607d8b;margin-bottom:6px;">※ 上の各税目の「📤 発行」ボタンから発行すると、金額まで自動で反映されます。源泉所得税など上に無い税目はこちらから手動で発行できます。</div>
         <div class="etax-actions" id="etax-actions-{{ rec.id }}">
           {% if client.etax_user_id or client.eltax_user_id %}
             <button class="btn-etax" onclick="openEtaxModal({{ rec.id }}, {{ rec.fiscal_year }}, {{ rec.fiscal_end_month }})">
-              📤 納付情報を発行
+              📤 手動で発行
             </button>
           {% else %}
             <span style="font-size:12px; color:#c62828;">
@@ -471,15 +502,16 @@ function populateTaxTypes() {
   const label = document.getElementById('modal-tax-type-label');
   const rec = TAX_RECORDS[document.getElementById('modal-tax-record-id').value];
   sel.innerHTML = '<option value="">選択してください</option>';
+  const yen = function(n){ return (n || 0).toLocaleString('ja-JP'); };
   if (sys === 'local') {
     label.innerHTML = '納付先（地方公共団体） <span style="color:#c62828;">*</span>';
     if (rec) {
-      (rec.prefectures || []).forEach(function(p, i){ sel.insertAdjacentHTML('beforeend', '<option value="pref:' + i + '">' + esc(p.name) + '（都道府県税）</option>'); });
-      (rec.municipalities || []).forEach(function(m, i){ sel.insertAdjacentHTML('beforeend', '<option value="muni:' + i + '">' + esc(m.name) + '（市区町村税）</option>'); });
+      (rec.prefectures || []).forEach(function(p, i){ var t = p.items.reduce(function(a,x){return a+x;},0); sel.insertAdjacentHTML('beforeend', '<option value="pref:' + i + '">' + esc(p.name) + '（都道府県税・' + yen(t) + '円）</option>'); });
+      (rec.municipalities || []).forEach(function(m, i){ var t = m.items.reduce(function(a,x){return a+x;},0); sel.insertAdjacentHTML('beforeend', '<option value="muni:' + i + '">' + esc(m.name) + '（市区町村税・' + yen(t) + '円）</option>'); });
     }
   } else {
     label.innerHTML = '税目 <span style="color:#c62828;">*</span>';
-    NATIONAL_OPTIONS.forEach(function(o){ sel.insertAdjacentHTML('beforeend', '<option value="' + o + '">' + o + '</option>'); });
+    NATIONAL_OPTIONS.forEach(function(o){ var f = NATIONAL_TAX_MAP[o]; var amt = (f && rec) ? rec[f] : 0; var lbl = amt ? (o + '（' + yen(amt) + '円）') : o; sel.insertAdjacentHTML('beforeend', '<option value="' + o + '">' + lbl + '</option>'); });
   }
 }
 
@@ -514,6 +546,20 @@ function openEtaxModal(recordId, fiscalYear, fiscalMonth) {
   document.getElementById('modal-fiscal-year').value = fiscalYear;
   document.getElementById('modal-fiscal-month').value = fiscalMonth;
   populateTaxTypes();
+  document.getElementById('etax-modal').classList.add('active');
+}
+
+// 税目ごとの発行ボタンから呼ばれる。送信先・税目・申告区分をセットし金額を自動反映してモーダルを開く。
+function issueFor(recordId, fiscalYear, fiscalMonth, sys, taxValue, filing) {
+  document.getElementById('etax-modal-form').reset();
+  document.getElementById('modal-tax-record-id').value = recordId;
+  document.getElementById('modal-fiscal-year').value = fiscalYear;
+  document.getElementById('modal-fiscal-month').value = fiscalMonth;
+  document.getElementById('modal-tax-system').value = sys;
+  populateTaxTypes();
+  document.getElementById('modal-tax-type').value = taxValue;
+  document.getElementById('modal-filing-type').value = filing;
+  autofillAmount();
   document.getElementById('etax-modal').classList.add('active');
 }
 

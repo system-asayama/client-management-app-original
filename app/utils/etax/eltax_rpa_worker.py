@@ -134,9 +134,16 @@ def run_eltax_payment_request(
             browser = p.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-setuid-sandbox",
-                      "--disable-dev-shm-usage", "--disable-gpu"],
+                      "--disable-dev-shm-usage", "--disable-gpu",
+                      "--disable-blink-features=AutomationControlled"],
             )
-            context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="ja-JP")
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 900},
+                locale="ja-JP",
+                timezone_id="Asia/Tokyo",
+                user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
+            )
             page = context.new_page()
             page.set_default_timeout(PAGE_TIMEOUT)
             try:

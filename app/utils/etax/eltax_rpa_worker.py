@@ -355,11 +355,21 @@ def _accept_terms(page, request_id: int):
 
 
 def _select_target_taxpayer(page, target_user_id: str, request_id: int):
-    """代理送信: 対象の納税者（顧問先）を利用者IDで指定する試み。"""
-    # 顧問先切替/納税者選択のような導線を探す（画面により大きく異なるため試行）
-    if not _click_text(page, ["納税者", "利用者選択", "顧問先", "関与先", "切替", "代理"], timeout=3000):
-        logger.warning(f"[eLTAX-RPA] request_id={request_id} 納税者選択の導線が見つからず（代理指定は要確認）。{_diag(page)}")
-        return
+    """代理送信: 代理人メニュー → 代理行為の実施 → 関与先(顧問先)を利用者IDで選択。"""
+    # 代理人メニュータブへ
+    _nav_click(page, ["代理人メニュー"])
+    try:
+        page.wait_for_timeout(1000)
+    except Exception:
+        pass
+    # 代理行為の実施（関与先の納税者へ切替）
+    if not _nav_click(page, ["代理行為の実施"]):
+        logger.warning(f"[eLTAX-RPA] request_id={request_id} 代理行為の実施が見つからず。{_diag(page)}")
+    try:
+        page.wait_for_timeout(1200)
+    except Exception:
+        pass
+    # 関与先選択: 利用者IDで検索して選択
     field = _first(page, [
         'input[name*="riyousha" i]', 'input[id*="riyousha" i]',
         'input[name*="userId" i]', 'input[placeholder*="利用者"]', 'input[type="text"]',
@@ -367,9 +377,16 @@ def _select_target_taxpayer(page, target_user_id: str, request_id: int):
     if field:
         try:
             field.fill(target_user_id)
-            _click_text(page, ["検索", "選択", "決定", "確定"], timeout=3000)
+            _nav_click(page, ["検索", "表示", "絞り込み"])
+            page.wait_for_timeout(800)
         except Exception:
             pass
+    # 該当関与先の行を選択して切替
+    _nav_click(page, [target_user_id, "選択", "切替", "決定", "確定", "この納税者"])
+    try:
+        page.wait_for_timeout(1000)
+    except Exception:
+        pass
 
 
 def _navigate_to_issue_request(page, request_id: int):

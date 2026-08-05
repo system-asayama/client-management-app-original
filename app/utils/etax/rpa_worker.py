@@ -197,6 +197,12 @@ def run_etax_payment_request(
         logger.error(f"[RPA] request_id={request_id} 送信エラー: {e}")
         return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"送信エラー: {e}"}
     except Exception as e:
+        msg = str(e)
+        if "Executable doesn't exist" in msg or "playwright install" in msg:
+            logger.error(f"[RPA] request_id={request_id} ブラウザ未導入: {e}")
+            return {"status": "error", "payment_code": None, "pdf_path": None,
+                    "error_message": "サーバーに自動ブラウザ（Chromium）が未導入のため実行できません。"
+                                     "HerokuにPlaywright用buildpackを追加してブラウザを導入してください（詳細は管理者へ）。"}
         logger.error(f"[RPA] request_id={request_id} 予期しないエラー: {e}", exc_info=True)
         return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"予期しないエラー: {e}"}
 

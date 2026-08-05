@@ -33,9 +33,9 @@ ENTRY_URLS = [
 ]
 PCDESK_WEB_TOP_URL = ENTRY_URLS[0]
 
-PAGE_TIMEOUT = 60000
-ACTION_TIMEOUT = 30000
-FIND_TIMEOUT = 5000
+PAGE_TIMEOUT = 25000
+ACTION_TIMEOUT = 12000
+FIND_TIMEOUT = 3500
 
 # 試験実行の有効/無効。Falseにすると即ガードで停止する。
 ELTAX_RPA_ENABLED = True
@@ -169,7 +169,7 @@ def _safe_click(page, el):
             clicked = False
     if clicked:
         try:
-            page.wait_for_load_state("networkidle", timeout=8000)
+            page.wait_for_load_state("networkidle", timeout=2500)
         except Exception:
             pass
     return clicked

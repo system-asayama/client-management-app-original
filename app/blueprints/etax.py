@@ -175,6 +175,20 @@ def get_status(request_id):
         if not req:
             return jsonify({"status": "error", "error_message": "リクエストが見つかりません"}), 200
 
+        # ウォッチドッグ: processing のまま一定時間更新が無い場合は
+        # ワーカーが落ちた（メモリ不足でDyno強制終了等）とみなしてエラー確定。
+        # → 画面が「処理中」で永久に止まるのを防ぐ。
+        if req.status == "processing" and req.updated_at:
+            stalled = (datetime.utcnow() - req.updated_at).total_seconds()
+            if stalled > 240:  # 4分
+                req.status = "error"
+                req.error_message = (
+                    "処理がタイムアウトしました（自動ブラウザ処理が時間内に完了しませんでした）。"
+                    "サーバのメモリ不足でブラウザが強制終了した可能性があります。"
+                )
+                req.updated_at = datetime.utcnow()
+                db.commit()
+
         return jsonify({
             "id": req.id,
             "status": req.status,

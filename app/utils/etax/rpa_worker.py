@@ -120,11 +120,16 @@ def run_etax_payment_request(
             # ブラウザ起動（Heroku環境ではheadless必須）
             browser = p.chromium.launch(
                 headless=True,
+                # Heroku（512MB Dyno）向けのメモリ節約フラグ（OOM強制終了の回避）
                 args=[
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
+                    "--single-process",
+                    "--no-zygote",
+                    "--disable-extensions",
+                    "--disable-background-networking",
                 ]
             )
             context = browser.new_context(

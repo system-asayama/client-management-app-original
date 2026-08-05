@@ -235,8 +235,12 @@ def run_eltax_payment_request(
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
+                # Heroku（512MB Dyno）向けにメモリ使用量を抑える。
+                # --single-process/--no-zygote でプロセス数を減らしOOM強制終了を回避。
                 args=["--no-sandbox", "--disable-setuid-sandbox",
                       "--disable-dev-shm-usage", "--disable-gpu",
+                      "--single-process", "--no-zygote",
+                      "--disable-extensions", "--disable-background-networking",
                       "--disable-blink-features=AutomationControlled"],
             )
             context = browser.new_context(
@@ -246,6 +250,17 @@ def run_eltax_payment_request(
                 user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                             "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
             )
+            # 画像・フォント・メディアの読込を遮断（メモリ節約・高速化）。
+            # SPAの動作に必要なJS/XHR/CSS/documentは通す。
+            try:
+                context.route(
+                    "**/*",
+                    lambda route: route.abort()
+                    if route.request.resource_type in ("image", "font", "media")
+                    else route.continue_(),
+                )
+            except Exception:
+                pass
             page = context.new_page()
             page.set_default_timeout(PAGE_TIMEOUT)
             try:

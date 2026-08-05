@@ -100,6 +100,25 @@ def _list_clickables(page):
         return ""
 
 
+def _safe_click(page, el):
+    """通常クリック→遮られたらJSクリックで確実に発火させる。成功でTrue。"""
+    try:
+        el.click(timeout=6000)
+        clicked = True
+    except Exception:
+        try:
+            el.evaluate("e => e.click()")  # オーバーレイの遮蔽を回避
+            clicked = True
+        except Exception:
+            clicked = False
+    if clicked:
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:
+            pass
+    return clicked
+
+
 def _click_text(page, texts, timeout=FIND_TIMEOUT):
     """リンク/ボタンのテキストで探してクリック。成功でTrue。"""
     for t in texts:
@@ -107,13 +126,8 @@ def _click_text(page, texts, timeout=FIND_TIMEOUT):
                     f'input[type="submit"][value*="{t}"]', f'input[type="button"][value*="{t}"]',
                     f'[role="button"]:has-text("{t}")'):
             el = _first(page, [sel], timeout=2000)
-            if el:
-                try:
-                    el.click()
-                    page.wait_for_load_state("networkidle", timeout=ACTION_TIMEOUT)
-                    return True
-                except Exception:
-                    continue
+            if el and _safe_click(page, el):
+                return True
     return False
 
 
@@ -245,10 +259,8 @@ def _login(page, user_id: str, password: str, request_id: int):
     if not _click_text(page, ["ログイン", "ログオン", "認証", "送信"], timeout=6000):
         btn = _first(page, ['button[type="submit"]', 'input[type="submit"]',
                             'input[type="image"]', 'button'], timeout=3000)
-        if not btn:
+        if not btn or not _safe_click(page, btn):
             raise EltaxLoginError(f"ログインボタンが見つかりません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
-        btn.click()
-        page.wait_for_load_state("networkidle", timeout=ACTION_TIMEOUT)
 
     body = page.inner_text("body")
     if any(w in body for w in ["利用者ID又は暗証番号", "パスワードが違います", "ログインできません", "認証に失敗"]):

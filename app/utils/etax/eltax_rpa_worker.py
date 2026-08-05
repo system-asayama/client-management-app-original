@@ -406,24 +406,39 @@ def _select_target_taxpayer(page, target_user_id: str, request_id: int):
 
 
 def _navigate_to_issue_request(page, request_id: int):
-    """上部メニュー「納税」→ 共通納税 → 納付情報発行依頼 へ遷移。"""
-    # まず上部カテゴリ「納税」へ（div等の擬似ボタンの可能性があるため _nav_click）
-    _nav_click(page, ["納税", "地方税共通納税", "共通納税", "納税メニュー"])
+    """メインメニュー →「納税メニュー」→「電子申告連動」(納付対象申告一覧) へ遷移。
+
+    実画面（PCdesk WEB版）確認済みの動線:
+      メインメニュー(利用者メニュー) の「納税メニュー」タイル
+        → 納税メニュー画面の「納付情報発行依頼」欄「電子申告連動」タイル
+        → 納付対象申告一覧（①〜④のウィザード）
+    """
+    # メインメニューの「納税メニュー」タイル
+    if not _nav_click(page, ["納税メニュー"]):
+        # 別画面にいる場合はメインメニューへ戻ってから再試行
+        _nav_click(page, ["メインメニュー", "メニューへ戻る", "ホーム", "メニュー"])
+        try:
+            page.wait_for_timeout(800)
+        except Exception:
+            pass
+        if not _nav_click(page, ["納税メニュー"]):
+            raise EltaxSubmitError(
+                f"[メニュー]「納税メニュー」が見つかりません。"
+                f"メニュー項目:{_dump_menu_items(page)} / ナビ:{_dump_nav(page)} / 画面:{page.url}")
     try:
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(1200)
     except Exception:
         pass
-    # 共通納税の区分へ
-    _nav_click(page, ["共通納税", "地方税共通納税"])
-    try:
-        page.wait_for_timeout(1000)
-    except Exception:
-        pass
-    if not _nav_click(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行",
-                             "納付情報登録", "納付情報作成", "納付情報"]):
+    # 納税メニューの「納付情報発行依頼」欄「電子申告連動」タイル
+    # （電子申告を行った申告＝法人二税等の確定/中間の納付情報発行）
+    if not _nav_click(page, ["電子申告連動"]):
         raise EltaxSubmitError(
-            f"[メニュー] 納付情報発行依頼メニューが見つかりません。"
-            f"メニュー項目:{_dump_menu_items(page)} / ナビ:{_dump_nav(page)} / 画面:{page.url}")
+            f"[メニュー]「電子申告連動」が見つかりません。"
+            f"メニュー項目:{_dump_menu_items(page)} / 画面:{page.url}")
+    try:
+        page.wait_for_timeout(1200)
+    except Exception:
+        pass
 
 
 def _select_by_partial(page, needle):
@@ -446,22 +461,142 @@ def _select_by_partial(page, needle):
             continue
 
 
+def _visible_selects(page):
+    out = []
+    try:
+        for s in page.query_selector_all("select"):
+            try:
+                if s.is_visible():
+                    out.append(s)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return out
+
+
+def _visible_text_inputs(page):
+    out = []
+    try:
+        for i in page.query_selector_all("input"):
+            try:
+                t = (i.get_attribute("type") or "text").lower()
+                if t in ("text", "number", "tel") and i.is_visible():
+                    out.append(i)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return out
+
+
+def _select_option_partial(select_el, needles):
+    """select要素の選択肢からneedlesのいずれかを含むものを選ぶ。成功でTrue。"""
+    try:
+        opts = select_el.query_selector_all("option")
+    except Exception:
+        return False
+    for n in needles:
+        if not n:
+            continue
+        for o in opts:
+            try:
+                if n in (o.inner_text() or ""):
+                    select_el.select_option(value=o.get_attribute("value"))
+                    return True
+            except Exception:
+                continue
+    return False
+
+
+def _dump_selects(page):
+    """可視selectの選択肢を列挙（0件時の条件診断用）。"""
+    try:
+        js = ("() => Array.from(document.querySelectorAll('select'))"
+              ".filter(s => s.offsetParent !== null).slice(0,6)"
+              ".map(s => Array.from(s.options).map(o => (o.text||'').trim())"
+              ".filter(Boolean).slice(0,8).join('/')).filter(Boolean)")
+        return " || ".join(page.evaluate(js))[:400]
+    except Exception:
+        return ""
+
+
+def _fill_period(page, fiscal_year, fiscal_end_month):
+    """事業年度・期別等（和暦の期間）を埋める。
+
+    可視selectの並びは [税目区分, 申告区分, 元号(期首), 元号(期末)]、
+    可視テキスト入力は [年,月,日(期首), 年,月,日(期末)] を想定。
+    """
+    import calendar
+    try:
+        end_y, end_m = int(fiscal_year), int(fiscal_end_month)
+    except Exception:
+        return
+    try:
+        end_d = calendar.monthrange(end_y, end_m)[1]
+    except Exception:
+        end_d = 31
+    if end_m == 12:
+        start_y, start_m, start_d = end_y, 1, 1
+    else:
+        start_y, start_m, start_d = end_y - 1, end_m + 1, 1
+    r_start, r_end = start_y - 2018, end_y - 2018  # 令和 = 西暦-2018
+
+    # 元号セレクト（税目区分・申告区分の後ろにある想定）を令和へ
+    sels = _visible_selects(page)
+    for s in sels[2:4]:
+        _select_option_partial(s, ["令和"])
+
+    # 年月日テキスト入力を順に埋める
+    texts = _visible_text_inputs(page)
+    vals = [r_start, start_m, start_d, r_end, end_m, end_d]
+    if len(texts) >= 6:
+        for el, v in zip(texts[:6], vals):
+            try:
+                el.fill(str(v))
+            except Exception:
+                pass
+
+
 def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amount, request_id):
-    """納付情報発行依頼フロー。
-    ① 納付対象申告一覧: 申告区分選択→検索→対象選択→次へ
+    """納付情報発行依頼フロー（電子申告連動）。
+    ① 納付対象申告一覧: 税目区分・申告区分・事業年度を指定→検索→対象選択→次へ
     ② 納入金一覧: 次へ
     ③ 納入金確認: ここで停止（SUBMIT_ISSUE=False の間は発行依頼を実行しない）
     """
-    # ① 申告区分（確定/中間/予定）をセレクトから選ぶ
-    kubun = (filing_type or "").replace("申告", "").strip()  # 確定申告→確定
-    if kubun:
-        _select_by_partial(page, kubun)
+    # ① 検索条件（すべて必須）
+    sels = _visible_selects(page)
+    # 税目区分（1番目のselect）
+    if sels:
+        _select_option_partial(sels[0], [tax_type, "事業税", "都道府県民税",
+                                          "市町村民税", "住民税", "法人"])
+    # 申告区分（2番目のselect）: 確定/中間/予定
+    kubun = (filing_type or "").replace("申告", "").strip()
+    if len(sels) >= 2 and kubun:
+        _select_option_partial(sels[1], [kubun, filing_type])
+    # 事業年度・期別等（和暦の期間）
+    _fill_period(page, fiscal_year, fiscal_end_month)
+    # 発行依頼状況「全て」（既発行も表示）
+    _nav_click(page, ["全て"])
     # 検索
     _nav_click(page, ["検索"])
     try:
         page.wait_for_timeout(1800)
     except Exception:
         pass
+
+    # 検索結果の件数を確認
+    try:
+        body = page.inner_text("body")
+    except Exception:
+        body = ""
+    m = re.search(r'検索結果[：:\s]*(\d+)\s*件', body)
+    if m and int(m.group(1)) == 0:
+        raise EltaxSubmitError(
+            "[入力] 該当する納付対象申告が0件でした（対象は電子申告済みの申告）。"
+            "税目区分・申告区分・事業年度の条件をご確認ください。"
+            f"選択肢:{_dump_selects(page)} / 画面:{page.url}")
+
     # 対象申告を選択（全選択 または 一覧のチェックボックス）
     if not _nav_click(page, ["全選択"]):
         try:
@@ -492,9 +627,11 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     except Exception:
         body = ""
     if not SUBMIT_ISSUE:
-        reached = ("納入金確認" in body) or ("確認" in body and "発行依頼" in body)
-        note = "テスト成功: 納入金確認まで到達（発行依頼は未実行）" if reached \
-            else f"テスト: 発行依頼手前まで到達（納入金確認の確定は未検出）。{_diag(page)}"
+        reached = ("納入金確認" in body) or ("納付税額" in body and "発行依頼" in body)
+        amt = re.search(r'([0-9][0-9,]{2,})\s*円', body)
+        detail = f"（画面金額:{amt.group(1)}円）" if amt else ""
+        note = (f"テスト成功: 納入金確認まで到達{detail}（発行依頼は未実行）" if reached
+                else f"テスト: 発行依頼手前まで到達（納入金確認は未検出）。{_diag(page)}")
         logger.info(f"[eLTAX-RPA] request_id={request_id} {note}")
         return note
 

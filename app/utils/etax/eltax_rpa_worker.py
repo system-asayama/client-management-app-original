@@ -321,10 +321,24 @@ def _select_target_taxpayer(page, target_user_id: str, request_id: int):
 
 
 def _navigate_to_issue_request(page, request_id: int):
-    """共通納税 → 納付情報発行依頼 へ遷移。"""
-    _click_text(page, ["共通納税", "地方税共通納税", "納税メニュー"], timeout=5000)
-    if not _click_text(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行", "納付情報登録"], timeout=6000):
-        raise EltaxSubmitError(f"[メニュー] 納付情報発行依頼メニューが見つかりません。{_diag(page)}")
+    """上部メニュー「納税」→ 共通納税 → 納付情報発行依頼 へ遷移。"""
+    # まず上部カテゴリ「納税」タブへ（今は申請・届出メニュー等にいる想定）
+    _click_text(page, ["納税", "地方税共通納税", "共通納税", "納税メニュー"], timeout=5000)
+    try:
+        page.wait_for_timeout(800)
+    except Exception:
+        pass
+    # 共通納税の区分へ
+    _click_text(page, ["共通納税", "地方税共通納税"], timeout=3000)
+    try:
+        page.wait_for_timeout(800)
+    except Exception:
+        pass
+    if not _click_text(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行",
+                              "納付情報登録", "納付情報作成", "納付情報"], timeout=6000):
+        raise EltaxSubmitError(
+            f"[メニュー] 納付情報発行依頼メニューが見つかりません。"
+            f"ボタン候補:{_list_clickables(page)} / {_diag(page)}")
 
 
 def _fill_and_submit_issue_request(page, tax_type, filing_type, fiscal_year,

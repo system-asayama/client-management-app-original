@@ -420,22 +420,56 @@ def _select_target_taxpayer(page, target_user_id: str, request_id: int):
         pass
 
 
+def _open_main_menu(page):
+    """左端の⊞「メインメニュー」ランチャーを押して主メニュー(全タイル)を開く。
+
+    ログイン直後は「申請・届出」ワークスペースが表示され、納税メニューは
+    メインメニュー(オーバーレイ)を開かないと出ない。左端の縦書き
+    「メインメニュー」タブ(⊞アイコン)を押すと全タイルが表示される。
+    """
+    # 画像/アイコンボタンの可能性が高いので title/alt/aria も広く狙う
+    for sel in ['a[title*="メインメニュー"]', 'button[title*="メインメニュー"]',
+                '[aria-label*="メインメニュー"]', 'img[alt*="メインメニュー"]',
+                'a:has-text("メインメニュー")', '[class*="mainmenu"]', '[class*="main-menu"]',
+                '[class*="menu-launcher"]', '[class*="l-side"] a', '[class*="side-menu"] a']:
+        try:
+            el = _first(page, [sel], timeout=1200)
+        except Exception:
+            el = None
+        if el and _safe_click(page, el):
+            try:
+                page.wait_for_timeout(1000)
+            except Exception:
+                pass
+            # 納税メニューのタイルが見えるようになったら成功
+            try:
+                if "納税メニュー" in page.inner_text("body"):
+                    return True
+            except Exception:
+                return True
+    # テキストベースの最終手段
+    if _nav_click(page, ["メインメニュー"]):
+        try:
+            page.wait_for_timeout(1000)
+        except Exception:
+            pass
+        return True
+    return False
+
+
 def _navigate_to_issue_request(page, request_id: int):
     """メインメニュー →「納税メニュー」→「電子申告連動」(納付対象申告一覧) へ遷移。
 
     実画面（PCdesk WEB版）確認済みの動線:
-      メインメニュー(利用者メニュー) の「納税メニュー」タイル
+      (ログイン後は「申請・届出」ワークスペース表示)
+      左端⊞「メインメニュー」を開く
+        → メインメニューの「納税メニュー」タイル
         → 納税メニュー画面の「納付情報発行依頼」欄「電子申告連動」タイル
         → 納付対象申告一覧（①〜④のウィザード）
     """
-    # メインメニューの「納税メニュー」タイル
+    # まず主メニュー(全タイル)を開いてから「納税メニュー」を押す
     if not _nav_click(page, ["納税メニュー"]):
-        # 別画面にいる場合はメインメニューへ戻ってから再試行
-        _nav_click(page, ["メインメニュー", "メニューへ戻る", "ホーム", "メニュー"])
-        try:
-            page.wait_for_timeout(800)
-        except Exception:
-            pass
+        _open_main_menu(page)
         if not _nav_click(page, ["納税メニュー"]):
             raise EltaxSubmitError(
                 f"[メニュー]「納税メニュー」が見つかりません。"

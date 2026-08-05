@@ -14,6 +14,57 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def resolve_tax_accountant(db, client, system):
+    """顧問先の代理送信に使う税理士を決定する。
+
+    優先順位:
+      1. 顧問先に明示的に割り当てられた担当税理士（tax_accountant_id）
+      2. 顧問先と同じ所属店舗の税理士（当該システムの認証情報を持つ者を優先）
+      3. テナント内に該当システムの認証情報を持つ税理士が1名だけならその税理士
+         （または有効な税理士が1名だけならその税理士）
+    見つからなければ None。
+    """
+    from app.models_clients import TTaxAccountant
+
+    def has_creds(ta):
+        if not ta:
+            return False
+        if system == 'local':
+            return bool(ta.eltax_user_id and ta.eltax_password)
+        return bool(ta.etax_user_id and ta.etax_password)
+
+    # 1. 明示的な担当税理士（認証情報の有無に関わらず優先＝不足も明示できる）
+    if getattr(client, 'tax_accountant_id', None):
+        ta = db.query(TTaxAccountant).filter(
+            TTaxAccountant.id == client.tax_accountant_id,
+            TTaxAccountant.is_active == 1).first()
+        if ta:
+            return ta
+
+    # 2. 同じ所属店舗の税理士（認証情報を持つ者を優先）
+    if getattr(client, 'store_id', None):
+        cands = db.query(TTaxAccountant).filter(
+            TTaxAccountant.tenant_id == client.tenant_id,
+            TTaxAccountant.store_id == client.store_id,
+            TTaxAccountant.is_active == 1).order_by(TTaxAccountant.id).all()
+        for ta in cands:
+            if has_creds(ta):
+                return ta
+        if cands:
+            return cands[0]
+
+    # 3. テナント内で一意に定まる場合
+    all_active = db.query(TTaxAccountant).filter(
+        TTaxAccountant.tenant_id == client.tenant_id,
+        TTaxAccountant.is_active == 1).all()
+    with_creds = [t for t in all_active if has_creds(t)]
+    if len(with_creds) == 1:
+        return with_creds[0]
+    if len(all_active) == 1:
+        return all_active[0]
+    return None
+
+
 def execute_etax_request(request_id: int) -> dict:
     """
     TEtaxRequest.id を受け取り、RPAを実行してDBを更新する。
@@ -50,13 +101,9 @@ def execute_etax_request(request_id: int) -> dict:
         # 国税(national)/地方税(local)で使う認証情報とRPAワーカーを切り替える
         tax_system = getattr(req, 'tax_system', None) or 'national'
 
-        # 担当税理士（代理送信）の判定: 顧問先に有効な担当税理士がいればその認証情報でログインし、
-        # 顧問先の識別番号を代理対象として指定する（方式B）。
-        ta = None
-        if getattr(client, 'tax_accountant_id', None):
-            ta = db.query(TTaxAccountant).filter(
-                TTaxAccountant.id == client.tax_accountant_id,
-                TTaxAccountant.is_active == 1).first()
+        # 担当税理士（代理送信）の判定: 明示割当 > 同一店舗 > テナント内一意（方式B）。
+        # 見つかればその税理士の認証情報でログインし、顧問先の識別番号を代理対象に指定する。
+        ta = resolve_tax_accountant(db, client, tax_system)
 
         if tax_system == 'local':
             # 地方税（eLTAX / 共通納税 納付情報発行依頼）

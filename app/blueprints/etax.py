@@ -49,12 +49,9 @@ def create_request(client_id):
             tax_system = 'national'
 
         # 認証情報の確認（方式B: 担当税理士 > 方式A: 顧問先本人）
-        from app.models_clients import TTaxAccountant
-        ta = None
-        if getattr(client, 'tax_accountant_id', None):
-            ta = db.query(TTaxAccountant).filter(
-                TTaxAccountant.id == client.tax_accountant_id,
-                TTaxAccountant.is_active == 1).first()
+        # 担当税理士は 明示割当 > 同一店舗 > テナント内一意 で自動判定する
+        from app.utils.etax.etax_service import resolve_tax_accountant
+        ta = resolve_tax_accountant(db, client, tax_system)
         if tax_system == 'local':
             ta_has = bool(ta and ta.eltax_user_id and ta.eltax_password)
             cli_has = bool(client.eltax_user_id and client.eltax_password)

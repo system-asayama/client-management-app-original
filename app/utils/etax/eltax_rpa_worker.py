@@ -116,6 +116,21 @@ def _dump_matching(page, keywords):
         return ""
 
 
+def _dump_nav(page):
+    """クラス名に nav/menu/tab/gnav/header 等を含む可視要素を列挙（カテゴリ切替の特定用）。"""
+    try:
+        js = ("() => { const kw=['gnav','global','header','nav','menu','tab','category','p-head'];"
+              "return Array.from(document.querySelectorAll('body *'))"
+              ".filter(e => e.offsetParent!==null && kw.some(k => (((e.className||'')+'').toLowerCase()).includes(k)))"
+              ".slice(0,26)"
+              ".map(e => e.tagName.toLowerCase()+'.'+(((e.className||'')+'').trim().split(' ')[0].slice(0,18))"
+              "+':'+((e.innerText||'').replace(/\\s+/g,' ').trim().slice(0,16))); }")
+        items = page.evaluate(js)
+        return " | ".join([x for x in items if x])[:440]
+    except Exception:
+        return ""
+
+
 def _nav_click(page, texts):
     """任意要素（div/li/span等の擬似ボタン含む）をテキストで探してクリック。"""
     if _click_text(page, texts, timeout=2500):
@@ -373,10 +388,9 @@ def _navigate_to_issue_request(page, request_id: int):
         pass
     if not _nav_click(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行",
                              "納付情報登録", "納付情報作成", "納付情報"]):
-        menu = _dump_matching(page, ["納税", "納付", "共通", "メニュー", "利用者", "申告", "作成", "照会", "戻る", "トップ"])
         raise EltaxSubmitError(
             f"[メニュー] 納付情報発行依頼メニューが見つかりません。"
-            f"メニュー要素:{menu} / {_diag(page)}")
+            f"ナビ:{_dump_nav(page)} / 画面:{page.url}")
 
 
 def _fill_and_submit_issue_request(page, tax_type, filing_type, fiscal_year,

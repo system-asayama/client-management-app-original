@@ -135,6 +135,19 @@ def _dump_nav(page):
         return ""
 
 
+def _dump_menu_items(page):
+    """メニューのセクション見出し・項目名（p-menu-link/c-menu-guidance）を全列挙。"""
+    try:
+        js = ("() => Array.from(document.querySelectorAll("
+              "'[class*=menu-guidance],[class*=menu-link__ttl],[class*=menu-link__btn]'))"
+              ".filter(e => e.offsetParent !== null)"
+              ".map(e => (e.innerText||'').replace(/\\s+/g,' ').trim().slice(0,28))"
+              ".filter(Boolean).slice(0,30)")
+        return " | ".join(page.evaluate(js))[:480]
+    except Exception:
+        return ""
+
+
 def _nav_click(page, texts):
     """任意要素（div/li/span等の擬似ボタン含む）をテキストで探してクリック。"""
     if _click_text(page, texts, timeout=2500):
@@ -410,7 +423,7 @@ def _navigate_to_issue_request(page, request_id: int):
                              "納付情報登録", "納付情報作成", "納付情報"]):
         raise EltaxSubmitError(
             f"[メニュー] 納付情報発行依頼メニューが見つかりません。"
-            f"ナビ:{_dump_nav(page)} / 画面:{page.url}")
+            f"メニュー項目:{_dump_menu_items(page)} / ナビ:{_dump_nav(page)} / 画面:{page.url}")
 
 
 def _select_by_partial(page, needle):

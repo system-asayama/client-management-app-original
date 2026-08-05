@@ -86,6 +86,20 @@ def _first(page, selectors, timeout=FIND_TIMEOUT):
     return None
 
 
+def _list_clickables(page):
+    """画面上の可視ボタン/リンク/入力(submit)のラベルを列挙（診断用）。"""
+    try:
+        js = ("els => els.filter(e => e.offsetParent !== null)"
+              ".map(e => (e.innerText || e.value || e.getAttribute('alt') || "
+              "e.getAttribute('aria-label') || '').replace(/\\s+/g,' ').trim())"
+              ".filter(Boolean).slice(0, 14)")
+        items = page.eval_on_selector_all(
+            "button, input[type=submit], input[type=button], input[type=image], a, [role=button]", js)
+        return " | ".join(items)[:220]
+    except Exception:
+        return ""
+
+
 def _click_text(page, texts, timeout=FIND_TIMEOUT):
     """リンク/ボタンのテキストで探してクリック。成功でTrue。"""
     for t in texts:
@@ -193,7 +207,8 @@ def run_eltax_payment_request(
 # ============================================================
 
 def _login(page, user_id: str, password: str, request_id: int):
-    # 候補URLを順に開き、最初にログイン画面（暗証番号欄）が出たものを使う
+    # 候補URLを順に開き、最初にログイン画面（暗証番号欄）が出たものを使う。
+    # PCdeskはSPAで「ログイン方式選択（利用者IDを利用してログイン）」を挟むため先に押す。
     pw = None
     last = ""
     for url in ENTRY_URLS:
@@ -201,16 +216,17 @@ def _login(page, user_id: str, password: str, request_id: int):
             page.goto(url, wait_until="domcontentloaded")
         except Exception:
             continue
-        pw = _first(page, ['input[type="password"]'], timeout=3000)
+        # 方式選択があれば「利用者IDを利用してログイン」を押す
+        _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン", "利用者ID"], timeout=3000)
+        pw = _first(page, ['input[type="password"]'], timeout=4000)
         if not pw:
-            # ログイン画面へ遷移するリンクを踏む
-            _click_text(page, ["ログイン", "PCdesk（WEB版）", "PCdesk(WEB版)",
-                               "利用者IDでログイン", "ログインする", "PCdesk"], timeout=4000)
-            pw = _first(page, ['input[type="password"]'], timeout=5000)
+            _click_text(page, ["ログイン", "PCdesk（WEB版）", "PCdesk(WEB版)", "ログインする", "PCdesk"], timeout=3000)
+            _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン"], timeout=3000)
+            pw = _first(page, ['input[type="password"]'], timeout=4000)
         if pw:
             logger.info(f"[eLTAX-RPA] request_id={request_id} ログイン画面到達: {url}")
             break
-        last = _diag(page)
+        last = f"{_diag(page)} / ボタン候補:{_list_clickables(page)}"
     if not pw:
         raise EltaxLoginError(f"ログイン画面（暗証番号欄）が見つかりません。{last}")
 
@@ -226,10 +242,11 @@ def _login(page, user_id: str, password: str, request_id: int):
     uid.fill((user_id or "").replace("-", "").replace(" ", ""))
     pw.fill(password or "")
 
-    if not _click_text(page, ["ログイン", "ログオン", "認証"], timeout=6000):
-        btn = _first(page, ['button[type="submit"]', 'input[type="submit"]'], timeout=3000)
+    if not _click_text(page, ["ログイン", "ログオン", "認証", "送信"], timeout=6000):
+        btn = _first(page, ['button[type="submit"]', 'input[type="submit"]',
+                            'input[type="image"]', 'button'], timeout=3000)
         if not btn:
-            raise EltaxLoginError(f"ログインボタンが見つかりません。{_diag(page)}")
+            raise EltaxLoginError(f"ログインボタンが見つかりません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
         btn.click()
         page.wait_for_load_state("networkidle", timeout=ACTION_TIMEOUT)
 

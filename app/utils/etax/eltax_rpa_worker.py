@@ -502,38 +502,37 @@ def _navigate_to_issue_request(page, request_id: int):
         except Exception:
             return False
 
-    # ログイン直後が「申請・届出メニュー」の場合、メインメニューへ戻る必要がある。
-    # 実画面のヘッダー比較より: メインメニューでは「ログアウト」、サブシステム内では
-    # 「終了する」が表示される。→「終了する」はサブシステムを抜けてメインメニューに
-    # 戻るボタン（ログアウトではない）。
+    # ログイン直後は「申請・届出」サブシステム(GWB01020)に直行してしまい、
+    # そこにはメインメニューへ戻るUIが無い。
+    # 注意: ヘッダーの「終了する」は完全ログアウト（実測で確認）なので絶対に押さない。
+    # → ログインセッションを保ったままSPAのルートURLを再読込し、
+    #   既定画面（メインメニュー＝納税メニュータイルがある画面）への復帰を試みる。
     if not _has_nozei():
-        # 1) 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
+        # 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
         _open_main_menu(page)
     if not _has_nozei():
-        # 2) ヘッダーロゴでメインへ戻れる場合がある
-        try:
-            logo = _first(page, ['.p-header-logo a', 'a.p-header-logo',
-                                 'div.p-header-logo', '.p-header-logo img'], timeout=1200)
-            if logo:
-                _safe_click(page, logo)
-                _wait_menu(page, 5000)
-        except Exception:
-            pass
-    if not _has_nozei():
-        # 3) 「終了する」で申請・届出サブシステムを抜けてメインメニューへ戻る
-        if _click_text(page, ["終了する"], timeout=3000):
-            # 確認ダイアログが出た場合は「はい/OK」で進める
-            _click_text(page, ["はい", "OK", "終了"], timeout=2500)
-            _wait_menu(page, 9000)
+        for url in ("https://www.portal.eltax.lta.go.jp/apa/web/webindexb",
+                    "https://www.portal.eltax.lta.go.jp/apa/web/webindexa",
+                    "https://www.portal.eltax.lta.go.jp/apa/web/webindex"):
             try:
-                page.wait_for_timeout(1000)
+                page.goto(url, wait_until="domcontentloaded")
+            except Exception:
+                continue
+            _wait_menu(page, 8000)
+            _accept_terms(page, request_id)
+            if _has_nozei():
+                break
+            # ログイン画面に戻された（セッション切れ）ならこれ以上は無駄なので中断
+            try:
+                if _first(page, ['input[type="password"]'], timeout=800):
+                    break
             except Exception:
                 pass
 
     if not _nav_click(page, ["納税メニュー"]):
         raise EltaxSubmitError(
-            f"[メニュー]「納税メニュー」が見つかりません。"
-            f"クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
+            f"[メニュー]「納税メニュー」が見つかりません（ログイン後にメインメニューへ"
+            f"戻る経路を特定中）。クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
     try:
         page.wait_for_timeout(1200)
     except Exception:

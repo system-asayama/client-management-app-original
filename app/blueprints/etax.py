@@ -56,19 +56,42 @@ def create_request(client_id):
                 TTaxAccountant.id == client.tax_accountant_id,
                 TTaxAccountant.is_active == 1).first()
         if tax_system == 'local':
-            has_login = bool((ta and ta.eltax_user_id and ta.eltax_password)
-                             or (client.eltax_user_id and client.eltax_password))
-            if not has_login:
-                return jsonify({"error": "eLTAX 認証情報が未登録です（担当税理士または顧問先）。税務申告基本情報／税理士登録で登録してください。"}), 400
-            if (ta and ta.eltax_user_id) and not client.eltax_user_id:
-                return jsonify({"error": "代理発行には顧問先のeLTAX利用者IDが必要です。税務申告基本情報ページで登録してください。"}), 400
+            ta_has = bool(ta and ta.eltax_user_id and ta.eltax_password)
+            cli_has = bool(client.eltax_user_id and client.eltax_password)
+            if ta_has:
+                if not client.eltax_user_id:
+                    return jsonify({"error": "代理発行には顧問先のeLTAX利用者IDが必要です。税務申告基本情報ページで登録してください。"}), 400
+            elif not cli_has:
+                # どこが足りないか具体的に案内する（具体的な状況を優先）
+                if client.eltax_user_id and not client.eltax_password:
+                    msg = "顧問先のeLTAX暗証番号が未登録です。税務申告基本情報で登録してください。"
+                elif ta and not (ta.eltax_user_id and ta.eltax_password):
+                    msg = "担当税理士にeLTAXの利用者ID・暗証番号が登録されていません。税理士登録で登録してください。"
+                elif client.tax_accountant_id and not ta:
+                    msg = "割り当てられた担当税理士が見つかりません（無効化されている可能性）。顧問先編集で担当税理士を選び直してください。"
+                elif not client.tax_accountant_id:
+                    msg = "担当税理士が割り当てられておらず、顧問先自身のeLTAX認証情報もありません。顧問先編集で担当税理士を割り当てるか、税務申告基本情報でeLTAXの利用者ID・暗証番号を登録してください。"
+                else:
+                    msg = "eLTAX 認証情報が未登録です（担当税理士または顧問先）。"
+                return jsonify({"error": msg}), 400
         else:
-            has_login = bool((ta and ta.etax_user_id and ta.etax_password)
-                             or (client.etax_user_id and client.etax_password))
-            if not has_login:
-                return jsonify({"error": "e-Tax 認証情報が未登録です（担当税理士または顧問先）。税務申告基本情報／税理士登録で登録してください。"}), 400
-            if (ta and ta.etax_user_id) and not client.etax_user_id:
-                return jsonify({"error": "代理発行には顧問先のe-Tax利用者識別番号が必要です。税務申告基本情報ページで登録してください。"}), 400
+            ta_has = bool(ta and ta.etax_user_id and ta.etax_password)
+            cli_has = bool(client.etax_user_id and client.etax_password)
+            if ta_has:
+                if not client.etax_user_id:
+                    return jsonify({"error": "代理発行には顧問先のe-Tax利用者識別番号が必要です。税務申告基本情報ページで登録してください。"}), 400
+            elif not cli_has:
+                if client.etax_user_id and not client.etax_password:
+                    msg = "顧問先のe-Tax暗証番号が未登録です。税務申告基本情報で登録してください。"
+                elif ta and not (ta.etax_user_id and ta.etax_password):
+                    msg = "担当税理士にe-Taxの利用者識別番号・暗証番号が登録されていません。税理士登録で登録してください。"
+                elif client.tax_accountant_id and not ta:
+                    msg = "割り当てられた担当税理士が見つかりません（無効化されている可能性）。顧問先編集で担当税理士を選び直してください。"
+                elif not client.tax_accountant_id:
+                    msg = "担当税理士が割り当てられておらず、顧問先自身のe-Tax認証情報もありません。顧問先編集で担当税理士を割り当てるか、税務申告基本情報でe-Taxの利用者識別番号・暗証番号を登録してください。"
+                else:
+                    msg = "e-Tax 認証情報が未登録です（担当税理士または顧問先）。"
+                return jsonify({"error": msg}), 400
 
         # フォームデータの取得
         tax_record_id = request.form.get('tax_record_id', type=int)

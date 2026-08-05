@@ -55,10 +55,12 @@ def create_request(client_id):
         if tax_system == 'local':
             ta_has = bool(ta and ta.eltax_user_id and ta.eltax_password)
             cli_has = bool(client.eltax_user_id and client.eltax_password)
-            if ta_has:
+            if cli_has:
+                pass  # 方式A（顧問先本人ログイン）を優先
+            elif ta_has:
                 if not client.eltax_user_id:
                     return jsonify({"error": "代理発行には顧問先のeLTAX利用者IDが必要です。税務申告基本情報ページで登録してください。"}), 400
-            elif not cli_has:
+            else:
                 # どこが足りないか具体的に案内する（具体的な状況を優先）
                 if client.eltax_user_id and not client.eltax_password:
                     msg = "顧問先のeLTAX暗証番号が未登録です。税務申告基本情報で登録してください。"
@@ -74,10 +76,12 @@ def create_request(client_id):
         else:
             ta_has = bool(ta and ta.etax_user_id and ta.etax_password)
             cli_has = bool(client.etax_user_id and client.etax_password)
-            if ta_has:
+            if cli_has:
+                pass  # 方式A（顧問先本人ログイン）を優先
+            elif ta_has:
                 if not client.etax_user_id:
                     return jsonify({"error": "代理発行には顧問先のe-Tax利用者識別番号が必要です。税務申告基本情報ページで登録してください。"}), 400
-            elif not cli_has:
+            else:
                 if client.etax_user_id and not client.etax_password:
                     msg = "顧問先のe-Tax暗証番号が未登録です。税務申告基本情報で登録してください。"
                 elif ta and not (ta.etax_user_id and ta.etax_password):

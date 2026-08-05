@@ -107,13 +107,14 @@ def execute_etax_request(request_id: int) -> dict:
 
         if tax_system == 'local':
             # 地方税（eLTAX / 共通納税 納付情報発行依頼）
-            if ta and ta.eltax_user_id and ta.eltax_password:
+            # 方式A（顧問先本人ログイン）を優先。無ければ方式B（代理送信）。
+            if client.eltax_user_id and client.eltax_password:
+                login_id, login_pw, proxy, target_id = client.eltax_user_id, client.eltax_password, False, None
+            elif ta and ta.eltax_user_id and ta.eltax_password:
                 login_id, login_pw, proxy = ta.eltax_user_id, ta.eltax_password, True
                 target_id = client.eltax_user_id  # 代理対象（顧問先）の利用者ID
-            elif client.eltax_user_id and client.eltax_password:
-                login_id, login_pw, proxy, target_id = client.eltax_user_id, client.eltax_password, False, None
             else:
-                _mark_error(db, req, "eLTAX 認証情報が未登録です（担当税理士または顧問先）")
+                _mark_error(db, req, "eLTAX 認証情報が未登録です（顧問先または担当税理士）")
                 return {"status": "error", "message": "eLTAX 認証情報が未登録です"}
             if proxy and not target_id:
                 _mark_error(db, req, "顧問先のeLTAX利用者IDが未登録です（代理発行に必要）")
@@ -134,13 +135,14 @@ def execute_etax_request(request_id: int) -> dict:
             )
         else:
             # 国税（e-Tax / 納付情報登録依頼）
-            if ta and ta.etax_user_id and ta.etax_password:
+            # 方式A（顧問先本人ログイン）を優先。無ければ方式B（代理送信）。
+            if client.etax_user_id and client.etax_password:
+                login_id, login_pw, proxy, target_id = client.etax_user_id, client.etax_password, False, None
+            elif ta and ta.etax_user_id and ta.etax_password:
                 login_id, login_pw, proxy = ta.etax_user_id, ta.etax_password, True
                 target_id = client.etax_user_id  # 代理対象（顧問先）の利用者識別番号
-            elif client.etax_user_id and client.etax_password:
-                login_id, login_pw, proxy, target_id = client.etax_user_id, client.etax_password, False, None
             else:
-                _mark_error(db, req, "e-Tax 認証情報が未登録です（担当税理士または顧問先）")
+                _mark_error(db, req, "e-Tax 認証情報が未登録です（顧問先または担当税理士）")
                 return {"status": "error", "message": "e-Tax 認証情報が未登録です"}
             if proxy and not target_id:
                 _mark_error(db, req, "顧問先のe-Tax利用者識別番号が未登録です（代理発行に必要）")

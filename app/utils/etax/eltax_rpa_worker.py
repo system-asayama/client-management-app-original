@@ -18,6 +18,7 @@ PCdesk（WEB版）に自動ログインし、共通納税の「納付情報発�
 - playwright install chromium --with-deps を事前に実行すること。
 """
 
+import os
 import re
 import logging
 from typing import Optional, Dict, Any
@@ -166,10 +167,11 @@ def run_eltax_payment_request(
     except Exception as e:
         msg = str(e)
         if "Executable doesn't exist" in msg or "playwright install" in msg:
-            logger.error(f"[eLTAX-RPA] request_id={request_id} ブラウザ未導入: {e}")
+            logger.error(f"[eLTAX-RPA] request_id={request_id} ブラウザ起動エラー: {e}")
+            path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "(未設定)")
+            detail = re.sub(r"\s+", " ", msg)[:260]
             return {"status": "error", "payment_code": None, "pdf_path": None,
-                    "error_message": "サーバーに自動ブラウザ（Chromium）が未導入のため実行できません。"
-                                     "HerokuにPlaywright用buildpackを追加してブラウザを導入してください（詳細は管理者へ）。"}
+                    "error_message": f"[ブラウザ起動] BROWSERS_PATH={path} / {detail}"}
         logger.error(f"[eLTAX-RPA] request_id={request_id} 予期しないエラー: {e}", exc_info=True)
         return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"予期しないエラー: {e}"}
 

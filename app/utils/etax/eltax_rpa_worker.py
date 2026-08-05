@@ -25,8 +25,13 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# PCdesk（WEB版）ポータル
-PCDESK_WEB_TOP_URL = "https://www.portal.eltax.lta.go.jp/"
+# PCdesk のログイン入口候補（順に試して最初にログイン画面が出たものを使う）
+ENTRY_URLS = [
+    "https://www.portal.eltax.lta.go.jp/apa/web/webindexb",   # PCdesk(WEB版)
+    "https://portal.pcdesknext.eltax.lta.go.jp/group-u/",     # PCdesk Next（新）
+    "https://www.eltax.lta.go.jp/",                            # メインサイト→ログイン導線
+]
+PCDESK_WEB_TOP_URL = ENTRY_URLS[0]
 
 PAGE_TIMEOUT = 60000
 ACTION_TIMEOUT = 30000
@@ -188,19 +193,26 @@ def run_eltax_payment_request(
 # ============================================================
 
 def _login(page, user_id: str, password: str, request_id: int):
-    try:
-        page.goto(PCDESK_WEB_TOP_URL, wait_until="networkidle")
-    except Exception:
-        page.goto(PCDESK_WEB_TOP_URL)
-        page.wait_for_load_state("domcontentloaded")
-
-    # パスワード欄が無ければ、ログイン画面へ遷移するリンクを踏む
-    pw = _first(page, ['input[type="password"]'], timeout=3000)
+    # 候補URLを順に開き、最初にログイン画面（暗証番号欄）が出たものを使う
+    pw = None
+    last = ""
+    for url in ENTRY_URLS:
+        try:
+            page.goto(url, wait_until="domcontentloaded")
+        except Exception:
+            continue
+        pw = _first(page, ['input[type="password"]'], timeout=3000)
+        if not pw:
+            # ログイン画面へ遷移するリンクを踏む
+            _click_text(page, ["ログイン", "PCdesk（WEB版）", "PCdesk(WEB版)",
+                               "利用者IDでログイン", "ログインする", "PCdesk"], timeout=4000)
+            pw = _first(page, ['input[type="password"]'], timeout=5000)
+        if pw:
+            logger.info(f"[eLTAX-RPA] request_id={request_id} ログイン画面到達: {url}")
+            break
+        last = _diag(page)
     if not pw:
-        _click_text(page, ["ログイン", "PCdesk（WEB版）", "PCdesk(WEB版)", "利用者IDでログイン"], timeout=4000)
-        pw = _first(page, ['input[type="password"]'], timeout=6000)
-    if not pw:
-        raise EltaxLoginError(f"ログイン画面（暗証番号欄）が見つかりません。{_diag(page)}")
+        raise EltaxLoginError(f"ログイン画面（暗証番号欄）が見つかりません。{last}")
 
     uid = _first(page, [
         'input[name*="riyousha" i]', 'input[id*="riyousha" i]',

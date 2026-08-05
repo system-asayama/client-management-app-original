@@ -495,13 +495,45 @@ def _navigate_to_issue_request(page, request_id: int):
     """
     # SPAの描画完了を待ってから操作する
     _wait_menu(page)
-    # まず主メニュー(全タイル)を開いてから「納税メニュー」を押す
-    if not _nav_click(page, ["納税メニュー"]):
+
+    def _has_nozei():
+        try:
+            return "納税メニュー" in page.inner_text("body")
+        except Exception:
+            return False
+
+    # ログイン直後が「申請・届出メニュー」の場合、メインメニューへ戻る必要がある。
+    # 実画面のヘッダー比較より: メインメニューでは「ログアウト」、サブシステム内では
+    # 「終了する」が表示される。→「終了する」はサブシステムを抜けてメインメニューに
+    # 戻るボタン（ログアウトではない）。
+    if not _has_nozei():
+        # 1) 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
         _open_main_menu(page)
-        if not _nav_click(page, ["納税メニュー"]):
-            raise EltaxSubmitError(
-                f"[メニュー]「納税メニュー」が見つかりません。"
-                f"クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
+    if not _has_nozei():
+        # 2) ヘッダーロゴでメインへ戻れる場合がある
+        try:
+            logo = _first(page, ['.p-header-logo a', 'a.p-header-logo',
+                                 'div.p-header-logo', '.p-header-logo img'], timeout=1200)
+            if logo:
+                _safe_click(page, logo)
+                _wait_menu(page, 5000)
+        except Exception:
+            pass
+    if not _has_nozei():
+        # 3) 「終了する」で申請・届出サブシステムを抜けてメインメニューへ戻る
+        if _click_text(page, ["終了する"], timeout=3000):
+            # 確認ダイアログが出た場合は「はい/OK」で進める
+            _click_text(page, ["はい", "OK", "終了"], timeout=2500)
+            _wait_menu(page, 9000)
+            try:
+                page.wait_for_timeout(1000)
+            except Exception:
+                pass
+
+    if not _nav_click(page, ["納税メニュー"]):
+        raise EltaxSubmitError(
+            f"[メニュー]「納税メニュー」が見つかりません。"
+            f"クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
     try:
         page.wait_for_timeout(1200)
     except Exception:

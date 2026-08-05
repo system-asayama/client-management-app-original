@@ -347,8 +347,19 @@ def _login(page, user_id: str, password: str, request_id: int):
             raise EltaxLoginError(f"ログインボタンが見つかりません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
 
     body = page.inner_text("body")
+    _check_service_hours(body)
     if any(w in body for w in ["利用者ID又は暗証番号", "パスワードが違います", "ログインできません", "認証に失敗"]):
         raise EltaxLoginError(f"利用者IDまたは暗証番号が正しくない可能性があります。{_diag(page)}")
+
+
+def _check_service_hours(body: str):
+    """eLTAXの利用時間外（平日8:30〜24:00以外・土日祝等）を検知して明示エラーにする。"""
+    if any(w in body for w in ["利用時間外", "時間外のためご利用", "サービス提供時間",
+                               "ただいまの時間はご利用いただけません", "受付時間外",
+                               "利用可能時間", "運用時間"]):
+        raise EltaxSubmitError(
+            "eLTAXの利用時間外です（平日8:30〜24:00、土日祝・年末年始は原則休止）。"
+            "利用時間内に再度お試しください。")
 
 
 def _accept_terms(page, request_id: int):
@@ -544,6 +555,12 @@ def _navigate_to_issue_request(page, request_id: int):
                 pass
 
     if not _nav_click(page, ["納税メニュー"]):
+        try:
+            _check_service_hours(page.inner_text("body"))
+        except EltaxSubmitError:
+            raise
+        except Exception:
+            pass
         raise EltaxSubmitError(
             f"[メニュー]「納税メニュー」が見つかりません（ログイン後にメインメニューへ"
             f"戻る経路を特定中）。クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")

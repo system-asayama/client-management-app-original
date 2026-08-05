@@ -164,13 +164,16 @@ def get_status(request_id):
     送信ステータスをJSONで返す（Ajax ポーリング用）。
     """
     tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        # 認証切れでもHTMLへリダイレクトせずJSONで返す（フロントのポーリング用）
+        return jsonify({"status": "error", "error_message": "セッションが切れました。再ログインしてください。"}), 200
     db = SessionLocal()
     try:
         req = db.query(TEtaxRequest).filter(
             and_(TEtaxRequest.id == request_id, TEtaxRequest.tenant_id == tenant_id)
         ).first()
         if not req:
-            return jsonify({"error": "リクエストが見つかりません"}), 404
+            return jsonify({"status": "error", "error_message": "リクエストが見つかりません"}), 200
 
         return jsonify({
             "id": req.id,
@@ -180,6 +183,10 @@ def get_status(request_id):
             "error_message": req.error_message,
             "updated_at": req.updated_at.isoformat() if req.updated_at else None,
         })
+    except Exception as e:
+        # 予期しない例外でもHTML 500を返さずJSONにする（原因を画面で確認できるように）
+        logger.error(f"[etax] get_status エラー: {e}", exc_info=True)
+        return jsonify({"status": "error", "error_message": f"ステータス取得エラー: {str(e)[:160]}"}), 200
     finally:
         db.close()
 

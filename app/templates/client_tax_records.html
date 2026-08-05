@@ -643,22 +643,40 @@ function showStatus(recordId, status, message, paymentCode, pdfUrl) {
 }
 
 function pollStatus(recordId, requestId) {
+  let fails = 0;
   const interval = setInterval(async () => {
+    let resp;
     try {
-      const resp = await fetch(`/etax/status/${requestId}`);
-      const data = await resp.json();
-      if (data.status === 'completed') {
-        clearInterval(interval);
-        showStatus(recordId, 'completed', null, data.payment_code, data.pdf_file_url);
-      } else if (data.status === 'error') {
-        clearInterval(interval);
-        showStatus(recordId, 'error', data.error_message);
-      } else {
-        showStatus(recordId, data.status, '処理中...');
-      }
+      resp = await fetch(`/etax/status/${requestId}`, { headers: { 'Accept': 'application/json' } });
     } catch (err) {
+      // ネットワーク断のみ即エラー
       clearInterval(interval);
-      showStatus(recordId, 'error', 'ステータスの取得に失敗しました');
+      showStatus(recordId, 'error', '通信エラー（ステータス取得）');
+      return;
+    }
+    // 本文をテキストで受けてからJSON解釈（HTMLエラーページ/リダイレクトを検知）
+    const raw = await resp.text();
+    let data = null;
+    try { data = JSON.parse(raw); } catch (e) { data = null; }
+    if (!data) {
+      // JSONでない＝サーバ側エラーやログイン切れ。3回まで許容してから確定表示。
+      fails += 1;
+      if (fails >= 3) {
+        clearInterval(interval);
+        const snippet = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+        showStatus(recordId, 'error', `ステータス取得に失敗 (HTTP ${resp.status})${snippet ? '：' + snippet : ''}`);
+      }
+      return;
+    }
+    fails = 0;
+    if (data.status === 'completed') {
+      clearInterval(interval);
+      showStatus(recordId, 'completed', null, data.payment_code, data.pdf_file_url);
+    } else if (data.status === 'error') {
+      clearInterval(interval);
+      showStatus(recordId, 'error', data.error_message || 'エラーが発生しました');
+    } else {
+      showStatus(recordId, data.status || 'processing', '処理中...');
     }
   }, 5000); // 5秒ごとにポーリング
 }

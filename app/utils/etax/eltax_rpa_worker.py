@@ -87,17 +87,39 @@ def _first(page, selectors, timeout=FIND_TIMEOUT):
 
 
 def _list_clickables(page):
-    """画面上の可視ボタン/リンク/入力(submit)のラベルを列挙（診断用）。"""
+    """画面上の可視な操作要素のラベルを列挙（診断用。div/li等の擬似ボタンも含む）。"""
     try:
-        js = ("els => els.filter(e => e.offsetParent !== null)"
+        js = ("els => Array.from(new Set(els.filter(e => e.offsetParent !== null)"
               ".map(e => (e.innerText || e.value || e.getAttribute('alt') || "
               "e.getAttribute('aria-label') || '').replace(/\\s+/g,' ').trim())"
-              ".filter(Boolean).slice(0, 14)")
+              ".filter(t => t && t.length <= 24))).slice(0, 24)")
         items = page.eval_on_selector_all(
-            "button, input[type=submit], input[type=button], input[type=image], a, [role=button]", js)
-        return " | ".join(items)[:220]
+            "button, input[type=submit], input[type=button], input[type=image], a, "
+            "[role=button], [role=menuitem], [role=tab], li, [onclick]", js)
+        return " | ".join(items)[:300]
     except Exception:
         return ""
+
+
+def _nav_click(page, texts):
+    """任意要素（div/li/span等の擬似ボタン含む）をテキストで探してクリック。"""
+    if _click_text(page, texts, timeout=2500):
+        return True
+    for t in texts:
+        for getter in (lambda: page.get_by_text(t, exact=True), lambda: page.get_by_text(t)):
+            try:
+                loc = getter()
+                n = min(loc.count(), 4)
+            except Exception:
+                n = 0
+            for i in range(n):
+                try:
+                    h = loc.nth(i).element_handle()
+                    if h and _safe_click(page, h):
+                        return True
+                except Exception:
+                    continue
+    return False
 
 
 def _safe_click(page, el):
@@ -322,20 +344,20 @@ def _select_target_taxpayer(page, target_user_id: str, request_id: int):
 
 def _navigate_to_issue_request(page, request_id: int):
     """上部メニュー「納税」→ 共通納税 → 納付情報発行依頼 へ遷移。"""
-    # まず上部カテゴリ「納税」タブへ（今は申請・届出メニュー等にいる想定）
-    _click_text(page, ["納税", "地方税共通納税", "共通納税", "納税メニュー"], timeout=5000)
+    # まず上部カテゴリ「納税」へ（div等の擬似ボタンの可能性があるため _nav_click）
+    _nav_click(page, ["納税", "地方税共通納税", "共通納税", "納税メニュー"])
     try:
-        page.wait_for_timeout(800)
+        page.wait_for_timeout(1000)
     except Exception:
         pass
     # 共通納税の区分へ
-    _click_text(page, ["共通納税", "地方税共通納税"], timeout=3000)
+    _nav_click(page, ["共通納税", "地方税共通納税"])
     try:
-        page.wait_for_timeout(800)
+        page.wait_for_timeout(1000)
     except Exception:
         pass
-    if not _click_text(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行",
-                              "納付情報登録", "納付情報作成", "納付情報"], timeout=6000):
+    if not _nav_click(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行",
+                             "納付情報登録", "納付情報作成", "納付情報"]):
         raise EltaxSubmitError(
             f"[メニュー] 納付情報発行依頼メニューが見つかりません。"
             f"ボタン候補:{_list_clickables(page)} / {_diag(page)}")

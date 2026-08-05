@@ -181,6 +181,7 @@ def run_eltax_payment_request(
             page.set_default_timeout(PAGE_TIMEOUT)
             try:
                 _login(page, eltax_user_id, eltax_password, request_id)
+                _accept_terms(page, request_id)
                 if proxy and target_user_id:
                     _select_target_taxpayer(page, target_user_id, request_id)
                 _navigate_to_issue_request(page, request_id)
@@ -265,6 +266,40 @@ def _login(page, user_id: str, password: str, request_id: int):
     body = page.inner_text("body")
     if any(w in body for w in ["利用者ID又は暗証番号", "パスワードが違います", "ログインできません", "認証に失敗"]):
         raise EltaxLoginError(f"利用者IDまたは暗証番号が正しくない可能性があります。{_diag(page)}")
+
+
+def _accept_terms(page, request_id: int):
+    """ログイン直後の利用規約/お知らせ等の同意画面を進める（複数回出る場合に対応）。"""
+    for _ in range(4):
+        try:
+            body = page.inner_text("body")
+        except Exception:
+            body = ""
+        # 同意系の画面かどうか（利用規約・同意）。通常メニューでの誤クリックを避ける。
+        if ("利用規約" not in body) and ("同意" not in body):
+            break
+        # 同意ボタンが下部にある場合に備えて末尾までスクロール
+        try:
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        except Exception:
+            pass
+        # 「同意します」等のチェックボックスがあればチェック
+        try:
+            cbs = page.query_selector_all('input[type="checkbox"]')
+            for cb in cbs:
+                try:
+                    cb.check()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        if _click_text(page, ["同意する", "同意して次へ", "承諾する", "同意", "承諾", "次へ", "OK", "はい"], timeout=4000):
+            try:
+                page.wait_for_timeout(1200)
+            except Exception:
+                pass
+            continue
+        break
 
 
 def _select_target_taxpayer(page, target_user_id: str, request_id: int):

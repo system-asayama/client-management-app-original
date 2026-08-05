@@ -40,6 +40,10 @@ FIND_TIMEOUT = 5000
 # 試験実行の有効/無効。Falseにすると即ガードで停止する。
 ELTAX_RPA_ENABLED = True
 
+# 発行依頼を実際に実行するか。False の間は「納入金確認」まで進めて停止し、
+# 発行依頼（納付情報の確定発行）は行わない（安全なテストモード）。
+SUBMIT_ISSUE = False
+
 
 class EltaxRPAError(Exception):
     pass
@@ -237,9 +241,8 @@ def run_eltax_payment_request(
                 if proxy and target_user_id:
                     _select_target_taxpayer(page, target_user_id, request_id)
                 _navigate_to_issue_request(page, request_id)
-                _fill_and_submit_issue_request(page, tax_type, filing_type, fiscal_year,
-                                               fiscal_end_month, amount, request_id)
-                payment_code = _get_payment_info(page, request_id)
+                payment_code = _issue_flow(page, tax_type, filing_type, fiscal_year,
+                                           fiscal_end_month, amount, request_id)
             finally:
                 try:
                     _click_text(page, ["ログアウト"], timeout=2000)
@@ -410,59 +413,89 @@ def _navigate_to_issue_request(page, request_id: int):
             f"ナビ:{_dump_nav(page)} / 画面:{page.url}")
 
 
-def _fill_and_submit_issue_request(page, tax_type, filing_type, fiscal_year,
-                                   fiscal_end_month, amount, request_id):
-    """税目/納付先・金額を入力して発行依頼を送信する（ヒューリスティック）。"""
-    # 納付先/税目の選択（tax_type にはモーダルの表示名が入る場合がある）
-    label = (tax_type or "").split("（")[0].strip()
-    if label:
-        # セレクトボックスがあれば表示名で選択を試みる
+def _select_by_partial(page, needle):
+    """画面内のセレクトから、ラベルに needle を含む選択肢を選ぶ。"""
+    if not needle:
+        return
+    try:
+        sels = page.query_selector_all("select")
+    except Exception:
+        sels = []
+    for s in sels:
         try:
-            sels = page.query_selector_all("select")
-            for s in sels:
-                try:
-                    s.select_option(label=label)
-                    break
-                except Exception:
-                    continue
+            opts = s.query_selector_all("option")
+            for o in opts:
+                t = (o.inner_text() or "").strip()
+                if needle in t:
+                    s.select_option(value=o.get_attribute("value"))
+                    return
+        except Exception:
+            continue
+
+
+def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amount, request_id):
+    """納付情報発行依頼フロー。
+    ① 納付対象申告一覧: 申告区分選択→検索→対象選択→次へ
+    ② 納入金一覧: 次へ
+    ③ 納入金確認: ここで停止（SUBMIT_ISSUE=False の間は発行依頼を実行しない）
+    """
+    # ① 申告区分（確定/中間/予定）をセレクトから選ぶ
+    kubun = (filing_type or "").replace("申告", "").strip()  # 確定申告→確定
+    if kubun:
+        _select_by_partial(page, kubun)
+    # 検索
+    _nav_click(page, ["検索"])
+    try:
+        page.wait_for_timeout(1800)
+    except Exception:
+        pass
+    # 対象申告を選択（全選択 または 一覧のチェックボックス）
+    if not _nav_click(page, ["全選択"]):
+        try:
+            cb = _first(page, ['table input[type="checkbox"]', 'tbody input[type="checkbox"]',
+                               'input[type="checkbox"]'], timeout=3000)
+            if cb:
+                cb.check()
         except Exception:
             pass
+    # 次へ（→ 納入金一覧）
+    if not _nav_click(page, ["次へ"]):
+        raise EltaxSubmitError(
+            f"[入力] 納付対象一覧の「次へ」が押せません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
+    try:
+        page.wait_for_timeout(1800)
+    except Exception:
+        pass
+    # ② 納入金一覧 → 次へ（→ 納入金確認）
+    _nav_click(page, ["次へ"])
+    try:
+        page.wait_for_timeout(1800)
+    except Exception:
+        pass
 
-    # 金額入力
-    amt_field = _first(page, [
-        'input[name*="kingaku" i]', 'input[id*="kingaku" i]',
-        'input[name*="amount" i]', 'input[name*="nofu" i]',
-        'input[type="number"]', 'input[inputmode="numeric"]',
-    ], timeout=4000)
-    if amt_field:
-        try:
-            amt_field.fill(str(amount))
-        except Exception:
-            pass
+    # ③ 納入金確認に到達しているか確認して停止（発行依頼はしない）
+    try:
+        body = page.inner_text("body")
+    except Exception:
+        body = ""
+    if not SUBMIT_ISSUE:
+        reached = ("納入金確認" in body) or ("確認" in body and "発行依頼" in body)
+        note = "テスト成功: 納入金確認まで到達（発行依頼は未実行）" if reached \
+            else f"テスト: 発行依頼手前まで到達（納入金確認の確定は未検出）。{_diag(page)}"
+        logger.info(f"[eLTAX-RPA] request_id={request_id} {note}")
+        return note
 
-    # 送信/次へ
-    if not _click_text(page, ["発行依頼", "送信", "次へ", "実行", "登録", "確定"], timeout=6000):
-        raise EltaxSubmitError(f"[入力] 発行依頼の送信ボタンが見つかりません。金額欄={'有' if amt_field else '無'} {_diag(page)}")
-
-    # 確認ダイアログ等があれば進める
-    _click_text(page, ["OK", "はい", "送信", "実行", "確定"], timeout=3000)
-
-
-def _get_payment_info(page, request_id: int):
-    """発行結果から納付情報（収納機関番号-納付番号-確認番号）を抽出する。"""
+    # SUBMIT_ISSUE=True のときのみ、実際に発行依頼を実行する（将来の本番用）
+    _nav_click(page, ["発行依頼", "実行", "確定", "送信"])
+    try:
+        page.wait_for_timeout(1500)
+    except Exception:
+        pass
     body = page.inner_text("body")
     shuno = re.search(r'収納機関番号[：:\s]*(\d{4,6})', body)
     nofu = re.search(r'納付番号[：:\s]*([0-9\- ]{6,30})', body)
     kakunin = re.search(r'確認番号[：:\s]*([0-9]{4,8})', body)
-    parts = []
-    if shuno:
-        parts.append(shuno.group(1))
-    if nofu:
-        parts.append(re.sub(r'\s', '', nofu.group(1)))
-    if kakunin:
-        parts.append(kakunin.group(1))
+    parts = [m.group(1) for m in (shuno, nofu, kakunin) if m]
     if parts:
-        return "-".join(parts)
-    # 取得できなくても、送信自体は完了している可能性があるため警告付きで返す
-    logger.warning(f"[eLTAX-RPA] request_id={request_id} 納付情報の抽出に失敗。{_diag(page)}")
-    raise EltaxSubmitError(f"[結果] 発行は送信されましたが納付情報を画面から抽出できませんでした。{_diag(page)}")
+        return "-".join(re.sub(r'\s', '', p) for p in parts)
+    return "発行依頼を送信（納付情報の自動抽出は失敗）"

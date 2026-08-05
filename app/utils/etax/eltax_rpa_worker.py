@@ -420,39 +420,65 @@ def _select_target_taxpayer(page, target_user_id: str, request_id: int):
         pass
 
 
+def _dump_clickables_rich(page):
+    """可視のクリック可能要素を innerText/title/alt/aria-label 込みで列挙。
+    ⊞アイコン(画像リンク)等、テキストが無いボタンも title/alt で捕捉する。"""
+    try:
+        js = ("() => { const sel='a,button,[role=button],[onclick],img[alt],[title],[aria-label],li';"
+              "const seen=new Set(); const out=[];"
+              "for (const e of document.querySelectorAll(sel)) {"
+              "  if (e.offsetParent===null) continue;"
+              "  const t=((e.innerText||'')+' '+(e.getAttribute&&e.getAttribute('title')||'')+' '"
+              "    +(e.getAttribute&&e.getAttribute('alt')||'')+' '"
+              "    +(e.getAttribute&&e.getAttribute('aria-label')||'')).replace(/\\s+/g,' ').trim();"
+              "  if (!t) continue;"
+              "  const k=e.tagName+':'+t.slice(0,18); if (seen.has(k)) continue; seen.add(k);"
+              "  out.push(e.tagName.toLowerCase()+'.'+(((e.className||'')+'').trim().split(' ')[0].slice(0,14))+':'+t.slice(0,26));"
+              "  if (out.length>=45) break; }"
+              "return out; }")
+        return " | ".join(page.evaluate(js))[:760]
+    except Exception:
+        return ""
+
+
+def _wait_menu(page, timeout_ms=9000):
+    """メニュー(申請・届出 or 納税メニュー)が描画されるまで待つ。SPAの遅延対策。"""
+    try:
+        page.wait_for_function(
+            "() => { const b=document.body?document.body.innerText:''; "
+            "return b.includes('納税メニュー')||b.includes('申請・届出')||b.includes('申請届出'); }",
+            timeout=timeout_ms)
+        return True
+    except Exception:
+        return False
+
+
 def _open_main_menu(page):
     """左端の⊞「メインメニュー」ランチャーを押して主メニュー(全タイル)を開く。
 
     ログイン直後は「申請・届出」ワークスペースが表示され、納税メニューは
-    メインメニュー(オーバーレイ)を開かないと出ない。左端の縦書き
-    「メインメニュー」タブ(⊞アイコン)を押すと全タイルが表示される。
+    メインメニュー(オーバーレイ)を開かないと出ない。「メインメニュー」という
+    アクセシブル名(title/alt/aria/テキスト)を持つ要素だけを厳密に狙う
+    （誤クリックで別画面へ飛ばないよう、広すぎるセレクタは使わない）。
     """
-    # 画像/アイコンボタンの可能性が高いので title/alt/aria も広く狙う
     for sel in ['a[title*="メインメニュー"]', 'button[title*="メインメニュー"]',
-                '[aria-label*="メインメニュー"]', 'img[alt*="メインメニュー"]',
-                'a:has-text("メインメニュー")', '[class*="mainmenu"]', '[class*="main-menu"]',
-                '[class*="menu-launcher"]', '[class*="l-side"] a', '[class*="side-menu"] a']:
+                'div[title*="メインメニュー"]', '[aria-label*="メインメニュー"]',
+                'img[alt*="メインメニュー"]',
+                'a:has-text("メインメニュー")', 'button:has-text("メインメニュー")']:
         try:
-            el = _first(page, [sel], timeout=1200)
+            el = _first(page, [sel], timeout=1000)
         except Exception:
             el = None
         if el and _safe_click(page, el):
-            try:
-                page.wait_for_timeout(1000)
-            except Exception:
-                pass
-            # 納税メニューのタイルが見えるようになったら成功
+            _wait_menu(page)
             try:
                 if "納税メニュー" in page.inner_text("body"):
                     return True
             except Exception:
-                return True
-    # テキストベースの最終手段
+                pass
+    # 「メインメニュー」テキストの擬似ボタン(div/span)も試す
     if _nav_click(page, ["メインメニュー"]):
-        try:
-            page.wait_for_timeout(1000)
-        except Exception:
-            pass
+        _wait_menu(page)
         return True
     return False
 
@@ -467,13 +493,15 @@ def _navigate_to_issue_request(page, request_id: int):
         → 納税メニュー画面の「納付情報発行依頼」欄「電子申告連動」タイル
         → 納付対象申告一覧（①〜④のウィザード）
     """
+    # SPAの描画完了を待ってから操作する
+    _wait_menu(page)
     # まず主メニュー(全タイル)を開いてから「納税メニュー」を押す
     if not _nav_click(page, ["納税メニュー"]):
         _open_main_menu(page)
         if not _nav_click(page, ["納税メニュー"]):
             raise EltaxSubmitError(
                 f"[メニュー]「納税メニュー」が見つかりません。"
-                f"メニュー項目:{_dump_menu_items(page)} / ナビ:{_dump_nav(page)} / 画面:{page.url}")
+                f"クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
     try:
         page.wait_for_timeout(1200)
     except Exception:

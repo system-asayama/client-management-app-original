@@ -101,6 +101,21 @@ def _list_clickables(page):
         return ""
 
 
+def _dump_matching(page, keywords):
+    """キーワードを含む可視要素を tag.class:text 形式で列挙（メニュー構造の特定用）。"""
+    try:
+        js = ("(kw) => Array.from(document.querySelectorAll('body *'))"
+              ".filter(e => e.offsetParent !== null)"
+              ".map(e => ({t:(e.innerText||'').replace(/\\s+/g,' ').trim(), "
+              "tag:e.tagName.toLowerCase(), cls:((e.className||'')+'').trim().split(' ')[0].slice(0,16)}))"
+              ".filter(o => o.t && o.t.length<=26 && kw.some(k => o.t.includes(k)))"
+              ".slice(0,22).map(o => o.tag+(o.cls?('.'+o.cls):'')+':'+o.t)")
+        items = page.evaluate(js, keywords)
+        return " | ".join(items)[:420]
+    except Exception:
+        return ""
+
+
 def _nav_click(page, texts):
     """任意要素（div/li/span等の擬似ボタン含む）をテキストで探してクリック。"""
     if _click_text(page, texts, timeout=2500):
@@ -358,9 +373,10 @@ def _navigate_to_issue_request(page, request_id: int):
         pass
     if not _nav_click(page, ["納付情報発行依頼", "発行依頼", "納付情報の発行",
                              "納付情報登録", "納付情報作成", "納付情報"]):
+        menu = _dump_matching(page, ["納税", "納付", "共通", "メニュー", "利用者", "申告", "作成", "照会", "戻る", "トップ"])
         raise EltaxSubmitError(
             f"[メニュー] 納付情報発行依頼メニューが見つかりません。"
-            f"ボタン候補:{_list_clickables(page)} / {_diag(page)}")
+            f"メニュー要素:{menu} / {_diag(page)}")
 
 
 def _fill_and_submit_issue_request(page, tax_type, filing_type, fiscal_year,

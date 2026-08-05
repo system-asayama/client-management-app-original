@@ -403,16 +403,9 @@
         </select>
       </div>
       <div class="modal-field">
-        <div class="modal-label">税目 <span style="color:#c62828;">*</span></div>
+        <div class="modal-label" id="modal-tax-type-label">税目 <span style="color:#c62828;">*</span></div>
         <select name="tax_type" id="modal-tax-type" class="modal-select" required>
           <option value="">選択してください</option>
-          <option value="法人税">法人税</option>
-          <option value="地方法人税">地方法人税</option>
-          <option value="消費税及地方消費税">消費税及地方消費税</option>
-          <option value="源泉所得税">源泉所得税</option>
-          <option value="相続税">相続税</option>
-          <option value="赠与税">赠与税</option>
-          <option value="その他">その他</option>
         </select>
       </div>
       <div class="modal-field">
@@ -441,7 +434,7 @@
       <div class="modal-field">
         <div class="modal-label">納付金額（円） <span style="color:#c62828;">*</span></div>
         <input type="number" name="amount" id="modal-amount" class="modal-input" required min="1" placeholder="例: 150000">
-        <div style="font-size:11px; color:#78909c; margin-top:4px;">※ 国税は税目・申告区分の選択で納税実績から自動入力されます（編集可）。中間・予定は1/2を100円未満切り捨て。</div>
+        <div style="font-size:11px; color:#78909c; margin-top:4px;">※ 送信先・税目（地方税は納付先）・申告区分の選択で、納税実績から金額を自動入力します（編集可）。地方税は団体ごとに各項目を合算。中間・予定は各項目1/2の100円未満切り捨て。</div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-modal-cancel" onclick="closeEtaxModal()">キャンセル</button>
@@ -454,28 +447,65 @@
 <script>
 const CLIENT_ID = {{ client.id }};
 
-// 各納税実績の税額（国税）。発行モーダルで税目に応じて金額を自動入力する。
+// 各納税実績の税額。発行モーダルで税目・団体に応じて金額を自動入力する。
 const TAX_RECORDS = {
-  {% for rec in records %}"{{ rec.id }}": {corporate_tax: {{ rec.corporate_tax or 0 }}, local_corporate_tax: {{ rec.local_corporate_tax or 0 }}, consumption_tax: {{ (rec.consumption_tax or 0) + (rec.local_consumption_tax or 0) }}},
+  {% for rec in records %}"{{ rec.id }}": {
+    corporate_tax: {{ rec.corporate_tax or 0 }}, local_corporate_tax: {{ rec.local_corporate_tax or 0 }},
+    consumption_tax: {{ (rec.consumption_tax or 0) + (rec.local_consumption_tax or 0) }},
+    prefectures: [{% for p in rec.prefectures %}{name: {{ p.prefecture_name|tojson }}, items: [{{ p.equal_levy or 0 }}, {{ p.income_levy or 0 }}, {{ p.business_tax or 0 }}, {{ p.special_business_tax or 0 }}]}{% if not loop.last %}, {% endif %}{% endfor %}],
+    municipalities: [{% for m in rec.municipalities %}{name: {{ m.municipality_name|tojson }}, items: [{{ m.equal_levy or 0 }}, {{ m.corporate_tax_levy or 0 }}]}{% if not loop.last %}, {% endif %}{% endfor %}]
+  }{% if not loop.last %}, {% endif %}
   {% endfor %}
 };
-// 税目 -> 国税フィールド
+// 国税: 税目 -> フィールド
 const NATIONAL_TAX_MAP = {'法人税': 'corporate_tax', '地方法人税': 'local_corporate_tax', '消費税及地方消費税': 'consumption_tax'};
+const NATIONAL_OPTIONS = ['法人税', '地方法人税', '消費税及地方消費税', '源泉所得税', '相続税', '贈与税', 'その他'];
 
 function yen100(v) { return Math.floor(v / 100) * 100; }
+function esc(s) { return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
-// 選択された税目・申告区分から納付金額を自動入力（確定=全額 / 中間・予定=1/2の100円未満切り捨て）
+// 送信先に応じて税目セレクトの選択肢を切り替える
+function populateTaxTypes() {
+  const sys = document.getElementById('modal-tax-system').value;
+  const sel = document.getElementById('modal-tax-type');
+  const label = document.getElementById('modal-tax-type-label');
+  const rec = TAX_RECORDS[document.getElementById('modal-tax-record-id').value];
+  sel.innerHTML = '<option value="">選択してください</option>';
+  if (sys === 'local') {
+    label.innerHTML = '納付先（地方公共団体） <span style="color:#c62828;">*</span>';
+    if (rec) {
+      (rec.prefectures || []).forEach(function(p, i){ sel.insertAdjacentHTML('beforeend', '<option value="pref:' + i + '">' + esc(p.name) + '（都道府県税）</option>'); });
+      (rec.municipalities || []).forEach(function(m, i){ sel.insertAdjacentHTML('beforeend', '<option value="muni:' + i + '">' + esc(m.name) + '（市区町村税）</option>'); });
+    }
+  } else {
+    label.innerHTML = '税目 <span style="color:#c62828;">*</span>';
+    NATIONAL_OPTIONS.forEach(function(o){ sel.insertAdjacentHTML('beforeend', '<option value="' + o + '">' + o + '</option>'); });
+  }
+}
+
+// 選択内容から納付金額を自動入力（確定=全額 / 中間・予定=各項目1/2の100円未満切り捨て合計）
 function autofillAmount() {
   const rec = TAX_RECORDS[document.getElementById('modal-tax-record-id').value];
+  if (!rec) return;
+  const sys = document.getElementById('modal-tax-system').value;
   const taxType = document.getElementById('modal-tax-type').value;
   const filing = document.getElementById('modal-filing-type').value;
+  const interim = (filing === '中間申告' || filing === '予定申告');
   const amountInput = document.getElementById('modal-amount');
-  const field = rec ? NATIONAL_TAX_MAP[taxType] : null;
-  if (!field) return;  // 地方税・源泉所得税等は自動入力対象外（手入力）
-  document.getElementById('modal-tax-system').value = 'national';
-  let amt = rec[field] || 0;
-  if (filing === '中間申告' || filing === '予定申告') amt = yen100(Math.floor(amt / 2));
-  amountInput.value = amt || '';
+  if (sys === 'local') {
+    const mm = taxType.match(/^(pref|muni):(\d+)$/);
+    if (!mm) return;
+    const ent = (mm[1] === 'pref' ? rec.prefectures : rec.municipalities)[mm[2]];
+    if (!ent) return;
+    const amt = ent.items.reduce(function(a, x){ return a + (interim ? yen100(Math.floor(x / 2)) : x); }, 0);
+    amountInput.value = amt || '';
+  } else {
+    const field = NATIONAL_TAX_MAP[taxType];
+    if (!field) return;  // 源泉所得税・相続税等は手入力
+    let amt = rec[field] || 0;
+    if (interim) amt = yen100(Math.floor(amt / 2));
+    amountInput.value = amt || '';
+  }
 }
 
 function openEtaxModal(recordId, fiscalYear, fiscalMonth) {
@@ -483,6 +513,7 @@ function openEtaxModal(recordId, fiscalYear, fiscalMonth) {
   document.getElementById('modal-tax-record-id').value = recordId;
   document.getElementById('modal-fiscal-year').value = fiscalYear;
   document.getElementById('modal-fiscal-month').value = fiscalMonth;
+  populateTaxTypes();
   document.getElementById('etax-modal').classList.add('active');
 }
 
@@ -496,7 +527,11 @@ document.getElementById('etax-modal').addEventListener('click', function(e) {
   if (e.target === this) closeEtaxModal();
 });
 
-// 税目・申告区分を選ぶと納付金額を自動入力
+// 送信先で税目/納付先の選択肢を切り替え、税目・申告区分で金額を自動入力
+document.getElementById('modal-tax-system').addEventListener('change', function(){
+  populateTaxTypes();
+  document.getElementById('modal-amount').value = '';
+});
 document.getElementById('modal-tax-type').addEventListener('change', autofillAmount);
 document.getElementById('modal-filing-type').addEventListener('change', autofillAmount);
 
@@ -509,6 +544,11 @@ document.getElementById('etax-modal-form').addEventListener('submit', async func
 
   const formData = new FormData(this);
   const recordId = formData.get('tax_record_id');
+  // 地方税は税目の値が pref:N / muni:N なので、表示名（例: 東京都（都道府県税））に置換して送信
+  if (formData.get('tax_system') === 'local') {
+    const sel = document.getElementById('modal-tax-type');
+    if (sel.selectedIndex >= 0) formData.set('tax_type', sel.options[sel.selectedIndex].text);
+  }
 
   try {
     const resp = await fetch(`/etax/request/${CLIENT_ID}`, {

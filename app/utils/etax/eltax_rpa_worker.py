@@ -321,7 +321,9 @@ def _login(page, user_id: str, password: str, request_id: int):
         _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン"], timeout=3000)
         pw = _first(page, ['input[type="password"]'], timeout=4000)
         if not pw:
-            _click_text(page, ["ログイン", "PCdesk（WEB版）", "PCdesk(WEB版)", "ログインする", "PCdesk"], timeout=3000)
+            # 「ログイン」は完全一致のみ（部分一致は「ログインなし」等に誤爆する）
+            if not _js_click_exact(page, "ログイン"):
+                _click_text(page, ["PCdesk（WEB版）", "PCdesk(WEB版)", "ログインする"], timeout=3000)
             _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン"], timeout=3000)
             pw = _first(page, ['input[type="password"]'], timeout=4000)
         if pw:
@@ -344,11 +346,21 @@ def _login(page, user_id: str, password: str, request_id: int):
     pw.fill(password or "")
 
     _dismiss_dialogs(page)
-    if not _click_text(page, ["ログイン", "ログオン", "認証", "送信"], timeout=6000):
+    # ログインボタンは必ず「完全一致」で押す。
+    # has-text の部分一致だと「申請・届出（ログインなし）」等の別リンクを
+    # 誤クリックし、未ログインのまま進んでしまう（実測で確認済みの事故）。
+    clicked = False
+    btn = _first(page, ['button.f-login-button', 'button[class*="login-button"]'], timeout=2500)
+    if btn and _safe_click(page, btn):
+        clicked = True
+    if not clicked:
+        clicked = _js_click_exact(page, "ログイン")
+    if not clicked:
         btn = _first(page, ['button[type="submit"]', 'input[type="submit"]',
-                            'input[type="image"]', 'button'], timeout=3000)
-        if not btn or not _safe_click(page, btn):
-            raise EltaxLoginError(f"ログインボタンが見つかりません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
+                            'input[type="image"]'], timeout=2500)
+        clicked = bool(btn and _safe_click(page, btn))
+    if not clicked:
+        raise EltaxLoginError(f"ログインボタンが見つかりません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
 
     # ログイン結果が確定するまで待つ:
     #   成功 → ヘッダーに「氏名又は名称」等が出る／利用規約(同意)画面へ遷移
@@ -528,6 +540,33 @@ def _js_click_text(page, needle):
     )
     try:
         return bool(page.evaluate(js, needle))
+    except Exception:
+        return False
+
+
+def _js_click_exact(page, text):
+    """正規化テキストが text と完全一致する要素をJSでクリック（button優先）。
+
+    has-text の部分一致は「ログイン」が「申請・届出（ログインなし）」に
+    マッチする等の誤爆があるため、完全一致でのみ押したい場面で使う。
+    """
+    js = (
+        "(text) => {"
+        "  const norm = s => (s||'').replace(/\\s+/g,'');"
+        "  const prio = e => e.tagName==='BUTTON'?0:(e.tagName==='INPUT'?1:"
+        "    (e.tagName==='A'?2:3));"
+        "  const els = Array.from(document.querySelectorAll("
+        "    'button,input[type=submit],input[type=button],a,[role=button],li,span,div,p'));"
+        "  const cands = els.filter(e => norm(e.innerText || e.value || '') === text)"
+        "    .sort((a,b) => prio(a) - prio(b));"
+        "  if (!cands.length) return false;"
+        "  try { cands[0].scrollIntoView({block:'center'}); } catch(e) {}"
+        "  cands[0].click();"
+        "  return true;"
+        "}"
+    )
+    try:
+        return bool(page.evaluate(js, text))
     except Exception:
         return False
 

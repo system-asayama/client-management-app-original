@@ -317,7 +317,8 @@ def _login(page, user_id: str, password: str, request_id: int):
         # お知らせ等のダイアログが被さっていたら先に閉じる
         _dismiss_dialogs(page)
         # 方式選択があれば「利用者IDを利用してログイン」を押す
-        _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン", "利用者ID"], timeout=3000)
+        # ※「利用者ID」単体は「利用者IDをお忘れの方はこちら」に誤マッチするため使わない
+        _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン"], timeout=3000)
         pw = _first(page, ['input[type="password"]'], timeout=4000)
         if not pw:
             _click_text(page, ["ログイン", "PCdesk（WEB版）", "PCdesk(WEB版)", "ログインする", "PCdesk"], timeout=3000)
@@ -349,10 +350,31 @@ def _login(page, user_id: str, password: str, request_id: int):
         if not btn or not _safe_click(page, btn):
             raise EltaxLoginError(f"ログインボタンが見つかりません。ボタン候補:{_list_clickables(page)} / {_diag(page)}")
 
+    # ログイン結果が確定するまで待つ:
+    #   成功 → ヘッダーに「氏名又は名称」等が出る／利用規約(同意)画面へ遷移
+    #   失敗 → エラー文言が表示される
+    try:
+        page.wait_for_function(
+            "() => { const b = document.body ? document.body.innerText : '';"
+            " return b.includes('氏名又は名称') || b.includes('ログアウト')"
+            " || b.includes('納税メニュー') || b.includes('同意')"
+            " || b.includes('誤') || b.includes('失敗') || b.includes('ロック')"
+            " || b.includes('できません'); }",
+            timeout=12000)
+    except Exception:
+        pass
     body = page.inner_text("body")
     _check_service_hours(body)
-    if any(w in body for w in ["利用者ID又は暗証番号", "パスワードが違います", "ログインできません", "認証に失敗"]):
-        raise EltaxLoginError(f"利用者IDまたは暗証番号が正しくない可能性があります。{_diag(page)}")
+    if any(w in body for w in ["利用者ID又は暗証番号", "利用者IDまたは暗証番号", "誤りがあります",
+                               "誤っています", "パスワードが違います", "ログインできません",
+                               "認証に失敗", "ロックされています"]):
+        raise EltaxLoginError(f"ログインに失敗しました（利用者ID/暗証番号の誤り等）。{_diag(page)}")
+    # ログイン済みの証跡（ヘッダーの氏名等）が無ければ未ログインとして停止する。
+    # ※未ログインのまま進むと「申請・届出（ログインなし）」区画に流れ着き、
+    #   納税メニューの無い画面で迷子になる（実測で確認済み）。
+    if not any(w in body for w in ["氏名又は名称", "ログアウト", "納税メニュー", "同意", "利用規約"]):
+        raise EltaxLoginError(
+            f"ログイン後の画面を確認できませんでした（未ログインの可能性）。{_diag(page)}")
 
 
 def _check_service_hours(body: str):
@@ -603,7 +625,9 @@ def _navigate_to_issue_request(page, request_id: int):
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             except Exception:
                 pass
-            if _nav_click(page, ["戻る"]) or _js_click_text(page, "戻る"):
+            # ※has-text部分一致は「eLTAX トップページへ戻る」等に誤マッチするため
+            #   文字数上限付きのJSクリックのみ使う
+            if _js_click_text(page, "戻る"):
                 _wait_nozei()
             if _has_nozei():
                 break
@@ -632,9 +656,10 @@ def _navigate_to_issue_request(page, request_id: int):
             raise
         except Exception:
             pass
+        login_state = "ログイン済" if ("氏名又は名称" in body or "ログアウト" in body) else "未ログインの疑い"
         raise EltaxSubmitError(
-            f"[メニュー]「納税メニュー」が見つかりません（ログイン後にメインメニューへ"
-            f"戻る経路を特定中）。クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
+            f"[メニュー]「納税メニュー」が見つかりません（状態:{login_state}）。"
+            f"クリック候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
     try:
         page.wait_for_timeout(1200)
     except Exception:

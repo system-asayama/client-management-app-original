@@ -671,14 +671,15 @@ def _dump_selects(page):
 def _fill_period(page, fiscal_year, fiscal_end_month):
     """事業年度・期別等（和暦の期間）を埋める。
 
-    可視selectの並びは [税目区分, 申告区分, 元号(期首), 元号(期末)]、
-    可視テキスト入力は [年,月,日(期首), 年,月,日(期末)] を想定。
+    実画面（確認済み）: [令和07▼]年 [6]月 [1]日 〜 [令和08▼]年 [5]月 [31]日
+    → 「令和NN」は年込みのセレクト（税目区分・申告区分の後ろ2つ）、
+      月・日はテキスト入力4つ [月,日(期首), 月,日(期末)]。
     """
     import calendar
     try:
         end_y, end_m = int(fiscal_year), int(fiscal_end_month)
     except Exception:
-        return
+        return ""
     try:
         end_d = calendar.monthrange(end_y, end_m)[1]
     except Exception:
@@ -689,20 +690,27 @@ def _fill_period(page, fiscal_year, fiscal_end_month):
         start_y, start_m, start_d = end_y - 1, end_m + 1, 1
     r_start, r_end = start_y - 2018, end_y - 2018  # 令和 = 西暦-2018
 
-    # 元号セレクト（税目区分・申告区分の後ろにある想定）を令和へ
+    # 「令和NN」セレクト（例: 令和07）。ゼロ埋め/非ゼロ埋め両対応。
     sels = _visible_selects(page)
-    for s in sels[2:4]:
-        _select_option_partial(s, ["令和"])
+    if len(sels) >= 4:
+        _select_option_partial(sels[2], [f"令和{r_start:02d}", f"令和{r_start}"])
+        _select_option_partial(sels[3], [f"令和{r_end:02d}", f"令和{r_end}"])
 
-    # 年月日テキスト入力を順に埋める
+    # 月日テキスト入力を埋める（4つ=月日のみ / 6つ=年月日の場合に対応）
     texts = _visible_text_inputs(page)
-    vals = [r_start, start_m, start_d, r_end, end_m, end_d]
     if len(texts) >= 6:
-        for el, v in zip(texts[:6], vals):
-            try:
-                el.fill(str(v))
-            except Exception:
-                pass
+        vals = [r_start, start_m, start_d, r_end, end_m, end_d]
+    elif len(texts) >= 4:
+        vals = [start_m, start_d, end_m, end_d]
+    else:
+        vals = []
+    for el, v in zip(texts, vals):
+        try:
+            el.fill(str(v))
+        except Exception:
+            pass
+    return (f"令和{r_start:02d}年{start_m}月{start_d}日〜"
+            f"令和{r_end:02d}年{end_m}月{end_d}日")
 
 
 def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amount, request_id):
@@ -714,15 +722,22 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     # ① 検索条件（すべて必須）
     sels = _visible_selects(page)
     # 税目区分（1番目のselect）
+    # 実画面の正式名称（確認済み）:
+    #   都道府県税: 法人都道府県民税・事業税・特別法人事業税又は地方法人特別税
+    #   市町村税:   法人市町村民税
     if sels:
-        _select_option_partial(sels[0], [tax_type, "事業税", "都道府県民税",
-                                          "市町村民税", "住民税", "法人"])
+        if tax_type and ("市町村" in tax_type or "市民税" in tax_type
+                         or ("市" in tax_type and "都道府県" not in tax_type and "都" not in tax_type)):
+            needles = [tax_type, "法人市町村民税", "市町村民税", "法人住民税", "法人"]
+        else:
+            needles = [tax_type, "法人都道府県民税", "都道府県民税", "事業税", "法人"]
+        _select_option_partial(sels[0], needles)
     # 申告区分（2番目のselect）: 確定/中間/予定
     kubun = (filing_type or "").replace("申告", "").strip()
     if len(sels) >= 2 and kubun:
         _select_option_partial(sels[1], [kubun, filing_type])
     # 事業年度・期別等（和暦の期間）
-    _fill_period(page, fiscal_year, fiscal_end_month)
+    period_desc = _fill_period(page, fiscal_year, fiscal_end_month)
     # 発行依頼状況「全て」（既発行も表示）
     _nav_click(page, ["全て"])
     # 検索
@@ -742,7 +757,7 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         raise EltaxSubmitError(
             "[入力] 該当する納付対象申告が0件でした（対象は電子申告済みの申告）。"
             "税目区分・申告区分・事業年度の条件をご確認ください。"
-            f"選択肢:{_dump_selects(page)} / 画面:{page.url}")
+            f"入力期間:{period_desc} / 選択肢:{_dump_selects(page)} / 画面:{page.url}")
 
     # 対象申告を選択（全選択 または 一覧のチェックボックス）
     if not _nav_click(page, ["全選択"]):

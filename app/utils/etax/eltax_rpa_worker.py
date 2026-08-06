@@ -448,8 +448,10 @@ def _dump_clickables_rich(page):
     try:
         js = ("() => { const sel='a,button,[role=button],[onclick],img[alt],[title],[aria-label],li';"
               "const seen=new Set(); const out=[];"
+              "const vis = e => { const r=e.getBoundingClientRect();"
+              "  return r.width>0 && r.height>0; };"  # fixed配置も含めて可視判定
               "for (const e of document.querySelectorAll(sel)) {"
-              "  if (e.offsetParent===null) continue;"
+              "  if (!vis(e)) continue;"
               "  const t=((e.innerText||'')+' '+(e.getAttribute&&e.getAttribute('title')||'')+' '"
               "    +(e.getAttribute&&e.getAttribute('alt')||'')+' '"
               "    +(e.getAttribute&&e.getAttribute('aria-label')||'')).replace(/\\s+/g,' ').trim();"
@@ -471,6 +473,39 @@ def _wait_menu(page, timeout_ms=9000):
             "return b.includes('納税メニュー')||b.includes('申請・届出')||b.includes('申請届出'); }",
             timeout=timeout_ms)
         return True
+    except Exception:
+        return False
+
+
+def _js_click_text(page, needle):
+    """JSで正規化テキスト一致の要素を直接クリックする。
+
+    下部固定バーの「戻る」や左端の縦書き「メインメニュー」タブは
+    position:fixed のため offsetParent が null になり、通常の探索から漏れる。
+    ここでは配置に関係なく、テキスト（alt/title/aria含む）が一致する
+    最小の要素を選んで click() を発火させる。
+    """
+    js = (
+        "(needle) => {"
+        "  const norm = s => (s||'').replace(/\\s+/g,'');"
+        "  const els = Array.from(document.querySelectorAll("
+        "    'a,button,[role=button],li,p,span,div,img'));"
+        "  const txt = e => norm(e.innerText) || norm((e.getAttribute&&("
+        "    (e.getAttribute('alt')||'')+(e.getAttribute('title')||'')+"
+        "    (e.getAttribute('aria-label')||''))) || '');"
+        "  const cands = els.filter(e => {"
+        "    const t = txt(e);"
+        "    return t && t.includes(needle) && t.length <= needle.length + 8;"
+        "  }).sort((a,b) => txt(a).length - txt(b).length);"
+        "  if (!cands.length) return false;"
+        "  const el = cands[0];"
+        "  try { el.scrollIntoView({block:'center'}); } catch(e) {}"
+        "  el.click();"
+        "  return true;"
+        "}"
+    )
+    try:
+        return bool(page.evaluate(js, needle))
     except Exception:
         return False
 
@@ -550,23 +585,30 @@ def _navigate_to_issue_request(page, request_id: int):
     # （納税メニュータイルがある画面）へ遷移する。
     # 注意: ヘッダーの「終了する」は完全ログアウト（実測で確認）なので絶対に押さない。
     #       SPAルート再読込もログイン画面に戻ってしまうため行わない（実測で確認）。
+    def _wait_nozei():
+        try:
+            page.wait_for_function(
+                "() => { const b = document.body ? document.body.innerText : '';"
+                " return b.includes('納税メニュー') || b.includes('代理人メニュー'); }",
+                timeout=15000)
+        except Exception:
+            pass
+
     if not _has_nozei():
         _dismiss_dialogs(page)
-        # 「戻る」を最大2回試す（クリック遮蔽・描画遅延に備える）
+        # 「戻る」（下部固定バー）→ ⊞「メインメニュー」（左端固定タブ）の順に
+        # JSクリック込みで最大2周試す。fixed配置のため通常探索では見えない。
         for _ in range(2):
             try:
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             except Exception:
                 pass
-            if _nav_click(page, ["戻る"]):
-                # メインメニュー（納税メニュータイル/代理人メニュータブ）の描画を待つ
-                try:
-                    page.wait_for_function(
-                        "() => { const b = document.body ? document.body.innerText : '';"
-                        " return b.includes('納税メニュー') || b.includes('代理人メニュー'); }",
-                        timeout=15000)
-                except Exception:
-                    pass
+            if _nav_click(page, ["戻る"]) or _js_click_text(page, "戻る"):
+                _wait_nozei()
+            if _has_nozei():
+                break
+            if _js_click_text(page, "メインメニュー"):
+                _wait_nozei()
             if _has_nozei():
                 break
             _dismiss_dialogs(page)

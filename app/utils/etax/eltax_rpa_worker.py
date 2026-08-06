@@ -970,14 +970,25 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     period_desc = _fill_period(page, fiscal_year, fiscal_end_month)
     # 発行依頼状況「全て」（既発行も表示）
     _nav_click(page, ["全て"])
-    # 入力反映が落ち着くのを待ってから検索
+    # 入力反映が落ち着くのを待ってから検索（ボタンは完全一致で確実に押す）
     try:
         page.wait_for_timeout(600)
     except Exception:
         pass
-    _nav_click(page, ["検索"])
+    if not _js_click_exact(page, "検索"):
+        _nav_click(page, ["検索"])
+    # 検索は非同期実行のため、結果件数が入るまで待つ（画面は検索前から
+    # 「検索結果:0件」を表示しており、待たずに読むと誤って0件と判定する）
     try:
-        page.wait_for_timeout(1800)
+        page.wait_for_function(
+            "() => { const b = document.body ? document.body.innerText : '';"
+            " const m = b.match(/検索結果[：:\\s]*([0-9]+)\\s*件/);"
+            " return m && parseInt(m[1]) > 0; }",
+            timeout=12000)
+    except Exception:
+        pass
+    try:
+        page.wait_for_timeout(500)
     except Exception:
         pass
 

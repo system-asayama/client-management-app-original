@@ -398,6 +398,16 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
     # 入力後に再度モーダルが被っていたら閉じる
     _close_env_modal()
 
+    # 送信時の通信を計測（拡張機能ブロックでsubmitが飛ばないかの判別用）
+    from app.utils.etax.eltax_rpa_worker import _install_net_probe, _read_net_probe, _dump_matching
+    _install_net_probe(page)
+    try:
+        page.evaluate("() => { if (window.__netProbe) {"
+                      " window.__netProbe.count = 0; window.__netProbe.last=''; } }")
+    except Exception:
+        pass
+    pages_before = len(page.context.pages)
+
     # ログインボタンは「本物のクリック（trusted event）」で押す。
     # ※JSクリックだと送信ハンドラが発火しない（eLTAX検索ボタンと同種の事象）。
     #   タブの「個人ログイン/法人ログイン」と区別するため name 完全一致で狙う。
@@ -434,6 +444,25 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
     except Exception:
         try:
             pw_el.press("Enter")
+            page.wait_for_timeout(2500)
+        except Exception:
+            pass
+
+    # 押下直後の状態を記録（モーダルを閉じる前に）: 通信/新タブ/表示メッセージ
+    net_after = _read_net_probe(page)
+    pages_after = len(page.context.pages)
+    try:
+        immediate_msg = _dump_matching(
+            page, ["拡張", "確認できません", "できませんでした", "利用できない",
+                   "誤", "してください", "エラー"])
+    except Exception:
+        immediate_msg = ""
+    # ログイン後に別タブが開いた場合はそちらに移る
+    if pages_after > pages_before:
+        try:
+            page = page.context.pages[-1]
+            page.set_default_timeout(PAGE_TIMEOUT)
+            page.wait_for_load_state("domcontentloaded", timeout=6000)
         except Exception:
             pass
 
@@ -449,7 +478,6 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
         pass
     # ログイン直後にも環境チェックモーダルが再表示される場合があるので閉じる
     _close_env_modal()
-    from app.utils.etax.eltax_rpa_worker import _dump_matching
     body = page.inner_text("body")
     # 拡張機能の環境チェックで止まっている場合は、その旨を明示してエラーにする
     if ("拡張機能が利用できない" in body or "確認できませんでした" in body) and \
@@ -470,7 +498,8 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
         msg = _dump_matching(page, ["してください", "入力", "エラー", "できません", "正しく", "半角"])
         raise EtaxLoginError(
             f"ログイン後の画面を確認できませんでした（未ログインの可能性）。"
-            f"画面メッセージ:{msg} / 入力欄:{_dump_login_inputs()} / URL:{page.url}")
+            f"送信時通信:{net_after} / 新タブ:{pages_before}→{pages_after} / "
+            f"押下直後メッセージ:{immediate_msg} / 現在メッセージ:{msg} / URL:{page.url}")
     # タブを切り替えた場合があるため、操作対象のページを呼び出し元へ返す
     return page
 

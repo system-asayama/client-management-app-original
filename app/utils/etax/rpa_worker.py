@@ -398,16 +398,44 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
     # 入力後に再度モーダルが被っていたら閉じる
     _close_env_modal()
 
-    # ログインボタン: 完全一致テキスト→submit系の順（部分一致は使わない）
-    try:
-        page.locator('button:text-is("ログイン"), input[type=submit][value="ログイン"]').first.click(timeout=8000)
-    except Exception:
-        if not _js_click_exact(page, "ログイン"):
+    # ログインボタンは「本物のクリック（trusted event）」で押す。
+    # ※JSクリックだと送信ハンドラが発火しない（eLTAX検索ボタンと同種の事象）。
+    #   タブの「個人ログイン/法人ログイン」と区別するため name 完全一致で狙う。
+    login_url_before = page.url
+    clicked = False
+    for target in (
+        lambda: page.get_by_role("button", name="ログイン", exact=True),
+        lambda: page.locator('button.btn:has-text("ログイン")').filter(has_not_text="個人").filter(has_not_text="法人"),
+    ):
+        try:
+            loc = target().first
+            loc.scroll_into_view_if_needed(timeout=2000)
+            loc.click(timeout=6000)
+            clicked = True
+            break
+        except Exception:
+            continue
+    if not clicked:
+        # フォールバック: パスワード欄でEnter → submit系ボタン
+        try:
+            pw_el.press("Enter")
+            clicked = True
+        except Exception:
             btn = _first(page, ['input[type="submit"][value*="ログイン"]',
                                 'button[type="submit"]', 'input[type="submit"]'], timeout=3000)
-            if not btn:
-                raise EtaxLoginError(f"ログインボタンが見つかりません。候補:{_dump_clickables_rich(page)}")
-            btn.click()
+            if btn:
+                btn.click()
+                clicked = True
+    if not clicked:
+        raise EtaxLoginError(f"ログインボタンが押せません。候補:{_dump_clickables_rich(page)}")
+    # 送信されたか（URL遷移 or ローディング）を確認。遷移しなければ再度Enterを試す。
+    try:
+        page.wait_for_function("(u) => location.href !== u", arg=login_url_before, timeout=6000)
+    except Exception:
+        try:
+            pw_el.press("Enter")
+        except Exception:
+            pass
 
     # ログイン結果の確定を待つ（成功の証跡 or エラー文言）
     try:

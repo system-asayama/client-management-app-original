@@ -860,6 +860,67 @@ def _dump_inputs(page):
         return ""
 
 
+def _install_net_probe(page):
+    """fetch/XHRをフックし、通信回数と最後の応答（URL/状態/本文冒頭）を記録する。
+    「検索ボタンを押しても実は通信していない」ケースの判別用。"""
+    js = (
+        "() => {"
+        "  if (window.__netProbe) return;"
+        "  window.__netProbe = {count: 0, last: ''};"
+        "  const record = (url, status, body) => {"
+        "    window.__netProbe.count++;"
+        "    window.__netProbe.last = String(url||'').slice(-60) + ' status:' + status"
+        "      + ' body:' + String(body||'').replace(/\\s+/g,' ').slice(0, 240);"
+        "  };"
+        "  const of = window.fetch;"
+        "  if (of) window.fetch = function(...a) {"
+        "    return of.apply(this, a).then(r => {"
+        "      try { r.clone().text().then(t => record("
+        "        (a[0] && a[0].url) || String(a[0]), r.status, t)).catch(() => {}); }"
+        "      catch(e) {}"
+        "      return r; });"
+        "  };"
+        "  const oo = XMLHttpRequest.prototype.open, os = XMLHttpRequest.prototype.send;"
+        "  XMLHttpRequest.prototype.open = function(m, u, ...r) {"
+        "    this.__u = u; return oo.call(this, m, u, ...r); };"
+        "  XMLHttpRequest.prototype.send = function(...a) {"
+        "    this.addEventListener('loadend', () => {"
+        "      try { record(this.__u || '', this.status, this.responseText); } catch(e) {} });"
+        "    return os.apply(this, a); };"
+        "}"
+    )
+    try:
+        page.evaluate(js)
+    except Exception:
+        pass
+
+
+def _read_net_probe(page):
+    try:
+        return page.evaluate(
+            "() => window.__netProbe"
+            " ? (window.__netProbe.count + '回 | ' + window.__netProbe.last) : '未計測'")[:340]
+    except Exception:
+        return "取得失敗"
+
+
+def _dump_search_button(page):
+    """「検索」ボタンの実体（タグ・クラス・disabled状態）を列挙。"""
+    try:
+        js = ("() => Array.from(document.querySelectorAll("
+              "'button,a,[role=button],input[type=button],input[type=submit]'))"
+              ".filter(e => ((e.innerText || e.value || '')).replace(/\\s+/g,'') === '検索')"
+              ".map(e => e.tagName.toLowerCase() + '.'"
+              "  + (((e.className||'')+'').trim().split(' ').slice(0,2).join('.').slice(0,30))"
+              "  + ' disabled:' + (e.disabled === true"
+              "    || e.getAttribute('disabled') !== null"
+              "    || e.getAttribute('aria-disabled') === 'true'))"
+              ".join(' | ')")
+        return page.evaluate(js)[:200]
+    except Exception:
+        return ""
+
+
 def _dump_selects(page):
     """可視selectの「選択中の値」と選択肢を列挙（0件時の条件診断用）。"""
     try:
@@ -975,6 +1036,14 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         page.wait_for_timeout(600)
     except Exception:
         pass
+    # 通信計測を仕込んでから検索（本当に検索リクエストが飛んだか判別する）
+    _install_net_probe(page)
+    try:
+        page.evaluate("() => { if (window.__netProbe) {"
+                      " window.__netProbe.count = 0; window.__netProbe.last = ''; } }")
+    except Exception:
+        pass
+    search_btn_state = _dump_search_button(page)
     if not _js_click_exact(page, "検索"):
         _nav_click(page, ["検索"])
     # 検索は非同期実行のため、結果件数が入るまで待つ（画面は検索前から
@@ -1006,10 +1075,10 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         uid_info = uid_m.group(1) if uid_m else "不明"
         msg_txt = _dump_matching(page, ["してください", "エラー", "できません", "ありません"])
         raise EltaxSubmitError(
-            "[入力] 該当する納付対象申告が0件でした（対象は電子申告済みの申告）。"
-            f"ログイン中の利用者ID:{uid_info} / "
-            f"入力期間:{period_desc} / 入力欄:{_dump_inputs(page)} / "
-            f"画面メッセージ:{msg_txt} / 選択肢:{_dump_selects(page)}")
+            "[入力] 該当する納付対象申告が0件でした。"
+            f"検索ボタン:{search_btn_state} / 検索後の通信:{_read_net_probe(page)} / "
+            f"ログイン中の利用者ID:{uid_info} / 入力期間:{period_desc} / "
+            f"入力欄:{_dump_inputs(page)} / 画面メッセージ:{msg_txt}")
 
     # 対象申告を選択（全選択 または 一覧のチェックボックス）
     if not _nav_click(page, ["全選択"]):

@@ -841,15 +841,27 @@ def _js_select_option(page, needle, skip=0):
         return None
 
 
-def _js_fill_inputs(page, vals):
+def _js_fill_inputs(page, vals, after_era=False):
     """可視のテキスト系input（text/number/tel）へ順に値を設定し、
     input/change/blurイベントを発火してAngularへ確実に反映させる。
+
+    after_era=True のときは「令和」を選択肢に持つ最初のセレクトより
+    DOM上で後ろにある入力欄のみを対象にする。
+    ※重要（実測）: ページ先頭にはヘッダーの「関与先ID」入力欄があり、
+      無条件に先頭から埋めると月の値が関与先IDに入ってしまい検索が0件になる。
     設定後の実際の値をカンマ区切りで返す（検証用）。"""
-    js = ("(vals) => {"
-          "  const ins = Array.from(document.querySelectorAll('input')).filter(i => {"
+    js = ("(arg) => {"
+          "  const vals = arg.vals, afterEra = arg.afterEra;"
+          "  let ins = Array.from(document.querySelectorAll('input')).filter(i => {"
           "    const t = (i.type||'text').toLowerCase();"
           "    if (!['text','number','tel'].includes(t)) return false;"
           "    const r = i.getBoundingClientRect(); return r.width>0 && r.height>0; });"
+          "  if (afterEra) {"
+          "    const eraSel = Array.from(document.querySelectorAll('select')).find(s =>"
+          "      Array.from(s.options).some(o => (o.text||'').includes('令和')));"
+          "    if (eraSel) ins = ins.filter(i =>"
+          "      eraSel.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING);"
+          "  }"
           "  const n = Math.min(ins.length, vals.length);"
           "  for (let k = 0; k < n; k++) {"
           "    ins[k].value = String(vals[k]);"
@@ -860,7 +872,7 @@ def _js_fill_inputs(page, vals):
           "  return ins.slice(0, n).map(i => i.value).join(',');"
           "}")
     try:
-        return page.evaluate(js, [str(v) for v in vals])
+        return page.evaluate(js, {"vals": [str(v) for v in vals], "afterEra": bool(after_era)})
     except Exception:
         return None
 
@@ -997,7 +1009,8 @@ def _fill_period(page, fiscal_year, fiscal_end_month):
     else:
         vals = []
     if vals:
-        filled = _js_fill_inputs(page, vals)
+        # 令和セレクトより後ろの入力欄のみ対象（ヘッダーの関与先ID欄を除外）
+        filled = _js_fill_inputs(page, vals, after_era=True)
         logger.info(f"[eLTAX-RPA] 期間入力: {filled}")
     return (f"令和{r_start:02d}年{start_m}月{start_d}日〜"
             f"令和{r_end:02d}年{end_m}月{end_d}日")

@@ -208,10 +208,12 @@ def run_etax_payment_request(
                     logger.info(f"[RPA] request_id={request_id} Step4: 納付区分番号={payment_code}")
 
             except (EtaxLoginError, EtaxSubmitError):
-                # エラー時点の画面を保存（/etax/shot/<id> で参照できる）
+                # エラー時点の画面を保存（/etax/shot/<id> で参照できる）。
+                # 「法人の方」は新タブで開くため、最後に開いたタブを撮る。
                 try:
                     shot_path = f"/tmp/eltax_error_{request_id}.png"
-                    page.screenshot(path=shot_path, full_page=True)
+                    target = context.pages[-1] if context.pages else page
+                    target.screenshot(path=shot_path, full_page=True)
                 except Exception:
                     shot_path = None
                 raise
@@ -366,6 +368,16 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
             " return k; }")
     except Exception:
         n_inputs = 0
+    def _dump_login_inputs():
+        try:
+            return page.evaluate(
+                "() => Array.from(document.querySelectorAll('input')).filter(i => {"
+                " const r = i.getBoundingClientRect(); return r.width>0 && r.height>0; })"
+                ".slice(0,12).map(i => (i.type||'text')+':'+(i.name||i.id||i.placeholder||'')"
+                ".slice(0,20)+':val='+((i.value||'').length))")
+        except Exception:
+            return []
+
     if n_inputs >= 4 and len(user_id_clean) == 16:
         # 4桁×4欄に分割されている場合
         for k in range(4):
@@ -427,10 +439,10 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
         raise EtaxLoginError(f"ログインに失敗しました（利用者識別番号/暗証番号の誤り等）。"
                              f"画面メッセージ:{msg} / 画面:{page.url}")
     if not any(w in body for w in ["ログアウト", "メインメニュー", "メッセージボックス", "利用者情報"]):
-        msg = _dump_matching(page, ["してください", "入力", "エラー", "できません"])
+        msg = _dump_matching(page, ["してください", "入力", "エラー", "できません", "正しく", "半角"])
         raise EtaxLoginError(
             f"ログイン後の画面を確認できませんでした（未ログインの可能性）。"
-            f"画面メッセージ:{msg} / 候補:{_dump_clickables_rich(page)} / URL:{page.url}")
+            f"画面メッセージ:{msg} / 入力欄:{_dump_login_inputs()} / URL:{page.url}")
     # タブを切り替えた場合があるため、操作対象のページを呼び出し元へ返す
     return page
 

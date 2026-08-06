@@ -264,6 +264,13 @@ def run_eltax_payment_request(
                 pass
             page = context.new_page()
             page.set_default_timeout(PAGE_TIMEOUT)
+            # JSの確認ダイアログ(confirm/alert)は自動で「OK」にする。
+            # ※Playwrightの既定は自動キャンセルのため、検索・遷移時に確認が
+            #   出ていると処理が無言で中断される（通信0回の一因になり得る）。
+            try:
+                page.on("dialog", lambda d: d.accept())
+            except Exception:
+                pass
             try:
                 _login(page, eltax_user_id, eltax_password, request_id)
                 _accept_terms(page, request_id)
@@ -1055,30 +1062,80 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     except Exception:
         pass
     search_btn_state = _dump_search_button(page)
-    # 検索ボタンはPlaywrightの本物のマウスクリック（trusted event）を最優先。
-    # JSのel.click()では通信が発生しない（実測: 検索後の通信0回）。
-    click_method = "なし"
-    try:
-        loc = page.get_by_text("検索", exact=True)
-        n = min(loc.count(), 3)
-    except Exception:
-        n = 0
-    for i in range(n):
+
+    def _probe_reset():
         try:
-            h = loc.nth(i).element_handle()
-            if not h:
-                continue
-            tag = (h.evaluate("e => e.tagName") or "").lower()
-            if tag in ("button", "a", "input") and _safe_click(page, h):
-                click_method = f"trusted({tag})"
-                break
+            page.evaluate("() => { if (window.__netProbe) {"
+                          " window.__netProbe.count = 0; window.__netProbe.last = ''; } }")
         except Exception:
-            continue
+            pass
+
+    def _probe_fired(wait_ms=3000):
+        """クリック後に通信が発生したかを最大wait_msミリ秒待って確認。"""
+        try:
+            page.wait_for_function(
+                "() => window.__netProbe && window.__netProbe.count > 0",
+                timeout=wait_ms)
+            return True
+        except Exception:
+            return False
+
+    def _search_handle():
+        try:
+            loc = page.get_by_text("検索", exact=True)
+            for i in range(min(loc.count(), 3)):
+                h = loc.nth(i).element_handle()
+                if h:
+                    tag = (h.evaluate("e => e.tagName") or "").lower()
+                    if tag in ("button", "a", "input"):
+                        return h, tag
+        except Exception:
+            pass
+        return None, ""
+
+    # 通信が実際に発生するまで、クリック方式を段階的に試す
+    click_method = "なし"
+    h, tag = _search_handle()
+    # 1) 本物のマウスクリック（フォールバック無しの厳密版）
+    if h is not None:
+        try:
+            h.click(timeout=6000)
+            if _probe_fired():
+                click_method = f"trusted({tag})"
+        except Exception:
+            pass
+    # 2) キーボード操作（フォーカス→Enter）: ボタンの正規の起動経路
     if click_method == "なし":
+        _probe_reset()
+        try:
+            h2, _ = _search_handle()
+            if h2 is not None:
+                h2.focus()
+                page.keyboard.press("Enter")
+                if _probe_fired():
+                    click_method = "keyboard"
+        except Exception:
+            pass
+    # 3) キーボード（Space）: button要素の標準起動キー
+    if click_method == "なし":
+        _probe_reset()
+        try:
+            h3, _ = _search_handle()
+            if h3 is not None:
+                h3.focus()
+                page.keyboard.press("Space")
+                if _probe_fired():
+                    click_method = "space"
+        except Exception:
+            pass
+    # 4) JSクリック（最後の手段）
+    if click_method == "なし":
+        _probe_reset()
         if _js_click_exact(page, "検索"):
-            click_method = "js"
-        elif _nav_click(page, ["検索"]):
-            click_method = "nav"
+            if _probe_fired():
+                click_method = "js"
+            else:
+                click_method = "js(通信なし)"
     # 検索は非同期実行のため、結果件数が入るまで待つ（画面は検索前から
     # 「検索結果:0件」を表示しており、待たずに読むと誤って0件と判定する）
     try:
@@ -1111,6 +1168,7 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
             "[入力] 該当する納付対象申告が0件でした。"
             f"クリック方式:{click_method} / 検索ボタン:{search_btn_state} / "
             f"検索後の通信:{_read_net_probe(page)} / "
+            f"検索関連要素:{_dump_matching(page, ['検索', 'クリア'])} / "
             f"ログイン中の利用者ID:{uid_info} / 入力期間:{period_desc} / "
             f"入力欄:{_dump_inputs(page)} / 画面メッセージ:{msg_txt}")
 

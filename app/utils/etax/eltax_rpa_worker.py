@@ -1044,8 +1044,30 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     except Exception:
         pass
     search_btn_state = _dump_search_button(page)
-    if not _js_click_exact(page, "検索"):
-        _nav_click(page, ["検索"])
+    # 検索ボタンはPlaywrightの本物のマウスクリック（trusted event）を最優先。
+    # JSのel.click()では通信が発生しない（実測: 検索後の通信0回）。
+    click_method = "なし"
+    try:
+        loc = page.get_by_text("検索", exact=True)
+        n = min(loc.count(), 3)
+    except Exception:
+        n = 0
+    for i in range(n):
+        try:
+            h = loc.nth(i).element_handle()
+            if not h:
+                continue
+            tag = (h.evaluate("e => e.tagName") or "").lower()
+            if tag in ("button", "a", "input") and _safe_click(page, h):
+                click_method = f"trusted({tag})"
+                break
+        except Exception:
+            continue
+    if click_method == "なし":
+        if _js_click_exact(page, "検索"):
+            click_method = "js"
+        elif _nav_click(page, ["検索"]):
+            click_method = "nav"
     # 検索は非同期実行のため、結果件数が入るまで待つ（画面は検索前から
     # 「検索結果:0件」を表示しており、待たずに読むと誤って0件と判定する）
     try:
@@ -1076,7 +1098,8 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         msg_txt = _dump_matching(page, ["してください", "エラー", "できません", "ありません"])
         raise EltaxSubmitError(
             "[入力] 該当する納付対象申告が0件でした。"
-            f"検索ボタン:{search_btn_state} / 検索後の通信:{_read_net_probe(page)} / "
+            f"クリック方式:{click_method} / 検索ボタン:{search_btn_state} / "
+            f"検索後の通信:{_read_net_probe(page)} / "
             f"ログイン中の利用者ID:{uid_info} / 入力期間:{period_desc} / "
             f"入力欄:{_dump_inputs(page)} / 画面メッセージ:{msg_txt}")
 

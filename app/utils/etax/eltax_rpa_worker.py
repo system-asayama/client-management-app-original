@@ -859,7 +859,8 @@ def _js_fill_inputs(page, vals, after_era=False):
           "  if (afterEra) {"
           "    const eraSel = Array.from(document.querySelectorAll('select')).find(s =>"
           "      Array.from(s.options).some(o => (o.text||'').includes('令和')));"
-          "    if (eraSel) ins = ins.filter(i =>"
+          "    if (!eraSel) return '';"  # 基準となる令和セレクトが無ければ誤爆防止のため埋めない
+          "    ins = ins.filter(i =>"
           "      eraSel.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING);"
           "  }"
           "  const n = Math.min(ins.length, vals.length);"

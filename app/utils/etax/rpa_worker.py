@@ -25,13 +25,22 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# e-Tax WEB版のURL
-ETAX_LOGIN_URL = "https://clientweb.e-tax.nta.go.jp/UF_WEB/WP000/FCSE00001/SE00S010SCR.do"
-ETAX_TOP_URL = "https://clientweb.e-tax.nta.go.jp/UF_WEB/WP000/FCSE00001/SE00S010SCR.do"
+# e-Tax WEB版のURL（受付システム/e-Taxソフト(WEB版)。順に試す）
+ETAX_ENTRY_URLS = [
+    "https://clientweb.e-tax.nta.go.jp/UF_WEB/WP000/FCSE00001/SE00S010SCR.do",
+    "https://login.e-tax.nta.go.jp/login/reception",
+    "https://www.e-tax.nta.go.jp/",
+]
+ETAX_LOGIN_URL = ETAX_ENTRY_URLS[0]
 
 # タイムアウト設定（ミリ秒）
-PAGE_TIMEOUT = 60000   # 60秒
-ACTION_TIMEOUT = 30000  # 30秒
+PAGE_TIMEOUT = 30000   # 30秒
+ACTION_TIMEOUT = 15000  # 15秒
+
+# ★安全フラグ: False の間は最終の「送信」を絶対に実行しない。
+#   確認画面（送信手前）まで到達したら停止してテスト成功として報告する。
+#   本番発行を有効化するときのみ True にすること。
+SUBMIT_ISSUE = False
 
 
 class EtaxRPAError(Exception):
@@ -114,6 +123,7 @@ def run_etax_payment_request(
 
     pdf_path = None
     payment_code = None
+    shot_path = None  # エラー時のスクリーンショット保存先
 
     try:
         with sync_playwright() as p:
@@ -130,14 +140,33 @@ def run_etax_payment_request(
                     "--no-zygote",
                     "--disable-extensions",
                     "--disable-background-networking",
+                    "--disable-blink-features=AutomationControlled",
                 ]
             )
             context = browser.new_context(
                 viewport={"width": 1280, "height": 900},
                 locale="ja-JP",
+                timezone_id="Asia/Tokyo",
+                user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
             )
+            # 画像・フォント・メディアの読込を遮断（メモリ節約・高速化）
+            try:
+                context.route(
+                    "**/*",
+                    lambda route: route.abort()
+                    if route.request.resource_type in ("image", "font", "media")
+                    else route.continue_(),
+                )
+            except Exception:
+                pass
             page = context.new_page()
             page.set_default_timeout(PAGE_TIMEOUT)
+            # 確認ダイアログは自動でOK（Playwright既定の自動キャンセル対策）
+            try:
+                page.on("dialog", lambda d: d.accept())
+            except Exception:
+                pass
 
             try:
                 # ========================================
@@ -154,10 +183,10 @@ def run_etax_payment_request(
                 _navigate_to_payment_request(page, request_id)
 
                 # ========================================
-                # Step 3: 納付情報を入力して送信
+                # Step 3: 納付情報を入力（SUBMIT_ISSUE=False の間は送信手前で停止）
                 # ========================================
-                logger.info(f"[RPA] request_id={request_id} Step3: 納付情報入力・送信")
-                _fill_and_submit_payment_request(
+                logger.info(f"[RPA] request_id={request_id} Step3: 納付情報入力")
+                note = _fill_and_submit_payment_request(
                     page=page,
                     tax_type=tax_type,
                     filing_type=filing_type,
@@ -167,14 +196,25 @@ def run_etax_payment_request(
                     tax_office_name=tax_office_name,
                     request_id=request_id,
                 )
+                if note is not None:
+                    # テストモード: 送信手前で停止した旨を結果として返す
+                    payment_code = note
+                else:
+                    # ========================================
+                    # Step 4: メッセージボックスから納付区分番号通知を取得
+                    # ========================================
+                    logger.info(f"[RPA] request_id={request_id} Step4: 納付区分番号通知取得")
+                    payment_code, pdf_path = _get_payment_code_and_pdf(page, request_id)
+                    logger.info(f"[RPA] request_id={request_id} Step4: 納付区分番号={payment_code}")
 
-                # ========================================
-                # Step 4: メッセージボックスから納付区分番号通知を取得
-                # ========================================
-                logger.info(f"[RPA] request_id={request_id} Step4: 納付区分番号通知取得")
-                payment_code, pdf_path = _get_payment_code_and_pdf(page, request_id)
-                logger.info(f"[RPA] request_id={request_id} Step4: 納付区分番号={payment_code}")
-
+            except (EtaxLoginError, EtaxSubmitError):
+                # エラー時点の画面を保存（/etax/shot/<id> で参照できる）
+                try:
+                    shot_path = f"/tmp/eltax_error_{request_id}.png"
+                    page.screenshot(path=shot_path, full_page=True)
+                except Exception:
+                    shot_path = None
+                raise
             finally:
                 # ========================================
                 # Step 5: ログアウト
@@ -197,10 +237,12 @@ def run_etax_payment_request(
 
     except EtaxLoginError as e:
         logger.error(f"[RPA] request_id={request_id} ログインエラー: {e}")
-        return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"ログインエラー: {e}"}
+        return {"status": "error", "payment_code": None, "pdf_path": shot_path,
+                "error_message": f"[ログイン] {e}"}
     except EtaxSubmitError as e:
         logger.error(f"[RPA] request_id={request_id} 送信エラー: {e}")
-        return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"送信エラー: {e}"}
+        return {"status": "error", "payment_code": None, "pdf_path": shot_path,
+                "error_message": f"{e}"}
     except Exception as e:
         msg = str(e)
         if "Executable doesn't exist" in msg or "playwright install" in msg:
@@ -217,124 +259,142 @@ def run_etax_payment_request(
 # ============================================================
 
 def _login(page, etax_user_id: str, etax_password: str, request_id: int):
-    """e-Taxにログインする"""
-    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+    """e-Taxにログインする（eLTAXで実証済みの堅牢化手法を適用）。
 
+    - 入口URLを順に試し、暗証番号欄が出た画面を使う
+    - お知らせ等のダイアログは閉じる
+    - 利用者識別番号が4桁×4欄に分割されている画面に対応
+    - ログインボタンは完全一致優先（部分一致の誤爆防止）
+    - ログイン成功の証跡を検証（未ログインのまま進む事故の防止）
+    """
+    from app.utils.etax.eltax_rpa_worker import (
+        _dismiss_dialogs, _js_click_exact, _first, _click_text, _dump_clickables_rich)
+
+    user_id_clean = (etax_user_id or "").replace("-", "").replace(" ", "")
+    pw_el = None
+    last = ""
+    for url in ETAX_ENTRY_URLS:
+        try:
+            page.goto(url, wait_until="domcontentloaded")
+        except Exception:
+            continue
+        _dismiss_dialogs(page)
+        pw_el = _first(page, ['input[type="password"]'], timeout=4000)
+        if not pw_el:
+            # トップページ経由の場合は「ログイン」入口を完全一致で押す
+            _js_click_exact(page, "ログイン")
+            _click_text(page, ["利用者識別番号・暗証番号", "利用者識別番号でログイン",
+                               "ID・パスワード方式"], timeout=2500)
+            pw_el = _first(page, ['input[type="password"]'], timeout=4000)
+        if pw_el:
+            logger.info(f"[RPA] request_id={request_id} ログイン画面到達: {url}")
+            break
+        last = f"候補:{_dump_clickables_rich(page)}"
+    if not pw_el:
+        raise EtaxLoginError(f"ログイン画面（暗証番号欄）が見つかりません。{last} / URL:{page.url}")
+
+    # 利用者識別番号: 4桁×4欄に分割されている場合に対応
+    boxes = []
     try:
-        page.goto(ETAX_LOGIN_URL, wait_until="networkidle")
+        for i in page.query_selector_all("input"):
+            try:
+                t = (i.get_attribute("type") or "text").lower()
+                ml = i.get_attribute("maxlength") or ""
+                if t in ("text", "tel", "number") and ml == "4" and i.is_visible():
+                    boxes.append(i)
+            except Exception:
+                pass
     except Exception:
-        page.goto(ETAX_LOGIN_URL)
-        page.wait_for_load_state("domcontentloaded")
+        boxes = []
+    if len(boxes) >= 4 and len(user_id_clean) == 16:
+        for k in range(4):
+            boxes[k].fill(user_id_clean[k * 4:(k + 1) * 4])
+    else:
+        uid_el = _first(page, [
+            'input[name*="riyousha" i]', 'input[id*="riyousha" i]',
+            'input[name*="shikibetsu" i]', 'input[id*="shikibetsu" i]',
+            'input[name*="userId" i]', 'input[id*="userId" i]',
+            'input[type="text"]', 'input[type="tel"]',
+        ], timeout=4000)
+        if not uid_el:
+            raise EtaxLoginError(f"利用者識別番号の入力欄が見つかりません。候補:{_dump_clickables_rich(page)}")
+        uid_el.fill(user_id_clean)
+    pw_el.fill(etax_password or "")
 
-    # 利用者識別番号の入力（ハイフンなし16桁）
-    user_id_clean = etax_user_id.replace("-", "").replace(" ", "")
-
+    _dismiss_dialogs(page)
+    # ログインボタン: 完全一致テキスト→submit系の順（部分一致は使わない）
     try:
-        # 利用者識別番号フィールドを探す（複数のセレクタを試みる）
-        user_id_selectors = [
-            'input[name="userId"]',
-            'input[name="riyoushaShikibetsubangou"]',
-            'input[id*="userId"]',
-            'input[id*="shikibetsu"]',
-            'input[type="text"]:first-of-type',
-        ]
-        user_id_input = None
-        for selector in user_id_selectors:
-            try:
-                user_id_input = page.wait_for_selector(selector, timeout=5000)
-                if user_id_input:
-                    break
-            except PlaywrightTimeout:
-                continue
+        page.locator('button:text-is("ログイン"), input[type=submit][value="ログイン"]').first.click(timeout=6000)
+    except Exception:
+        if not _js_click_exact(page, "ログイン"):
+            btn = _first(page, ['input[type="submit"][value*="ログイン"]',
+                                'button[type="submit"]', 'input[type="submit"]'], timeout=3000)
+            if not btn:
+                raise EtaxLoginError(f"ログインボタンが見つかりません。候補:{_dump_clickables_rich(page)}")
+            btn.click()
 
-        if not user_id_input:
-            raise EtaxLoginError("利用者識別番号の入力フィールドが見つかりません")
-
-        user_id_input.fill(user_id_clean)
-
-        # 暗証番号フィールド
-        password_selectors = [
-            'input[name="password"]',
-            'input[name="anshougou"]',
-            'input[type="password"]',
-        ]
-        password_input = None
-        for selector in password_selectors:
-            try:
-                password_input = page.wait_for_selector(selector, timeout=5000)
-                if password_input:
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        if not password_input:
-            raise EtaxLoginError("暗証番号の入力フィールドが見つかりません")
-
-        password_input.fill(etax_password)
-
-        # ログインボタンをクリック
-        login_selectors = [
-            'input[type="submit"][value*="ログイン"]',
-            'button:has-text("ログイン")',
-            'input[type="submit"]',
-            'button[type="submit"]',
-        ]
-        login_btn = None
-        for selector in login_selectors:
-            try:
-                login_btn = page.wait_for_selector(selector, timeout=3000)
-                if login_btn:
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        if not login_btn:
-            raise EtaxLoginError("ログインボタンが見つかりません")
-
-        login_btn.click()
-        page.wait_for_load_state("networkidle", timeout=ACTION_TIMEOUT)
-
-        # ログイン失敗チェック
-        page_text = page.inner_text("body")
-        if any(word in page_text for word in ["エラー", "利用者識別番号又は暗証番号が違います", "ログインできません"]):
-            raise EtaxLoginError("利用者識別番号または暗証番号が正しくありません")
-
-    except EtaxLoginError:
-        raise
-    except Exception as e:
-        raise EtaxLoginError(f"ログイン処理中にエラーが発生しました: {e}")
+    # ログイン結果の確定を待つ（成功の証跡 or エラー文言）
+    try:
+        page.wait_for_function(
+            "() => { const b = document.body ? document.body.innerText : '';"
+            " return b.includes('ログアウト') || b.includes('メインメニュー')"
+            " || b.includes('メッセージボックス') || b.includes('利用者情報')"
+            " || b.includes('誤') || b.includes('できません') || b.includes('ロック'); }",
+            timeout=12000)
+    except Exception:
+        pass
+    body = page.inner_text("body")
+    if any(w in body for w in ["利用者識別番号又は暗証番号", "利用者識別番号または暗証番号",
+                               "誤りがあります", "誤っています", "ログインできません",
+                               "認証に失敗", "ロックされています"]):
+        raise EtaxLoginError(f"ログインに失敗しました（利用者識別番号/暗証番号の誤り等）。画面:{page.url}")
+    if not any(w in body for w in ["ログアウト", "メインメニュー", "メッセージボックス", "利用者情報"]):
+        raise EtaxLoginError(
+            f"ログイン後の画面を確認できませんでした（未ログインの可能性）。"
+            f"候補:{_dump_clickables_rich(page)} / URL:{page.url}")
 
 
 def _navigate_to_payment_request(page, request_id: int):
-    """納付情報登録依頼メニューへ移動する"""
-    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+    """納付情報登録依頼メニューへ移動する。
 
-    try:
-        # メインメニューから「申告・申請・納税」→「納付情報登録依頼」へ
-        # e-TaxのWEB版のメニュー構造に合わせてセレクタを調整
-        menu_selectors = [
-            'a:has-text("納付情報登録依頼")',
-            'a:has-text("納付情報")',
-            'input[value*="納付情報登録依頼"]',
-        ]
-        for selector in menu_selectors:
+    想定動線（e-Taxソフト(WEB版)）:
+      メインメニュー →「申告・申請・納税」→「新規作成（操作に進む）」
+      →「納付情報登録依頼」
+    画面が異なる場合に備え、各段階は見つかったものだけ押し、
+    最終的に「納付情報登録依頼」へ到達できなければ診断付きでエラーにする。
+    """
+    from app.utils.etax.eltax_rpa_worker import (
+        _dismiss_dialogs, _nav_click, _js_click_text, _dump_clickables_rich)
+
+    _dismiss_dialogs(page)
+
+    def _reached():
+        try:
+            b = page.inner_text("body")
+        except Exception:
+            return False
+        return ("納付情報登録依頼" in b) and ("税目" in b or "納付金額" in b or "作成" in b)
+
+    # 中間メニューを順に辿る（存在すれば押す）
+    for step in (["申告・申請・納税"], ["新規作成", "操作に進む"], ["納付情報登録依頼", "納付情報"]):
+        if _nav_click(page, step) or _js_click_text(page, step[0]):
             try:
-                link = page.wait_for_selector(selector, timeout=5000)
-                if link:
-                    link.click()
-                    page.wait_for_load_state("networkidle", timeout=ACTION_TIMEOUT)
-                    return
-            except PlaywrightTimeout:
-                continue
+                page.wait_for_timeout(1200)
+            except Exception:
+                pass
+            _dismiss_dialogs(page)
 
-        # 直接URLで移動を試みる（e-TaxのWEB版の実際のURLに合わせて調整が必要）
-        logger.warning(f"[RPA] request_id={request_id} 納付情報登録依頼メニューが見つかりません。URLで直接移動を試みます。")
-        raise EtaxSubmitError("納付情報登録依頼メニューへの移動に失敗しました。e-TaxのUI変更の可能性があります。")
-
-    except EtaxSubmitError:
-        raise
-    except Exception as e:
-        raise EtaxSubmitError(f"メニュー移動中にエラー: {e}")
+    # 到達確認（入力画面またはさらに一段の「納付情報登録依頼」リンク）
+    if not _reached():
+        _nav_click(page, ["納付情報登録依頼"])
+        try:
+            page.wait_for_timeout(1200)
+        except Exception:
+            pass
+    if not _reached():
+        raise EtaxSubmitError(
+            f"[メニュー] 納付情報登録依頼への動線が見つかりません。"
+            f"候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
 
 
 def _fill_and_submit_payment_request(
@@ -347,128 +407,108 @@ def _fill_and_submit_payment_request(
     tax_office_name: str,
     request_id: int,
 ):
-    """納付情報登録依頼フォームに入力して送信する"""
-    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+    """納付情報登録依頼フォームに入力する。
 
+    SUBMIT_ISSUE=False の間は「送信」を絶対に実行せず、確認画面（送信手前）
+    到達で停止し、テスト結果の文字列を返す。
+    SUBMIT_ISSUE=True で実際に送信した場合は None を返す（Step4へ進む）。
+    """
+    from app.utils.etax.eltax_rpa_worker import (
+        _js_select_option, _fill_period, _nav_click, _js_click_exact,
+        _first, _dump_selects, _dump_clickables_rich, _dump_inputs)
+
+    # 税目（例: 法人税、消費税及地方消費税）: 完全一致優先のセレクト選択
+    tax_needles = [n for n in (tax_type, "法人税", "消費税") if n]
+    picked_tax = None
+    for _ in range(16):  # 描画待ち込みで最大約8秒
+        for n in tax_needles:
+            picked_tax = _js_select_option(page, n, 0)
+            if picked_tax:
+                break
+        if picked_tax:
+            break
+        try:
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+    logger.info(f"[RPA] request_id={request_id} 税目選択: {picked_tax}")
+
+    # 申告区分（確定/中間）: 連動populateを待って選択
+    kubun = ((filing_type or "").replace("申告", "").strip()) or "確定"
+    picked_kubun = None
+    for _ in range(12):
+        picked_kubun = _js_select_option(page, kubun, 0)
+        if picked_kubun:
+            break
+        try:
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+    logger.info(f"[RPA] request_id={request_id} 申告区分選択: {picked_kubun}")
+
+    # 課税期間（和暦の事業年度）: 令和セレクト＋月日入力（存在すれば）
+    period_desc = _fill_period(page, fiscal_year, fiscal_end_month)
+
+    # 納付金額
+    amt_el = _first(page, ['input[name*="kingaku" i]', 'input[id*="kingaku" i]',
+                           'input[name*="noufu" i]', 'input[name*="amount" i]',
+                           'input[name*="kin" i]'], timeout=2500)
+    if amt_el:
+        try:
+            amt_el.fill(str(amount))
+        except Exception:
+            pass
+
+    # 「次へ」「確認」で確認画面へ進む（※「送信」はここでは絶対に押さない）
+    for t in ("次へ", "確認", "入力内容の確認", "作成完了"):
+        if _js_click_exact(page, t) or _nav_click(page, [t]):
+            try:
+                page.wait_for_timeout(1500)
+            except Exception:
+                pass
+            break
+
+    if not SUBMIT_ISSUE:
+        try:
+            body = page.inner_text("body")
+        except Exception:
+            body = ""
+        amt_str = f"{amount:,}"
+        reached = (amt_str in body) or (str(amount) in body) or \
+                  ("確認" in body and "送信" in body)
+        if reached:
+            detail = f"（金額:{amt_str}円 画面反映{'済' if (amt_str in body or str(amount) in body) else '未検出'}）"
+            note = f"テスト成功: 送信直前まで到達{detail}（送信＝納付情報登録依頼は未実行）"
+        else:
+            note = (f"テスト: 送信手前で停止（確認画面は未検出）。"
+                    f"税目:{picked_tax} / 申告区分:{picked_kubun} / 期間:{period_desc} / "
+                    f"入力欄:{_dump_inputs(page)} / 選択肢:{_dump_selects(page)} / "
+                    f"候補:{_dump_clickables_rich(page)} / 画面:{page.url}")
+        logger.info(f"[RPA] request_id={request_id} {note}")
+        return note
+
+    # ===== SUBMIT_ISSUE=True のときのみ実際に送信する（本番用） =====
+    submit_btn = _first(page, ['input[type="submit"][value*="送信"]'], timeout=3000)
+    clicked = False
+    if submit_btn:
+        try:
+            submit_btn.click()
+            clicked = True
+        except Exception:
+            pass
+    if not clicked:
+        clicked = _js_click_exact(page, "送信")
+    if not clicked:
+        raise EtaxSubmitError(f"送信ボタンが見つかりません。候補:{_dump_clickables_rich(page)}")
     try:
-        # 税目の選択
-        tax_type_selectors = [
-            'select[name*="zeiMoku"]',
-            'select[name*="taxType"]',
-            'select[name*="税目"]',
-        ]
-        for selector in tax_type_selectors:
-            try:
-                select_el = page.wait_for_selector(selector, timeout=5000)
-                if select_el:
-                    select_el.select_option(label=tax_type)
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        page.wait_for_timeout(500)
-
-        # 申告区分の選択
-        filing_type_selectors = [
-            'select[name*="shinkokuKubun"]',
-            'select[name*="filingType"]',
-            'select[name*="申告区分"]',
-        ]
-        for selector in filing_type_selectors:
-            try:
-                select_el = page.wait_for_selector(selector, timeout=5000)
-                if select_el:
-                    select_el.select_option(label=filing_type)
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        page.wait_for_timeout(500)
-
-        # 課税期間（年度・月）の入力
-        year_selectors = [
-            'input[name*="nendo"]',
-            'input[name*="year"]',
-            'input[name*="年度"]',
-        ]
-        for selector in year_selectors:
-            try:
-                input_el = page.wait_for_selector(selector, timeout=3000)
-                if input_el:
-                    input_el.fill(str(fiscal_year))
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        month_selectors = [
-            'select[name*="tsuki"]',
-            'input[name*="month"]',
-            'select[name*="月"]',
-        ]
-        for selector in month_selectors:
-            try:
-                el = page.wait_for_selector(selector, timeout=3000)
-                if el:
-                    tag = el.evaluate("el => el.tagName.toLowerCase()")
-                    if tag == "select":
-                        el.select_option(value=str(fiscal_end_month))
-                    else:
-                        el.fill(str(fiscal_end_month))
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        # 納付金額の入力
-        amount_selectors = [
-            'input[name*="noufuKingaku"]',
-            'input[name*="amount"]',
-            'input[name*="金額"]',
-            'input[type="text"][name*="kin"]',
-        ]
-        for selector in amount_selectors:
-            try:
-                input_el = page.wait_for_selector(selector, timeout=3000)
-                if input_el:
-                    input_el.fill(str(amount))
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        page.wait_for_timeout(500)
-
-        # 送信ボタンをクリック
-        submit_selectors = [
-            'input[type="submit"][value*="送信"]',
-            'button:has-text("送信")',
-            'input[value*="登録"]',
-            'button:has-text("登録")',
-        ]
-        submit_btn = None
-        for selector in submit_selectors:
-            try:
-                submit_btn = page.wait_for_selector(selector, timeout=3000)
-                if submit_btn:
-                    break
-            except PlaywrightTimeout:
-                continue
-
-        if not submit_btn:
-            raise EtaxSubmitError("送信ボタンが見つかりません")
-
-        submit_btn.click()
         page.wait_for_load_state("networkidle", timeout=ACTION_TIMEOUT)
-
-        # 送信結果の確認
-        page_text = page.inner_text("body")
-        if any(word in page_text for word in ["エラー", "送信できません", "入力に誤りがあります"]):
-            raise EtaxSubmitError(f"送信エラー: {page_text[:200]}")
-
-        logger.info(f"[RPA] request_id={request_id} 納付情報登録依頼の送信完了")
-
-    except EtaxSubmitError:
-        raise
-    except Exception as e:
-        raise EtaxSubmitError(f"フォーム入力・送信中にエラー: {e}")
+    except Exception:
+        pass
+    page_text = page.inner_text("body")
+    if any(word in page_text for word in ["送信できません", "入力に誤りがあります"]):
+        raise EtaxSubmitError(f"送信エラー: {page_text[:200]}")
+    logger.info(f"[RPA] request_id={request_id} 納付情報登録依頼の送信完了")
+    return None
 
 
 def _get_payment_code_and_pdf(page, request_id: int):

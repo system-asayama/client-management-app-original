@@ -1080,62 +1080,58 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         except Exception:
             return False
 
-    def _search_handle():
+    def _attempt_ok():
+        """検索が実行されたか: 通信発生 または 件数が1以上に変化で判定。
+        （検索がローカルフィルタ実装の場合は通信が起きないため件数でも見る）"""
+        if _probe_fired(2500):
+            return True
         try:
-            loc = page.get_by_text("検索", exact=True)
-            for i in range(min(loc.count(), 3)):
-                h = loc.nth(i).element_handle()
-                if h:
-                    tag = (h.evaluate("e => e.tagName") or "").lower()
-                    if tag in ("button", "a", "input"):
-                        return h, tag
+            b = page.inner_text("body")
+            m2 = re.search(r'検索結果[：:\s]*(\d+)\s*件', b)
+            return bool(m2 and int(m2.group(1)) > 0)
         except Exception:
-            pass
-        return None, ""
+            return False
 
-    # 通信が実際に発生するまで、クリック方式を段階的に試す
+    # クリック方式を段階的に試し、実行の証跡（通信 or 件数変化）を毎回検証。
+    # 要素ハンドルはAngular再描画で陳腐化するため、クリック時点で再解決される
+    # locator方式を最優先にする。各方式の失敗理由も記録する。
     click_method = "なし"
-    h, tag = _search_handle()
-    # 1) 本物のマウスクリック（フォールバック無しの厳密版）
-    if h is not None:
-        try:
-            h.click(timeout=6000)
-            if _probe_fired():
-                click_method = f"trusted({tag})"
-        except Exception:
-            pass
-    # 2) キーボード操作（フォーカス→Enter）: ボタンの正規の起動経路
+    click_errors = []
+    # 1) locatorクリック（自動待機・自動スクロール・本物のイベント列）
+    try:
+        page.locator('button:text-is("検索")').first.click(timeout=8000)
+        if _attempt_ok():
+            click_method = "locator"
+    except Exception as e:
+        click_errors.append(f"locator:{re.sub(chr(10), ' ', str(e))[:70]}")
+    # 2) locatorフォーカス→Enter
     if click_method == "なし":
         _probe_reset()
         try:
-            h2, _ = _search_handle()
-            if h2 is not None:
-                h2.focus()
+            btn_loc = page.locator('button:text-is("検索")').first
+            btn_loc.focus(timeout=4000)
+            page.keyboard.press("Enter")
+            if _attempt_ok():
+                click_method = "keyboard"
+        except Exception as e:
+            click_errors.append(f"enter:{re.sub(chr(10), ' ', str(e))[:70]}")
+    # 3) 期間の日付入力欄でEnter（フォーム送信の標準経路）
+    if click_method == "なし":
+        _probe_reset()
+        try:
+            texts = _visible_text_inputs(page)
+            if len(texts) >= 4:
+                texts[3].focus()
                 page.keyboard.press("Enter")
-                if _probe_fired():
-                    click_method = "keyboard"
-        except Exception:
-            pass
-    # 3) キーボード（Space）: button要素の標準起動キー
-    if click_method == "なし":
-        _probe_reset()
-        try:
-            h3, _ = _search_handle()
-            if h3 is not None:
-                h3.focus()
-                page.keyboard.press("Space")
-                if _probe_fired():
-                    click_method = "space"
-        except Exception:
-            pass
+                if _attempt_ok():
+                    click_method = "input-enter"
+        except Exception as e:
+            click_errors.append(f"input-enter:{re.sub(chr(10), ' ', str(e))[:70]}")
     # 4) JSクリック（最後の手段）
     if click_method == "なし":
         _probe_reset()
         if _js_click_exact(page, "検索"):
-            if _probe_fired():
-                click_method = "js"
-            else:
-                click_method = "js(通信なし)"
+            click_method = "js" if _attempt_ok() else "js(証跡なし)"
     # 検索は非同期実行のため、結果件数が入るまで待つ（画面は検索前から
     # 「検索結果:0件」を表示しており、待たずに読むと誤って0件と判定する）
     try:
@@ -1166,9 +1162,8 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         msg_txt = _dump_matching(page, ["してください", "エラー", "できません", "ありません"])
         raise EltaxSubmitError(
             "[入力] 該当する納付対象申告が0件でした。"
-            f"クリック方式:{click_method} / 検索ボタン:{search_btn_state} / "
-            f"検索後の通信:{_read_net_probe(page)} / "
-            f"検索関連要素:{_dump_matching(page, ['検索', 'クリア'])} / "
+            f"クリック方式:{click_method} / クリック失敗理由:{' | '.join(click_errors) or 'なし'} / "
+            f"検索ボタン:{search_btn_state} / 検索後の通信:{_read_net_probe(page)} / "
             f"ログイン中の利用者ID:{uid_info} / 入力期間:{period_desc} / "
             f"入力欄:{_dump_inputs(page)} / 画面メッセージ:{msg_txt}")
 

@@ -674,7 +674,8 @@ function pollStatus(recordId, requestId) {
       showStatus(recordId, 'completed', null, data.payment_code, data.pdf_file_url);
     } else if (data.status === 'error') {
       clearInterval(interval);
-      showStatus(recordId, 'error', data.error_message || 'エラーが発生しました');
+      // エラー時もスクリーンショット等の添付があればリンク表示する
+      showStatus(recordId, 'error', data.error_message || 'エラーが発生しました', null, data.pdf_file_url);
     } else {
       showStatus(recordId, data.status || 'processing', '処理中...');
     }

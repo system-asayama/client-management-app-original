@@ -185,6 +185,15 @@ def execute_etax_request(request_id: int) -> dict:
 
         else:
             req.retry_count = (req.retry_count or 0) + 1
+            # エラー時のスクリーンショットがあればアップロードして参照可能にする
+            if result.get("pdf_path") and os.path.exists(result["pdf_path"]):
+                shot_url = _upload_pdf_to_storage(
+                    pdf_path=result["pdf_path"],
+                    client_id=req.client_id,
+                    request_id=request_id,
+                )
+                if shot_url:
+                    req.pdf_file_url = shot_url
             _mark_error(db, req, result.get("error_message", "不明なエラー"))
             return {"status": "error", "message": result.get("error_message", "不明なエラー")}
 
@@ -371,7 +380,8 @@ def _upload_pdf_to_storage(pdf_path: str, client_id: int, request_id: int) -> Op
         from app.utils.storage import storage_manager
         import io
 
-        filename = f"payment_notice_{client_id}_{request_id}.pdf"
+        ext = os.path.splitext(pdf_path)[1].lower() or ".pdf"
+        filename = f"payment_notice_{client_id}_{request_id}{ext}"
 
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
@@ -379,7 +389,7 @@ def _upload_pdf_to_storage(pdf_path: str, client_id: int, request_id: int) -> Op
         # StorageManagerはfile-like objectを期待するためBytesIOでラップ
         file_obj = io.BytesIO(pdf_bytes)
         file_obj.filename = filename
-        file_obj.content_type = "application/pdf"
+        file_obj.content_type = "image/png" if ext == ".png" else "application/pdf"
 
         result = storage_manager.upload_file(
             file_obj=file_obj,

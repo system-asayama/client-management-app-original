@@ -230,6 +230,7 @@ def run_eltax_payment_request(
     )
     payment_code = None
     pdf_path = None
+    shot_path = None  # エラー時のスクリーンショット保存先
 
     try:
         with sync_playwright() as p:
@@ -271,6 +272,14 @@ def run_eltax_payment_request(
                 _navigate_to_issue_request(page, request_id)
                 payment_code = _issue_flow(page, tax_type, filing_type, fiscal_year,
                                            fiscal_end_month, amount, request_id)
+            except (EltaxLoginError, EltaxSubmitError):
+                # エラー時点の画面を保存（アプリからリンクで確認できるようにする）
+                try:
+                    shot_path = f"/tmp/eltax_error_{request_id}.png"
+                    page.screenshot(path=shot_path, full_page=True)
+                except Exception:
+                    shot_path = None
+                raise
             finally:
                 try:
                     _click_text(page, ["ログアウト"], timeout=2000)
@@ -284,10 +293,12 @@ def run_eltax_payment_request(
 
     except EltaxLoginError as e:
         logger.error(f"[eLTAX-RPA] request_id={request_id} ログインエラー: {e}")
-        return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"[ログイン] {e}"}
+        return {"status": "error", "payment_code": None, "pdf_path": shot_path,
+                "error_message": f"[ログイン] {e}"}
     except EltaxSubmitError as e:
         logger.error(f"[eLTAX-RPA] request_id={request_id} 送信エラー: {e}")
-        return {"status": "error", "payment_code": None, "pdf_path": None, "error_message": f"{e}"}
+        return {"status": "error", "payment_code": None, "pdf_path": shot_path,
+                "error_message": f"{e}"}
     except Exception as e:
         msg = str(e)
         if "Executable doesn't exist" in msg or "playwright install" in msg:

@@ -796,11 +796,16 @@ def _js_select_option(page, needle, skip=0):
     js = (
         "(arg) => {"
         "  const needle = arg.needle, skip = arg.skip;"
+        "  const norm = t => (t||'').replace(/\\s+/g,'');"
         "  const sels = Array.from(document.querySelectorAll('select')).filter(s => {"
         "    const r = s.getBoundingClientRect(); return r.width > 0 && r.height > 0; });"
         "  let k = 0;"
         "  for (const s of sels) {"
-        "    const opt = Array.from(s.options).find(o => (o.text||'').includes(needle));"
+        "    const opts = Array.from(s.options);"
+        #  完全一致を優先（「確定」が「退職確定」に誤マッチするのを防ぐ）、
+        #  無ければ部分一致（「法人都道府県民税」→正式名称の長い選択肢）
+        "    const opt = opts.find(o => norm(o.text) === needle)"
+        "             || opts.find(o => (o.text||'').includes(needle));"
         "    if (!opt) continue;"
         "    if (k++ < skip) continue;"
         "    s.value = opt.value;"

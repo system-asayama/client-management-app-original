@@ -999,11 +999,17 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         body = ""
     m = re.search(r'検索結果[：:\s]*(\d+)\s*件', body)
     if m and int(m.group(1)) == 0:
+        # どのアカウントでログインしているか（ヘッダーの利用者ID）を表示。
+        # 方式B(税理士ID)でログインしていると、税理士自身の申告は無いため
+        # 検索は正当に0件になる（本人IDでのログインが必要）。
+        uid_m = re.search(r'利用者ID\s*[:：]?\s*([A-Za-z0-9]+)', body)
+        uid_info = uid_m.group(1) if uid_m else "不明"
+        msg_txt = _dump_matching(page, ["してください", "エラー", "できません", "ありません"])
         raise EltaxSubmitError(
             "[入力] 該当する納付対象申告が0件でした（対象は電子申告済みの申告）。"
-            "税目区分・申告区分・事業年度の条件をご確認ください。"
+            f"ログイン中の利用者ID:{uid_info} / "
             f"入力期間:{period_desc} / 入力欄:{_dump_inputs(page)} / "
-            f"選択肢:{_dump_selects(page)} / 画面:{page.url}")
+            f"画面メッセージ:{msg_txt} / 選択肢:{_dump_selects(page)}")
 
     # 対象申告を選択（全選択 または 一覧のチェックボックス）
     if not _nav_click(page, ["全選択"]):

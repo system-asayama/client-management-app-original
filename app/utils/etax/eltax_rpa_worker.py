@@ -784,13 +784,20 @@ def _select_option_partial(select_el, needles):
 
 
 def _dump_selects(page):
-    """可視selectの選択肢を列挙（0件時の条件診断用）。"""
+    """可視selectの「選択中の値」と選択肢を列挙（0件時の条件診断用）。"""
     try:
         js = ("() => Array.from(document.querySelectorAll('select'))"
-              ".filter(s => s.offsetParent !== null).slice(0,6)"
-              ".map(s => Array.from(s.options).map(o => (o.text||'').trim())"
-              ".filter(Boolean).slice(0,8).join('/')).filter(Boolean)")
-        return " || ".join(page.evaluate(js))[:400]
+              ".filter(s => { const r = s.getBoundingClientRect();"
+              "  return r.width > 0 && r.height > 0; }).slice(0,6)"
+              ".map(s => {"
+              "  if (!s.options.length) return '[選択肢なし]';"
+              "  const cur = s.selectedIndex >= 0 && s.options[s.selectedIndex]"
+              "    ? (s.options[s.selectedIndex].text||'').trim() : '(未選択)';"
+              "  const opts = Array.from(s.options).map(o => (o.text||'').trim())"
+              "    .filter(Boolean).slice(0,8).join('/');"
+              "  return '[選択中:' + cur + '] ' + opts;"
+              "})")
+        return " || ".join(page.evaluate(js))[:480]
     except Exception:
         return ""
 
@@ -860,9 +867,25 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
             needles = [tax_type, "法人都道府県民税", "都道府県民税", "事業税", "法人"]
         _select_option_partial(sels[0], needles)
     # 申告区分（2番目のselect）: 確定/中間/予定
+    # ※税目区分に連動して選択肢が「非同期で」入るため、入るのを待ってから選ぶ
+    #   （待たずに選ぼうとすると選択肢が空で空振りし、必須未選択→0件になる）
     kubun = (filing_type or "").replace("申告", "").strip()
-    if len(sels) >= 2 and kubun:
-        _select_option_partial(sels[1], [kubun, filing_type])
+    if kubun:
+        for _ in range(12):  # 最大約6秒待つ
+            sels = _visible_selects(page)
+            if len(sels) >= 2:
+                try:
+                    if len(sels[1].query_selector_all("option")) >= 2:
+                        break
+                except Exception:
+                    pass
+            try:
+                page.wait_for_timeout(500)
+            except Exception:
+                pass
+        sels = _visible_selects(page)
+        if len(sels) >= 2:
+            _select_option_partial(sels[1], [kubun, filing_type])
     # 事業年度・期別等（和暦の期間）
     period_desc = _fill_period(page, fiscal_year, fiscal_end_month)
     # 発行依頼状況「全て」（既発行も表示）

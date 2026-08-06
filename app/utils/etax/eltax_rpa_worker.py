@@ -314,6 +314,8 @@ def _login(page, user_id: str, password: str, request_id: int):
             page.goto(url, wait_until="domcontentloaded")
         except Exception:
             continue
+        # お知らせ等のダイアログが被さっていたら先に閉じる
+        _dismiss_dialogs(page)
         # 方式選択があれば「利用者IDを利用してログイン」を押す
         _click_text(page, ["利用者IDを利用してログイン", "利用者IDでログイン", "利用者ID"], timeout=3000)
         pw = _first(page, ['input[type="password"]'], timeout=4000)
@@ -340,6 +342,7 @@ def _login(page, user_id: str, password: str, request_id: int):
     uid.fill((user_id or "").replace("-", "").replace(" ", ""))
     pw.fill(password or "")
 
+    _dismiss_dialogs(page)
     if not _click_text(page, ["ログイン", "ログオン", "認証", "送信"], timeout=6000):
         btn = _first(page, ['button[type="submit"]', 'input[type="submit"]',
                             'input[type="image"]', 'button'], timeout=3000)
@@ -472,6 +475,27 @@ def _wait_menu(page, timeout_ms=9000):
         return False
 
 
+def _dismiss_dialogs(page):
+    """お知らせ・事前準備等のモーダルダイアログを閉じる（クリック遮蔽の解消）。
+
+    実画面確認: ログイン画面等に「閉じる」「Close」「事前準備へ」を持つ
+    ダイアログ(dlog-button/ui-button)が出てクリックを遮ることがある。
+    「事前準備へ」は別ページへ飛ぶため押さず、閉じる系のみ押す。
+    """
+    for sel in ('a.dlog-button:has-text("閉じる")', 'button:has-text("Close")',
+                'a:has-text("閉じる")', 'button:has-text("閉じる")'):
+        try:
+            el = _first(page, [sel], timeout=700)
+            if el and el.is_visible():
+                _safe_click(page, el)
+                try:
+                    page.wait_for_timeout(400)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+
 def _open_main_menu(page):
     """左端の⊞「メインメニュー」ランチャーを押して主メニュー(全タイル)を開く。
 
@@ -525,46 +549,43 @@ def _navigate_to_issue_request(page, request_id: int):
     # ユーザー確認済みの正しい動線: 画面下部の「戻る」を押すとメインメニュー
     # （納税メニュータイルがある画面）へ遷移する。
     # 注意: ヘッダーの「終了する」は完全ログアウト（実測で確認）なので絶対に押さない。
+    #       SPAルート再読込もログイン画面に戻ってしまうため行わない（実測で確認）。
     if not _has_nozei():
-        # 画面下部までスクロールして「戻る」を押す（a/button以外の擬似ボタンにも対応）
-        try:
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        except Exception:
-            pass
-        if _nav_click(page, ["戻る"]):
-            # メインメニュー（納税メニュータイル）が描画されるまで待つ
+        _dismiss_dialogs(page)
+        # 「戻る」を最大2回試す（クリック遮蔽・描画遅延に備える）
+        for _ in range(2):
             try:
-                page.wait_for_function(
-                    "() => document.body && document.body.innerText.includes('納税メニュー')",
-                    timeout=9000)
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             except Exception:
                 pass
-    if not _has_nozei():
-        # 予備1: 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
-        _open_main_menu(page)
-    if not _has_nozei():
-        # 予備2: セッション維持のままSPAルートを再読込して既定画面へ
-        for url in ("https://www.portal.eltax.lta.go.jp/apa/web/webindexb",
-                    "https://www.portal.eltax.lta.go.jp/apa/web/webindexa",
-                    "https://www.portal.eltax.lta.go.jp/apa/web/webindex"):
-            try:
-                page.goto(url, wait_until="domcontentloaded")
-            except Exception:
-                continue
-            _wait_menu(page, 8000)
-            _accept_terms(page, request_id)
+            if _nav_click(page, ["戻る"]):
+                # メインメニュー（納税メニュータイル/代理人メニュータブ）の描画を待つ
+                try:
+                    page.wait_for_function(
+                        "() => { const b = document.body ? document.body.innerText : '';"
+                        " return b.includes('納税メニュー') || b.includes('代理人メニュー'); }",
+                        timeout=15000)
+                except Exception:
+                    pass
             if _has_nozei():
                 break
-            # ログイン画面に戻された（セッション切れ）ならこれ以上は無駄なので中断
-            try:
-                if _first(page, ['input[type="password"]'], timeout=800):
-                    break
-            except Exception:
-                pass
+            _dismiss_dialogs(page)
+    if not _has_nozei():
+        # 予備: 「メインメニュー」という名前の要素（左端⊞タブ等）があれば開く
+        _open_main_menu(page)
 
     if not _nav_click(page, ["納税メニュー"]):
         try:
-            _check_service_hours(page.inner_text("body"))
+            body = page.inner_text("body")
+        except Exception:
+            body = ""
+        _check_service_hours(body)
+        # ログイン画面に戻されていないか（セッション切れ/誤操作の検知）
+        try:
+            if _first(page, ['input[type="password"]'], timeout=800):
+                raise EltaxSubmitError(
+                    "[メニュー] メインメニューへ移動する途中でログイン画面に戻されました。"
+                    "再実行してください（連続する場合はお知らせダイアログや画面構成の変更が原因の可能性）。")
         except EltaxSubmitError:
             raise
         except Exception:

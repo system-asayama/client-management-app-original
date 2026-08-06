@@ -319,19 +319,35 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
     if not pw_el:
         raise EtaxLoginError(f"ログイン画面（暗証番号欄）が見つかりません。{last} / URL:{page.url}")
 
-    # 推奨環境・事前準備等のモーダルは遅れて表示されることがあるため、
-    # 「閉じる」が見えなくなるまで繰り返し閉じる（最大3回）
-    for _ in range(3):
-        _dismiss_dialogs(page)
-        try:
-            page.wait_for_timeout(700)
-        except Exception:
-            pass
-        try:
-            if not page.locator('a:has-text("閉じる"), button:has-text("閉じる")').first.is_visible():
-                break
-        except Exception:
-            break
+    # e-Tax受付システムの「環境チェック（拡張機能）」モーダルを閉じる。
+    # 次へ/閉じる/img[alt=閉じる] など複数の閉じ方に対応し、
+    # モーダルの「次へ」ボタンが消える（=閉じた）まで最大5回試す。
+    def _close_env_modal():
+        for _ in range(5):
+            closed_something = False
+            for sel in ('div[role=dialog] img[alt*="閉じる"]',
+                        'img.img-fluid[alt*="閉じる"]',
+                        'a.btn:has-text("閉じる")', 'button:has-text("閉じる")',
+                        'a:has-text("閉じる")'):
+                try:
+                    el = page.query_selector(sel)
+                    if el and el.is_visible():
+                        el.click(timeout=2000)
+                        closed_something = True
+                        page.wait_for_timeout(500)
+                        break
+                except Exception:
+                    continue
+            # モーダル特有の「次へ」ボタンが消えたら閉じ切ったとみなす
+            try:
+                nxt = page.query_selector('a.btn:has-text("次へ")')
+                if not (nxt and nxt.is_visible()):
+                    return
+            except Exception:
+                return
+            if not closed_something:
+                return
+    _close_env_modal()
 
     # 利用者識別番号: パスワード欄と同じフォーム内のテキスト入力だけを対象にする
     # （ヘッダーの検索窓など無関係な入力欄への誤入力を防ぐ。eLTAXの
@@ -367,6 +383,9 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
         uid_el.fill(user_id_clean)
     pw_el.fill(etax_password or "")
 
+    # 入力後に再度モーダルが被っていたら閉じる
+    _close_env_modal()
+
     # ログインボタン: 完全一致テキスト→submit系の順（部分一致は使わない）
     try:
         page.locator('button:text-is("ログイン"), input[type=submit][value="ログイン"]').first.click(timeout=8000)
@@ -384,12 +403,23 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
             "() => { const b = document.body ? document.body.innerText : '';"
             " return b.includes('ログアウト') || b.includes('メインメニュー')"
             " || b.includes('メッセージボックス') || b.includes('利用者情報')"
-            " || b.includes('誤') || b.includes('できません') || b.includes('ロック'); }",
+            " || b.includes('誤') || b.includes('ロック'); }",
             timeout=12000)
     except Exception:
         pass
+    # ログイン直後にも環境チェックモーダルが再表示される場合があるので閉じる
+    _close_env_modal()
     from app.utils.etax.eltax_rpa_worker import _dump_matching
     body = page.inner_text("body")
+    # 拡張機能の環境チェックで止まっている場合は、その旨を明示してエラーにする
+    if ("拡張機能が利用できない" in body or "確認できませんでした" in body) and \
+            not any(w in body for w in ["ログアウト", "メインメニュー", "メッセージボックス"]):
+        raise EtaxLoginError(
+            "e-Tax（受付システム）のログイン環境チェックで「拡張機能が利用できない」ため"
+            "ブロックされました。e-Taxのブラウザ操作は専用のブラウザ拡張機能"
+            "（e-Tax・eLTAX用）を必要とし、サーバー上のヘッドレスブラウザには"
+            "導入できないため、この方式での自動ログインは実行できません。"
+            f"画面:{page.url}")
     if any(w in body for w in ["利用者識別番号又は暗証番号", "利用者識別番号または暗証番号",
                                "誤りがあります", "誤っています", "ログインできません",
                                "認証に失敗", "ロックされています", "パスワードが違います"]):

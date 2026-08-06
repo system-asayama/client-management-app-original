@@ -823,6 +823,43 @@ def _js_select_option(page, needle, skip=0):
         return None
 
 
+def _js_fill_inputs(page, vals):
+    """可視のテキスト系input（text/number/tel）へ順に値を設定し、
+    input/change/blurイベントを発火してAngularへ確実に反映させる。
+    設定後の実際の値をカンマ区切りで返す（検証用）。"""
+    js = ("(vals) => {"
+          "  const ins = Array.from(document.querySelectorAll('input')).filter(i => {"
+          "    const t = (i.type||'text').toLowerCase();"
+          "    if (!['text','number','tel'].includes(t)) return false;"
+          "    const r = i.getBoundingClientRect(); return r.width>0 && r.height>0; });"
+          "  const n = Math.min(ins.length, vals.length);"
+          "  for (let k = 0; k < n; k++) {"
+          "    ins[k].value = String(vals[k]);"
+          "    ins[k].dispatchEvent(new Event('input', {bubbles:true}));"
+          "    ins[k].dispatchEvent(new Event('change', {bubbles:true}));"
+          "    ins[k].dispatchEvent(new Event('blur', {bubbles:true}));"
+          "  }"
+          "  return ins.slice(0, n).map(i => i.value).join(',');"
+          "}")
+    try:
+        return page.evaluate(js, [str(v) for v in vals])
+    except Exception:
+        return None
+
+
+def _dump_inputs(page):
+    """可視テキスト系inputの現在値を列挙（0件時の入力検証用）。"""
+    try:
+        js = ("() => Array.from(document.querySelectorAll('input')).filter(i => {"
+              "  const t = (i.type||'text').toLowerCase();"
+              "  if (!['text','number','tel'].includes(t)) return false;"
+              "  const r = i.getBoundingClientRect(); return r.width>0 && r.height>0; })"
+              ".slice(0,10).map(i => '[' + (i.value || '空') + ']').join(' ')")
+        return page.evaluate(js)[:200]
+    except Exception:
+        return ""
+
+
 def _dump_selects(page):
     """可視selectの「選択中の値」と選択肢を列挙（0件時の条件診断用）。"""
     try:
@@ -871,7 +908,8 @@ def _fill_period(page, fiscal_year, fiscal_end_month):
     if _js_select_option(page, f"令和{r_end:02d}", 1) is None:
         _js_select_option(page, f"令和{r_end}", 1)
 
-    # 月日テキスト入力を埋める（4つ=月日のみ / 6つ=年月日の場合に対応）
+    # 月日テキスト入力を埋める（4つ=月日のみ / 6つ=年月日の場合に対応）。
+    # JSでvalue設定＋イベント発火し、Angularのモデルに確実に反映させる。
     texts = _visible_text_inputs(page)
     if len(texts) >= 6:
         vals = [r_start, start_m, start_d, r_end, end_m, end_d]
@@ -879,11 +917,9 @@ def _fill_period(page, fiscal_year, fiscal_end_month):
         vals = [start_m, start_d, end_m, end_d]
     else:
         vals = []
-    for el, v in zip(texts, vals):
-        try:
-            el.fill(str(v))
-        except Exception:
-            pass
+    if vals:
+        filled = _js_fill_inputs(page, vals)
+        logger.info(f"[eLTAX-RPA] 期間入力: {filled}")
     return (f"令和{r_start:02d}年{start_m}月{start_d}日〜"
             f"令和{r_end:02d}年{end_m}月{end_d}日")
 
@@ -934,7 +970,11 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     period_desc = _fill_period(page, fiscal_year, fiscal_end_month)
     # 発行依頼状況「全て」（既発行も表示）
     _nav_click(page, ["全て"])
-    # 検索
+    # 入力反映が落ち着くのを待ってから検索
+    try:
+        page.wait_for_timeout(600)
+    except Exception:
+        pass
     _nav_click(page, ["検索"])
     try:
         page.wait_for_timeout(1800)
@@ -951,7 +991,8 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         raise EltaxSubmitError(
             "[入力] 該当する納付対象申告が0件でした（対象は電子申告済みの申告）。"
             "税目区分・申告区分・事業年度の条件をご確認ください。"
-            f"入力期間:{period_desc} / 選択肢:{_dump_selects(page)} / 画面:{page.url}")
+            f"入力期間:{period_desc} / 入力欄:{_dump_inputs(page)} / "
+            f"選択肢:{_dump_selects(page)} / 画面:{page.url}")
 
     # 対象申告を選択（全選択 または 一覧のチェックボックス）
     if not _nav_click(page, ["全選択"]):

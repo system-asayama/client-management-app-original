@@ -776,24 +776,39 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
         page.wait_for_timeout(1800)
     except Exception:
         pass
-    # ② 納入金一覧 → 次へ（→ 納入金確認）
+    # ② 納付・納入金額一覧（名称・住所・金額は自動転記済み）→ 次へ（→ ③確認画面）
     _nav_click(page, ["次へ"])
+    # ③「納付・納入金額確認」画面の描画待ち。
+    # ③固有の文言（実画面確認済み）:
+    #   見出し「納付・納入金額確認」／案内文「納付情報発行を依頼します」
+    # ※上部ステップ表示の「納入金確認」は全画面共通のため判定に使わない。
+    _confirm_js = ("() => { const b = document.body ? document.body.innerText : '';"
+                   " return b.includes('納付情報発行を依頼します')"
+                   " || b.includes('納入金額確認'); }")
     try:
-        page.wait_for_timeout(1800)
+        page.wait_for_function(_confirm_js, timeout=9000)
     except Exception:
-        pass
+        try:
+            page.wait_for_timeout(1800)
+        except Exception:
+            pass
 
-    # ③ 納入金確認に到達しているか確認して停止（発行依頼はしない）
+    # ③ 確認画面に到達していることを検証して停止（「送信」は絶対に押さない）
     try:
         body = page.inner_text("body")
     except Exception:
         body = ""
     if not SUBMIT_ISSUE:
-        reached = ("納入金確認" in body) or ("納付税額" in body and "発行依頼" in body)
-        amt = re.search(r'([0-9][0-9,]{2,})\s*円', body)
+        try:
+            reached = bool(page.evaluate(_confirm_js))
+        except Exception:
+            reached = ("納付情報発行を依頼します" in body) or ("納入金額確認" in body)
+        amt = re.search(r'合計額[：:\s]*([0-9][0-9,]{2,})\s*円', body)
+        if not amt:
+            amt = re.search(r'([0-9][0-9,]{2,})\s*円', body)
         detail = f"（画面金額:{amt.group(1)}円）" if amt else ""
-        note = (f"テスト成功: 納入金確認まで到達{detail}（発行依頼は未実行）" if reached
-                else f"テスト: 発行依頼手前まで到達（納入金確認は未検出）。{_diag(page)}")
+        note = (f"テスト成功: 納付・納入金額確認まで到達{detail}（送信＝発行依頼は未実行）" if reached
+                else f"テスト: 送信手前まで到達（確認画面は未検出）。{_diag(page)}")
         logger.info(f"[eLTAX-RPA] request_id={request_id} {note}")
         return note
 

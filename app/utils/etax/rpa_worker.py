@@ -476,6 +476,21 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
             timeout=12000)
     except Exception:
         pass
+    # 【確定した仕様】e-Tax受付システムのログインは、押下時にブラウザ拡張機能
+    # （e-Tax・eLTAX用）で環境チェックを行い、拡張機能が無いとログイン送信自体を
+    # ブロックする（実測: 送信POSTは飛ばず、拡張機能エラーのみ表示）。
+    # サーバー上のヘッドレスブラウザには拡張機能を導入できないため、
+    # この方式での自動ログインは原理的に不可能。明示エラーで停止する。
+    if ("拡張機能" in (immediate_msg or "")) or ("確認できません" in (immediate_msg or "")):
+        raise EtaxLoginError(
+            "e-Taxの自動ログインは実行できません。e-Tax（受付システム）のログインは"
+            "『e-Tax・eLTAX用ブラウザ拡張機能』による環境チェックを必須としており、"
+            "拡張機能が無い環境ではログイン送信自体がブロックされます"
+            "（利用者識別番号・暗証番号は正しく入力されていますが、拡張機能の要求により先へ進めません）。"
+            "サーバー上のヘッドレスブラウザには拡張機能を導入できないため、"
+            "国税はブラウザ自動操作ではなく e-Tax Web-API 方式への切り替えが必要です。"
+            f"画面ID:LA02 / URL:{page.url}")
+
     # ログイン直後にも環境チェックモーダルが再表示される場合があるので閉じる
     _close_env_modal()
     body = page.inner_text("body")

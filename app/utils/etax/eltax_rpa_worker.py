@@ -783,6 +783,41 @@ def _select_option_partial(select_el, needles):
     return False
 
 
+def _js_select_option(page, needle, skip=0):
+    """needle を含む選択肢を持つ可視selectを内容ベースで特定し、
+    JSで value 設定＋input/change イベント発火で確実に選択する。
+
+    - select_option() だとAngularのモデルに反映されないことがある（実測:
+      税目区分が[選択中:空]のままになった）ため、イベントを明示発火する。
+    - skip: needleを含むselectが複数ある場合に読み飛ばす数
+      （例: 期間の「令和NN」は開始・終了の2つあるので終了側は skip=1）。
+    成功時は選択後の表示テキスト、失敗時は None を返す。
+    """
+    js = (
+        "(arg) => {"
+        "  const needle = arg.needle, skip = arg.skip;"
+        "  const sels = Array.from(document.querySelectorAll('select')).filter(s => {"
+        "    const r = s.getBoundingClientRect(); return r.width > 0 && r.height > 0; });"
+        "  let k = 0;"
+        "  for (const s of sels) {"
+        "    const opt = Array.from(s.options).find(o => (o.text||'').includes(needle));"
+        "    if (!opt) continue;"
+        "    if (k++ < skip) continue;"
+        "    s.value = opt.value;"
+        "    s.dispatchEvent(new Event('input', {bubbles: true}));"
+        "    s.dispatchEvent(new Event('change', {bubbles: true}));"
+        "    const cur = s.options[s.selectedIndex];"
+        "    return cur ? (cur.text||'').trim() : '';"
+        "  }"
+        "  return null;"
+        "}"
+    )
+    try:
+        return page.evaluate(js, {"needle": needle, "skip": skip})
+    except Exception:
+        return None
+
+
 def _dump_selects(page):
     """可視selectの「選択中の値」と選択肢を列挙（0件時の条件診断用）。"""
     try:
@@ -824,11 +859,12 @@ def _fill_period(page, fiscal_year, fiscal_end_month):
         start_y, start_m, start_d = end_y - 1, end_m + 1, 1
     r_start, r_end = start_y - 2018, end_y - 2018  # 令和 = 西暦-2018
 
-    # 「令和NN」セレクト（例: 令和07）。ゼロ埋め/非ゼロ埋め両対応。
-    sels = _visible_selects(page)
-    if len(sels) >= 4:
-        _select_option_partial(sels[2], [f"令和{r_start:02d}", f"令和{r_start}"])
-        _select_option_partial(sels[3], [f"令和{r_end:02d}", f"令和{r_end}"])
+    # 「令和NN」セレクト（例: 令和07）。開始=最初の一致select、終了=2つ目(skip=1)。
+    # ゼロ埋め/非ゼロ埋め両対応。JSのイベント発火で確実に反映させる。
+    if _js_select_option(page, f"令和{r_start:02d}", 0) is None:
+        _js_select_option(page, f"令和{r_start}", 0)
+    if _js_select_option(page, f"令和{r_end:02d}", 1) is None:
+        _js_select_option(page, f"令和{r_end}", 1)
 
     # 月日テキスト入力を埋める（4つ=月日のみ / 6つ=年月日の場合に対応）
     texts = _visible_text_inputs(page)
@@ -854,38 +890,41 @@ def _issue_flow(page, tax_type, filing_type, fiscal_year, fiscal_end_month, amou
     ③ 納入金確認: ここで停止（SUBMIT_ISSUE=False の間は発行依頼を実行しない）
     """
     # ① 検索条件（すべて必須）
-    sels = _visible_selects(page)
-    # 税目区分（1番目のselect）
     # 実画面の正式名称（確認済み）:
     #   都道府県税: 法人都道府県民税・事業税・特別法人事業税又は地方法人特別税
     #   市町村税:   法人市町村民税
-    if sels:
-        if tax_type and ("市町村" in tax_type or "市民税" in tax_type
-                         or ("市" in tax_type and "都道府県" not in tax_type and "都" not in tax_type)):
-            needles = [tax_type, "法人市町村民税", "市町村民税", "法人住民税", "法人"]
-        else:
-            needles = [tax_type, "法人都道府県民税", "都道府県民税", "事業税", "法人"]
-        _select_option_partial(sels[0], needles)
-    # 申告区分（2番目のselect）: 確定/中間/予定
-    # ※税目区分に連動して選択肢が「非同期で」入るため、入るのを待ってから選ぶ
-    #   （待たずに選ぼうとすると選択肢が空で空振りし、必須未選択→0件になる）
-    kubun = (filing_type or "").replace("申告", "").strip()
-    if kubun:
-        for _ in range(12):  # 最大約6秒待つ
-            sels = _visible_selects(page)
-            if len(sels) >= 2:
-                try:
-                    if len(sels[1].query_selector_all("option")) >= 2:
-                        break
-                except Exception:
-                    pass
-            try:
-                page.wait_for_timeout(500)
-            except Exception:
-                pass
-        sels = _visible_selects(page)
-        if len(sels) >= 2:
-            _select_option_partial(sels[1], [kubun, filing_type])
+    # selectは描画・連動populateが非同期のため、目的の選択肢を持つselectを
+    # 内容ベースで特定し、JSのvalue設定＋イベント発火で確実に選ぶ。
+    if tax_type and ("市町村" in tax_type or "市民税" in tax_type
+                     or ("市" in tax_type and "都道府県" not in tax_type and "都" not in tax_type)):
+        tax_needles = ["法人市町村民税", "市町村民税", "法人住民税"]
+    else:
+        tax_needles = ["法人都道府県民税", "都道府県民税", "事業税"]
+    picked_tax = None
+    for _ in range(20):  # 画面描画待ち込みで最大約10秒
+        for n in tax_needles:
+            picked_tax = _js_select_option(page, n, 0)
+            if picked_tax:
+                break
+        if picked_tax:
+            break
+        try:
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+    logger.info(f"[eLTAX-RPA] request_id={request_id} 税目区分選択: {picked_tax}")
+    # 申告区分: 税目区分に連動して選択肢が非同期で入るため、入るまで待って選ぶ
+    kubun = ((filing_type or "").replace("申告", "").strip()) or "確定"
+    picked_kubun = None
+    for _ in range(16):  # 最大約8秒
+        picked_kubun = _js_select_option(page, kubun, 0)
+        if picked_kubun:
+            break
+        try:
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+    logger.info(f"[eLTAX-RPA] request_id={request_id} 申告区分選択: {picked_kubun}")
     # 事業年度・期別等（和暦の期間）
     period_desc = _fill_period(page, fiscal_year, fiscal_end_month)
     # 発行依頼状況「全て」（既発行も表示）

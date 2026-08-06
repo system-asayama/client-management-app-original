@@ -173,7 +173,7 @@ def run_etax_payment_request(
                 # Step 1: e-Taxにログイン
                 # ========================================
                 logger.info(f"[RPA] request_id={request_id} Step1: ログイン開始")
-                _login(page, etax_user_id, etax_password, request_id)
+                page = _login(page, etax_user_id, etax_password, request_id) or page
                 logger.info(f"[RPA] request_id={request_id} Step1: ログイン成功")
 
                 # ========================================
@@ -270,6 +270,8 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
     from app.utils.etax.eltax_rpa_worker import (
         _dismiss_dialogs, _js_click_exact, _first, _click_text, _dump_clickables_rich)
 
+    from app.utils.etax.eltax_rpa_worker import _js_click_text
+
     user_id_clean = (etax_user_id or "").replace("-", "").replace(" ", "")
     pw_el = None
     last = ""
@@ -281,13 +283,37 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
         _dismiss_dialogs(page)
         pw_el = _first(page, ['input[type="password"]'], timeout=4000)
         if not pw_el:
-            # トップページ経由の場合は「ログイン」入口を完全一致で押す
+            # トップページ経由（実画面確認済みの動線）:
+            # 「ログイン」→ モーダルで「法人の方」を選択 → 法人向けログイン画面
             _js_click_exact(page, "ログイン")
+            try:
+                page.wait_for_timeout(900)
+            except Exception:
+                pass
+            before = list(page.context.pages)
+            _js_click_exact(page, "法人の方")
+            try:
+                page.wait_for_timeout(2500)
+            except Exception:
+                pass
+            # 新しいタブで開いた場合は操作対象を切り替える
+            for pg in page.context.pages:
+                if pg not in before:
+                    page = pg
+                    page.set_default_timeout(PAGE_TIMEOUT)
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=8000)
+                    except Exception:
+                        pass
+                    break
+            _dismiss_dialogs(page)
+            # ログイン方式の選択（利用者識別番号・暗証番号方式）
             _click_text(page, ["利用者識別番号・暗証番号", "利用者識別番号でログイン",
                                "ID・パスワード方式"], timeout=2500)
-            pw_el = _first(page, ['input[type="password"]'], timeout=4000)
+            _js_click_text(page, "利用者識別番号")
+            pw_el = _first(page, ['input[type="password"]'], timeout=6000)
         if pw_el:
-            logger.info(f"[RPA] request_id={request_id} ログイン画面到達: {url}")
+            logger.info(f"[RPA] request_id={request_id} ログイン画面到達: {page.url}")
             break
         last = f"候補:{_dump_clickables_rich(page)}"
     if not pw_el:
@@ -352,6 +378,8 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
         raise EtaxLoginError(
             f"ログイン後の画面を確認できませんでした（未ログインの可能性）。"
             f"候補:{_dump_clickables_rich(page)} / URL:{page.url}")
+    # タブを切り替えた場合があるため、操作対象のページを呼び出し元へ返す
+    return page
 
 
 def _navigate_to_payment_request(page, request_id: int):

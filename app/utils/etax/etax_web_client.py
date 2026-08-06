@@ -1,0 +1,237 @@
+# -*- coding: utf-8 -*-
+"""
+e-Tax（国税）受付システム 送受信クライアント（純Python実装）
+
+【背景】
+e-Taxのブラウザ・ログイン（login.e-tax.nta.go.jp）は専用ブラウザ拡張機能を必須とし、
+サーバー上のヘッドレスブラウザでは突破できないことが判明した。
+そこで、国税庁「送受信モジュール」が使うのと同じ、機械通信専用エンドポイント
+（uketsuke.e-tax.nta.go.jp）への HTTPS フォームPOST＋XML電文プロトコルを
+純Pythonで再実装する。ブラウザ・拡張機能・電子証明書を使わない。
+納付情報登録依頼（TEZ500）は電子署名不要のため、この方式で送信できる。
+
+【設計根拠】docs/etax_webapi_design.md（受付if仕様書・資料2-1/資料3・送受信モジュール仕様）
+
+【安全装置】
+- ETAX_WEB_LIVE_ENABLED=False の間は、実際のネットワーク送信を一切行わない。
+  本番の受付システムに接続してよいと確認できるまで False のままにする。
+- 認証（ログイン）はデータ送信を伴わない（顧問先本人のログイン→ログアウトのみ）。
+- 納付情報登録依頼（TEZ500）の実送信は、送信試験環境が整うまで実装・実行しない。
+"""
+
+import logging
+import re
+from typing import Dict, Any, Optional
+from xml.etree import ElementTree as ET
+
+logger = logging.getLogger(__name__)
+
+# ============================================================
+# 安全フラグ（本番接続の可否）
+# ============================================================
+# False の間は _post() が実際の通信を行わず、明示エラーを返す。
+# 本番疎通テストの許可が出たら True にする（まずは認証のみ）。
+ETAX_WEB_LIVE_ENABLED = False
+
+# ============================================================
+# 接続先（送受信モジュール CLCommunication.ini より）
+# ============================================================
+ETAX_UKETSUKE_BASE = "https://uketsuke.e-tax.nta.go.jp"
+EP_LOGIN = "/UF_APP/lnk/Menu"                      # 認証→メインメニュー
+EP_DATASEND = "/UF_APP/lnk/datasend"               # 申告等データ送信
+EP_MSGBOX = "/UF_APP/lnk/MsgboxItrnViewGmnPage"    # メッセージボックス一覧
+
+# タイムアウト（秒）
+CONNECT_TIMEOUT = 15
+READ_TIMEOUT = 60
+
+# 受付システムに送信する際の User-Agent（送受信モジュール相当のクライアント名）
+# ※正式な値は送信試験時に調整する。
+USER_AGENT = "e-Tax-Client/1.0 (uketsuke; python-requests)"
+
+
+class EtaxWebError(Exception):
+    """e-Tax受付システム通信の基底例外。"""
+
+
+class EtaxWebLoginError(EtaxWebError):
+    """認証（ログイン）エラー。"""
+
+
+class EtaxWebClient:
+    """受付システムとのステートフルなHTTPセッションを保持するクライアント。
+
+    プロトコル（受付if仕様書）:
+      各リクエストのレスポンスは画面XML。ヘッダー部の「引継ぎ情報」(oStHktgInf)と
+      ボディー部の「リンク情報」(次のPOST先URL)を辿って遷移する。
+
+    使い方（想定）:
+      c = EtaxWebClient()
+      c.login(user_id, password)     # → メインメニュー到達（引継ぎ情報を保持）
+      # c.send_payment_request(...)  # ← 送信試験環境が整うまで未実装/未実行
+      c.logout()
+    """
+
+    def __init__(self):
+        # requests.Session は遅延生成（Playwrightのように未導入環境でも import 可能に）
+        self._session = None
+        self.carryover: Optional[str] = None      # 引継ぎ情報 oStHktgInf
+        self.current_screen_id: Optional[str] = None
+        self.menu_links: Dict[str, str] = {}      # 業務名 → 業務リンクURL
+
+    # ---------------- 低レベル通信 ----------------
+    def _ensure_session(self):
+        if self._session is None:
+            import requests
+            s = requests.Session()
+            s.headers.update({"User-Agent": USER_AGENT})
+            self._session = s
+        return self._session
+
+    def _url(self, path: str) -> str:
+        if path.startswith("http"):
+            return path
+        return ETAX_UKETSUKE_BASE + path
+
+    def _post(self, path: str, data: Dict[str, str]) -> "ET.Element":
+        """フォームPOSTしてレスポンスXMLのルート要素を返す。
+
+        ETAX_WEB_LIVE_ENABLED=False の間は通信せず例外にする（安全装置）。
+        """
+        if not ETAX_WEB_LIVE_ENABLED:
+            raise EtaxWebError(
+                "e-Tax受付システムへの実通信は無効化されています"
+                "（ETAX_WEB_LIVE_ENABLED=False）。本番疎通の許可後に有効化してください。")
+        sess = self._ensure_session()
+        url = self._url(path)
+        # 送信値は日本語を含み得るが、利用者識別番号・暗証番号は半角。
+        # 文字コードは受付システム仕様に合わせる（既定 UTF-8、必要なら調整）。
+        resp = sess.post(url, data=data, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT))
+        resp.raise_for_status()
+        return self._parse_xml(resp.content)
+
+    @staticmethod
+    def _parse_xml(content: bytes) -> "ET.Element":
+        # 受付システムのレスポンスはXML。名前空間や文字コードに配慮してパースする。
+        try:
+            return ET.fromstring(content)
+        except ET.ParseError:
+            # BOMや前後ゴミがある場合に備えて最初の<から切り出す
+            text = content.decode("utf-8", "replace")
+            i = text.find("<")
+            return ET.fromstring(text[i:] if i >= 0 else text)
+
+    # ---------------- XML抽出ヘルパー ----------------
+    @staticmethod
+    def _find_text(root: "ET.Element", tag_suffix: str) -> Optional[str]:
+        """名前空間を無視して、末尾がtag_suffixに一致する最初の要素のテキストを返す。
+
+        受付システムのタグ（XAB020, XAC090 等）は一意なので末尾一致で拾える。
+        """
+        for el in root.iter():
+            tag = el.tag.rsplit("}", 1)[-1]  # 名前空間除去
+            if tag == tag_suffix:
+                return (el.text or "").strip()
+        return None
+
+    # ---------------- 認証（ログイン） ----------------
+    def login(self, user_id: str, password: str) -> Dict[str, Any]:
+        """利用者識別番号＋暗証番号で受付システムにログインする。
+
+        フロー（資料3 XSL構造設計書 SU00S010 認証）:
+          POST /UF_APP/lnk/Menu
+            oStHktgInf     = 初期認証画面の引継ぎ情報（XAB020）
+            oStInputUserId = 利用者識別番号
+            oStInputPwd    = 暗証番号
+          → SU00S020 メインメニュー（status=空/正常）。引継ぎ情報(XBB020)を更新。
+
+        ※初期認証画面（初回の引継ぎ情報の取得＝ブートストラップ）の正確な手順は、
+          送信試験環境での実観測で確定する。ここでは想定実装とし、失敗時は
+          原因を明示する。
+        """
+        uid = (user_id or "").replace("-", "").replace(" ", "")
+        pwd = password or ""
+        if not uid or not pwd:
+            raise EtaxWebLoginError("利用者識別番号または暗証番号が未設定です。")
+
+        # (1) ブートストラップ: 認証画面を取得して初期の引継ぎ情報を得る
+        #     ※実観測前の暫定。GET相当の初回リクエストで認証画面XMLが返る想定。
+        boot_carryover = self._bootstrap_auth_screen()
+
+        # (2) 認証実行（XU00S010_1）
+        root = self._post(EP_LOGIN, {
+            "oStHktgInf": boot_carryover or "",
+            "oStInputUserId": uid,
+            "oStInputPwd": pwd,
+        })
+
+        screen_id = self._find_text(root, "XBB010") or self._find_text(root, "XAB010")
+        status = self._find_text(root, "status")
+        self.current_screen_id = screen_id
+
+        # 認証失敗（認証画面SU00S010が返る/エラーstatus）を検知
+        if screen_id and screen_id.startswith("SU00S010"):
+            raise EtaxWebLoginError(
+                "認証に失敗しました（利用者識別番号または暗証番号の誤り、"
+                f"あるいは初期引継ぎ情報の取得失敗）。status={status}")
+
+        # メインメニュー到達: 引継ぎ情報と業務リンクを保持
+        self.carryover = self._find_text(root, "XBB020")
+        self._collect_menu_links(root)
+        if not self.carryover:
+            raise EtaxWebLoginError(
+                f"メインメニューの引継ぎ情報を取得できませんでした。screen={screen_id} status={status}")
+        logger.info(f"[etax-web] ログイン成功 screen={screen_id}")
+        return {"screen_id": screen_id, "status": status, "links": list(self.menu_links.keys())}
+
+    def _bootstrap_auth_screen(self) -> Optional[str]:
+        """認証画面（SU00S010）を取得し、初期の引継ぎ情報(XAB020)を返す。
+
+        ※正確なブートストラップ手順（初回リクエストのメソッド/URL/パラメータ）は
+          送信試験環境での実観測で確定する。現時点では認証画面POSTを試みる。
+        """
+        try:
+            root = self._post(EP_LOGIN, {})  # 初回（資格情報なし）で認証画面が返る想定
+        except EtaxWebError:
+            raise
+        except Exception as e:
+            logger.warning(f"[etax-web] 認証画面ブートストラップ失敗: {e}")
+            return None
+        return self._find_text(root, "XAB020")
+
+    def _collect_menu_links(self, root: "ET.Element"):
+        """メインメニューの業務名(XBC040)→業務リンク(XBC050)を対応づけて保持する。"""
+        self.menu_links = {}
+        names, links = [], []
+        for el in root.iter():
+            tag = el.tag.rsplit("}", 1)[-1]
+            if tag == "XBC040":
+                names.append((el.text or "").strip())
+            elif tag == "XBC050":
+                links.append((el.text or "").strip())
+        for n, l in zip(names, links):
+            if n:
+                self.menu_links[n] = l
+
+    # ---------------- ログアウト ----------------
+    def logout(self):
+        """セッションを終了する（受付システムは一定時間で自動ログアウトもする）。"""
+        try:
+            if self._session is not None:
+                self._session.close()
+        except Exception:
+            pass
+        self._session = None
+        self.carryover = None
+
+    # ---------------- 納付情報登録依頼（TEZ500）送信：未実装 ----------------
+    def send_payment_request(self, *args, **kwargs):
+        """納付情報登録依頼（TEZ500）を送信する。
+
+        送信試験環境が整い、電文フォーマット（TEZ500 XML・圧縮/包装）と
+        申告等データ送信(SU00S070)の正確な手順を実観測で確定してから実装する。
+        現時点では未実装として明示する。
+        """
+        raise NotImplementedError(
+            "納付情報登録依頼(TEZ500)の実送信は未実装です。"
+            "送信試験環境での検証後に実装します（本番への誤送信防止）。")

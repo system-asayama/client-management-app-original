@@ -319,38 +319,57 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
     if not pw_el:
         raise EtaxLoginError(f"ログイン画面（暗証番号欄）が見つかりません。{last} / URL:{page.url}")
 
-    # 利用者識別番号: 4桁×4欄に分割されている場合に対応
-    boxes = []
+    # 推奨環境・事前準備等のモーダルは遅れて表示されることがあるため、
+    # 「閉じる」が見えなくなるまで繰り返し閉じる（最大3回）
+    for _ in range(3):
+        _dismiss_dialogs(page)
+        try:
+            page.wait_for_timeout(700)
+        except Exception:
+            pass
+        try:
+            if not page.locator('a:has-text("閉じる"), button:has-text("閉じる")').first.is_visible():
+                break
+        except Exception:
+            break
+
+    # 利用者識別番号: パスワード欄と同じフォーム内のテキスト入力だけを対象にする
+    # （ヘッダーの検索窓など無関係な入力欄への誤入力を防ぐ。eLTAXの
+    #   関与先ID誤入力事故と同種の問題の予防）
+    n_inputs = 0
     try:
-        for i in page.query_selector_all("input"):
-            try:
-                t = (i.get_attribute("type") or "text").lower()
-                ml = i.get_attribute("maxlength") or ""
-                if t in ("text", "tel", "number") and ml == "4" and i.is_visible():
-                    boxes.append(i)
-            except Exception:
-                pass
+        n_inputs = page.evaluate(
+            "() => { const pw = document.querySelector('input[type=password]');"
+            " if (!pw) return 0;"
+            " const form = pw.closest('form') || document.body; let k = 0;"
+            " for (const i of form.querySelectorAll('input')) {"
+            "   const t = (i.type || 'text').toLowerCase();"
+            "   const r = i.getBoundingClientRect();"
+            "   if (['text','tel','number'].includes(t) && r.width > 0 && r.height > 0) {"
+            "     i.setAttribute('data-rpa-uid', String(k++)); } }"
+            " return k; }")
     except Exception:
-        boxes = []
-    if len(boxes) >= 4 and len(user_id_clean) == 16:
+        n_inputs = 0
+    if n_inputs >= 4 and len(user_id_clean) == 16:
+        # 4桁×4欄に分割されている場合
         for k in range(4):
-            boxes[k].fill(user_id_clean[k * 4:(k + 1) * 4])
+            page.fill(f'input[data-rpa-uid="{k}"]', user_id_clean[k * 4:(k + 1) * 4])
+    elif n_inputs >= 1:
+        page.fill('input[data-rpa-uid="0"]', user_id_clean)
     else:
         uid_el = _first(page, [
             'input[name*="riyousha" i]', 'input[id*="riyousha" i]',
             'input[name*="shikibetsu" i]', 'input[id*="shikibetsu" i]',
             'input[name*="userId" i]', 'input[id*="userId" i]',
-            'input[type="text"]', 'input[type="tel"]',
         ], timeout=4000)
         if not uid_el:
             raise EtaxLoginError(f"利用者識別番号の入力欄が見つかりません。候補:{_dump_clickables_rich(page)}")
         uid_el.fill(user_id_clean)
     pw_el.fill(etax_password or "")
 
-    _dismiss_dialogs(page)
     # ログインボタン: 完全一致テキスト→submit系の順（部分一致は使わない）
     try:
-        page.locator('button:text-is("ログイン"), input[type=submit][value="ログイン"]').first.click(timeout=6000)
+        page.locator('button:text-is("ログイン"), input[type=submit][value="ログイン"]').first.click(timeout=8000)
     except Exception:
         if not _js_click_exact(page, "ログイン"):
             btn = _first(page, ['input[type="submit"][value*="ログイン"]',
@@ -369,15 +388,19 @@ def _login(page, etax_user_id: str, etax_password: str, request_id: int):
             timeout=12000)
     except Exception:
         pass
+    from app.utils.etax.eltax_rpa_worker import _dump_matching
     body = page.inner_text("body")
     if any(w in body for w in ["利用者識別番号又は暗証番号", "利用者識別番号または暗証番号",
                                "誤りがあります", "誤っています", "ログインできません",
-                               "認証に失敗", "ロックされています"]):
-        raise EtaxLoginError(f"ログインに失敗しました（利用者識別番号/暗証番号の誤り等）。画面:{page.url}")
+                               "認証に失敗", "ロックされています", "パスワードが違います"]):
+        msg = _dump_matching(page, ["誤", "できません", "失敗", "ロック"])
+        raise EtaxLoginError(f"ログインに失敗しました（利用者識別番号/暗証番号の誤り等）。"
+                             f"画面メッセージ:{msg} / 画面:{page.url}")
     if not any(w in body for w in ["ログアウト", "メインメニュー", "メッセージボックス", "利用者情報"]):
+        msg = _dump_matching(page, ["してください", "入力", "エラー", "できません"])
         raise EtaxLoginError(
             f"ログイン後の画面を確認できませんでした（未ログインの可能性）。"
-            f"候補:{_dump_clickables_rich(page)} / URL:{page.url}")
+            f"画面メッセージ:{msg} / 候補:{_dump_clickables_rich(page)} / URL:{page.url}")
     # タブを切り替えた場合があるため、操作対象のページを呼び出し元へ返す
     return page
 

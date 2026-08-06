@@ -185,15 +185,17 @@ def execute_etax_request(request_id: int) -> dict:
 
         else:
             req.retry_count = (req.retry_count or 0) + 1
-            # エラー時のスクリーンショットがあればアップロードして参照可能にする
+            # エラー時のスクリーンショットがあればアップロードして参照可能にする。
+            # ストレージ未設定/失敗時は、アプリ自身が/tmpから配信するルートに
+            # フォールバックする（同一Dyno内のバックグラウンドスレッド実行のため
+            # /tmpのファイルを直接返せる）。
             if result.get("pdf_path") and os.path.exists(result["pdf_path"]):
                 shot_url = _upload_pdf_to_storage(
                     pdf_path=result["pdf_path"],
                     client_id=req.client_id,
                     request_id=request_id,
                 )
-                if shot_url:
-                    req.pdf_file_url = shot_url
+                req.pdf_file_url = shot_url or f"/etax/shot/{request_id}"
             _mark_error(db, req, result.get("error_message", "不明なエラー"))
             return {"status": "error", "message": result.get("error_message", "不明なエラー")}
 

@@ -247,6 +247,34 @@ def history(client_id):
         db.close()
 
 
+@bp.route('/shot/<int:request_id>', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
+def error_shot(request_id):
+    """
+    RPAエラー時のスクリーンショット(PNG)を/tmpから直接配信する。
+    ストレージ未設定でも診断画像を確認できるようにするフォールバック。
+    （バックグラウンドスレッドは同一Dyno内で動くため/tmpを共有できる。
+      Dyno再起動後は失効する）
+    """
+    import os as _os
+    from flask import send_file, Response
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        req = db.query(TEtaxRequest).filter(
+            and_(TEtaxRequest.id == request_id, TEtaxRequest.tenant_id == tenant_id)
+        ).first()
+        if not req:
+            return Response("リクエストが見つかりません", status=404)
+    finally:
+        db.close()
+    path = f"/tmp/eltax_error_{request_id}.png"
+    if not _os.path.exists(path):
+        return Response("スクリーンショットは失効しました（サーバ再起動後は保持されません）。再実行してください。",
+                        status=404, mimetype="text/plain; charset=utf-8")
+    return send_file(path, mimetype="image/png")
+
+
 @bp.route('/pdf/<int:request_id>', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def download_pdf(request_id):

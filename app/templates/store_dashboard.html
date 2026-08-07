@@ -240,7 +240,7 @@
     <div class="app-icon green">👥</div>
     <div class="app-body">
       <div class="app-name">スタッフ管理</div>
-      <div class="app-desc">この店舗のスタッフ一覧・管理者・従業員</div>
+      <div class="app-desc">この店舗の管理者・従業員の一覧・追加・編集</div>
     </div>
   </a>
   <a class="app-card" href="{{ url_for('store_dashboard.attendance', store_id=store_id) }}">
@@ -277,8 +277,7 @@
 <div class="section-title">店舗管理</div>
 <div class="mgmt-grid">
   <a class="mgmt-link" href="{{ url_for('tenant_admin.store_detail', store_id=store_id) }}">⚙️ 店舗情報</a>
-  <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_admins', store_id=store_id) }}">🔑 管理者管理</a>
-  <a class="mgmt-link" href="{{ url_for('tenant_admin.select_store_for_employees', store_id=store_id) }}">👤 従業員管理</a>
   <a class="mgmt-link" href="{{ url_for('kintaikanri.attendance') }}">📊 全社勤怠（テナント全体）</a>
 </div>
+{# 管理者管理・従業員管理は「スタッフ管理」に統合（スタッフ管理カードから操作） #}
 {% endblock %}

@@ -214,15 +214,19 @@ class EtaxWebClient:
         #     ログイン送信先(XAC090=リンク_実行)を得る。
         boot = self._bootstrap_auth_screen()
         boot_carryover = boot.get("carryover")
-        login_action = boot.get("action") or EP_LOGIN
+        # 送信先は送受信モジュール(.ini [Login])と同じ /UF_APP/lnk/Menu を使う。
+        # ※Cookie不使用・引継ぎ情報ベースのモジュール方式を再現するため、
+        #   ブラウザ用XSLのAction URL(/loginKekka)ではなくモジュール側の/Menuに送る。
+        login_action = EP_LOGIN
         # 診断: 認証画面から抽出した値（値の中身確認用。識別番号・暗証番号は含まない）
         self.boot_info = {
             "carryover_len": len(boot_carryover or ""),
             "carryover_head": (boot_carryover or "")[:24],
-            "action": (boot.get("action") or "(なし→/Menuに fallback)")[:120],
+            "action_used": login_action,
+            "xsl_action": (boot.get("action") or "(なし)")[:120],
         }
 
-        # (2) 認証実行（XU00S010_1）: 認証画面のAction URLへPOST
+        # (2) 認証実行（XU00S010_1）: モジュール用ログインURL(/Menu)へPOST
         # Referer を認証画面URLにする（ステートフルなフォーム送信で要求されることがある）
         root = self._post(login_action, {
             "oStHktgInf": boot_carryover or "",

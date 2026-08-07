@@ -190,6 +190,15 @@ class EtaxWebClient:
                 return (el.text or "").strip()
         return None
 
+    @staticmethod
+    def _find_text_raw(root: "ET.Element", tag_suffix: str) -> Optional[str]:
+        """末尾一致要素のテキストを『加工せず』返す（引継ぎ情報用）。
+        受付if仕様: 引継情報は変更せずにPOSTすること。stripや正規化をしない。"""
+        for el in root.iter():
+            if el.tag.rsplit("}", 1)[-1] == tag_suffix:
+                return el.text if el.text is not None else None
+        return None
+
     # ---------------- 認証（ログイン） ----------------
     def login(self, user_id: str, password: str) -> Dict[str, Any]:
         """利用者識別番号＋暗証番号で受付システムにログインする。
@@ -219,9 +228,10 @@ class EtaxWebClient:
         #   ブラウザ用XSLのAction URL(/loginKekka)ではなくモジュール側の/Menuに送る。
         login_action = EP_LOGIN
         # 診断: 認証画面から抽出した値（値の中身確認用。識別番号・暗証番号は含まない）
+        # 引継ぎ情報の中身を可視化（空白・改行を repr で確認。認証情報は含まない）
         self.boot_info = {
             "carryover_len": len(boot_carryover or ""),
-            "carryover_head": (boot_carryover or "")[:24],
+            "carryover_repr": repr(boot_carryover or "")[:160],
             "action_used": login_action,
             "xsl_action": (boot.get("action") or "(なし)")[:120],
         }
@@ -241,7 +251,7 @@ class EtaxWebClient:
         if screen == "SU00S190":
             msg = self._message_of(root)
             link = self._find_text(root, "XOC050")
-            carry = self._find_text(root, "XOB020")
+            carry = self._find_text_raw(root, "XOB020")
             is_logout_link = bool(link and re.search(r"LogOut|loginCtl|login", link, re.I))
             is_logout_msg = bool(msg and ("ログアウト" in msg or "終了" in msg))
             if link and not is_logout_link and not is_logout_msg:
@@ -306,7 +316,8 @@ class EtaxWebClient:
             logger.warning(f"[etax-web] 認証画面ブートストラップ失敗: {e}")
             return {"carryover": None, "action": None}
         return {
-            "carryover": self._find_text(root, "XAB020"),
+            # 引継ぎ情報は仕様どおり「変更せずに」保持する（strip等をしない）
+            "carryover": self._find_text_raw(root, "XAB020"),
             "action": self._find_text(root, "XAC090"),
         }
 

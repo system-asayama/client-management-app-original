@@ -124,6 +124,22 @@ class EtaxWebClient:
         except Exception as e:
             root_tag = f"(XML解析不可: {type(e).__name__})"
         snippet = " ".join(text.split())[:400]
+        # 画面に表示されるメッセージ（タイトル・サブタイトル）とボタン/リンクを抽出。
+        # メッセージ共通(XU00S190)や認証エラーの原因文言を掴むため。
+        msg_parts = []
+        for suf in ("XOC010", "XOC020", "XAC010", "XAC020", "XHC010"):
+            for el in (root.iter() if root is not None else []):
+                if el.tag.rsplit("}", 1)[-1] == suf and (el.text or "").strip():
+                    msg_parts.append((el.text or "").strip())
+        btn = None
+        link = None
+        if root is not None:
+            for el in root.iter():
+                t = el.tag.rsplit("}", 1)[-1]
+                if t == "XOC040" and (el.text or "").strip():
+                    btn = (el.text or "").strip()
+                elif t == "XOC050" and (el.text or "").strip():
+                    link = (el.text or "").strip()
         self.trace.append({
             "url": url,
             "sent_keys": sorted(data.keys()),
@@ -131,6 +147,9 @@ class EtaxWebClient:
             "content_type": resp.headers.get("Content-Type", ""),
             "final_url": resp.url,
             "root_tag": root_tag,
+            "message": " / ".join(msg_parts)[:500],
+            "button": btn,
+            "link": link,
             "body_snippet": snippet,
         })
         resp.raise_for_status()

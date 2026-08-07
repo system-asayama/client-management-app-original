@@ -448,7 +448,7 @@
         if (data && data.trace && data.trace.length) {
           html += `<div style="margin-top:8px;padding:8px;background:#f5f5f5;border-radius:6px;color:#37474f;white-space:pre-wrap;word-break:break-all;font-size:11px;">`;
           data.trace.forEach((t, i) => {
-            html += `#${i+1} ${t.url}\n  送信キー: ${(t.sent_keys||[]).join(',')||'(なし)'}\n  HTTP: ${t.http_status} / ${t.content_type}\n  ルートタグ: ${t.root_tag}\n  本文冒頭: ${(t.body_snippet||'').slice(0,300)}\n\n`;
+            html += `#${i+1} ${t.url}\n  送信キー: ${(t.sent_keys||[]).join(',')||'(なし)'}\n  HTTP: ${t.http_status} / ${t.content_type}\n  ルートタグ: ${t.root_tag}\n  メッセージ: ${t.message||'(なし)'}\n  ボタン: ${t.button||'-'} / リンク: ${t.link||'-'}\n  本文冒頭: ${(t.body_snippet||'').slice(0,220)}\n\n`;
           });
           html += `</div>`;
         }

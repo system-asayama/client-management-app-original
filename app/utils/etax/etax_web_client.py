@@ -98,8 +98,8 @@ class EtaxWebClient:
             return path
         return ETAX_UKETSUKE_BASE + path
 
-    def _post(self, path: str, data: Dict[str, str]) -> "ET.Element":
-        """フォームPOSTしてレスポンスXMLのルート要素を返す。
+    def _post(self, path: str, data: Dict[str, str], method: str = "POST") -> "ET.Element":
+        """フォームPOST（またはGET）してレスポンスXMLのルート要素を返す。
 
         ETAX_WEB_LIVE_ENABLED=False の間は通信せず例外にする（安全装置）。
         """
@@ -112,8 +112,11 @@ class EtaxWebClient:
         # 送信値は日本語を含み得るが、利用者識別番号・暗証番号は半角。
         # 文字コードは受付システム仕様に合わせる（既定 UTF-8、必要なら調整）。
         # ※認証情報の値そのものはtraceに残さない（キー名のみ記録）。
-        resp = sess.post(url, data=data, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
-                         allow_redirects=True)
+        if method.upper() == "GET":
+            resp = sess.get(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), allow_redirects=True)
+        else:
+            resp = sess.post(url, data=data, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+                             allow_redirects=True)
         body = resp.content or b""
         text = body.decode("utf-8", "replace")
         root = None
@@ -141,7 +144,7 @@ class EtaxWebClient:
                 elif t == "XOC050" and (el.text or "").strip():
                     link = (el.text or "").strip()
         self.trace.append({
-            "url": url,
+            "url": f"[{method.upper()}] {url}",
             "sent_keys": sorted(data.keys()),
             "http_status": resp.status_code,
             "content_type": resp.headers.get("Content-Type", ""),
@@ -201,25 +204,30 @@ class EtaxWebClient:
         if not uid or not pwd:
             raise EtaxWebLoginError("利用者識別番号または暗証番号が未設定です。")
 
-        # (1) ブートストラップ: 認証画面を取得して初期の引継ぎ情報を得る
-        #     ※実観測前の暫定。GET相当の初回リクエストで認証画面XMLが返る想定。
-        boot_carryover = self._bootstrap_auth_screen()
+        # (1) ブートストラップ: GETで認証画面を取得し、初期の引継ぎ情報(XAB020)と
+        #     ログイン送信先(XAC090=リンク_実行)を得る。
+        boot = self._bootstrap_auth_screen()
+        boot_carryover = boot.get("carryover")
+        login_action = boot.get("action") or EP_LOGIN
 
-        # (2) 認証実行（XU00S010_1）
-        root = self._post(EP_LOGIN, {
+        # (2) 認証実行（XU00S010_1）: 認証画面のAction URLへPOST
+        root = self._post(login_action, {
             "oStHktgInf": boot_carryover or "",
             "oStInputUserId": uid,
             "oStInputPwd": pwd,
         })
 
-        # ログイン後、メッセージ画面(XU00S190)が挟まる場合は「次へ」を1回だけ辿る。
-        # ※暗証番号は再送しない（アカウントロック回避）。リンク経由の遷移のみ。
+        # ログイン後、お知らせ系メッセージ画面(XU00S190)が挟まる場合のみ「次へ」を辿る。
+        # ※ログアウト/ログイン画面へ戻すリンクは辿らない（本当のメッセージを保持し、
+        #   セッション破棄を避ける）。暗証番号は再送しない（ロック回避）。
         screen = self._screen_of(root)
         if screen == "SU00S190":
             msg = self._message_of(root)
             link = self._find_text(root, "XOC050")
             carry = self._find_text(root, "XOB020")
-            if link:
+            is_logout_link = bool(link and re.search(r"LogOut|loginCtl|login", link, re.I))
+            is_logout_msg = bool(msg and ("ログアウト" in msg or "終了" in msg))
+            if link and not is_logout_link and not is_logout_msg:
                 logger.info(f"[etax-web] ログイン後メッセージ画面。次へ遷移: {msg}")
                 root = self._post(link, {"oStHktgInf": carry or ""})
                 screen = self._screen_of(root)
@@ -266,20 +274,24 @@ class EtaxWebClient:
                     parts.append((el.text or "").strip())
         return " / ".join(parts)[:500]
 
-    def _bootstrap_auth_screen(self) -> Optional[str]:
-        """認証画面（SU00S010）を取得し、初期の引継ぎ情報(XAB020)を返す。
+    def _bootstrap_auth_screen(self) -> Dict[str, Optional[str]]:
+        """GETで認証画面（SU00S010）を取得し、初期の引継ぎ情報(XAB020)と
+        ログイン送信先URL(XAC090=リンク_実行)を返す。
 
-        ※正確なブートストラップ手順（初回リクエストのメソッド/URL/パラメータ）は
-          送信試験環境での実観測で確定する。現時点では認証画面POSTを試みる。
+        受付if仕様: 直前レスポンスと同一の引継ぎ情報でなければ自動ログアウトされる。
+        そのため、認証画面をGETで取得し、そのXAB020/XAC090を用いてログインする。
         """
         try:
-            root = self._post(EP_LOGIN, {})  # 初回（資格情報なし）で認証画面が返る想定
+            root = self._post(EP_LOGIN, {}, method="GET")
         except EtaxWebError:
             raise
         except Exception as e:
             logger.warning(f"[etax-web] 認証画面ブートストラップ失敗: {e}")
-            return None
-        return self._find_text(root, "XAB020")
+            return {"carryover": None, "action": None}
+        return {
+            "carryover": self._find_text(root, "XAB020"),
+            "action": self._find_text(root, "XAC090"),
+        }
 
     def _collect_menu_links(self, root: "ET.Element"):
         """メインメニューの業務名(XBC040)→業務リンク(XBC050)を対応づけて保持する。"""

@@ -126,7 +126,7 @@ class EtaxWebClient:
             root_tag = root.tag.rsplit("}", 1)[-1]
         except Exception as e:
             root_tag = f"(XML解析不可: {type(e).__name__})"
-        snippet = " ".join(text.split())[:400]
+        snippet = " ".join(text.split())[:900]
         # 画面に表示されるメッセージ（タイトル・サブタイトル）とボタン/リンクを抽出。
         # メッセージ共通(XU00S190)や認証エラーの原因文言を掴むため。
         msg_parts = []
@@ -209,6 +209,12 @@ class EtaxWebClient:
         boot = self._bootstrap_auth_screen()
         boot_carryover = boot.get("carryover")
         login_action = boot.get("action") or EP_LOGIN
+        # 診断: 認証画面から抽出した値（値の中身確認用。識別番号・暗証番号は含まない）
+        self.boot_info = {
+            "carryover_len": len(boot_carryover or ""),
+            "carryover_head": (boot_carryover or "")[:24],
+            "action": (boot.get("action") or "(なし→/Menuに fallback)")[:120],
+        }
 
         # (2) 認証実行（XU00S010_1）: 認証画面のAction URLへPOST
         root = self._post(login_action, {
@@ -329,7 +335,7 @@ class EtaxWebClient:
         戻り値: {"ok": bool, "screen_id":..., "status":..., "links":[...], "error":...}
         """
         c = EtaxWebClient(live=True)  # この呼び出しだけ本番許可
-        out = {"ok": False, "error": None, "trace": []}
+        out = {"ok": False, "error": None, "trace": [], "boot": None}
         try:
             info = c.login(user_id, password)
             out.update({"ok": True, "screen_id": info.get("screen_id"),
@@ -342,6 +348,7 @@ class EtaxWebClient:
             out["error"] = f"[想定外] {type(e).__name__}: {str(e)[:200]}"
         finally:
             out["trace"] = c.trace  # 実応答の診断（HTTP状態・Content-Type・ルートタグ・本文冒頭）
+            out["boot"] = getattr(c, "boot_info", None)  # 認証画面から抽出した引継ぎ情報/Action URL
             c.logout()
         return out
 

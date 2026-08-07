@@ -212,24 +212,59 @@ class EtaxWebClient:
             "oStInputPwd": pwd,
         })
 
-        screen_id = self._find_text(root, "XBB010") or self._find_text(root, "XAB010")
+        # ログイン後、メッセージ画面(XU00S190)が挟まる場合は「次へ」を1回だけ辿る。
+        # ※暗証番号は再送しない（アカウントロック回避）。リンク経由の遷移のみ。
+        screen = self._screen_of(root)
+        if screen == "SU00S190":
+            msg = self._message_of(root)
+            link = self._find_text(root, "XOC050")
+            carry = self._find_text(root, "XOB020")
+            if link:
+                logger.info(f"[etax-web] ログイン後メッセージ画面。次へ遷移: {msg}")
+                root = self._post(link, {"oStHktgInf": carry or ""})
+                screen = self._screen_of(root)
+
         status = self._find_text(root, "status")
-        self.current_screen_id = screen_id
+        self.current_screen_id = screen
 
-        # 認証失敗（認証画面SU00S010が返る/エラーstatus）を検知
-        if screen_id and screen_id.startswith("SU00S010"):
+        # 認証画面(SU00S010)に戻された＝認証失敗
+        if screen == "SU00S010":
             raise EtaxWebLoginError(
-                "認証に失敗しました（利用者識別番号または暗証番号の誤り、"
-                f"あるいは初期引継ぎ情報の取得失敗）。status={status}")
+                f"認証に失敗しました（利用者識別番号または暗証番号の誤りの可能性）。"
+                f"メッセージ:{self._message_of(root) or '(なし)'} status={status}")
 
-        # メインメニュー到達: 引継ぎ情報と業務リンクを保持
-        self.carryover = self._find_text(root, "XBB020")
-        self._collect_menu_links(root)
-        if not self.carryover:
-            raise EtaxWebLoginError(
-                f"メインメニューの引継ぎ情報を取得できませんでした。screen={screen_id} status={status}")
-        logger.info(f"[etax-web] ログイン成功 screen={screen_id}")
-        return {"screen_id": screen_id, "status": status, "links": list(self.menu_links.keys())}
+        # メインメニュー(SU00S020)到達＝成功
+        if screen == "SU00S020":
+            self.carryover = self._find_text(root, "XBB020")
+            self._collect_menu_links(root)
+            logger.info(f"[etax-web] ログイン成功 screen={screen}")
+            return {"screen_id": screen, "status": status, "links": list(self.menu_links.keys())}
+
+        # それ以外（想定外の画面）＝メッセージを付けて報告
+        raise EtaxWebLoginError(
+            f"ログイン後にメインメニューへ到達できませんでした。到達画面:{screen} "
+            f"メッセージ:{self._message_of(root) or '(なし)'} status={status}")
+
+    def _screen_of(self, root: "ET.Element") -> Optional[str]:
+        """レスポンス画面IDを判定する。各画面のヘッダー画面IDタグを順に見る。
+        取れない場合はルートタグ(XU00Sxxx)から SU00Sxxx を推定して返す。"""
+        for suf in ("XOB010", "XBB010", "XAB010", "XGB010", "XHB010"):
+            v = self._find_text(root, suf)
+            if v:
+                return v
+        rt = root.tag.rsplit("}", 1)[-1]  # 例 XU00S020 → SU00S020
+        if rt.startswith("XU00S"):
+            return "SU00S" + rt[5:]
+        return rt
+
+    def _message_of(self, root: "ET.Element") -> str:
+        """画面のタイトル・サブタイトル（表示メッセージ）を連結して返す。"""
+        parts = []
+        for suf in ("XOC010", "XOC020", "XAC010", "XAC020", "XHC010"):
+            for el in root.iter():
+                if el.tag.rsplit("}", 1)[-1] == suf and (el.text or "").strip():
+                    parts.append((el.text or "").strip())
+        return " / ".join(parts)[:500]
 
     def _bootstrap_auth_screen(self) -> Optional[str]:
         """認証画面（SU00S010）を取得し、初期の引継ぎ情報(XAB020)を返す。

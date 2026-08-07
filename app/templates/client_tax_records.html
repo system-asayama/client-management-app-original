@@ -444,7 +444,15 @@
           + `<div style="color:#455a64;margin-top:4px;">画面ID: ${data.screen_id || '-'} / 業務リンク: ${(data.links||[]).join('、') || '-'}</div>`;
       } else {
         const msg = (data && data.error) ? data.error : `HTTP ${resp.status}：${raw.replace(/<[^>]*>/g,' ').slice(0,200)}`;
-        out.innerHTML = `<span style="color:#c62828;font-weight:700;">⚠️ 失敗</span> <span style="color:#c62828;">${msg}</span>`;
+        let html = `<span style="color:#c62828;font-weight:700;">⚠️ 失敗</span> <span style="color:#c62828;">${msg}</span>`;
+        if (data && data.trace && data.trace.length) {
+          html += `<div style="margin-top:8px;padding:8px;background:#f5f5f5;border-radius:6px;color:#37474f;white-space:pre-wrap;word-break:break-all;font-size:11px;">`;
+          data.trace.forEach((t, i) => {
+            html += `#${i+1} ${t.url}\n  送信キー: ${(t.sent_keys||[]).join(',')||'(なし)'}\n  HTTP: ${t.http_status} / ${t.content_type}\n  ルートタグ: ${t.root_tag}\n  本文冒頭: ${(t.body_snippet||'').slice(0,300)}\n\n`;
+          });
+          html += `</div>`;
+        }
+        out.innerHTML = html;
       }
     } catch (err) {
       out.innerHTML = `<span style="color:#c62828;">通信エラー: ${err}</span>`;

@@ -81,6 +81,8 @@ class EtaxWebClient:
         # 呼び出し単位の本番許可（グローバルフラグを立てずに1回だけ通信したい時に使う）。
         # 認証ロックを避けるため、リトライは一切しない設計（1コール=1試行）。
         self.live = bool(live)
+        # 診断用: 各リクエストの実応答を記録（無駄な試行を避け1回で原因を掴むため）
+        self.trace = []
 
     # ---------------- 低レベル通信 ----------------
     def _ensure_session(self):
@@ -109,9 +111,32 @@ class EtaxWebClient:
         url = self._url(path)
         # 送信値は日本語を含み得るが、利用者識別番号・暗証番号は半角。
         # 文字コードは受付システム仕様に合わせる（既定 UTF-8、必要なら調整）。
-        resp = sess.post(url, data=data, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT))
+        # ※認証情報の値そのものはtraceに残さない（キー名のみ記録）。
+        resp = sess.post(url, data=data, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+                         allow_redirects=True)
+        body = resp.content or b""
+        text = body.decode("utf-8", "replace")
+        root = None
+        root_tag = None
+        try:
+            root = self._parse_xml(body)
+            root_tag = root.tag.rsplit("}", 1)[-1]
+        except Exception as e:
+            root_tag = f"(XML解析不可: {type(e).__name__})"
+        snippet = " ".join(text.split())[:400]
+        self.trace.append({
+            "url": url,
+            "sent_keys": sorted(data.keys()),
+            "http_status": resp.status_code,
+            "content_type": resp.headers.get("Content-Type", ""),
+            "final_url": resp.url,
+            "root_tag": root_tag,
+            "body_snippet": snippet,
+        })
         resp.raise_for_status()
-        return self._parse_xml(resp.content)
+        if root is None:
+            raise EtaxWebError(f"応答をXMLとして解析できませんでした（{root_tag}）。")
+        return root
 
     @staticmethod
     def _parse_xml(content: bytes) -> "ET.Element":
@@ -238,18 +263,21 @@ class EtaxWebClient:
         戻り値: {"ok": bool, "screen_id":..., "status":..., "links":[...], "error":...}
         """
         c = EtaxWebClient(live=True)  # この呼び出しだけ本番許可
+        out = {"ok": False, "error": None, "trace": []}
         try:
             info = c.login(user_id, password)
-            return {"ok": True, "screen_id": info.get("screen_id"),
-                    "status": info.get("status"), "links": info.get("links", []), "error": None}
+            out.update({"ok": True, "screen_id": info.get("screen_id"),
+                        "status": info.get("status"), "links": info.get("links", [])})
         except EtaxWebLoginError as e:
-            return {"ok": False, "error": f"[認証] {e}"}
+            out["error"] = f"[認証] {e}"
         except EtaxWebError as e:
-            return {"ok": False, "error": f"[通信] {e}"}
+            out["error"] = f"[通信] {e}"
         except Exception as e:
-            return {"ok": False, "error": f"[想定外] {type(e).__name__}: {str(e)[:200]}"}
+            out["error"] = f"[想定外] {type(e).__name__}: {str(e)[:200]}"
         finally:
+            out["trace"] = c.trace  # 実応答の診断（HTTP状態・Content-Type・ルートタグ・本文冒頭）
             c.logout()
+        return out
 
     # ---------------- 納付情報登録依頼（TEZ500）送信：未実装 ----------------
     def send_payment_request(self, *args, **kwargs):

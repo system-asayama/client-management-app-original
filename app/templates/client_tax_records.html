@@ -417,6 +417,44 @@
     {% endfor %}
   {% endif %}
 
+  {% if session.get('role') in ['system_admin', 'tenant_admin', 'app_manager'] %}
+  <div class="info-card" style="border:1px dashed #90a4ae;">
+    <div class="section-title">🧪 国税（e-Tax）ログイン疎通テスト（管理者向け・試験機能）</div>
+    <div style="font-size:12px;color:#607d8b;margin:8px 0;">
+      e-Tax受付システムに<strong>ログインのみ</strong>を1回試します（データ送信は行いません／リトライなし）。
+      拡張機能なしで認証が通るかの確認用です。顧問先本人のe-Tax識別番号・暗証番号を使用します。
+    </div>
+    <button type="button" class="btn-etax" id="natLoginTestBtn" onclick="nationalLoginTest()">🧪 ログイン疎通テストを実行</button>
+    <div id="natLoginTestResult" style="margin-top:10px;font-size:12px;"></div>
+  </div>
+  <script>
+  async function nationalLoginTest() {
+    const btn = document.getElementById('natLoginTestBtn');
+    const out = document.getElementById('natLoginTestResult');
+    if (!confirm('e-Tax受付システムに「ログインのみ」を1回試行します（データ送信なし）。実行しますか？')) return;
+    btn.disabled = true; btn.textContent = '実行中...';
+    out.innerHTML = '';
+    try {
+      const fd = new FormData(); fd.set('confirm', '1');
+      const resp = await fetch(`/etax/national/login-test/${CLIENT_ID}`, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+      const raw = await resp.text();
+      let data = null; try { data = JSON.parse(raw); } catch (e) {}
+      if (data && data.ok) {
+        out.innerHTML = `<span style="color:#2e7d32;font-weight:700;">✅ ログイン成功（メインメニュー到達）</span>`
+          + `<div style="color:#455a64;margin-top:4px;">画面ID: ${data.screen_id || '-'} / 業務リンク: ${(data.links||[]).join('、') || '-'}</div>`;
+      } else {
+        const msg = (data && data.error) ? data.error : `HTTP ${resp.status}：${raw.replace(/<[^>]*>/g,' ').slice(0,200)}`;
+        out.innerHTML = `<span style="color:#c62828;font-weight:700;">⚠️ 失敗</span> <span style="color:#c62828;">${msg}</span>`;
+      }
+    } catch (err) {
+      out.innerHTML = `<span style="color:#c62828;">通信エラー: ${err}</span>`;
+    } finally {
+      btn.disabled = false; btn.textContent = '🧪 ログイン疎通テストを実行';
+    }
+  }
+  </script>
+  {% endif %}
+
   <a href="{{ url_for('clients.profession_info', client_id=client.id) }}" class="btn-back">← 業務情報に戻る</a>
 </div>
 

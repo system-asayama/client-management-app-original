@@ -247,6 +247,48 @@ def history(client_id):
         db.close()
 
 
+@bp.route('/national/login-test/<int:client_id>', methods=['POST'])
+@require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["APP_MANAGER"])
+def national_login_test(client_id):
+    """【国税・疎通テスト】e-Tax受付システムに『ログインのみ』を1回試す。
+
+    A案（送受信モジュール相当の純Python実装）の核心＝拡張機能なしで
+    認証が通るかを実証するための、安全に配慮したテスト専用エンドポイント。
+    - データ送信は一切行わない（ログイン→結果確認→ログアウトのみ）。
+    - 1回だけ・リトライなし（認証失敗連続によるアカウントロックを回避）。
+    - 明示確認（confirm=1）が無ければ実行しない。
+    - 認証情報は顧問先本人のe-Tax識別番号・暗証番号（方式A）を使用。
+    """
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({"error": "テナントが選択されていません"}), 401
+    if (request.form.get('confirm') or '') != '1':
+        return jsonify({"error": "確認フラグ(confirm=1)が必要です。本番のe-Taxへログイン試行します。"}), 400
+
+    db = SessionLocal()
+    try:
+        client = db.query(TClient).filter(
+            and_(TClient.id == client_id, TClient.tenant_id == tenant_id)
+        ).first()
+        if not client:
+            return jsonify({"error": "顧問先が見つかりません"}), 404
+        uid = client.etax_user_id
+        pwd = client.etax_password  # EncryptedString: 参照時に復号される
+        if not uid or not pwd:
+            return jsonify({"error": "顧問先のe-Tax利用者識別番号・暗証番号が未登録です。"
+                                     "税務申告基本情報で登録してください。"}), 400
+    finally:
+        db.close()
+
+    # 1回だけ本番ログインを試す（データ送信なし・リトライなし）
+    from app.utils.etax.etax_web_client import EtaxWebClient
+    result = EtaxWebClient.login_probe(uid, pwd)
+    status_code = 200 if result.get("ok") else 502
+    logger.info(f"[etax-web] 疎通テスト client_id={client_id} ok={result.get('ok')} "
+                f"screen={result.get('screen_id')} err={result.get('error')}")
+    return jsonify(result), status_code
+
+
 @bp.route('/shot/<int:request_id>', methods=['GET'])
 @require_roles(ROLES["SYSTEM_ADMIN"], ROLES["TENANT_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"], ROLES["APP_MANAGER"])
 def error_shot(request_id):

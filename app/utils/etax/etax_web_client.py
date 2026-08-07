@@ -72,12 +72,15 @@ class EtaxWebClient:
       c.logout()
     """
 
-    def __init__(self):
+    def __init__(self, live: bool = False):
         # requests.Session は遅延生成（Playwrightのように未導入環境でも import 可能に）
         self._session = None
         self.carryover: Optional[str] = None      # 引継ぎ情報 oStHktgInf
         self.current_screen_id: Optional[str] = None
         self.menu_links: Dict[str, str] = {}      # 業務名 → 業務リンクURL
+        # 呼び出し単位の本番許可（グローバルフラグを立てずに1回だけ通信したい時に使う）。
+        # 認証ロックを避けるため、リトライは一切しない設計（1コール=1試行）。
+        self.live = bool(live)
 
     # ---------------- 低レベル通信 ----------------
     def _ensure_session(self):
@@ -98,10 +101,10 @@ class EtaxWebClient:
 
         ETAX_WEB_LIVE_ENABLED=False の間は通信せず例外にする（安全装置）。
         """
-        if not ETAX_WEB_LIVE_ENABLED:
+        if not (ETAX_WEB_LIVE_ENABLED or self.live):
             raise EtaxWebError(
                 "e-Tax受付システムへの実通信は無効化されています"
-                "（ETAX_WEB_LIVE_ENABLED=False）。本番疎通の許可後に有効化してください。")
+                "（ETAX_WEB_LIVE_ENABLED=False / live=False）。本番疎通の許可後に有効化してください。")
         sess = self._ensure_session()
         url = self._url(path)
         # 送信値は日本語を含み得るが、利用者識別番号・暗証番号は半角。
@@ -223,6 +226,30 @@ class EtaxWebClient:
             pass
         self._session = None
         self.carryover = None
+
+    # ---------------- 疎通テスト（1回・リトライなし・データ送信なし） ----------------
+    @staticmethod
+    def login_probe(user_id: str, password: str) -> Dict[str, Any]:
+        """本番へ「ログインのみ」を1回だけ試す疎通テスト。
+
+        ・データ送信は一切行わない（認証→結果確認→ログアウトのみ）。
+        ・リトライしない（認証失敗の連続によるアカウントロックを避ける）。
+        ・成功/失敗にかかわらず、原因診断に使える情報を辞書で返す（例外を投げない）。
+        戻り値: {"ok": bool, "screen_id":..., "status":..., "links":[...], "error":...}
+        """
+        c = EtaxWebClient(live=True)  # この呼び出しだけ本番許可
+        try:
+            info = c.login(user_id, password)
+            return {"ok": True, "screen_id": info.get("screen_id"),
+                    "status": info.get("status"), "links": info.get("links", []), "error": None}
+        except EtaxWebLoginError as e:
+            return {"ok": False, "error": f"[認証] {e}"}
+        except EtaxWebError as e:
+            return {"ok": False, "error": f"[通信] {e}"}
+        except Exception as e:
+            return {"ok": False, "error": f"[想定外] {type(e).__name__}: {str(e)[:200]}"}
+        finally:
+            c.logout()
 
     # ---------------- 納付情報登録依頼（TEZ500）送信：未実装 ----------------
     def send_payment_request(self, *args, **kwargs):

@@ -98,7 +98,8 @@ class EtaxWebClient:
             return path
         return ETAX_UKETSUKE_BASE + path
 
-    def _post(self, path: str, data: Dict[str, str], method: str = "POST") -> "ET.Element":
+    def _post(self, path: str, data: Dict[str, str], method: str = "POST",
+              referer: Optional[str] = None) -> "ET.Element":
         """フォームPOST（またはGET）してレスポンスXMLのルート要素を返す。
 
         ETAX_WEB_LIVE_ENABLED=False の間は通信せず例外にする（安全装置）。
@@ -109,14 +110,18 @@ class EtaxWebClient:
                 "（ETAX_WEB_LIVE_ENABLED=False / live=False）。本番疎通の許可後に有効化してください。")
         sess = self._ensure_session()
         url = self._url(path)
+        headers = {}
+        if referer:
+            headers["Referer"] = referer
         # 送信値は日本語を含み得るが、利用者識別番号・暗証番号は半角。
         # 文字コードは受付システム仕様に合わせる（既定 UTF-8、必要なら調整）。
         # ※認証情報の値そのものはtraceに残さない（キー名のみ記録）。
         if method.upper() == "GET":
-            resp = sess.get(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), allow_redirects=True)
+            resp = sess.get(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+                            allow_redirects=True, headers=headers)
         else:
             resp = sess.post(url, data=data, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
-                             allow_redirects=True)
+                             allow_redirects=True, headers=headers)
         body = resp.content or b""
         text = body.decode("utf-8", "replace")
         root = None
@@ -153,6 +158,7 @@ class EtaxWebClient:
             "message": " / ".join(msg_parts)[:500],
             "button": btn,
             "link": link,
+            "cookies": ";".join(sorted(sess.cookies.keys()))[:120],
             "body_snippet": snippet,
         })
         resp.raise_for_status()
@@ -217,11 +223,12 @@ class EtaxWebClient:
         }
 
         # (2) 認証実行（XU00S010_1）: 認証画面のAction URLへPOST
+        # Referer を認証画面URLにする（ステートフルなフォーム送信で要求されることがある）
         root = self._post(login_action, {
             "oStHktgInf": boot_carryover or "",
             "oStInputUserId": uid,
             "oStInputPwd": pwd,
-        })
+        }, referer=self._url(EP_LOGIN))
 
         # ログイン後、お知らせ系メッセージ画面(XU00S190)が挟まる場合のみ「次へ」を辿る。
         # ※ログアウト/ログイン画面へ戻すリンクは辿らない（本当のメッセージを保持し、
